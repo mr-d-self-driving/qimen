@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>奇门遁甲 AI 决策引擎</title>
+    <style>
+        /* 基础与公共变量 */
+        :root {
+            --bg-color: #000000;
+            --card-bg: #1C1C1E;
+            --cell-bg: #2C2C2E;
+            --border-color: #38383A;
+            --text-main: #FFFFFF;
+            --text-sub: #8E8E93;
+            --input-bg: rgba(255, 255, 255, 0.05);
+        }
+        
+        body { 
+            background-color: var(--bg-color); 
+            color: var(--text-main); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            padding: 20px; 
+            margin: 0; 
+            -webkit-font-smoothing: antialiased;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px; /* 适配电脑与手机 */
+            margin-top: 20px;
+        }
+
+        /* 顶部输入区 */
+        .header-section {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header-section h1 {
+            font-size: 24px;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+            background: linear-gradient(90deg, #F5C518, #E2B007);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .input-box {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        textarea {
+            width: 100%;
+            background: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 16px;
+            color: white;
+            font-size: 15px;
+            resize: none;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.3s;
+            line-height: 1.5;
+        }
+        textarea:focus {
+            border-color: #F5C518;
+        }
+        button {
+            background: #F5C518;
+            color: #000;
+            border: none;
+            border-radius: 16px;
+            padding: 16px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.3s, transform 0.1s;
+        }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* 加载动画 */
+        #loader {
+            display: none;
+            text-align: center;
+            padding: 40px 0;
+            color: var(--text-sub);
+            font-size: 14px;
+            flex-direction: column;
+            align-items: center;
+            gap: 16px;
+        }
+        .spinner {
+            width: 30px;
+            height: 30px;
+            border: 3px solid rgba(245, 197, 24, 0.2);
+            border-top-color: #F5C518;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* ========= 以下为卡片原生 CSS 照抄区 ========= */
+        .card { 
+            background-color: var(--card-bg); 
+            border-radius: 24px; 
+            padding: 24px 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            display: none; /* 初始隐藏 */
+            margin-bottom: 40px;
+        }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .title { font-size: 16px; font-weight: 600; color: var(--text-sub); }
+        .score { 
+            background-color: var(--theme-color-dim); 
+            color: var(--theme-color); 
+            padding: 4px 12px; 
+            border-radius: 12px; 
+            font-weight: 800; 
+            font-size: 18px; 
+            box-shadow: 0 0 10px var(--theme-color-dim);
+        }
+        .conclusion { font-size: 26px; font-weight: 800; color: var(--theme-color); margin-bottom: 6px; line-height: 1.3; letter-spacing: 0.5px;}
+        .keyword { font-size: 13px; color: var(--text-sub); margin-bottom: 20px; display: inline-block; background: var(--cell-bg); padding: 4px 10px; border-radius: 6px;}
+        .user-question { font-size: 14px; color: #E5E5EA; padding: 14px 16px; background: rgba(255,255,255,0.04); border-radius: 12px; border-left: 4px solid var(--theme-color); margin-bottom: 24px; font-style: italic; line-height: 1.5; }
+        .section-title { color: var(--text-sub); font-size: 14px; font-weight: 700; margin: 28px 0 12px 0; display: flex; align-items: center; gap: 6px; }
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .grid-item { background: var(--cell-bg); padding: 14px; border-radius: 12px; }
+        .label { font-size: 11px; color: var(--text-sub); display: block; margin-bottom: 6px; text-transform: uppercase;}
+        .value { font-size: 13px; font-weight: 500; color: var(--text-main); line-height: 1.5; }
+        .bazi-insight { grid-column: 1 / -1; background: var(--theme-color-dim); border-left: 3px solid var(--theme-color); }
+        .bazi-insight .label { color: var(--theme-color); }
+        .dynamic-timing { grid-column: 1 / -1; background: rgba(245, 197, 24, 0.05); border-left: 3px solid #F5C518; }
+        .dynamic-timing .label { color: #F5C518; }
+        .score-basis { grid-column: 1 / -1; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); }
+        .score-basis .label { color: var(--text-sub); }
+        .score-basis-body { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+        .sb-row { display: flex; flex-direction: column; gap: 4px; }
+        .sb-row-title { font-size: 11px; color: var(--text-sub); font-weight: 600; text-transform: uppercase; }
+        .sb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sb-tag { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; line-height: 1.4; }
+        .sb-tag.positive { background: rgba(0, 210, 106, 0.12); color: #00D26A; border: 1px solid rgba(0,210,106,0.25); }
+        .sb-tag.negative { background: rgba(255, 94, 87, 0.12); color: #FF5E57; border: 1px solid rgba(255,94,87,0.25); }
+        .sb-logic { font-size: 12px; color: #A0A0A8; line-height: 1.6; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 2px solid var(--theme-color); }
+        .strategy-list { list-style: none; padding: 0; margin: 0; }
+        .strategy-list li { position: relative; padding-left: 20px; margin-bottom: 12px; color: #D1D1D6; font-size: 14px; line-height: 1.6; }
+        .strategy-list li::before { content: "✦"; position: absolute; left: 0; top: 1px; color: var(--theme-color); font-size: 12px; }
+        .footer { display: flex; justify-content: space-between; background: var(--theme-color-dim); padding: 16px; border-radius: 16px; margin-top: 28px; }
+        .f-item { text-align: center; flex: 1; border-right: 1px solid rgba(255,255,255,0.05); }
+        .f-item:last-child { border-right: none; }
+        .f-icon { display: block; font-size: 20px; margin-bottom: 6px; opacity: 0.9;}
+        .f-text { font-size: 13px; font-weight: 700; color: var(--theme-color); }
+        .pan-wrapper { background: var(--cell-bg); border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.05); }
+        .pan-header { text-align: center; margin-bottom: 16px; }
+        .pan-pillars { font-size: 15px; font-weight: 700; color: #FFF; letter-spacing: 1px; margin-bottom: 4px; }
+        .pan-info { font-size: 11px; color: #999; line-height: 1.5; }
+        .pan-info b { color: var(--theme-color); font-weight: 700; }
+        .pan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--border-color); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+        .pan-cell { background: var(--card-bg); aspect-ratio: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pan-center-earth { font-size: 32px; font-weight: 900; color: var(--text-sub); opacity: 0.15; }
+        .pan-god { position: absolute; top: 6px; font-size: 10px; color: #888; letter-spacing: 1px;}
+        .pan-star { font-size: 13px; color: #CCC; margin-bottom: 2px; z-index: 2; }
+        .pan-door { font-size: 16px; font-weight: 800; color: #FFF; z-index: 2; letter-spacing: 1px;}
+        .pan-stem { position: absolute; font-size: 12px; font-weight: 700; }
+        .stem-sky { top: 6px; left: 8px; color: #E5E5EA; }
+        .stem-earth { bottom: 6px; right: 8px; color: #8E8E93; }
+        .ji-sky { top: 20px; left: 8px; font-size: 9px; color: #666; }
+        .ji-earth { bottom: 20px; right: 8px; font-size: 9px; color: #666; }
+        .pan-marks { position: absolute; bottom: 6px; left: 6px; display: flex; gap: 4px; z-index: 3;}
+        .pan-mark { font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 700; }
+        .mark-ma { background: var(--theme-color); color: #000; box-shadow: 0 0 4px var(--theme-color-dim); }
+        .mark-kong { border: 1px solid #666; color: #999; background: rgba(0,0,0,0.3);}
+        .highlight-text { color: var(--theme-color) !important; text-shadow: 0 0 10px var(--theme-color-dim); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="header-section">
+            <h1>🔮 奇门遁甲推演</h1>
+            <div class="input-box">
+                <textarea id="questionInput" rows="3" placeholder="请在心中默念您的问题，例如：&#10;明天的大客户谈判能顺利拿下吗？"></textarea>
+                <button id="submitBtn" onclick="startDivination()">洞察天机</button>
+            </div>
+        </div>
+
+        <div id="loader">
+            <div class="spinner"></div>
+            <div id="loaderText">正在接通云端超算矩阵...</div>
+        </div>
+
+        <div id="resultContainer"></div>
+    </div>
+
+    <script>
+        // 因为前后端同属 Vercel，使用相对路径即可自动跨域！
+        const API_URL = "/api/qimen";
+
+        async function startDivination() {
+            const input = document.getElementById("questionInput");
+            const btn = document.getElementById("submitBtn");
+            const loader = document.getElementById("loader");
+            const resultContainer = document.getElementById("resultContainer");
+            
+            const question = input.value.trim();
+            if (!question) {
+                alert("问题不能为空哦！");
+                return;
+            }
+
+            // 锁定按钮并展示动画
+            btn.disabled = true;
+            input.disabled = true;
+            btn.innerText = "推演中...";
+            resultContainer.innerHTML = "";
+            loader.style.display = "flex";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) throw new Error(data.details || data.error);
+
+                // 渲染结果
+                resultContainer.innerHTML = buildCardHTML(data);
+                
+                // 平滑滚动到卡片区域
+                setTimeout(() => {
+                    resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }, 100);
+
+            } catch (error) {
+                console.error(error);
+                alert("云端推演失败：\n" + error.message);
+            } finally {
+                // 恢复 UI 状态
+                btn.disabled = false;
+                input.disabled = false;
+                btn.innerText = "洞察天机";
+                loader.style.display = "none";
+            }
+        }
+
+        // ==============================================================
+        // 核心渲染逻辑：将 JSON 组装成 HTML (提取自 QimenUniversalCard.js)
+        // ==============================================================
+        function buildCardHTML(data) {
+            const summary = data.summary || { title: "生成中...", conclusion: "暂无数据", score: 0 };
+            const analysis = data.analysis || {};
+            const advice = data.advice || { lucky_tips: {} };
+            const question = data.question || ""; 
+            const scoreBasis = data.summary ? (data.summary.score_basis || null) : null;
+            
+            const chartData = data.qimen_data || data; 
+            const palaces = chartData.palaces || [];
+            const pillars = chartData.pillars || {};
+            const ju = chartData.ju_info || {};
+            const ts = chartData.timestamp || {};
+            const hasChartData = palaces.length > 0;
+
+            const strategies = (advice.strategy || []).map(s => `<li>${s}</li>`).join("");
+            
+            let baziHTML = "";
+            if (analysis.bazi_insight && analysis.bazi_insight.trim() !== "" && !analysis.bazi_insight.includes("未提供八字信息")) {
+                baziHTML = `<div class="grid-item bazi-insight"><span class="label">🧬 命理/年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
+            }
+
+            let scoreBasisHTML = "";
+            if (scoreBasis) {
+                const positiveTags = (scoreBasis.positive_signals || []).length > 0
+                    ? `<div class="sb-row"><div class="sb-row-title">✅ 吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s => `<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : "";
+                const negativeTags = (scoreBasis.negative_signals || []).length > 0
+                    ? `<div class="sb-row"><div class="sb-row-title">⚠️ 风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s => `<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : "";
+                const logicBlock = scoreBasis.score_logic ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : "";
+
+                if (positiveTags || negativeTags || logicBlock) {
+                    scoreBasisHTML = `<div class="grid-item score-basis"><span class="label">⚖️ 评分依据</span><div class="score-basis-body">${positiveTags}${negativeTags}${logicBlock}</div></div>`;
+                }
+            }
+
+            let dynamicTimingHTML = "";
+            if (analysis.dynamic_timing && analysis.dynamic_timing.trim() !== "") {
+                dynamicTimingHTML = `<div class="grid-item dynamic-timing"><span class="label">⏳ 动态应期 (转机推演)</span><span class="value">${analysis.dynamic_timing}</span></div>`;
+            }
+
+            let score = summary.score || 0;
+            let THEME_COLOR_HEX = score < 60 ? "#FF5E57" : (score < 80 ? "#F5C518" : "#00D26A");
+
+            let chartHTML = "";
+            if (hasChartData) {
+                let gridCells = "";
+                const isZhiFu = (star) => star && ju.zhi_fu && star.includes(ju.zhi_fu);
+                const isZhiShi = (door) => door && ju.zhi_shi && door.includes(ju.zhi_shi);
+
+                palaces.forEach(p => {
+                    let inner = "";
+                    if (p.is_center) {
+                        inner = `<div class="pan-center-earth">${p.earth || ""}</div>`;
+                    } else {
+                        const starClass = isZhiFu(p.star) ? "highlight-text" : "";
+                        const doorClass = isZhiShi(p.door) ? "highlight-text" : "";
+                        let marks = "";
+                        if (p.ma_xing && p.ma_xing.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`;
+                        if (p.kong_wang && p.kong_wang.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`;
+                        const jiSky = p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : "";
+                        const jiEarth = p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : "";
+
+                        inner = `
+                            <div class="pan-god">${p.god || ""}</div>
+                            <div class="pan-stem stem-sky">${p.sky || ""}</div> ${jiSky}
+                            <div class="pan-star ${starClass}">${p.star || ""}</div>
+                            <div class="pan-door ${doorClass}">${p.door || ""}</div>
+                            <div class="pan-stem stem-earth">${p.earth || ""}</div> ${jiEarth}
+                            <div class="pan-marks">${marks}</div>
+                        `;
+                    }
+                    gridCells += `<div class="pan-cell">${inner}</div>`;
+                });
+                
+                chartHTML = `
+                    <div class="section-title"><span class="icon">🧭</span> 奇门排盘</div>
+                    <div class="pan-wrapper">
+                        <div class="pan-header">
+                            <div class="pan-pillars">${pillars.year || '-'} ${pillars.month || '-'} ${pillars.day || '-'} ${pillars.hour || '-'}</div>
+                            <div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符: <b>${ju.zhi_fu || '-'}</b> &nbsp;&nbsp; 值使: <b>${ju.zhi_shi || '-'}</b></div>
+                        </div>
+                        <div class="pan-grid">${gridCells}</div>
+                    </div>
+                `;
+            }
+
+            const questionHTML = question ? `<div class="user-question">"${question}"</div>` : "";
+
+            // 通过内联 style 动态注入主题色
+            return `
+                <div class="card" style="display: block; --theme-color: ${THEME_COLOR_HEX}; --theme-color-dim: ${THEME_COLOR_HEX}25;">
+                    <div class="card-header">
+                        <div class="title">${summary.title}</div>
+                        <div class="score">${summary.score} 分</div>
+                    </div>
+                    <div class="conclusion">${summary.conclusion}</div>
+                    <div class="keyword">🔑 ${summary.keyword}</div>
+                    ${questionHTML}
+                    ${chartHTML}
+                    <div class="section-title"><span class="icon">🔍</span> 深度局象</div>
+                    <div class="info-grid">
+                        ${baziHTML}
+                        ${scoreBasisHTML}
+                        ${dynamicTimingHTML}
+                        <div class="grid-item"><span class="label">🌌 时空能量</span><span class="value">${analysis.tensor || '-'}</span></div>
+                        <div class="grid-item"><span class="label">👤 用神分析</span><span class="value">${analysis.yong_shen || '-'}</span></div>
+                        <div class="grid-item"><span class="label">🔮 特殊格局</span><span class="value">${analysis.pattern || '-'}</span></div>
+                        <div class="grid-item"><span class="label">🙏 神助指引</span><span class="value">${analysis.god_help || '-'}</span></div>
+                    </div>
+                    <div class="section-title"><span class="icon">💡</span> 决策指引</div>
+                    <ul class="strategy-list">${strategies}</ul>
+                    <div class="footer">
+                        <div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div>
+                        <div class="f-item"><span class="f-icon">⏰</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div>
+                        <div class="f-item"><span class="f-icon">✨</span><span class="f-text">${advice.lucky_tips.action || '-'}</span></div>
+                    </div>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
