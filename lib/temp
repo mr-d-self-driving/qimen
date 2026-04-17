@@ -1,0 +1,9 @@
+/ (仓库根目录)
+├── api/                # 存放云函数入口
+│   └── qimen.js        # 最终的主控接口 (待编写)
+├── lib/                # 存放你刚才发给我的三个底层逻辑文件
+│   ├── QimenConstants.js
+│   ├── QimenUtils.js
+│   └── QimenCalculations.js
+├── index.html          # 前端展示页面
+└── package.json        # 依赖配置文件
