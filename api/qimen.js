@@ -31,7 +31,7 @@ function getKongIndices(kongStr) {
     return indices;
 }
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     // 1. 处理 CORS 跨域请求
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
