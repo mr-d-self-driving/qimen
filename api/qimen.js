@@ -41,6 +41,13 @@ module.exports = async function handler(req, res) {
     try {
         // 2. 获取用户提问
         const userQuestion = req.body.question || "当前局势吉凶如何？";
+        const userQuestion = req.body.question || "当前局势吉凶如何？";
+        const passcode = req.body.passcode || "";
+
+        // 🛡️ 安全拦截：如果口令不对，直接拒绝，绝不消耗大模型 Token
+        if (passcode !== "8888") { // 这里的 "8888" 你可以改成任意你想要的密码
+            return res.status(401).json({ error: "天机不可泄露 (口令错误)" });
+        }
 
         // 3. 时间校准 (强制转换为东八区北京时间)
         const now = new Date();
