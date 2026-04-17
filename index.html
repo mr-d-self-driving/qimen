@@ -5,25 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>奇门遁甲 AI 决策引擎</title>
     <style>
-        /* 基础与公共变量 */
-        :root {
-            --bg-color: #0a0a0b;
-            --card-bg: rgba(28, 28, 30, 0.7);
-            --cell-bg: rgba(44, 44, 46, 0.6);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-main: #F2F2F7;
-            --text-sub: #8E8E93;
-            --gold-light: #E6C27A;
-            --gold-dark: #B38B36;
-        }
-        
-        /* 核心质感：全局颗粒噪点与渐变背景 */
+        /* ==============================================================
+           1. 网页外层框架样式 (暗金呼吸感风格)
+           ============================================================== */
         body { 
-            background-color: var(--bg-color);
+            background-color: #0a0a0b;
             background-image: 
                 radial-gradient(circle at 50% 0%, rgba(179, 139, 54, 0.1) 0%, transparent 50%),
                 url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.04'/%3E%3C/svg%3E");
-            color: var(--text-main); 
+            color: #F2F2F7; 
             font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             padding: 20px; 
             margin: 0; 
@@ -41,220 +31,138 @@
             animation: fadeInDown 0.8s ease-out;
         }
 
-        /* 顶部输入区 */
-        .header-section {
-            text-align: center;
-            margin-bottom: 30px;
-        }
+        .header-section { text-align: center; margin-bottom: 30px; }
         .header-section h1 {
-            font-size: 26px;
-            letter-spacing: 4px;
-            margin-bottom: 24px;
-            font-weight: 500;
-            background: linear-gradient(135deg, var(--gold-light), var(--gold-dark));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
+            font-size: 26px; letter-spacing: 4px; margin-bottom: 24px; font-weight: 500;
+            background: linear-gradient(135deg, #E6C27A, #B38B36);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
             text-shadow: 0 4px 12px rgba(179, 139, 54, 0.2);
         }
         
-        /* 毛玻璃表单 */
         .input-box {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            background: var(--card-bg);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            padding: 24px;
-            border-radius: 20px;
-            border: 1px solid var(--border-color);
+            display: flex; flex-direction: column; gap: 16px;
+            background: rgba(28, 28, 30, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            padding: 24px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.08);
             box-shadow: 0 20px 40px rgba(0,0,0,0.4);
         }
 
         input[type="password"], textarea {
-            width: 100%;
-            background: rgba(0, 0, 0, 0.2);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 14px 16px;
-            color: white;
-            font-size: 15px;
-            box-sizing: border-box;
-            outline: none;
-            transition: all 0.3s ease;
-            font-family: inherit;
+            width: 100%; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px; padding: 14px 16px; color: white; font-size: 15px;
+            box-sizing: border-box; outline: none; transition: all 0.3s ease; font-family: inherit;
         }
-        textarea {
-            resize: none;
-            line-height: 1.6;
-            min-height: 80px;
-        }
-        input[type="password"]:focus, textarea:focus {
-            border-color: var(--gold-dark);
-            background: rgba(0, 0, 0, 0.4);
-            box-shadow: 0 0 0 1px rgba(179, 139, 54, 0.3);
-        }
+        textarea { resize: none; line-height: 1.6; min-height: 80px; }
+        input[type="password"]:focus, textarea:focus { border-color: #B38B36; background: rgba(0, 0, 0, 0.4); box-shadow: 0 0 0 1px rgba(179, 139, 54, 0.3); }
 
-        /* 呼吸感按钮 */
         button {
-            background: linear-gradient(135deg, var(--gold-light), var(--gold-dark));
-            color: #111;
-            border: none;
-            border-radius: 12px;
-            padding: 16px;
-            font-size: 16px;
-            font-weight: 600;
-            letter-spacing: 2px;
-            cursor: pointer;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: linear-gradient(135deg, #E6C27A, #B38B36); color: #111;
+            border: none; border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 600;
+            letter-spacing: 2px; cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 8px 20px rgba(179, 139, 54, 0.25);
-            position: relative;
-            overflow: hidden;
         }
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 24px rgba(179, 139, 54, 0.4);
-        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 12px 24px rgba(179, 139, 54, 0.4); }
         button:active { transform: translateY(1px); }
-        button:disabled { 
-            opacity: 0.6; 
-            cursor: not-allowed; 
-            transform: none;
-            box-shadow: none;
-        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; transform: none; box-shadow: none; }
 
-        /* 加载动画 */
         #loader {
-            display: none;
-            text-align: center;
-            padding: 40px 0;
-            color: var(--text-sub);
-            font-size: 14px;
-            letter-spacing: 1px;
-            flex-direction: column;
-            align-items: center;
-            gap: 16px;
-            animation: fadeIn 0.5s ease;
+            display: none; text-align: center; padding: 40px 0; color: #8E8E93; font-size: 14px;
+            flex-direction: column; align-items: center; gap: 16px; animation: fadeIn 0.5s ease;
         }
-        .spinner {
-            width: 36px;
-            height: 36px;
-            border: 2px solid rgba(230, 194, 122, 0.1);
-            border-top-color: var(--gold-light);
-            border-radius: 50%;
-            animation: spin 1s cubic-bezier(0.6, 0.2, 0.4, 0.8) infinite;
-        }
+        .spinner { width: 36px; height: 36px; border: 2px solid rgba(230, 194, 122, 0.1); border-top-color: #E6C27A; border-radius: 50%; animation: spin 1s cubic-bezier(0.6, 0.2, 0.4, 0.8) infinite; }
 
-        /* 卡片容器与入场动画 */
-        #resultContainer {
-            width: 100%;
-        }
+        #resultContainer { width: 100%; }
+
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* ==============================================================
+           2. 卡片内部样式 (100% 照抄 QimenUniversalCard.js，保证一模一样)
+           ============================================================== */
         .card { 
-            background: var(--card-bg); 
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
+            /* 使用纯正的 Card.js 原生色值 */
+            background-color: #1C1C1E; 
             border-radius: 24px; 
-            padding: 28px 24px; 
-            border: 1px solid var(--border-color);
-            box-shadow: 0 24px 48px rgba(0,0,0,0.5); 
+            padding: 24px 20px; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            display: none; 
             margin-bottom: 40px;
             animation: fadeInUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
         }
-
-        /* 动画 Keyframes */
-        @keyframes fadeInDown {
-            from { opacity: 0; transform: translateY(-20px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeInUp {
-            from { opacity: 0; transform: translateY(30px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
-        }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-
-        /* ========= 以下为局象内部排版 CSS ========= */
-        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-        .title { font-size: 16px; font-weight: 500; color: var(--text-sub); }
-        .score { background-color: var(--theme-color-dim); color: var(--theme-color); padding: 4px 14px; border-radius: 12px; font-weight: 700; font-size: 16px; border: 1px solid rgba(255,255,255,0.05); }
-        .conclusion { font-size: 24px; font-weight: 600; color: var(--theme-color); margin-bottom: 8px; line-height: 1.4; letter-spacing: 0.5px;}
-        .keyword { font-size: 13px; color: var(--text-sub); margin-bottom: 24px; display: inline-block; background: rgba(0,0,0,0.3); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);}
-        .user-question { font-size: 14px; color: #D1D1D6; padding: 16px; background: rgba(0,0,0,0.2); border-radius: 12px; border-left: 3px solid var(--theme-color); margin-bottom: 28px; line-height: 1.6; font-style: italic; }
-        .section-title { color: #D1D1D6; font-size: 14px; font-weight: 500; margin: 32px 0 16px 0; display: flex; align-items: center; gap: 8px; letter-spacing: 1px;}
-        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
-        .grid-item { background: var(--cell-bg); padding: 16px; border-radius: 14px; border: 1px solid rgba(255,255,255,0.03); }
-        .label { font-size: 11px; color: var(--text-sub); display: block; margin-bottom: 8px; letter-spacing: 1px;}
-        .value { font-size: 13px; font-weight: 400; color: var(--text-main); line-height: 1.6; }
-        .bazi-insight { grid-column: 1 / -1; background: var(--theme-color-dim); border-left: 3px solid var(--theme-color); }
-        .bazi-insight .label { color: var(--theme-color); font-weight: 600;}
-        .dynamic-timing { grid-column: 1 / -1; background: rgba(230, 194, 122, 0.05); border-left: 3px solid var(--gold-light); }
-        .dynamic-timing .label { color: var(--gold-light); font-weight: 600;}
-        .score-basis { grid-column: 1 / -1; background: rgba(0,0,0,0.2); }
-        .score-basis-body { display: flex; flex-direction: column; gap: 12px; margin-top: 6px; }
-        .sb-row { display: flex; flex-direction: column; gap: 6px; }
-        .sb-row-title { font-size: 11px; color: var(--text-sub); font-weight: 500; }
-        .sb-tags { display: flex; flex-wrap: wrap; gap: 8px; }
-        .sb-tag { font-size: 12px; padding: 4px 12px; border-radius: 8px; line-height: 1.4; }
-        .sb-tag.positive { background: rgba(0, 210, 106, 0.1); color: #00D26A; border: 1px solid rgba(0,210,106,0.2); }
-        .sb-tag.negative { background: rgba(255, 94, 87, 0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.2); }
-        .sb-logic { font-size: 12px; color: #A0A0A8; line-height: 1.6; padding: 10px 12px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 2px solid var(--theme-color); margin-top: 4px;}
-        .strategy-list { list-style: none; padding: 0; margin: 0; }
-                /* 避坑指南警示框 */
-        .risk-alert {
-            background: rgba(255, 94, 87, 0.08);
-            border-left: 3px solid #FF5E57;
-            border-radius: 8px;
-            padding: 12px 16px;
-            margin-top: 16px;
-            margin-bottom: 8px;
-        }
-        .risk-alert-title {
-            color: #FF5E57;
-            font-size: 12px;
-            font-weight: 600;
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .risk-alert-content {
-            color: #E5E5EA;
-            font-size: 13px;
-            line-height: 1.5;
-        }
-        .strategy-list li { position: relative; padding-left: 20px; margin-bottom: 14px; color: #D1D1D6; font-size: 14px; line-height: 1.6; }
-        .strategy-list li::before { content: "✦"; position: absolute; left: 0; top: 2px; color: var(--theme-color); font-size: 12px; }
-        .footer { display: flex; justify-content: space-between; background: var(--theme-color-dim); padding: 18px; border-radius: 16px; margin-top: 32px; border: 1px solid rgba(255,255,255,0.05); }
-        .f-item { text-align: center; flex: 1; border-right: 1px solid rgba(255,255,255,0.05); padding: 0 4px;}
-        .f-item:last-child { border-right: none; }
-        .f-icon { display: block; font-size: 18px; margin-bottom: 8px; opacity: 0.9;}
-        .f-text { font-size: 12px; font-weight: 500; color: var(--theme-color); line-height: 1.4;}
         
-        /* 九宫格样式微调，增加质感 */
-        .pan-wrapper { background: rgba(0,0,0,0.2); border-radius: 16px; padding: 16px; border: 1px solid var(--border-color); }
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .title { font-size: 16px; font-weight: 600; color: #8E8E93; }
+        .score { background-color: var(--theme-color-dim); color: var(--theme-color); padding: 4px 12px; border-radius: 12px; font-weight: 800; font-size: 18px; box-shadow: 0 0 10px var(--theme-color-dim); }
+        .conclusion { font-size: 26px; font-weight: 800; color: var(--theme-color); margin-bottom: 6px; line-height: 1.3; letter-spacing: 0.5px;}
+        .keyword { font-size: 13px; color: #8E8E93; margin-bottom: 20px; display: inline-block; background: #2C2C2E; padding: 4px 10px; border-radius: 6px;}
+        
+        .user-question { font-size: 14px; color: #E5E5EA; padding: 14px 16px; background: rgba(255,255,255,0.04); border-radius: 12px; border-left: 4px solid var(--theme-color); margin-bottom: 24px; font-style: italic; line-height: 1.5; }
+        
+        .section-title { color: #8E8E93; font-size: 14px; font-weight: 700; margin: 28px 0 12px 0; display: flex; align-items: center; gap: 6px; }
+        .section-title .icon { font-size: 16px; }
+        
+        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+        .grid-item { background: #2C2C2E; padding: 14px; border-radius: 12px; }
+        .label { font-size: 11px; color: #8E8E93; display: block; margin-bottom: 6px; text-transform: uppercase;}
+        .value { font-size: 13px; font-weight: 500; color: #FFFFFF; line-height: 1.5; }
+        
+        /* 八字/动态应期/打分依据 */
+        .bazi-insight { grid-column: 1 / -1; background: var(--theme-color-dim); border-left: 3px solid var(--theme-color); }
+        .bazi-insight .label { color: var(--theme-color); }
+        .dynamic-timing { grid-column: 1 / -1; background: rgba(245, 197, 24, 0.05); border-left: 3px solid #F5C518; }
+        .dynamic-timing .label { color: #F5C518; }
+        .score-basis { grid-column: 1 / -1; background: rgba(255,255,255,0.03); border: 1px solid #38383A; }
+        .score-basis .label { color: #8E8E93; }
+        .score-basis-body { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+        .sb-row { display: flex; flex-direction: column; gap: 4px; }
+        .sb-row-title { font-size: 11px; color: #8E8E93; font-weight: 600; text-transform: uppercase; }
+        .sb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+        .sb-tag { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; line-height: 1.4; }
+        .sb-tag.positive { background: rgba(0, 210, 106, 0.12); color: #00D26A; border: 1px solid rgba(0,210,106,0.25); }
+        .sb-tag.negative { background: rgba(255, 94, 87, 0.12); color: #FF5E57; border: 1px solid rgba(255,94,87,0.25); }
+        .sb-logic { font-size: 12px; color: #A0A0A8; line-height: 1.6; padding: 8px 10px; background: rgba(255,255,255,0.03); border-radius: 8px; border-left: 2px solid var(--theme-color); }
+        
+        /* 策略与避坑 */
+        .strategy-list { list-style: none; padding: 0; margin: 0; }
+        .strategy-list li { position: relative; padding-left: 20px; margin-bottom: 12px; color: #D1D1D6; font-size: 14px; line-height: 1.6; }
+        .strategy-list li::before { content: "✦"; position: absolute; left: 0; top: 1px; color: var(--theme-color); font-size: 12px; }
+        
+        .risk-alert { background: rgba(255, 94, 87, 0.08); border-left: 3px solid #FF5E57; border-radius: 8px; padding: 12px 16px; margin-top: 16px; margin-bottom: 8px; }
+        .risk-alert-title { color: #FF5E57; font-size: 12px; font-weight: 600; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .risk-alert-content { color: #E5E5EA; font-size: 13px; line-height: 1.5; }
+
+        /* 底部锦囊 */
+        .footer { display: flex; justify-content: space-between; background: var(--theme-color-dim); padding: 16px; border-radius: 16px; margin-top: 28px; }
+        .f-item { text-align: center; flex: 1; border-right: 1px solid rgba(255,255,255,0.05); }
+        .f-item:last-child { border-right: none; }
+        .f-icon { display: block; font-size: 20px; margin-bottom: 6px; opacity: 0.9;}
+        .f-text { font-size: 13px; font-weight: 700; color: var(--theme-color); }
+
+        /* 九宫格排盘 */
+        .pan-wrapper { background: #2C2C2E; border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.05); }
         .pan-header { text-align: center; margin-bottom: 16px; }
-        .pan-pillars { font-size: 14px; font-weight: 500; color: #E5E5EA; letter-spacing: 2px; margin-bottom: 6px; }
-        .pan-info { font-size: 11px; color: #8E8E93; line-height: 1.6; }
-        .pan-info b { color: var(--theme-color); font-weight: 500; }
-        .pan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.05); border-radius: 12px; overflow: hidden; }
-        .pan-cell { background: var(--cell-bg); aspect-ratio: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .pan-center-earth { font-size: 32px; font-weight: 600; color: var(--text-sub); opacity: 0.1; }
-        .pan-god { position: absolute; top: 6px; font-size: 10px; color: #8E8E93; letter-spacing: 1px;}
-        .pan-star { font-size: 13px; color: #D1D1D6; margin-bottom: 2px; z-index: 2; }
-        .pan-door { font-size: 16px; font-weight: 600; color: #FFF; z-index: 2; letter-spacing: 1px;}
-        .pan-stem { position: absolute; font-size: 12px; font-weight: 500; }
+        .pan-pillars { font-size: 15px; font-weight: 700; color: #FFF; letter-spacing: 1px; margin-bottom: 4px; }
+        .pan-info { font-size: 11px; color: #999; line-height: 1.5; }
+        .pan-info b { color: var(--theme-color); font-weight: 700; }
+        
+        .pan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: #38383A; border: 1px solid #38383A; border-radius: 8px; overflow: hidden; }
+        .pan-cell { background: #1C1C1E; aspect-ratio: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pan-center-earth { font-size: 32px; font-weight: 900; color: #8E8E93; opacity: 0.15; }
+        .pan-god { position: absolute; top: 6px; font-size: 10px; color: #888; letter-spacing: 1px;}
+        .pan-star { font-size: 13px; color: #CCC; margin-bottom: 2px; z-index: 2; }
+        .pan-door { font-size: 16px; font-weight: 800; color: #FFF; z-index: 2; letter-spacing: 1px;}
+        .pan-stem { position: absolute; font-size: 12px; font-weight: 700; }
         .stem-sky { top: 6px; left: 8px; color: #E5E5EA; }
         .stem-earth { bottom: 6px; right: 8px; color: #8E8E93; }
         .ji-sky { top: 20px; left: 8px; font-size: 9px; color: #666; }
         .ji-earth { bottom: 20px; right: 8px; font-size: 9px; color: #666; }
+        
         .pan-marks { position: absolute; bottom: 6px; left: 6px; display: flex; gap: 4px; z-index: 3;}
-        .pan-mark { font-size: 9px; padding: 2px 5px; border-radius: 4px; font-weight: 500; }
-        .mark-ma { background: var(--theme-color); color: #000; box-shadow: 0 0 6px var(--theme-color-dim); }
-        .mark-kong { border: 1px solid #666; color: #999; background: rgba(0,0,0,0.5);}
-        .highlight-text { color: var(--theme-color) !important; text-shadow: 0 0 12px var(--theme-color-dim); }
+        .pan-mark { font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 700; }
+        .mark-ma { background: var(--theme-color); color: #000; box-shadow: 0 0 4px var(--theme-color-dim); }
+        .mark-kong { border: 1px solid #666; color: #999; background: rgba(0,0,0,0.3);}
+        .highlight-text { color: var(--theme-color) !important; text-shadow: 0 0 10px var(--theme-color-dim); }
     </style>
 </head>
 <body>
@@ -290,7 +198,6 @@
             if (!passcode) { alert("请先输入通行口令！"); return; }
             if (!input) { alert("问题不能为空哦！"); return; }
 
-            // 锁定按钮并展示动画
             btn.disabled = true;
             document.getElementById("passcodeInput").disabled = true;
             document.getElementById("questionInput").disabled = true;
@@ -306,13 +213,9 @@
                 });
 
                 const data = await response.json();
-                
                 if (data.error) throw new Error(data.details || data.error);
 
-                // 渲染结果
                 resultContainer.innerHTML = buildCardHTML(data);
-                
-                // 平滑滚动到卡片区域
                 setTimeout(() => {
                     resultContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 }, 100);
@@ -321,7 +224,6 @@
                 console.error(error);
                 alert("云端推演失败：\n" + error.message);
             } finally {
-                // 恢复 UI 状态
                 btn.disabled = false;
                 document.getElementById("passcodeInput").disabled = false;
                 document.getElementById("questionInput").disabled = false;
@@ -330,6 +232,9 @@
             }
         }
 
+        // ==========================================================
+        // 原汁原味的数据解析与 HTML 组装逻辑 (修正了闭合与遗漏问题)
+        // ==========================================================
         function buildCardHTML(data) {
             const summary = data.summary || { title: "生成中...", conclusion: "暂无数据", score: 0 };
             const analysis = data.analysis || {};
@@ -344,7 +249,14 @@
             const ts = chartData.timestamp || {};
             const hasChartData = palaces.length > 0;
 
+            let score = summary.score || 0;
+            let THEME_COLOR_HEX = score < 60 ? "#FF5E57" : (score < 80 ? "#F5C518" : "#00D26A");
+
+            // 1. 策略列表
             const strategies = (advice.strategy || []).map(s => `<li>${s}</li>`).join("");
+            
+            // 2. 避坑指南 (修复了之前缺失 let 声明的问题)
+            let riskHTML = "";
             if (advice.risk && advice.risk.trim() !== "") {
                 riskHTML = `
                     <div class="risk-alert">
@@ -354,11 +266,13 @@
                 `;
             }
 
+            // 3. 八字参考
             let baziHTML = "";
             if (analysis.bazi_insight && analysis.bazi_insight.trim() !== "" && !analysis.bazi_insight.includes("未提供八字信息")) {
                 baziHTML = `<div class="grid-item bazi-insight"><span class="label">🧬 命理/年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
             }
 
+            // 4. 评分依据
             let scoreBasisHTML = "";
             if (scoreBasis) {
                 const positiveTags = (scoreBasis.positive_signals || []).length > 0
@@ -372,14 +286,13 @@
                 }
             }
 
+            // 5. 动态应期
             let dynamicTimingHTML = "";
             if (analysis.dynamic_timing && analysis.dynamic_timing.trim() !== "") {
                 dynamicTimingHTML = `<div class="grid-item dynamic-timing"><span class="label">⏳ 动态应期 (转机推演)</span><span class="value">${analysis.dynamic_timing}</span></div>`;
             }
 
-            let score = summary.score || 0;
-            let THEME_COLOR_HEX = score < 60 ? "#FF5E57" : (score < 80 ? "#F5C518" : "#00D26A");
-
+            // 6. 九宫格排盘
             let chartHTML = "";
             if (hasChartData) {
                 let gridCells = "";
@@ -425,16 +338,20 @@
 
             const questionHTML = question ? `<div class="user-question">"${question}"</div>` : "";
 
+            // 7. 组装并返回 HTML (修复了之前嵌套与重复的错误)
             return `
-                <div class="card" style="display: block; --theme-color: ${THEME_COLOR_HEX}; --theme-color-dim: ${THEME_COLOR_HEX}15;">
+                <div class="card" style="display: block; --theme-color: ${THEME_COLOR_HEX}; --theme-color-dim: ${THEME_COLOR_HEX}25;">
                     <div class="card-header">
                         <div class="title">${summary.title}</div>
                         <div class="score">${summary.score} 分</div>
                     </div>
                     <div class="conclusion">${summary.conclusion}</div>
                     <div class="keyword">🔑 ${summary.keyword}</div>
+                    
                     ${questionHTML}
+                    
                     ${chartHTML}
+                    
                     <div class="section-title"><span class="icon">🔍</span> 深度局象</div>
                     <div class="info-grid">
                         ${baziHTML}
@@ -445,11 +362,11 @@
                         <div class="grid-item"><span class="label">🔮 特殊格局</span><span class="value">${analysis.pattern || '-'}</span></div>
                         <div class="grid-item"><span class="label">🙏 神助指引</span><span class="value">${analysis.god_help || '-'}</span></div>
                     </div>
+                    
                     <div class="section-title"><span class="icon">💡</span> 决策指引</div>
                     <ul class="strategy-list">${strategies}</ul>
-                    <div class="section-title"><span class="icon">💡</span> 决策指引</div>
-                    <ul class="strategy-list">${strategies}</ul>
-                    ${riskHTML} <div class="footer">
+                    ${riskHTML}
+                    
                     <div class="footer">
                         <div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div>
                         <div class="f-item"><span class="f-icon">⏰</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div>
