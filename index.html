@@ -6,6 +6,7 @@
     <title>奇门遁甲 AI 决策引擎</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /* ═══════════════════════════════════════════
            CSS 变量 & 全局重置
@@ -69,7 +70,7 @@
         }
 
         /* ═══════════════════════════════════════════
-           顶部标题区
+           顶部标题区 & 用户信息
         ═══════════════════════════════════════════ */
         .header-section {
             text-align: center;
@@ -146,8 +147,31 @@
             text-transform: uppercase;
         }
 
+        /* 用户状态栏 */
+        .user-greeting {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            animation: fadeIn 0.8s ease;
+        }
+        .logout-btn {
+            color: var(--gold-mid);
+            cursor: pointer;
+            text-decoration: underline;
+            background: none;
+            border: none;
+            font-size: 11px;
+            padding: 0;
+            letter-spacing: 1px;
+        }
+        .logout-btn:hover { color: var(--gold-bright); }
+
         /* ═══════════════════════════════════════════
-           输入卡片
+           通用质感卡片容器 (Input / Auth / History)
         ═══════════════════════════════════════════ */
         .input-box {
             display: flex;
@@ -164,6 +188,7 @@
             animation: riseIn 1s 0.2s cubic-bezier(0.22,1,0.36,1) both;
             position: relative;
             overflow: hidden;
+            margin-bottom: 24px;
         }
         .input-box::before {
             content: '';
@@ -182,7 +207,7 @@
             margin-bottom: -4px;
         }
 
-        input[type="password"], textarea {
+        input[type="email"], input[type="password"], textarea {
             width: 100%;
             background: rgba(255,255,255,0.03);
             border: 1px solid rgba(255,255,255,0.07);
@@ -196,12 +221,47 @@
             line-height: 1.6;
         }
         textarea { resize: none; min-height: 90px; }
-        input[type="password"]::placeholder, textarea::placeholder { color: var(--text-dim); }
-        input[type="password"]:focus, textarea:focus {
+        input::placeholder, textarea::placeholder { color: var(--text-dim); }
+        input:focus, textarea:focus {
             border-color: rgba(179,139,54,0.5);
             background: rgba(179,139,54,0.04);
             box-shadow: 0 0 0 3px rgba(179,139,54,0.08), inset 0 1px 0 rgba(179,139,54,0.05);
         }
+
+        /* 登录/注册切换 */
+        .auth-switch {
+            text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 4px; cursor: pointer; letter-spacing: 1px;
+        }
+        .auth-switch span { color: var(--gold-mid); text-decoration: underline; }
+
+        /* 历史记录列表 */
+        .history-list {
+            display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; padding-right: 4px;
+        }
+        .history-list::-webkit-scrollbar { width: 4px; }
+        .history-list::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
+        
+        .history-item {
+            background: rgba(255,255,255,0.02);
+            border: 1px solid rgba(255,255,255,0.05);
+            padding: 14px 16px;
+            border-radius: var(--radius-item);
+            cursor: pointer;
+            transition: all 0.25s ease;
+        }
+        .history-item:hover {
+            border-color: rgba(179,139,54,0.4);
+            background: rgba(179,139,54,0.06);
+            transform: translateX(4px);
+        }
+        .hi-title {
+            font-size: 14px; color: var(--text-primary); margin-bottom: 6px; line-height: 1.5; 
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .hi-date { font-size: 11px; color: var(--gold-mid); opacity: 0.8;}
+
+        /* 模块显示控制 */
+        #authSection, #appSection { display: none; width: 100%; }
 
         /* 提交按钮 */
         .submit-btn {
@@ -245,7 +305,7 @@
             flex-direction: column;
             align-items: center;
             gap: 20px;
-            padding: 50px 0 30px;
+            padding: 20px 0 30px;
             animation: fadeIn 0.5s ease;
         }
 
@@ -542,7 +602,7 @@
         }
 
         /* ═══════════════════════════════════════════
-           策略列表
+           策略列表 & 避坑
         ═══════════════════════════════════════════ */
         .strategy-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
         .strategy-list li {
@@ -569,7 +629,6 @@
             font-size: 11px;
         }
 
-        /* 避坑 */
         .risk-alert {
             background: rgba(255,94,87,0.06);
             border: 1px solid rgba(255,94,87,0.15);
@@ -752,10 +811,6 @@
             0%, 100% { transform: translateY(0); }
             50%       { transform: translateY(-4px); }
         }
-        @keyframes scoreCount {
-            from { opacity: 0; transform: scale(0.7); }
-            to   { opacity: 1; transform: scale(1); }
-        }
 
         /* ═══════════════════════════════════════════
            响应式微调
@@ -768,15 +823,12 @@
 </head>
 <body>
 
-<!-- 星空画布 -->
 <canvas id="cosmosCanvas"></canvas>
 
 <div class="page-wrap">
 <div class="container">
 
-    <!-- 标题区 -->
     <div class="header-section">
-        <!-- 八卦环 -->
         <div class="bagua-ring" id="baguaRing">
             <div class="ring-outer"></div>
             <div class="ring-inner"></div>
@@ -785,48 +837,70 @@
         </div>
         <h1 class="header-title">奇门遁甲推演</h1>
         <p class="header-sub">AI · 天机 · 决策引擎</p>
+        
+        <div id="userGreeting" class="user-greeting" style="display:none;">
+            <span id="userEmailTxt"></span>
+            <button class="logout-btn" onclick="handleSignOut()">退出登录</button>
+        </div>
     </div>
 
-    <!-- 输入区 -->
-    <div class="input-box">
+    <div id="authSection" class="input-box">
         <div>
-            <div class="field-label">通行口令</div>
-            <input type="password" id="passcodeInput" placeholder="请输入安全口令以保护 Token" />
+            <div class="field-label" id="authTitleLabel">身份认证 (登录)</div>
+            <input type="email" id="emailInput" placeholder="请输入邮箱地址" />
         </div>
         <div>
-            <div class="field-label">心中所问</div>
-            <textarea id="questionInput" placeholder="在心中默念您的问题，例如：&#10;明天的大客户谈判能顺利拿下吗？"></textarea>
+            <input type="password" id="passwordInput" placeholder="请输入密码 (至少6位)" />
         </div>
-        <button class="submit-btn" id="submitBtn" onclick="startDivination()">
-            <span class="btn-icon">☯</span>洞察天机
+        <button class="submit-btn" id="authBtn" onclick="handleAuth()">
+            <span class="btn-icon">🔑</span><span id="authBtnText">登 录</span>
         </button>
+        <div class="auth-switch" onclick="toggleAuthMode()">
+            没有账号？ <span>点击注册</span>
+        </div>
     </div>
 
-    <!-- 加载中 -->
-    <div id="loader">
-        <div class="loader-bagua">
-            <div class="lb-ring lb-ring-1"></div>
-            <div class="lb-ring lb-ring-2"></div>
-            <div class="lb-ring lb-ring-3"></div>
-            <div class="lb-center">☰</div>
+    <div id="appSection" style="display: none;">
+        
+        <div class="input-box">
+            <div>
+                <div class="field-label">心中所问</div>
+                <textarea id="questionInput" placeholder="在心中默念您的问题，例如：&#10;明天的大客户谈判能顺利拿下吗？"></textarea>
+            </div>
+            <button class="submit-btn" id="submitBtn" onclick="startDivination()">
+                <span class="btn-icon">☯</span>洞察天机
+            </button>
         </div>
-        <div class="loader-steps">
-            <div class="loader-text" id="loaderText">正在推演时空局象...</div>
-            <div class="loader-dots">
-                <span></span><span></span><span></span>
+
+        <div id="historyPanel" class="input-box" style="display:none;">
+            <div class="field-label" style="margin-bottom: 8px;">🕒 我的推演记录</div>
+            <div id="historyList" class="history-list"></div>
+        </div>
+
+        <div id="loader">
+            <div class="loader-bagua">
+                <div class="lb-ring lb-ring-1"></div>
+                <div class="lb-ring lb-ring-2"></div>
+                <div class="lb-ring lb-ring-3"></div>
+                <div class="lb-center">☰</div>
+            </div>
+            <div class="loader-steps">
+                <div class="loader-text" id="loaderText">正在推演时空局象...</div>
+                <div class="loader-dots">
+                    <span></span><span></span><span></span>
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- 结果容器 -->
-    <div id="resultContainer"></div>
+        <div id="resultContainer"></div>
+    </div>
 
 </div>
 </div>
 
 <script>
 /* ═══════════════════════════════════════════════
-   星空粒子背景
+   星空粒子背景与八卦阵逻辑 (保持原样不动)
 ═══════════════════════════════════════════════ */
 (function() {
     const canvas = document.getElementById('cosmosCanvas');
@@ -843,63 +917,40 @@
         const count = Math.floor((W * H) / 5000);
         for (let i = 0; i < count; i++) {
             stars.push({
-                x: Math.random() * W,
-                y: Math.random() * H,
-                r: Math.random() * 0.9 + 0.2,
-                a: Math.random(),
-                speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1),
-                drift: (Math.random() - 0.5) * 0.1,
+                x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(),
+                speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1,
             });
         }
     }
 
     function draw() {
         ctx.clearRect(0, 0, W, H);
-        // 星点
         stars.forEach(s => {
-            s.a += s.speed * 0.008;
-            s.x += s.drift;
+            s.a += s.speed * 0.008; s.x += s.drift;
             if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
             const alpha = (Math.sin(s.a) + 1) / 2;
             ctx.save();
-            ctx.globalAlpha = alpha * 0.5 + 0.05;
-            ctx.fillStyle = '#E8CC80';
-            ctx.beginPath();
-            ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.globalAlpha = alpha * 0.5 + 0.05; ctx.fillStyle = '#E8CC80';
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
             ctx.restore();
         });
-        // 连线 (仅距离近的星点)
         for (let i = 0; i < stars.length; i++) {
             for (let j = i + 1; j < stars.length; j++) {
-                const dx = stars[i].x - stars[j].x;
-                const dy = stars[i].y - stars[j].y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+                const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy);
                 if (dist < 100) {
                     ctx.save();
-                    ctx.globalAlpha = (1 - dist / 100) * 0.04;
-                    ctx.strokeStyle = '#B38B36';
-                    ctx.lineWidth = 0.5;
-                    ctx.beginPath();
-                    ctx.moveTo(stars[i].x, stars[i].y);
-                    ctx.lineTo(stars[j].x, stars[j].y);
-                    ctx.stroke();
+                    ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5;
+                    ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke();
                     ctx.restore();
                 }
             }
         }
         requestAnimationFrame(draw);
     }
-
-    resize();
-    initStars();
-    draw();
+    resize(); initStars(); draw();
     window.addEventListener('resize', () => { resize(); initStars(); });
 })();
 
-/* ═══════════════════════════════════════════════
-   八卦环生成
-═══════════════════════════════════════════════ */
 (function() {
     const ring = document.getElementById('trigramRing');
     const symbols = ['☰','☱','☲','☳','☴','☵','☶','☷'];
@@ -912,109 +963,198 @@
     });
 })();
 
-/* ═══════════════════════════════════════════════
-   加载文字轮播
-═══════════════════════════════════════════════ */
-const loaderMessages = [
-    '正在接通云端超算矩阵...',
-    '推演时空坐标与节气数据...',
-    '计算奇门九宫落盘...',
-    '分析值符、值使与神助...',
-    '生成决策指引与应期推演...',
-];
+const loaderMessages = ['正在接通云端超算矩阵...', '推演时空坐标与节气数据...', '计算奇门九宫落盘...', '分析值符、值使与神助...', '生成决策指引与应期推演...'];
 let loaderMsgIdx = 0, loaderInterval = null;
-
 function startLoaderCycle() {
-    loaderMsgIdx = 0;
-    document.getElementById('loaderText').textContent = loaderMessages[0];
+    loaderMsgIdx = 0; document.getElementById('loaderText').textContent = loaderMessages[0];
     loaderInterval = setInterval(() => {
         loaderMsgIdx = (loaderMsgIdx + 1) % loaderMessages.length;
         const el = document.getElementById('loaderText');
         el.style.opacity = 0;
         setTimeout(() => {
-            el.textContent = loaderMessages[loaderMsgIdx];
-            el.style.transition = 'opacity 0.4s';
-            el.style.opacity = 1;
+            el.textContent = loaderMessages[loaderMsgIdx]; el.style.transition = 'opacity 0.4s'; el.style.opacity = 1;
         }, 300);
     }, 2200);
 }
-
-function stopLoaderCycle() {
-    clearInterval(loaderInterval);
-}
+function stopLoaderCycle() { clearInterval(loaderInterval); }
 
 /* ═══════════════════════════════════════════════
-   API 调用
+   Supabase 账号认证体系与数据库交互
 ═══════════════════════════════════════════════ */
-const API_URL = "/api/qimen";
+// ⚠️ 必填：请在此处填入你在 Supabase 获取的 URL 和 ANON_KEY
+const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'; 
+const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7';
 
-async function startDivination() {
-    const passcode = document.getElementById("passcodeInput").value.trim();
-    const input    = document.getElementById("questionInput").value.trim();
-    const btn      = document.getElementById("submitBtn");
-    const loader   = document.getElementById("loader");
-    const rc       = document.getElementById("resultContainer");
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const API_URL = "/api/qimen"; 
 
-    if (!passcode) { alert("请先输入通行口令！"); return; }
-    if (!input)    { alert("问题不能为空哦！"); return; }
+let isLoginMode = true;
+let currentUser = null;
 
-    btn.disabled = true;
-    document.getElementById("passcodeInput").disabled = true;
-    document.getElementById("questionInput").disabled = true;
-    btn.innerHTML = '<span class="btn-icon" style="animation:spin 1s linear infinite;display:inline-block">☯</span>推演中…';
-    rc.innerHTML = "";
-    loader.style.display = "flex";
-    startLoaderCycle();
+// 页面加载检查登录态
+window.onload = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    updateUIForSession(session);
+    supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
+};
+
+function updateUIForSession(session) {
+    const authSec = document.getElementById('authSection');
+    const appSec = document.getElementById('appSection');
+    const greet = document.getElementById('userGreeting');
+    
+    if (session) {
+        currentUser = session.user;
+        authSec.style.display = 'none';
+        appSec.style.display = 'block';
+        greet.style.display = 'flex';
+        document.getElementById('userEmailTxt').innerText = `已登录: ${currentUser.email}`;
+        loadHistory(); // 登录后拉取历史
+    } else {
+        currentUser = null;
+        authSec.style.display = 'flex';
+        appSec.style.display = 'none';
+        greet.style.display = 'none';
+        document.getElementById("resultContainer").innerHTML = "";
+    }
+}
+
+// 切换登录/注册 UI
+function toggleAuthMode() {
+    isLoginMode = !isLoginMode;
+    document.getElementById('authTitleLabel').innerText = isLoginMode ? '身份认证 (登录)' : '创建账号 (注册)';
+    document.getElementById('authBtnText').innerText = isLoginMode ? '登 录' : '注 册';
+    document.querySelector('.auth-switch').innerHTML = isLoginMode ? '没有账号？ <span>点击注册</span>' : '已有账号？ <span>点击登录</span>';
+}
+
+// 执行登录或注册
+async function handleAuth() {
+    const email = document.getElementById('emailInput').value.trim();
+    const password = document.getElementById('passwordInput').value.trim();
+    const btnText = document.getElementById('authBtnText');
+    const btn = document.getElementById('authBtn');
+
+    if (!email || !password) return alert("请填写完整的邮箱和密码");
+    
+    btn.disabled = true; btnText.innerText = '验证中...';
 
     try {
+        if (isLoginMode) {
+            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            if (error) throw error;
+        } else {
+            const { error } = await supabase.auth.signUp({ email, password });
+            if (error) throw error;
+            alert("注册成功！(如果系统未自动登录，请去邮箱点击验证链接)");
+        }
+    } catch (error) {
+        alert("认证失败: " + error.message);
+    } finally {
+        btn.disabled = false; btnText.innerText = isLoginMode ? '登 录' : '注 册';
+    }
+}
+
+async function handleSignOut() { await supabase.auth.signOut(); }
+
+/* ═══════════════════════════════════════════════
+   起局推演与数据库交互
+═══════════════════════════════════════════════ */
+async function startDivination() {
+    const input = document.getElementById("questionInput").value.trim();
+    const btn = document.getElementById("submitBtn");
+    const loader = document.getElementById("loader");
+    const rc = document.getElementById("resultContainer");
+
+    if (!input) return alert("问题不能为空哦！");
+
+    btn.disabled = true; document.getElementById("questionInput").disabled = true;
+    btn.innerHTML = '<span class="btn-icon" style="animation:spin 1s linear infinite;display:inline-block">☯</span>推演中…';
+    rc.innerHTML = ""; loader.style.display = "flex"; startLoaderCycle();
+
+    try {
+        // 请求 Vercel 接口 (无需传口令了)
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: input, passcode })
+            body: JSON.stringify({ question: input })
         });
         const data = await response.json();
         if (data.error) throw new Error(data.details || data.error);
 
+        // 存入 Supabase 数据库
+        await saveRecordToDatabase(input, data);
+
+        // 渲染卡片
         rc.innerHTML = buildCardHTML(data);
-        // 评分动画
         animateScore(data.summary?.score || 0);
-        // 滚动进入
         setTimeout(() => {
             rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            // reveal 动画
-            document.querySelectorAll('.reveal').forEach((el, i) => {
-                setTimeout(() => el.classList.add('visible'), i * 80);
-            });
+            document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80));
         }, 100);
 
     } catch (err) {
-        console.error(err);
-        alert("云端推演失败：\n" + err.message);
+        console.error(err); alert("云端推演失败：\n" + err.message);
     } finally {
         stopLoaderCycle();
-        btn.disabled = false;
-        document.getElementById("passcodeInput").disabled = false;
-        document.getElementById("questionInput").disabled = false;
+        btn.disabled = false; document.getElementById("questionInput").disabled = false;
         btn.innerHTML = '<span class="btn-icon">☯</span>洞察天机';
         loader.style.display = "none";
     }
 }
 
-/* 评分数字跳动动画 */
+// 保存至数据库
+async function saveRecordToDatabase(question, jsonResult) {
+    if (!currentUser) return;
+    const { error } = await supabase.from('qimen_records').insert([{ user_id: currentUser.id, question: question, qimen_data: jsonResult }]);
+    if (error) console.error("保存历史记录失败:", error);
+    else loadHistory();
+}
+
+// 拉取历史记录
+async function loadHistory() {
+    if (!currentUser) return;
+    const historyPanel = document.getElementById('historyPanel');
+    const historyList = document.getElementById('historyList');
+
+    const { data, error } = await supabase
+        .from('qimen_records')
+        .select('id, question, qimen_data, created_at')
+        .order('created_at', { ascending: false });
+
+    if (error || !data || data.length === 0) {
+        historyPanel.style.display = 'none'; return;
+    }
+
+    historyPanel.style.display = 'flex';
+    historyList.innerHTML = '';
+
+    data.forEach(record => {
+        const dateObj = new Date(record.created_at);
+        const dateStr = `${dateObj.getMonth()+1}月${dateObj.getDate()}日 ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+        const title = record.qimen_data?.summary?.title || "未知预测";
+
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<div class="hi-title">${title} - ${record.question}</div><div class="hi-date">${dateStr}</div>`;
+        item.onclick = () => {
+            document.getElementById("resultContainer").innerHTML = buildCardHTML(record.qimen_data);
+            animateScore(record.qimen_data?.summary?.score || 0);
+            document.getElementById("resultContainer").scrollIntoView({ behavior: 'smooth', block: 'start' });
+            document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80));
+        };
+        historyList.appendChild(item);
+    });
+}
+
 function animateScore(target) {
     const el = document.getElementById('scoreValue');
     if (!el) return;
-    let cur = 0;
-    const step = Math.ceil(target / 30);
-    const timer = setInterval(() => {
-        cur = Math.min(cur + step, target);
-        el.textContent = cur + ' 分';
-        if (cur >= target) clearInterval(timer);
-    }, 35);
+    let cur = 0, step = Math.ceil(target / 30);
+    const timer = setInterval(() => { cur = Math.min(cur + step, target); el.textContent = cur + ' 分'; if (cur >= target) clearInterval(timer); }, 35);
 }
 
 /* ═══════════════════════════════════════════════
-   卡片 HTML 组装（保留全部原字段，样式升级）
+   卡片 HTML 组装逻辑 (一模一样保留，适配全新样式)
 ═══════════════════════════════════════════════ */
 function buildCardHTML(data) {
     const summary    = data.summary    || { title: "生成中...", conclusion: "暂无数据", score: 0 };
@@ -1022,7 +1162,6 @@ function buildCardHTML(data) {
     const advice     = data.advice     || { lucky_tips: {} };
     const question   = data.question   || "";
     const scoreBasis = data.summary?.score_basis || null;
-
     const chartData  = data.qimen_data || data;
     const palaces    = chartData.palaces || [];
     const pillars    = chartData.pillars || {};
@@ -1032,130 +1171,66 @@ function buildCardHTML(data) {
 
     const score = summary.score || 0;
     const THEME  = score < 60 ? "#FF5E57" : score < 80 ? "#F5C518" : "#00D26A";
-    const THEME_DIM = score < 60 ? "rgba(255,94,87,0.15)"
-                    : score < 80 ? "rgba(245,197,24,0.15)"
-                    :              "rgba(0,210,106,0.15)";
+    const THEME_DIM = score < 60 ? "rgba(255,94,87,0.15)" : score < 80 ? "rgba(245,197,24,0.15)" : "rgba(0,210,106,0.15)";
 
-    // 策略
-    const strategies = (advice.strategy || []).map((s, i) =>
-        `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`
-    ).join('');
-
-    // 避坑
+    const strategies = (advice.strategy || []).map((s, i) => `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`).join('');
     let riskHTML = '';
-    if (advice.risk?.trim()) {
-        riskHTML = `
-        <div class="risk-alert reveal">
-            <div class="risk-alert-title"><span>⚠️</span>避坑指南</div>
-            <div class="risk-alert-content">${advice.risk}</div>
-        </div>`;
-    }
-
-    // 八字
+    if (advice.risk?.trim()) riskHTML = `<div class="risk-alert reveal"><div class="risk-alert-title"><span>⚠️</span>避坑指南</div><div class="risk-alert-content">${advice.risk}</div></div>`;
     let baziHTML = '';
-    if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes("未提供八字信息")) {
-        baziHTML = `<div class="grid-item bazi-insight reveal"><span class="label">🧬 命理 / 年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
-    }
-
-    // 评分依据
+    if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes("未提供八字信息")) baziHTML = `<div class="grid-item bazi-insight reveal"><span class="label">🧬 命理 / 年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
+    
     let scoreBasisHTML = '';
     if (scoreBasis) {
-        const pos = (scoreBasis.positive_signals || []).length
-            ? `<div class="sb-row"><div class="sb-row-title">✅ 吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s=>`<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : '';
-        const neg = (scoreBasis.negative_signals || []).length
-            ? `<div class="sb-row"><div class="sb-row-title">⚠️ 风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s=>`<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : '';
-        const logic = scoreBasis.score_logic
-            ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : '';
-        if (pos || neg || logic) {
-            scoreBasisHTML = `<div class="grid-item score-basis reveal"><span class="label">⚖️ 评分依据</span><div class="score-basis-body">${pos}${neg}${logic}</div></div>`;
-        }
+        const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">✅ 吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s=>`<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : '';
+        const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">⚠️ 风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s=>`<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : '';
+        const logic = scoreBasis.score_logic ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : '';
+        if (pos || neg || logic) scoreBasisHTML = `<div class="grid-item score-basis reveal"><span class="label">⚖️ 评分依据</span><div class="score-basis-body">${pos}${neg}${logic}</div></div>`;
     }
 
-    // 动态应期
     let timingHTML = '';
-    if (analysis.dynamic_timing?.trim()) {
-        timingHTML = `<div class="grid-item dynamic-timing reveal"><span class="label">⏳ 动态应期（转机推演）</span><span class="value">${analysis.dynamic_timing}</span></div>`;
-    }
+    if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="grid-item dynamic-timing reveal"><span class="label">⏳ 动态应期（转机推演）</span><span class="value">${analysis.dynamic_timing}</span></div>`;
 
-    // 九宫格
     let chartHTML = '';
     if (hasChart) {
         const isZhiFu  = s => s && ju.zhi_fu  && s.includes(ju.zhi_fu);
         const isZhiShi = d => d && ju.zhi_shi && d.includes(ju.zhi_shi);
-
         const cells = palaces.map(p => {
             if (p.is_center) return `<div class="pan-cell"><div class="pan-center-earth">${p.earth || ''}</div></div>`;
             const starCls = isZhiFu(p.star)  ? 'highlight-text' : '';
             const doorCls = isZhiShi(p.door) ? 'highlight-text' : '';
             let marks = '';
-            if (p.ma_xing?.has_ma)  marks += `<span class="pan-mark mark-ma">马</span>`;
+            if (p.ma_xing?.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`;
             if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`;
-            return `
-            <div class="pan-cell">
-                <div class="pan-god">${p.god||''}</div>
-                <div class="pan-stem stem-sky">${p.sky||''}</div>
-                ${p.ji_sky   ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>`   : ''}
-                <div class="pan-star ${starCls}">${p.star||''}</div>
-                <div class="pan-door ${doorCls}">${p.door||''}</div>
-                <div class="pan-stem stem-earth">${p.earth||''}</div>
-                ${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}
-                <div class="pan-marks">${marks}</div>
-            </div>`;
+            return `<div class="pan-cell"><div class="pan-god">${p.god||''}</div><div class="pan-stem stem-sky">${p.sky||''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star||''}</div><div class="pan-door ${doorCls}">${p.door||''}</div><div class="pan-stem stem-earth">${p.earth||''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`;
         }).join('');
-
-        chartHTML = `
-        <div class="section-title reveal"><span class="icon">🧭</span>奇门排盘</div>
-        <div class="pan-wrapper reveal">
-            <div class="pan-header">
-                <div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div>
-                <div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu||'-'}</b>&emsp;值使：<b>${ju.zhi_shi||'-'}</b></div>
-            </div>
-            <div class="pan-grid">${cells}</div>
-        </div>`;
+        chartHTML = `<div class="section-title reveal"><span class="icon">🧭</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu||'-'}</b>&emsp;值使：<b>${ju.zhi_shi||'-'}</b></div></div><div class="pan-grid">${cells}</div></div>`;
     }
 
-    const questionHTML = question
-        ? `<div class="user-question reveal">${question}</div>` : '';
+    const questionHTML = question ? `<div class="user-question reveal">${question}</div>` : '';
 
     return `
     <div class="card" style="display:block; --theme-color:${THEME}; --theme-color-dim:${THEME_DIM};">
-
         <div class="card-header reveal">
-            <div>
-                <div class="title">${summary.title}</div>
-            </div>
-            <div class="score-badge">
-                <div class="score" id="scoreValue">${score} 分</div>
-                <div class="score-label">吉凶评分</div>
-            </div>
+            <div><div class="title">${summary.title}</div></div>
+            <div class="score-badge"><div class="score" id="scoreValue">${score} 分</div><div class="score-label">吉凶评分</div></div>
         </div>
-
         <div class="conclusion reveal">${summary.conclusion}</div>
         <div class="keyword reveal">🔑 ${summary.keyword}</div>
-
         ${questionHTML}
-
         <div class="ornament-divider reveal"><span>☰</span></div>
-
         ${chartHTML}
-
         <div class="section-title reveal"><span class="icon">🔍</span>深度局象</div>
         <div class="info-grid">
-            ${baziHTML}
-            ${scoreBasisHTML}
-            ${timingHTML}
+            ${baziHTML}${scoreBasisHTML}${timingHTML}
             <div class="grid-item reveal"><span class="label">🌌 时空能量</span><span class="value">${analysis.tensor||'-'}</span></div>
             <div class="grid-item reveal"><span class="label">👤 用神分析</span><span class="value">${analysis.yong_shen||'-'}</span></div>
             <div class="grid-item reveal"><span class="label">🔮 特殊格局</span><span class="value">${analysis.pattern||'-'}</span></div>
             <div class="grid-item reveal"><span class="label">🙏 神助指引</span><span class="value">${analysis.god_help||'-'}</span></div>
         </div>
-
         <div class="section-title reveal"><span class="icon">💡</span>决策指引</div>
         <ul class="strategy-list">${strategies}</ul>
         ${riskHTML}
-
         <div class="ornament-divider reveal"><span>☷</span></div>
-
         <div class="footer reveal">
             <div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction||'-'}</span></div>
             <div class="f-item"><span class="f-icon">⏰</span><span class="f-text">${advice.lucky_tips.time||'-'}</span></div>
