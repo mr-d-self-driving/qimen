@@ -41,7 +41,6 @@ module.exports = async function handler(req, res) {
     try {
         // 2. 获取用户提问
         const userQuestion = req.body.question || "当前局势吉凶如何？";
-        const userQuestion = req.body.question || "当前局势吉凶如何？";
         const passcode = req.body.passcode || "";
 
         // 🛡️ 安全拦截：如果口令不对，直接拒绝，绝不消耗大模型 Token
