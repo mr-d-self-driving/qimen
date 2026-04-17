@@ -223,10 +223,6 @@ null
 
         // 7. 组装最终供前端 UI 渲染的超级 JSON
         let qimenPalaces = [];
-        // ... (下方保持原样不动) ...
-
-        // 7. 组装最终供前端 UI 渲染的超级 JSON
-        let qimenPalaces = [];
         for (let i = 0; i < 9; i++) {
             if (i === 4) {
                 qimenPalaces.push({ name: `${palaceNames[i]}${palaceNumbers[i]}宫`, is_center: true, earth: diPan[i], index: i });
