@@ -979,13 +979,14 @@ function startLoaderCycle() {
 function stopLoaderCycle() { clearInterval(loaderInterval); }
 
 /* ═══════════════════════════════════════════════
-   Supabase 账号认证体系与数据库交互
+   Supabase 账号认证体系与数据库交互 (已修复命名冲突)
 ═══════════════════════════════════════════════ */
 // ⚠️ 必填：请在此处填入你在 Supabase 获取的 URL 和 ANON_KEY
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// ✅ 修复点：将变量名从 supabase 改为 _supabase，避免与官方包的全局变量冲突
+const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const API_URL = "/api/qimen"; 
 
 let isLoginMode = true;
@@ -994,17 +995,15 @@ let currentUser = null;
 // 页面加载检查登录态
 window.onload = async () => {
     try {
-        // 如果 URL 或 Key 没填，这里会直接抛出异常被 catch 抓住
-        const { data: { session }, error } = await supabase.auth.getSession();
+        const { data: { session }, error } = await _supabase.auth.getSession();
         if (error) throw error;
         
         updateUIForSession(session);
-        supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
+        _supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
     } catch (error) {
-        console.error("Supabase 初始化或获取会话失败:", error);
-        // 强行把登录界面显示出来，避免白屏
+        console.error("Supabase 初始化失败:", error);
         updateUIForSession(null); 
-        alert("数据库连接失败 ❌\n请检查代码中的 SUPABASE_URL 和 ANON_KEY 是否已正确替换！\n具体报错: " + error.message);
+        alert("数据库连接失败 ❌\n请检查代码中的 SUPABASE_URL 和 ANON_KEY 是否正确！\n报错: " + error.message);
     }
 };
 
@@ -1050,10 +1049,10 @@ async function handleAuth() {
 
     try {
         if (isLoginMode) {
-            const { error } = await supabase.auth.signInWithPassword({ email, password });
+            const { error } = await _supabase.auth.signInWithPassword({ email, password });
             if (error) throw error;
         } else {
-            const { error } = await supabase.auth.signUp({ email, password });
+            const { error } = await _supabase.auth.signUp({ email, password });
             if (error) throw error;
             alert("注册成功！(如果系统未自动登录，请去邮箱点击验证链接)");
         }
@@ -1064,7 +1063,7 @@ async function handleAuth() {
     }
 }
 
-async function handleSignOut() { await supabase.auth.signOut(); }
+async function handleSignOut() { await _supabase.auth.signOut(); }
 
 /* ═══════════════════════════════════════════════
    起局推演与数据库交互
@@ -1082,7 +1081,6 @@ async function startDivination() {
     rc.innerHTML = ""; loader.style.display = "flex"; startLoaderCycle();
 
     try {
-        // 请求 Vercel 接口 (无需传口令了)
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1115,7 +1113,7 @@ async function startDivination() {
 // 保存至数据库
 async function saveRecordToDatabase(question, jsonResult) {
     if (!currentUser) return;
-    const { error } = await supabase.from('qimen_records').insert([{ user_id: currentUser.id, question: question, qimen_data: jsonResult }]);
+    const { error } = await _supabase.from('qimen_records').insert([{ user_id: currentUser.id, question: question, qimen_data: jsonResult }]);
     if (error) console.error("保存历史记录失败:", error);
     else loadHistory();
 }
@@ -1126,7 +1124,7 @@ async function loadHistory() {
     const historyPanel = document.getElementById('historyPanel');
     const historyList = document.getElementById('historyList');
 
-    const { data, error } = await supabase
+    const { data, error } = await _supabase
         .from('qimen_records')
         .select('id, question, qimen_data, created_at')
         .order('created_at', { ascending: false });
@@ -1164,7 +1162,86 @@ function animateScore(target) {
 }
 
 /* ═══════════════════════════════════════════════
-   卡片 HTML 组装逻辑 (一模一样保留，适配全新样式)
+   星空粒子背景与八卦阵逻辑
+═══════════════════════════════════════════════ */
+(function() {
+    const canvas = document.getElementById('cosmosCanvas');
+    const ctx = canvas.getContext('2d');
+    let W, H, stars = [];
+
+    function resize() {
+        W = canvas.width  = window.innerWidth;
+        H = canvas.height = window.innerHeight;
+    }
+
+    function initStars() {
+        stars = [];
+        const count = Math.floor((W * H) / 5000);
+        for (let i = 0; i < count; i++) {
+            stars.push({
+                x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(),
+                speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1,
+            });
+        }
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, W, H);
+        stars.forEach(s => {
+            s.a += s.speed * 0.008; s.x += s.drift;
+            if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
+            const alpha = (Math.sin(s.a) + 1) / 2;
+            ctx.save();
+            ctx.globalAlpha = alpha * 0.5 + 0.05; ctx.fillStyle = '#E8CC80';
+            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill();
+            ctx.restore();
+        });
+        for (let i = 0; i < stars.length; i++) {
+            for (let j = i + 1; j < stars.length; j++) {
+                const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 100) {
+                    ctx.save();
+                    ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5;
+                    ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke();
+                    ctx.restore();
+                }
+            }
+        }
+        requestAnimationFrame(draw);
+    }
+    resize(); initStars(); draw();
+    window.addEventListener('resize', () => { resize(); initStars(); });
+})();
+
+(function() {
+    const ring = document.getElementById('trigramRing');
+    const symbols = ['☰','☱','☲','☳','☴','☵','☶','☷'];
+    symbols.forEach((sym, i) => {
+        const span = document.createElement('span');
+        span.textContent = sym;
+        const angle = (i / symbols.length) * 360;
+        span.style.transform = `rotate(${angle}deg) translateY(0px)`;
+        ring.appendChild(span);
+    });
+})();
+
+const loaderMessages = ['正在接通云端超算矩阵...', '推演时空坐标与节气数据...', '计算奇门九宫落盘...', '分析值符、值使与神助...', '生成决策指引与应期推演...'];
+let loaderMsgIdx = 0, loaderInterval = null;
+function startLoaderCycle() {
+    loaderMsgIdx = 0; document.getElementById('loaderText').textContent = loaderMessages[0];
+    loaderInterval = setInterval(() => {
+        loaderMsgIdx = (loaderMsgIdx + 1) % loaderMessages.length;
+        const el = document.getElementById('loaderText');
+        el.style.opacity = 0;
+        setTimeout(() => {
+            el.textContent = loaderMessages[loaderMsgIdx]; el.style.transition = 'opacity 0.4s'; el.style.opacity = 1;
+        }, 300);
+    }, 2200);
+}
+function stopLoaderCycle() { clearInterval(loaderInterval); }
+
+/* ═══════════════════════════════════════════════
+   卡片 HTML 组装逻辑
 ═══════════════════════════════════════════════ */
 function buildCardHTML(data) {
     const summary    = data.summary    || { title: "生成中...", conclusion: "暂无数据", score: 0 };
