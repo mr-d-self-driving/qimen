@@ -993,9 +993,19 @@ let currentUser = null;
 
 // 页面加载检查登录态
 window.onload = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    updateUIForSession(session);
-    supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
+    try {
+        // 如果 URL 或 Key 没填，这里会直接抛出异常被 catch 抓住
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        
+        updateUIForSession(session);
+        supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
+    } catch (error) {
+        console.error("Supabase 初始化或获取会话失败:", error);
+        // 强行把登录界面显示出来，避免白屏
+        updateUIForSession(null); 
+        alert("数据库连接失败 ❌\n请检查代码中的 SUPABASE_URL 和 ANON_KEY 是否已正确替换！\n具体报错: " + error.message);
+    }
 };
 
 function updateUIForSession(session) {
