@@ -202,6 +202,29 @@
         .sb-tag.negative { background: rgba(255, 94, 87, 0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.2); }
         .sb-logic { font-size: 12px; color: #A0A0A8; line-height: 1.6; padding: 10px 12px; background: rgba(0,0,0,0.3); border-radius: 8px; border-left: 2px solid var(--theme-color); margin-top: 4px;}
         .strategy-list { list-style: none; padding: 0; margin: 0; }
+                /* 避坑指南警示框 */
+        .risk-alert {
+            background: rgba(255, 94, 87, 0.08);
+            border-left: 3px solid #FF5E57;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-top: 16px;
+            margin-bottom: 8px;
+        }
+        .risk-alert-title {
+            color: #FF5E57;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .risk-alert-content {
+            color: #E5E5EA;
+            font-size: 13px;
+            line-height: 1.5;
+        }
         .strategy-list li { position: relative; padding-left: 20px; margin-bottom: 14px; color: #D1D1D6; font-size: 14px; line-height: 1.6; }
         .strategy-list li::before { content: "✦"; position: absolute; left: 0; top: 2px; color: var(--theme-color); font-size: 12px; }
         .footer { display: flex; justify-content: space-between; background: var(--theme-color-dim); padding: 18px; border-radius: 16px; margin-top: 32px; border: 1px solid rgba(255,255,255,0.05); }
@@ -322,7 +345,15 @@
             const hasChartData = palaces.length > 0;
 
             const strategies = (advice.strategy || []).map(s => `<li>${s}</li>`).join("");
-            
+            if (advice.risk && advice.risk.trim() !== "") {
+                riskHTML = `
+                    <div class="risk-alert">
+                        <div class="risk-alert-title"><span style="font-size: 14px;">⚠️</span> 避坑指南</div>
+                        <div class="risk-alert-content">${advice.risk}</div>
+                    </div>
+                `;
+            }
+
             let baziHTML = "";
             if (analysis.bazi_insight && analysis.bazi_insight.trim() !== "" && !analysis.bazi_insight.includes("未提供八字信息")) {
                 baziHTML = `<div class="grid-item bazi-insight"><span class="label">🧬 命理/年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
@@ -416,6 +447,9 @@
                     </div>
                     <div class="section-title"><span class="icon">💡</span> 决策指引</div>
                     <ul class="strategy-list">${strategies}</ul>
+                    <div class="section-title"><span class="icon">💡</span> 决策指引</div>
+                    <ul class="strategy-list">${strategies}</ul>
+                    ${riskHTML} <div class="footer">
                     <div class="footer">
                         <div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div>
                         <div class="f-item"><span class="f-icon">⏰</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div>
