@@ -1,0 +1,7 @@
+{
+  "name": "qimen-api",
+  "version": "1.0.0",
+  "dependencies": {
+    "lunar-javascript": "^1.6.12"
+  }
+}
