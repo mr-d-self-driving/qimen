@@ -587,15 +587,24 @@ async function startDivination() {
             requestBody.baziInfo = currentBaziString;
         }
 
+        // 👇 新增：90 秒超时控制机制 👇
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90000 毫秒 = 90 秒
+
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            body: JSON.stringify(requestBody),
+            signal: controller.signal // 将终止信号绑定到本次请求
         });
+        
+        clearTimeout(timeoutId); // 如果在 90 秒内成功返回，立即解除定时器炸弹
+
         const data = await response.json();
         if (data.error) throw new Error(data.details || data.error);
 
         await saveRecordToDatabase(input, data);
+
         rc.innerHTML = buildCardHTML(data);
         animateScore(data.summary?.score || 0);
         setTimeout(() => {
@@ -604,8 +613,15 @@ async function startDivination() {
         }, 100);
 
     } catch (err) {
-        console.error(err); alert("云端推演失败：\n" + err.message);
+        console.error(err); 
+        // 👇 新增：超时与失败的精确反馈 👇
+        if (err.name === 'AbortError') {
+            alert("⏳ 云端超算推演超时 (超过 90 秒)。\n可能是大模型运算量过大或网络波动，请点击【确定】后重新尝试洞察！");
+        } else {
+            alert("云端推演失败：\n" + err.message);
+        }
     } finally {
+        // 无论成功、失败还是超时，都必须恢复界面状态，以便用户进行下一次操作
         stopLoaderCycle();
         btn.disabled = false; document.getElementById("questionInput").disabled = false;
         btn.innerHTML = '<span class="btn-icon">☯</span>洞察天机';
