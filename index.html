@@ -9,74 +9,40 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lunar-javascript/lunar.js"></script>
     <style>
-        /* ═══════════════════════════════════════════
-           CSS 变量 & 全局重置
-        ═══════════════════════════════════════════ */
         :root {
-            --gold-bright:   #E8CC80;
-            --gold-mid:      #B38B36;
-            --gold-dim:      rgba(179,139,54,0.18);
-            --gold-glow:     rgba(230,194,122,0.12);
-            --bg-deep:       #050508;
-            --bg-card:       #0e0e13;
-            --bg-item:       #161620;
-            --border-subtle: rgba(255,255,255,0.06);
-            --text-primary:  #F0EDE6;
-            --text-muted:    #6E6E7A;
-            --text-dim:      #3A3A45;
-            --radius-card:   22px;
-            --radius-item:   12px;
+            --gold-bright:   #E8CC80; --gold-mid:      #B38B36;
+            --gold-dim:      rgba(179,139,54,0.18); --gold-glow:     rgba(230,194,122,0.12);
+            --bg-deep:       #050508; --bg-card:       #0e0e13; --bg-item:       #161620;
+            --border-subtle: rgba(255,255,255,0.06); --text-primary:  #F0EDE6;
+            --text-muted:    #6E6E7A; --text-dim:      #3A3A45;
+            --radius-card:   22px; --radius-item:   12px;
             --font-serif:    'ZCOOL XiaoWei', 'Noto Serif SC', serif;
             --font-body:     'PingFang SC', -apple-system, sans-serif;
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-        body {
-            background: var(--bg-deep);
-            color: var(--text-primary);
-            font-family: var(--font-body);
-            min-height: 100vh;
-            overflow-x: hidden;
-            -webkit-font-smoothing: antialiased;
-        }
-
-        #cosmosCanvas {
-            position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;
-        }
-
-        .page-wrap {
-            position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 40px 20px 60px;
-        }
+        body { background: var(--bg-deep); color: var(--text-primary); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+        #cosmosCanvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
+        .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 40px 20px 60px; }
         .container { width: 100%; max-width: 520px; }
 
-        /* ═══════════════════════════════════════════
-           顶部标题区 & 用户信息
-        ═══════════════════════════════════════════ */
+        /* 通用卡片与标题 */
         .header-section { text-align: center; margin-bottom: 32px; animation: riseIn 1s cubic-bezier(0.22,1,0.36,1) both; }
-        
         .bagua-ring { position: relative; width: 90px; height: 90px; margin: 0 auto 18px; }
         .bagua-ring .ring-outer { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(179,139,54,0.3); animation: spinSlow 24s linear infinite; }
         .bagua-ring .ring-inner { position: absolute; inset: 10px; border-radius: 50%; border: 1px solid rgba(179,139,54,0.15); animation: spinSlow 16s linear infinite reverse; }
         .bagua-ring .trigrams { position: absolute; inset: 0; animation: spinSlow 24s linear infinite; }
         .bagua-ring .trigrams span { position: absolute; font-size: 11px; color: var(--gold-mid); opacity: 0.7; transform-origin: 45px 45px; width: 14px; text-align: center; left: 38px; top: 2px; }
         .bagua-ring .center-eye { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-family: var(--font-serif); color: var(--gold-bright); filter: drop-shadow(0 0 10px rgba(230,194,122,0.5)); animation: breathe 4s ease-in-out infinite; }
-
         .header-title { font-family: var(--font-serif); font-size: 28px; letter-spacing: 6px; font-weight: 400; background: linear-gradient(160deg, #F2E0A0 0%, #B38B36 50%, #E8CC80 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; filter: drop-shadow(0 0 20px rgba(179,139,54,0.2)); }
         .header-sub { font-size: 11px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; }
-
         .user-greeting { font-size: 11px; color: var(--text-muted); margin-top: 16px; display: flex; justify-content: center; align-items: center; gap: 12px; animation: fadeIn 0.8s ease; }
         .logout-btn { color: var(--gold-mid); cursor: pointer; text-decoration: underline; background: none; border: none; font-size: 11px; padding: 0; letter-spacing: 1px; }
         .logout-btn:hover { color: var(--gold-bright); }
 
-        /* ═══════════════════════════════════════════
-           通用质感卡片容器 (Input / Auth / History)
-        ═══════════════════════════════════════════ */
-        .input-box {
-            display: flex; flex-direction: column; gap: 14px; background: var(--bg-card); border: 1px solid rgba(179,139,54,0.2); border-radius: var(--radius-card); padding: 24px; box-shadow: 0 0 0 1px rgba(179,139,54,0.05), 0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04); animation: riseIn 1s 0.2s cubic-bezier(0.22,1,0.36,1) both; position: relative; overflow: hidden; margin-bottom: 24px;
-        }
+        .input-box { display: flex; flex-direction: column; gap: 14px; background: var(--bg-card); border: 1px solid rgba(179,139,54,0.2); border-radius: var(--radius-card); padding: 24px; box-shadow: 0 0 0 1px rgba(179,139,54,0.05), 0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04); animation: riseIn 1s 0.2s cubic-bezier(0.22,1,0.36,1) both; position: relative; overflow: hidden; margin-bottom: 24px; }
         .input-box::before { content: ''; position: absolute; top: -60px; right: -60px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(179,139,54,0.08) 0%, transparent 70%); pointer-events: none; }
-
         .field-label { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: -4px; }
         input[type="email"], input[type="password"], textarea { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-item); padding: 13px 16px; color: var(--text-primary); font-size: 15px; font-family: var(--font-body); outline: none; transition: border-color 0.3s, box-shadow 0.3s, background 0.3s; line-height: 1.6; }
         textarea { resize: none; min-height: 90px; }
@@ -85,7 +51,6 @@
 
         .auth-switch { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 4px; cursor: pointer; letter-spacing: 1px; }
         .auth-switch span { color: var(--gold-mid); text-decoration: underline; }
-
         .history-list { display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
         .history-list::-webkit-scrollbar { width: 4px; }
         .history-list::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
@@ -96,7 +61,6 @@
 
         #authSection, #appSection { display: none; width: 100%; }
 
-        /* 提交按钮 */
         .submit-btn { position: relative; overflow: hidden; background: linear-gradient(135deg, #E8CC80 0%, #B38B36 50%, #C9A052 100%); color: #0a0800; border: none; border-radius: var(--radius-item); padding: 16px; font-size: 15px; font-family: var(--font-serif); font-weight: 600; letter-spacing: 4px; cursor: pointer; transition: transform 0.25s, box-shadow 0.25s, opacity 0.25s; box-shadow: 0 4px 20px rgba(179,139,54,0.3), 0 1px 0 rgba(255,255,255,0.15) inset; }
         .submit-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%); transform: translateX(-100%); transition: transform 0s; }
         .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(179,139,54,0.45); }
@@ -106,24 +70,60 @@
         .btn-icon { display: inline-block; margin-right: 6px; transition: transform 0.4s; }
         .submit-btn:not(:disabled):hover .btn-icon { transform: rotate(180deg); }
 
-        /* 专属的取消幽灵按钮 */
-        .cancel-btn {
-            background: transparent;
-            color: var(--text-muted); /* 默认灰色字体，降低存在感 */
-            border: 1px solid rgba(255, 255, 255, 0.15); /* 极弱的边框 */
-            padding: 6px 16px;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 13px;
-            transition: all 0.25s ease;
-        }
-        .cancel-btn:hover {
-            background: rgba(255, 255, 255, 0.05); /* 悬停时微微发亮 */
-            color: #FFFFFF; /* 悬停时字体变白 */
-            border-color: rgba(255, 255, 255, 0.3);
-        }
+        .cancel-btn { background: transparent; color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.15); padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.25s ease; }
+        .cancel-btn:hover { background: rgba(255, 255, 255, 0.05); color: #FFFFFF; border-color: rgba(255, 255, 255, 0.3); }
 
-        /* 加载动画 */
+        /* 八字系统专区 */
+        .bazi-section { margin-bottom: 24px; }
+        .bazi-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: var(--radius-item); border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.3s;}
+        .bazi-toggle:hover { background: rgba(179,139,54,0.05); }
+        .bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;}
+        .bz-select { display:block; width:44px; height:44px; border-radius:50%; margin:4px auto; background: rgba(179,139,54,0.15); border: 1px solid var(--gold-mid); color: #fff; text-align:center; font-size:16px; font-family: var(--font-serif); appearance:none; outline:none; text-align-last: center; }
+        .profile-delete-btn { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.3); border-radius: 8px; padding: 0 12px; cursor: pointer; transition: 0.2s; }
+        .profile-delete-btn:hover { background: #FF5E57; color: #fff; }
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--gold-mid); }
+        input:checked + .slider:before { transform: translateX(20px); background-color: #fff; }
+
+        .bazi-workspace { display: none; margin-top: 12px; animation: fadeInDown 0.4s ease; }
+        .profile-selector { display: flex; gap: 10px; margin-bottom: 12px; }
+        .profile-select { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--gold-mid); color: #fff; padding: 10px; border-radius: 8px; outline: none; font-size: 14px;}
+        .add-profile-btn { background: rgba(179,139,54,0.15); color: var(--gold-bright); border: 1px solid var(--gold-mid); padding: 0 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s;}
+        .add-profile-btn:hover { background: var(--gold-mid); color: #000; }
+        .bazi-table-wrap { background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px; overflow-x: auto; transition: opacity 0.3s; }
+        .bazi-table { width: 100%; border-collapse: collapse; text-align: center; }
+        .bazi-table th, .bazi-table td { padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .bazi-table th { color: var(--text-muted); font-weight: 500; font-size: 12px; }
+        .bazi-table tr:last-child td { border-bottom: none; }
+        .bz-star { font-size: 12px; color: var(--text-primary); }
+        .bz-char { font-size: 22px; font-weight: 600; font-family: "Noto Serif SC", "STSong", "Songti SC", "PingFang SC", sans-serif; }
+        .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; }
+        .profile-form { display: none; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border: 1px dashed var(--border-subtle); margin-bottom: 12px; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+        .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); color: white; }
+        
+        .info-icon { display: inline-flex; justify-content: center; align-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 11px; margin-left: 8px; cursor: pointer; transition: all 0.2s; font-family: Arial, sans-serif; opacity: 0.8; }
+        .info-icon:hover { border-color: var(--gold-bright); color: var(--gold-bright); opacity: 1; transform: scale(1.1); }
+        .bazi-info-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity 0.3s ease; }
+        .bazi-info-overlay.show { display: flex; opacity: 1; }
+        .bazi-info-card { background: var(--bg-card); border: 1px solid rgba(179,139,54,0.3); border-radius: var(--radius-card); padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.22,1,0.36,1); max-height: 80vh; overflow-y: auto; }
+        .bazi-info-overlay.show .bazi-info-card { transform: translateY(0) scale(1); }
+        .bazi-info-card::-webkit-scrollbar { width: 4px; }
+        .bazi-info-card::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
+        .bazi-info-title { font-size: 16px; color: var(--gold-bright); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; letter-spacing: 1px;}
+        .bazi-info-close { color: var(--text-muted); cursor: pointer; font-size: 24px; line-height: 1; transition: color 0.2s;}
+        .bazi-info-close:hover { color: #fff; }
+        .bazi-info-text { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+        .bazi-info-text h4 { color: var(--gold-mid); margin: 16px 0 8px; font-size: 14px; font-weight: 600;}
+        .bazi-info-text ul { padding-left: 20px; margin-bottom: 12px; }
+        .bazi-info-text li { margin-bottom: 8px; }
+        .bazi-info-text strong { color: #fff; font-weight: 500; }
+        .bazi-summary-box { color: var(--gold-bright); background: rgba(179,139,54,0.08); border: 1px solid rgba(179,139,54,0.2); padding: 12px 14px; border-radius: 10px; margin-top: 16px; font-size: 12.5px; }
+
+        /* 动画与卡片排版 */
         #loader { display: none; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0 30px; animation: fadeIn 0.5s ease; }
         .loader-bagua { position: relative; width: 60px; height: 60px; }
         .loader-bagua .lb-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; }
@@ -138,41 +138,31 @@
         .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
         .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
 
-        /* ═══════════════════════════════════════════
-           结果卡片排版
-        ═══════════════════════════════════════════ */
         .card { background: var(--bg-card); border-radius: var(--radius-card); border: 1px solid rgba(255,255,255,0.07); padding: 26px 20px; display: none; margin-bottom: 40px; box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(179,139,54,0.08); animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) both; position: relative; overflow: hidden; }
         .card::before { content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, var(--theme-color, #B38B36), transparent); opacity: 0.6; }
         .card::after { content: '☰'; position: absolute; bottom: -20px; right: -10px; font-size: 120px; color: rgba(255,255,255,0.02); pointer-events: none; font-family: serif; line-height: 1; }
-
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
         .title { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
         .score-badge { display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .score { background: var(--theme-color-dim, rgba(179,139,54,0.15)); color: var(--theme-color, #B38B36); padding: 5px 14px; border-radius: 20px; font-weight: 800; font-size: 20px; letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--theme-color, #B38B36) 30%, transparent); box-shadow: 0 0 16px var(--theme-color-dim, rgba(179,139,54,0.15)), 0 0 4px var(--theme-color-dim, rgba(179,139,54,0.1)) inset; animation: glowPulse 3s ease-in-out infinite; }
         .score-label { font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
-
         .conclusion { font-family: var(--font-serif); font-size: 26px; font-weight: 400; color: var(--theme-color, #E8CC80); margin-bottom: 8px; line-height: 1.3; letter-spacing: 1px; text-shadow: 0 0 30px color-mix(in srgb, var(--theme-color, #B38B36) 40%, transparent); }
         .keyword { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); padding: 4px 12px; border-radius: 20px; margin-bottom: 22px; letter-spacing: 0.5px; }
-
         .user-question { font-size: 14px; color: rgba(240,237,230,0.8); padding: 14px 16px; background: rgba(255,255,255,0.03); border-radius: var(--radius-item); border-left: 3px solid var(--theme-color, #B38B36); margin-bottom: 24px; font-style: italic; line-height: 1.7; position: relative; }
         .user-question::before { content: '"'; position: absolute; top: -8px; left: 10px; font-size: 40px; font-family: Georgia, serif; color: var(--theme-color, #B38B36); opacity: 0.3; line-height: 1; }
-
         .section-title { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; margin: 28px 0 14px; position: relative; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%); }
         .section-title .icon { font-size: 15px; opacity: 0.9; }
-
         .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .grid-item { background: var(--bg-item); border: 1px solid var(--border-subtle); padding: 14px; border-radius: var(--radius-item); transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s; position: relative; overflow: hidden; }
         .grid-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent); }
         .grid-item:hover { border-color: rgba(179,139,54,0.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
         .label { font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 7px; letter-spacing: 1.5px; text-transform: uppercase; }
         .value { font-size: 13px; font-weight: 400; color: #DDDDE5; line-height: 1.6; }
-
         .bazi-insight { grid-column: 1 / -1; background: linear-gradient(135deg, color-mix(in srgb, var(--theme-color, #B38B36) 8%, transparent), transparent); border-left: 2px solid var(--theme-color, #B38B36); }
         .bazi-insight .label { color: var(--theme-color, #B38B36); }
         .dynamic-timing { grid-column: 1 / -1; background: rgba(245,197,24,0.04); border-left: 2px solid #F5C518; }
         .dynamic-timing .label { color: #F5C518; }
-
         .score-basis { grid-column: 1 / -1; background: rgba(255,255,255,0.02); }
         .score-basis .label { color: var(--text-muted); }
         .score-basis-body { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
@@ -184,16 +174,13 @@
         .sb-tag.positive { background: rgba(0,210,106,0.1); color: #00D26A; border: 1px solid rgba(0,210,106,0.2); }
         .sb-tag.negative { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.2); }
         .sb-logic { font-size: 12px; color: #9090A0; line-height: 1.7; padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 2px solid var(--theme-color, #B38B36); }
-
         .strategy-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
         .strategy-list li { position: relative; padding: 12px 14px 12px 36px; background: var(--bg-item); border: 1px solid var(--border-subtle); border-radius: 10px; color: #CCCCD8; font-size: 13.5px; line-height: 1.65; transition: border-color 0.25s, background 0.25s; }
         .strategy-list li:hover { border-color: rgba(179,139,54,0.2); background: rgba(179,139,54,0.04); }
         .strategy-list li::before { content: "✦"; position: absolute; left: 14px; top: 13px; color: var(--theme-color, #B38B36); font-size: 11px; }
-
         .risk-alert { background: rgba(255,94,87,0.06); border: 1px solid rgba(255,94,87,0.15); border-left: 3px solid #FF5E57; border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
         .risk-alert-title { color: #FF5E57; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .risk-alert-content { color: #D0D0D8; font-size: 13px; line-height: 1.65; }
-
         .footer { display: flex; gap: 8px; background: linear-gradient(135deg, rgba(179,139,54,0.1), rgba(179,139,54,0.05)); border: 1px solid rgba(179,139,54,0.2); padding: 16px 12px; border-radius: 16px; margin-top: 28px; }
         .f-item { flex: 1; text-align: center; padding: 4px 0; border-right: 1px solid rgba(255,255,255,0.04); }
         .f-item:last-child { border-right: none; }
@@ -201,18 +188,15 @@
         .f-item:nth-child(2) .f-icon { animation-delay: 0.5s; }
         .f-item:nth-child(3) .f-icon { animation-delay: 1s; }
         .f-text { font-size: 12px; font-weight: 600; color: var(--theme-color, #E8CC80); letter-spacing: 0.5px; }
-
         .pan-wrapper { background: rgba(0,0,0,0.3); border: 1px solid rgba(179,139,54,0.15); border-radius: 16px; padding: 16px; position: relative; overflow: hidden; }
         .pan-wrapper::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(179,139,54,0.04) 0%, transparent 70%); pointer-events: none; }
         .pan-header { text-align: center; margin-bottom: 14px; }
         .pan-pillars { font-family: var(--font-serif); font-size: 17px; font-weight: 400; color: #FFF; letter-spacing: 3px; margin-bottom: 6px; }
         .pan-info { font-size: 11px; color: #888; line-height: 1.7; }
         .pan-info b { color: var(--theme-color, #B38B36); font-weight: 600; }
-
         .pan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.04); }
         .pan-cell { background: var(--bg-card); aspect-ratio: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background 0.2s; }
         .pan-cell:hover { background: rgba(255,255,255,0.03); }
-
         .pan-center-earth { font-size: 32px; font-weight: 900; color: var(--text-dim); }
         .pan-god { position: absolute; top: 6px; font-size: 9px; color: #666; letter-spacing: 1px; }
         .pan-star { font-size: 12px; color: #CCC; margin-bottom: 2px; z-index: 2; }
@@ -227,11 +211,9 @@
         .mark-ma { background: var(--theme-color, #B38B36); color: #000; }
         .mark-kong { border: 1px solid #555; color: #888; background: rgba(0,0,0,0.4); }
         .highlight-text { color: var(--theme-color, #E8CC80) !important; text-shadow: 0 0 12px color-mix(in srgb, var(--theme-color, #B38B36) 50%, transparent); }
-
         .ornament-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; opacity: 0.3; }
         .ornament-divider::before, .ornament-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(179,139,54,0.5), transparent); }
         .ornament-divider span { font-size: 10px; color: var(--gold-mid); }
-
         .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
         .reveal.visible { opacity: 1; transform: none; }
 
@@ -243,102 +225,6 @@
         @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 12px var(--theme-color-dim, rgba(179,139,54,0.15)); } 50% { box-shadow: 0 0 24px var(--theme-color-dim, rgba(179,139,54,0.3)), 0 0 8px var(--theme-color-dim, rgba(179,139,54,0.1)) inset; } }
         @keyframes dotPulse { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
         @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-        /* ═══════════════════════════════════════════
-           八字档案与排盘 UI
-        ═══════════════════════════════════════════ */
-        .bazi-section { margin-bottom: 24px; }
-        .bazi-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: var(--radius-item); border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.3s;}
-        .bazi-toggle:hover { background: rgba(179,139,54,0.05); }
-        .bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;}
-        .bz-select { 
-            display:block; width:44px; height:44px; border-radius:50%; margin:4px auto; 
-            background: rgba(179,139,54,0.15); border: 1px solid var(--gold-mid); color: #fff; 
-            text-align:center; font-size:16px; font-family: var(--font-serif); appearance:none; outline:none; 
-            text-align-last: center; /* 让文字在 select 中居中 */
-        }
-        .profile-delete-btn {
-            background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.3);
-            border-radius: 8px; padding: 0 12px; cursor: pointer; transition: 0.2s;
-        }
-        .profile-delete-btn:hover { background: #FF5E57; color: #fff; }
-        
-        /* 拟态开关 */
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--gold-mid); }
-        input:checked + .slider:before { transform: translateX(20px); background-color: #fff; }
-
-        /* 档案选择与添加区 */
-        .bazi-workspace { display: none; margin-top: 12px; animation: fadeInDown 0.4s ease; }
-        .profile-selector { display: flex; gap: 10px; margin-bottom: 12px; }
-        .profile-select { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--gold-mid); color: #fff; padding: 10px; border-radius: 8px; outline: none; font-size: 14px;}
-        .add-profile-btn { background: rgba(179,139,54,0.15); color: var(--gold-bright); border: 1px solid var(--gold-mid); padding: 0 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s;}
-        .add-profile-btn:hover { background: var(--gold-mid); color: #000; }
-
-        /* 八字排盘表格 (深度还原图4) */
-        .bazi-table-wrap { background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px; overflow-x: auto; }
-        .bazi-table { width: 100%; border-collapse: collapse; text-align: center; }
-        .bazi-table th, .bazi-table td { padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-        .bazi-table th { color: var(--text-muted); font-weight: 500; font-size: 12px; }
-        .bazi-table tr:last-child td { border-bottom: none; }
-        .bz-star { font-size: 12px; color: var(--text-primary); }
-        .bz-char { font-size: 22px; font-weight: 600; font-family: "Noto Serif SC", "STSong", "Songti SC", "PingFang SC", sans-serif; }
-        /* 五行色 (基于暗金主题微调，避免太刺眼) */
-        .wx-jin { color: #E8CC80; } /* 金 */
-        .wx-mu { color: #81C784; }  /* 木 */
-        .wx-shui { color: #64B5F6; } /* 水 */
-        .wx-huo { color: #E57373; }  /* 火 */
-        .wx-tu { color: #DCE775; }   /* 土 */
-
-        /* 新增档案的弹窗表单 */
-        .profile-form { display: none; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border: 1px dashed var(--border-subtle); margin-bottom: 12px; }
-        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
-        .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); color: white; }
-        /* ═══════════════════════════════════════════
-           问号图标与八字说明浮层
-        ═══════════════════════════════════════════ */
-        .info-icon {
-            display: inline-flex; justify-content: center; align-items: center;
-            width: 16px; height: 16px; border-radius: 50%;
-            border: 1px solid var(--text-muted); color: var(--text-muted);
-            font-size: 11px; margin-left: 8px; cursor: pointer; transition: all 0.2s;
-            font-family: Arial, sans-serif; opacity: 0.8;
-        }
-        .info-icon:hover { border-color: var(--gold-bright); color: var(--gold-bright); opacity: 1; transform: scale(1.1); }
-
-        .bazi-info-overlay {
-            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-            z-index: 9999; display: none; align-items: center; justify-content: center;
-            padding: 20px; opacity: 0; transition: opacity 0.3s ease;
-        }
-        .bazi-info-overlay.show { display: flex; opacity: 1; }
-        
-        .bazi-info-card {
-            background: var(--bg-card); border: 1px solid rgba(179,139,54,0.3);
-            border-radius: var(--radius-card); padding: 24px; max-width: 420px;
-            width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8);
-            transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
-            max-height: 80vh; overflow-y: auto;
-        }
-        .bazi-info-overlay.show .bazi-info-card { transform: translateY(0) scale(1); }
-        
-        .bazi-info-card::-webkit-scrollbar { width: 4px; }
-        .bazi-info-card::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
-
-        .bazi-info-title { font-size: 16px; color: var(--gold-bright); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; letter-spacing: 1px;}
-        .bazi-info-close { color: var(--text-muted); cursor: pointer; font-size: 24px; line-height: 1; transition: color 0.2s;}
-        .bazi-info-close:hover { color: #fff; }
-        
-        .bazi-info-text { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
-        .bazi-info-text h4 { color: var(--gold-mid); margin: 16px 0 8px; font-size: 14px; font-weight: 600;}
-        .bazi-info-text ul { padding-left: 20px; margin-bottom: 12px; }
-        .bazi-info-text li { margin-bottom: 8px; }
-        .bazi-info-text strong { color: #fff; font-weight: 500; }
-        .bazi-summary-box { color: var(--gold-bright); background: rgba(179,139,54,0.08); border: 1px solid rgba(179,139,54,0.2); padding: 12px 14px; border-radius: 10px; margin-top: 16px; font-size: 12.5px; }
-        
         @media (max-width: 400px) { .header-title { font-size: 24px; letter-spacing: 4px; } .conclusion { font-size: 22px; } }
     </style>
 </head>
@@ -346,220 +232,258 @@
 
 <canvas id="cosmosCanvas"></canvas>
 <div class="page-wrap">
-<div class="container">
+    <div class="container">
 
-    <div class="header-section">
-        <div class="bagua-ring" id="baguaRing">
-            <div class="ring-outer"></div>
-            <div class="ring-inner"></div>
-            <div class="trigrams" id="trigramRing"></div>
-            <div class="center-eye">☯</div>
-        </div>
-        <h1 class="header-title">奇门遁甲推演</h1>
-        <p class="header-sub">AI · 天机 · 决策引擎</p>
-        
-        <div id="userGreeting" class="user-greeting" style="display:none;">
-            <span id="userEmailTxt"></span>
-            <button class="logout-btn" onclick="handleSignOut()">退出登录</button>
-        </div>
-    </div>
-
-    <div id="authSection" class="input-box">
-        <div>
-            <div class="field-label" id="authTitleLabel">身份认证 (登录)</div>
-            <input type="email" id="emailInput" placeholder="请输入邮箱地址" />
-        </div>
-        <div>
-            <input type="password" id="passwordInput" placeholder="请输入密码 (至少6位)" />
-        </div>
-        <button class="submit-btn" id="authBtn" onclick="handleAuth()">
-            <span class="btn-icon">🔑</span><span id="authBtnText">登 录</span>
-        </button>
-        <div class="auth-switch" onclick="toggleAuthMode()">
-            没有账号？ <span>点击注册</span>
-        </div>
-    </div>
-
-    <div id="appSection" style="display: none;">
-        
-        <div class="input-box bazi-section">
-            <label class="bazi-toggle">
-                <div class="bazi-toggle-text">
-                    <span>🧬</span> 注入命主八字分析 
-                    <span class="info-icon" onclick="showBaziInfo(event)">?</span>
-                </div>
-                <div class="switch">
-                    <input type="checkbox" id="baziSwitch" onchange="toggleBaziWorkspace()">
-                    <span class="slider"></span>
-                </div>
-            </label>
-
-            <div id="baziWorkspace" class="bazi-workspace">
-                <div class="profile-selector">
-                    <select id="profileSelect" class="profile-select" onchange="handleProfileSelect()">
-                        <option value="">加载档案中...</option>
-                    </select>
-                    <button class="add-profile-btn" onclick="showAddProfileForm()">+ 新增</button>
-                </div>
-
-                <div id="profileForm" class="profile-form">
-                    <div class="form-row">
-                        <input type="text" id="pName" placeholder="命主姓名 (如: 张总)">
-                        <select id="pGender">
-                            <option value="M">男 (乾造)</option>
-                            <option value="F">女 (坤造)</option>
-                        </select>
-                    </div>
-                    
-                    <div class="input-tabs" style="display:flex; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                        <div id="tabDate" class="input-tab active" onclick="switchInputMode('date')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);">公历输入</div>
-                        <div id="tabBazi" class="input-tab" onclick="switchInputMode('bazi')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);">四柱直排</div>
-                    </div>
-
-                    <div id="modeDate" class="form-row">
-                        <input type="datetime-local" id="pBirth" style="color-scheme: dark;">
-                    </div>
-
-                    <div id="modeBazi" style="display:none; text-align:center;">
-                        <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;">
-                            <div class="pillar-group">
-                                <div style="font-size:10px; color:#888; margin-bottom:4px;">年柱</div>
-                                <select id="bzYg" class="bz-select" onchange="autoLinkMonth()"></select>
-                                <select id="bzYz" class="bz-select" onchange="autoLinkMonth()"></select>
-                            </div>
-                            <div class="pillar-group">
-                                <div style="font-size:10px; color:#888; margin-bottom:4px;">月柱</div>
-                                <select id="bzMg" class="bz-select" disabled style="opacity:0.6;"></select>
-                                <select id="bzMz" class="bz-select" onchange="autoLinkMonth()"></select>
-                            </div>
-                            <div class="pillar-group">
-                                <div style="font-size:10px; color:#888; margin-bottom:4px;">日柱</div>
-                                <select id="bzDg" class="bz-select" onchange="autoLinkTime()"></select>
-                                <select id="bzDz" class="bz-select" onchange="autoLinkTime()"></select>
-                            </div>
-                            <div class="pillar-group">
-                                <div style="font-size:10px; color:#888; margin-bottom:4px;">时柱</div>
-                                <select id="bzTg" class="bz-select" disabled style="opacity:0.6;"></select>
-                                <select id="bzTz" class="bz-select" onchange="autoLinkTime()"></select>
-                            </div>
-                        </div>
-                        <div style="font-size:10px; color:#E57373;">* 严格遵守五虎遁与五鼠遁，月干与时干将自动锁定计算</div>
-                    </div>
-
-                    <div style="display:flex; justify-content:flex-end; gap:8px;">
-                        <button class="cancel-btn" onclick="hideAddProfileForm()">取消</button>
-                        <button class="add-profile-btn" style="padding:6px 12px;" onclick="saveNewProfile()">保存并排盘</button>
-                    </div>
-                </div>
-
-                <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
-                    <table class="bazi-table" id="baziTable">
-                        </table>
-                    
-                <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
-                    <table class="bazi-table" id="baziTable">
-                        </table>
-                </div>
-
-                <div id="baziConfirmSection" style="text-align: right; margin-top: 14px; display: none;">
-                    <button class="submit-btn" style="padding: 10px 24px; font-size: 14px; letter-spacing: 2px;" onclick="confirmBazi()">确 定</button>
-                </div>
-
-                <div id="baziResultSection" style="display: none; margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(179,139,54,0.2);">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                        <span style="font-size: 13px; color: var(--gold-mid); font-weight: 600;">✨ 命理基底已锁定</span>
-                        <button class="cancel-btn" style="padding: 4px 12px; font-size: 12px;" onclick="modifyBazi()">修改</button>
-                    </div>
-                    <div id="baziLoading" style="display: none; font-size: 12px; color: var(--gold-mid); padding: 10px 0;">
-                        <span class="loader-dots"><span></span><span></span><span></span></span> 正在后台静默排定大运流年与原局断语...
-                    </div>
-                    <div id="baziError" style="display: none; font-size: 12px; color: #FF5E57; padding: 10px 0;">
-                        推演超时或失败。 <span style="text-decoration: underline; cursor: pointer; color: var(--gold-mid);" onclick="confirmBazi()">点击重试</span>
-                    </div>
-                    <div id="baziAiText" style="font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; opacity: 0.85; display: none;"></div>
-                </div>
-                ```
-
----
-
-### 第三步：升级前端 JS 逻辑 (加入大运算法与状态锁)
-
-请在 `<script>` 标签内，替换和新增以下 JS 代码片段以实现前端逻辑。
-
-**1. 在全局变量区域增加这三个变量：**
-```javascript
-let baziConfirmed = false; // 是否已点击确认
-let isBaziLoading = false; // 是否正在静默获取断语
-let frontBaziCache = {};   // 前端双重缓存
+        <div class="header-section">
+            <div class="bagua-ring" id="baguaRing">
+                <div class="ring-outer"></div>
+                <div class="ring-inner"></div>
+                <div class="trigrams" id="trigramRing"></div>
+                <div class="center-eye">☯</div>
+            </div>
+            <h1 class="header-title">奇门遁甲推演</h1>
+            <p class="header-sub">AI · 天机 · 决策引擎</p>
+            
+            <div id="userGreeting" class="user-greeting" style="display:none;">
+                <span id="userEmailTxt"></span>
+                <button class="logout-btn" onclick="handleSignOut()">退出登录</button>
             </div>
         </div>
-        <div class="input-box">
+
+        <div id="authSection" class="input-box">
             <div>
-                <div class="field-label">心中所问</div>
-                <textarea id="questionInput" placeholder="在心中默念您的问题，例如：&#10;明天的大客户谈判能顺利拿下吗？"></textarea>
+                <div class="field-label" id="authTitleLabel">身份认证 (登录)</div>
+                <input type="email" id="emailInput" placeholder="请输入邮箱地址" />
             </div>
-            <button class="submit-btn" id="submitBtn" onclick="startDivination()">
-                <span class="btn-icon">☯</span>洞察天机
+            <div>
+                <input type="password" id="passwordInput" placeholder="请输入密码 (至少6位)" />
+            </div>
+            <button class="submit-btn" id="authBtn" onclick="handleAuth()">
+                <span class="btn-icon">🔑</span><span id="authBtnText">登 录</span>
             </button>
-        </div>
-
-        <div id="historyPanel" class="input-box" style="display:none;">
-            <div class="field-label" style="margin-bottom: 8px;">🕒 我的推演记录</div>
-            <div id="historyList" class="history-list"></div>
-        </div>
-
-        <div id="loader">
-            <div class="loader-bagua">
-                <div class="lb-ring lb-ring-1"></div>
-                <div class="lb-ring lb-ring-2"></div>
-                <div class="lb-ring lb-ring-3"></div>
-                <div class="lb-center">☰</div>
-            </div>
-            <div class="loader-steps">
-                <div class="loader-text" id="loaderText">正在推演时空局象...</div>
-                <div class="loader-dots"><span></span><span></span><span></span></div>
+            <div class="auth-switch" onclick="toggleAuthMode()">
+                没有账号？ <span>点击注册</span>
             </div>
         </div>
 
-        <div id="resultContainer"></div>
-        
-    </div> </div>
+        <div id="appSection" style="display: none;">
+            
+            <div class="input-box bazi-section">
+                <label class="bazi-toggle">
+                    <div class="bazi-toggle-text">
+                        <span>🧬</span> 注入命主八字分析 
+                        <span class="info-icon" onclick="showBaziInfo(event)">?</span>
+                    </div>
+                    <div class="switch">
+                        <input type="checkbox" id="baziSwitch" onchange="toggleBaziWorkspace()">
+                        <span class="slider"></span>
+                    </div>
+                </label>
+
+                <div id="baziWorkspace" class="bazi-workspace">
+                    <div class="profile-selector">
+                        <select id="profileSelect" class="profile-select" onchange="handleProfileSelect()">
+                            <option value="">加载档案中...</option>
+                        </select>
+                        <button class="add-profile-btn" onclick="showAddProfileForm()">+ 新增</button>
+                    </div>
+
+                    <div id="profileForm" class="profile-form">
+                        <div class="form-row">
+                            <input type="text" id="pName" placeholder="命主姓名 (如: 张总)">
+                            <select id="pGender">
+                                <option value="M">男 (乾造)</option>
+                                <option value="F">女 (坤造)</option>
+                            </select>
+                        </div>
+                        
+                        <div class="input-tabs" style="display:flex; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                            <div id="tabDate" class="input-tab active" onclick="switchInputMode('date')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);">公历输入</div>
+                            <div id="tabBazi" class="input-tab" onclick="switchInputMode('bazi')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);">四柱直排</div>
+                        </div>
+
+                        <div id="modeDate" class="form-row">
+                            <input type="datetime-local" id="pBirth" style="color-scheme: dark;">
+                        </div>
+
+                        <div id="modeBazi" style="display:none; text-align:center;">
+                            <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;">
+                                <div class="pillar-group">
+                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">年柱</div>
+                                    <select id="bzYg" class="bz-select" onchange="autoLinkMonth()"></select>
+                                    <select id="bzYz" class="bz-select" onchange="autoLinkMonth()"></select>
+                                </div>
+                                <div class="pillar-group">
+                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">月柱</div>
+                                    <select id="bzMg" class="bz-select" disabled style="opacity:0.6;"></select>
+                                    <select id="bzMz" class="bz-select" onchange="autoLinkMonth()"></select>
+                                </div>
+                                <div class="pillar-group">
+                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">日柱</div>
+                                    <select id="bzDg" class="bz-select" onchange="autoLinkTime()"></select>
+                                    <select id="bzDz" class="bz-select" onchange="autoLinkTime()"></select>
+                                </div>
+                                <div class="pillar-group">
+                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">时柱</div>
+                                    <select id="bzTg" class="bz-select" disabled style="opacity:0.6;"></select>
+                                    <select id="bzTz" class="bz-select" onchange="autoLinkTime()"></select>
+                                </div>
+                            </div>
+                            <div style="font-size:10px; color:#E57373;">* 严格遵守五虎遁与五鼠遁，月干与时干将自动锁定计算</div>
+                        </div>
+
+                        <div style="display:flex; justify-content:flex-end; gap:8px;">
+                            <button class="cancel-btn" onclick="hideAddProfileForm()">取消</button>
+                            <button class="add-profile-btn" style="padding:6px 12px;" onclick="saveNewProfile()">保存并排盘</button>
+                        </div>
+                    </div>
+
+                    <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
+                        <table class="bazi-table" id="baziTable"></table>
+                    </div>
+
+                    <div id="baziConfirmSection" style="text-align: right; margin-top: 14px; display: none;">
+                        <button class="submit-btn" style="padding: 10px 24px; font-size: 14px; letter-spacing: 2px;" onclick="confirmBazi()">确 定</button>
+                    </div>
+
+                    <div id="baziResultSection" style="display: none; margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(179,139,54,0.2);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 13px; color: var(--gold-mid); font-weight: 600;">✨ 命理基底已锁定</span>
+                            <button class="cancel-btn" style="padding: 4px 12px; font-size: 12px;" onclick="modifyBazi()">修改</button>
+                        </div>
+                        <div id="baziLoading" style="display: none; font-size: 12px; color: var(--gold-mid); padding: 10px 0;">
+                            <span class="loader-dots"><span></span><span></span><span></span></span> 正在后台静默排定大运流年与原局断语...
+                        </div>
+                        <div id="baziError" style="display: none; font-size: 12px; color: #FF5E57; padding: 10px 0;">
+                            推演超时或失败。 <span style="text-decoration: underline; cursor: pointer; color: var(--gold-mid);" onclick="confirmBazi()">点击重试</span>
+                        </div>
+                        <div id="baziAiText" style="font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; opacity: 0.85; display: none;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="input-box">
+                <div>
+                    <div class="field-label">心中所问</div>
+                    <textarea id="questionInput" placeholder="在心中默念您的问题，例如：&#10;明天的大客户谈判能顺利拿下吗？"></textarea>
+                </div>
+                <button class="submit-btn" id="submitBtn" onclick="startDivination()">
+                    <span class="btn-icon">☯</span>洞察天机
+                </button>
+            </div>
+
+            <div id="historyPanel" class="input-box" style="display:none;">
+                <div class="field-label" style="margin-bottom: 8px;">🕒 我的推演记录</div>
+                <div id="historyList" class="history-list"></div>
+            </div>
+
+            <div id="loader">
+                <div class="loader-bagua">
+                    <div class="lb-ring lb-ring-1"></div>
+                    <div class="lb-ring lb-ring-2"></div>
+                    <div class="lb-ring lb-ring-3"></div>
+                    <div class="lb-center">☰</div>
+                </div>
+                <div class="loader-steps">
+                    <div class="loader-text" id="loaderText">正在推演时空局象...</div>
+                    <div class="loader-dots"><span></span><span></span><span></span></div>
+                </div>
+            </div>
+
+            <div id="resultContainer"></div>
+
+        </div> 
+    </div>
+</div>
+
+<div id="baziInfoModal" class="bazi-info-overlay" onclick="hideBaziInfo(event)">
+    <div class="bazi-info-card" onclick="event.stopPropagation()">
+        <div class="bazi-info-title">
+            <span>何时需要注入八字？</span>
+            <span class="bazi-info-close" onclick="hideBaziInfo(event)">&times;</span>
+        </div>
+        <div class="bazi-info-text">
+            <h4>一、标准解卦：无需八字 ❌</h4>
+            <p>单纯预测<strong>具体事件走向</strong>（如今日出行、近期合同、求财结果等），奇门局本身已足够，不强制需要八字。</p>
+            
+            <h4>二、深度解卦：需要八字 ✅</h4>
+            <ul>
+                <li><strong>判断个人旺衰：</strong>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
+                <li><strong>流年大运配合：</strong>预测中长期运势，结合八字大运判断具体年份变化。</li>
+                <li><strong>六亲宫位对应：</strong>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
+                <li><strong>格局取用验证：</strong>验证高阶格局是否与命主五行"合用"。</li>
+                <li><strong>精准应期定位：</strong>两套体系交接点吻合，应验概率更高。</li>
+            </ul>
+
+            <div class="bazi-summary-box">
+                💡 <strong>一句话总结：</strong><br>
+                事不离人，凡涉及<strong>"这个人能不能成事"</strong>，而非单纯"这件事本身的走向"，引入八字能让两套体系互为印证，准确率大幅提升！
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
 /* ═══════════════════════════════════════════════
-   全局单例与核心配置
+   1. 全局配置与状态变量 (请勿遗漏)
 ═══════════════════════════════════════════════ */
-// ⚠️ 必填：请在此处填入你在 Supabase 获取的 URL 和 ANON_KEY
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7';
-
-// 创建唯一的 Supabase 客户端实例，避免命名冲突
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 const API_URL = "/api/qimen"; 
 
 let isLoginMode = true;
 let currentUser = null;
 
-// 全局唯一的加载文案配置
 const LOADER_MESSAGES = ['正在接通云端超算矩阵...', '推演时空坐标与节气数据...', '计算奇门九宫落盘...', '分析值符、值使与神助...', '生成决策指引与应期推演...'];
 let _loaderMsgIdx = 0;
 let _loaderInterval = null;
 
+// 八字系统的状态开关 (前几版丢失的就是它们)
+let baziConfirmed = false;
+let isBaziLoading = false;
+let frontBaziCache = {};
+let baziProfiles = [];
+let currentBaziString = "";
+let currentInputMode = 'date'; 
+
+const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
+const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("");
+
+const WX_MAP = {
+    '甲':'wx-mu', '乙':'wx-mu', '寅':'wx-mu', '卯':'wx-mu',
+    '丙':'wx-huo', '丁':'wx-huo', '巳':'wx-huo', '午':'wx-huo',
+    '戊':'wx-tu', '己':'wx-tu', '辰':'wx-tu', '戌':'wx-tu', '丑':'wx-tu', '未':'wx-tu',
+    '庚':'wx-jin', '辛':'wx-jin', '申':'wx-jin', '酉':'wx-jin',
+    '壬':'wx-shui', '癸':'wx-shui', '亥':'wx-shui', '子':'wx-shui'
+};
+
+const SHI_SHEN_MAP = {
+    '甲': {'甲':'比肩','乙':'劫财','丙':'食神','丁':'伤官','戊':'偏财','己':'正财','庚':'七杀','辛':'正官','壬':'偏印','癸':'正印'},
+    '乙': {'甲':'劫财','乙':'比肩','丙':'伤官','丁':'食神','戊':'正财','己':'偏财','庚':'正官','辛':'七杀','壬':'正印','癸':'偏印'},
+    '丙': {'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫财','戊':'食神','己':'伤官','庚':'偏财','辛':'正财','壬':'七杀','癸':'正官'},
+    '丁': {'甲':'正印','乙':'偏印','丙':'劫财','丁':'比肩','戊':'伤官','己':'食神','庚':'正财','辛':'偏财','壬':'正官','癸':'七杀'},
+    '戊': {'甲':'七杀','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫财','庚':'食神','辛':'伤官','壬':'偏财','癸':'正财'},
+    '己': {'甲':'正官','乙':'七杀','丙':'正印','丁':'偏印','戊':'劫财','己':'比肩','庚':'伤官','辛':'食神','壬':'正财','癸':'偏财'},
+    '庚': {'甲':'偏财','乙':'正财','丙':'七杀','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫财','壬':'食神','癸':'伤官'},
+    '辛': {'甲':'正财','乙':'偏财','丙':'正官','丁':'七杀','戊':'正印','己':'偏印','庚':'劫财','辛':'比肩','壬':'伤官','癸':'食神'},
+    '壬': {'甲':'食神','乙':'伤官','丙':'偏财','丁':'正财','戊':'七杀','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫财'},
+    '癸': {'甲':'伤官','乙':'食神','丙':'正财','丁':'偏财','戊':'正官','己':'七杀','庚':'正印','辛':'偏印','壬':'劫财','癸':'比肩'}
+};
+
 /* ═══════════════════════════════════════════════
-   初始化与状态监听
+   2. 页面加载与认证
 ═══════════════════════════════════════════════ */
 window.onload = async () => {
     try {
         const { data: { session }, error } = await _supabase.auth.getSession();
         if (error) throw error;
-        
         updateUIForSession(session);
         _supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
     } catch (error) {
         console.error("Supabase 初始化失败:", error);
         updateUIForSession(null); 
-        alert("数据库连接失败 ❌\n请检查代码第 423 行的 SUPABASE_URL 和 ANON_KEY 是否正确！\n报错: " + error.message);
+        alert("数据库连接失败，请检查密钥是否填写正确！\n报错: " + error.message);
     }
 };
 
@@ -584,9 +508,6 @@ function updateUIForSession(session) {
     }
 }
 
-/* ═══════════════════════════════════════════════
-   账号认证逻辑
-═══════════════════════════════════════════════ */
 function toggleAuthMode() {
     isLoginMode = !isLoginMode;
     document.getElementById('authTitleLabel').innerText = isLoginMode ? '身份认证 (登录)' : '创建账号 (注册)';
@@ -618,11 +539,10 @@ async function handleAuth() {
         btn.disabled = false; btnText.innerText = isLoginMode ? '登 录' : '注 册';
     }
 }
-
 async function handleSignOut() { await _supabase.auth.signOut(); }
 
 /* ═══════════════════════════════════════════════
-   业务核心: 推演与历史记录
+   3. 奇门推演核心
 ═══════════════════════════════════════════════ */
 async function startDivination() {
     const input = document.getElementById("questionInput").value.trim();
@@ -630,6 +550,7 @@ async function startDivination() {
     const loader = document.getElementById("loader");
     const rc = document.getElementById("resultContainer");
     
+    // 拦截器：如果开启了八字但未锁定完成，则不允许起局
     if (document.getElementById('baziSwitch').checked) {
         if (!baziConfirmed) return alert("✋ 请先点击「确定」锁定命主档案！");
         if (isBaziLoading) return alert("⏳ 八字断语正在后台推演中，请耐心等待出现结果后再洞察天机！");
@@ -642,8 +563,8 @@ async function startDivination() {
     rc.innerHTML = ""; loader.style.display = "flex"; startLoaderCycle();
 
     try {
-
         const requestBody = { question: input };
+        // 关键数据传输点：带上准备好的八字数据
         if (document.getElementById('baziSwitch').checked && currentBaziString) {
             requestBody.baziInfo = currentBaziString;
         }
@@ -657,7 +578,6 @@ async function startDivination() {
         if (data.error) throw new Error(data.details || data.error);
 
         await saveRecordToDatabase(input, data);
-
         rc.innerHTML = buildCardHTML(data);
         animateScore(data.summary?.score || 0);
         setTimeout(() => {
@@ -695,15 +615,12 @@ async function loadHistory() {
     if (error || !data || data.length === 0) {
         historyPanel.style.display = 'none'; return;
     }
-
     historyPanel.style.display = 'flex';
     historyList.innerHTML = '';
-
     data.forEach(record => {
         const dateObj = new Date(record.created_at);
         const dateStr = `${dateObj.getMonth()+1}月${dateObj.getDate()}日 ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
         const title = record.qimen_data?.summary?.title || "未知预测";
-
         const item = document.createElement('div');
         item.className = 'history-item';
         item.innerHTML = `<div class="hi-title">${title} - ${record.question}</div><div class="hi-date">${dateStr}</div>`;
@@ -717,63 +634,22 @@ async function loadHistory() {
     });
 }
 
-    /* ═══════════════════════════════════════════════
-   八字排盘与档案系统 (Lunar JS)
+/* ═══════════════════════════════════════════════
+   4. 八字界面与大运逻辑
 ═══════════════════════════════════════════════ */
-let baziProfiles = [];
-let currentBaziString = ""; // 存给 AI 的纯文本八字
-
-// 简单的五行颜色判断映射
-const WX_MAP = {
-    '甲':'wx-mu', '乙':'wx-mu', '寅':'wx-mu', '卯':'wx-mu',
-    '丙':'wx-huo', '丁':'wx-huo', '巳':'wx-huo', '午':'wx-huo',
-    '戊':'wx-tu', '己':'wx-tu', '辰':'wx-tu', '戌':'wx-tu', '丑':'wx-tu', '未':'wx-tu',
-    '庚':'wx-jin', '辛':'wx-jin', '申':'wx-jin', '酉':'wx-jin',
-    '壬':'wx-shui', '癸':'wx-shui', '亥':'wx-shui', '子':'wx-shui'
-};
-
-// 十神生克速查表 (Key1: 日干, Key2: 其他天干)
-const SHI_SHEN_MAP = {
-    '甲': {'甲':'比肩','乙':'劫财','丙':'食神','丁':'伤官','戊':'偏财','己':'正财','庚':'七杀','辛':'正官','壬':'偏印','癸':'正印'},
-    '乙': {'甲':'劫财','乙':'比肩','丙':'伤官','丁':'食神','戊':'正财','己':'偏财','庚':'正官','辛':'七杀','壬':'正印','癸':'偏印'},
-    '丙': {'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫财','戊':'食神','己':'伤官','庚':'偏财','辛':'正财','壬':'七杀','癸':'正官'},
-    '丁': {'甲':'正印','乙':'偏印','丙':'劫财','丁':'比肩','戊':'伤官','己':'食神','庚':'正财','辛':'偏财','壬':'正官','癸':'七杀'},
-    '戊': {'甲':'七杀','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫财','庚':'食神','辛':'伤官','壬':'偏财','癸':'正财'},
-    '己': {'甲':'正官','乙':'七杀','丙':'正印','丁':'偏印','戊':'劫财','己':'比肩','庚':'伤官','辛':'食神','壬':'正财','癸':'偏财'},
-    '庚': {'甲':'偏财','乙':'正财','丙':'七杀','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫财','壬':'食神','癸':'伤官'},
-    '辛': {'甲':'正财','乙':'偏财','丙':'正官','丁':'七杀','戊':'正印','己':'偏印','庚':'劫财','辛':'比肩','壬':'伤官','癸':'食神'},
-    '壬': {'甲':'食神','乙':'伤官','丙':'偏财','丁':'正财','戊':'七杀','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫财'},
-    '癸': {'甲':'伤官','乙':'食神','丙':'正财','丁':'偏财','戊':'正官','己':'七杀','庚':'正印','辛':'偏印','壬':'劫财','癸':'比肩'}
-};
-    
 function toggleBaziWorkspace() {
     const ws = document.getElementById('baziWorkspace');
     const isOn = document.getElementById('baziSwitch').checked;
     ws.style.display = isOn ? 'block' : 'none';
     if (isOn && baziProfiles.length === 0) fetchBaziProfiles();
-    if (!isOn) currentBaziString = ""; // 关闭时清空
+    if (!isOn) currentBaziString = ""; 
 }
 
+function showBaziInfo(e) { e.preventDefault(); e.stopPropagation(); document.getElementById('baziInfoModal').classList.add('show'); }
+function hideBaziInfo(e) { if (e) e.preventDefault(); document.getElementById('baziInfoModal').classList.remove('show'); }
 function showAddProfileForm() { document.getElementById('profileForm').style.display = 'block'; }
 function hideAddProfileForm() { document.getElementById('profileForm').style.display = 'none'; }
 
-let currentInputMode = 'date'; // 'date' 或 'bazi'
-const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
-const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("");
-
-// 控制八字说明浮层的显示与隐藏
-function showBaziInfo(e) {
-    e.preventDefault(); 
-    e.stopPropagation(); // 阻止冒泡，防止触发外层的 checkbox 切换
-    document.getElementById('baziInfoModal').classList.add('show');
-}
-
-function hideBaziInfo(e) {
-    if (e) e.preventDefault();
-    document.getElementById('baziInfoModal').classList.remove('show');
-}
-    
-// 切换输入模式
 function switchInputMode(mode) {
     currentInputMode = mode;
     document.getElementById('tabDate').style = mode === 'date' ? "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);" : "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);";
@@ -783,134 +659,118 @@ function switchInputMode(mode) {
     if(mode === 'bazi') initBaziSelects();
 }
 
-// 初始化下拉框选项
 function initBaziSelects() {
     if(document.getElementById('bzYg').options.length > 0) return;
     const gans = TIAN_GAN.map((g,i) => `<option value="${i}">${g}</option>`).join("");
     const zhis = DI_ZHI.map((z,i) => `<option value="${i}">${z}</option>`).join("");
     ['bzYg', 'bzMg', 'bzDg', 'bzTg'].forEach(id => document.getElementById(id).innerHTML = gans);
     ['bzYz', 'bzMz', 'bzDz', 'bzTz'].forEach(id => document.getElementById(id).innerHTML = zhis);
-    
-    // 初始化默认值
-    document.getElementById('bzMz').value = 2; // 月支默认建寅
-    document.getElementById('bzTz').value = 0; // 时支默认起子
-    autoLinkMonth();
-    autoLinkTime();
+    document.getElementById('bzMz').value = 2; // 寅
+    document.getElementById('bzTz').value = 0; // 子
+    autoLinkMonth(); autoLinkTime();
 }
 
-// 核心校验：五虎遁 (年上起月) -> 甲己之年丙作首...
 function autoLinkMonth() {
     const yg = parseInt(document.getElementById('bzYg').value);
     const mz = parseInt(document.getElementById('bzMz').value);
-    // 月干公式: ((年干 % 5) * 2 + 2 + (月支偏移,寅为0)) % 10
-    const offsetZhi = (mz + 10) % 12; // 将子=0转为寅=0
-    const mg = ((yg % 5) * 2 + 2 + offsetZhi) % 10;
+    const mg = ((yg % 5) * 2 + 2 + ((mz + 10) % 12)) % 10;
     document.getElementById('bzMg').value = mg;
 }
 
-// 核心校验：五鼠遁 (日上起时) -> 甲己还加甲...
 function autoLinkTime() {
     const dg = parseInt(document.getElementById('bzDg').value);
     const tz = parseInt(document.getElementById('bzTz').value);
-    // 时干公式: ((日干 % 5) * 2 + 时支) % 10
     const tg = ((dg % 5) * 2 + tz) % 10;
     document.getElementById('bzTg').value = tg;
 }
 
-// 修改后的加载档案 (包含删除按钮)
 async function fetchBaziProfiles() {
     if (!currentUser) return;
     const select = document.getElementById('profileSelect');
-    
     const { data, error } = await _supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false });
-    
     if (error || !data || data.length === 0) {
         select.innerHTML = '<option value="">暂无档案，请先新增</option>';
         baziProfiles = [];
         return;
     }
-    
     baziProfiles = data;
     select.innerHTML = data.map(p => `<option value="${p.id}">${p.name} (${p.gender === 'M'?'男':'女'})</option>`).join('');
     
-    // 动态在 select 旁边注入一个删除按钮
     let delBtn = document.getElementById('delProfileBtn');
     if(!delBtn) {
         select.insertAdjacentHTML('afterend', `<button id="delProfileBtn" class="profile-delete-btn" onclick="deleteProfile()">删除</button>`);
     }
-    
     handleProfileSelect();
 }
 
-// 删除功能
 async function deleteProfile() {
-    const select = document.getElementById('profileSelect');
-    const profileId = select.value;
-    if(!profileId) return;
-    if(!confirm("确定要删除这个命主档案吗？")) return;
-    
+    const profileId = document.getElementById('profileSelect').value;
+    if(!profileId || !confirm("确定要删除这个命主档案吗？")) return;
     await _supabase.from('bazi_profiles').delete().eq('id', profileId);
+    document.getElementById('baziTableContainer').style.display = 'none'; 
+    document.getElementById('baziConfirmSection').style.display = 'none'; 
     await fetchBaziProfiles();
-    document.getElementById('baziTableContainer').style.display = 'none'; // 清空图表
 }
 
-// 保存逻辑分支：处理公历或纯四柱
 async function saveNewProfile() {
     const name = document.getElementById('pName').value.trim();
     const gender = document.getElementById('pGender').value;
     if(!name) return alert("请填写姓名");
 
     let insertData = { user_id: currentUser.id, name: name, gender: gender };
-
     if (currentInputMode === 'date') {
         const birth = document.getElementById('pBirth').value;
         if(!birth) return alert("请填写出生时间");
-        insertData.birth_date = birth.replace('T', ' ') + ':00'; // 防止时区偏移
+        insertData.birth_date = birth.replace('T', ' ') + ':00'; 
     } else {
-        // 抓取四柱圆圈的索引，转为汉字
         const getV = (id, arr) => arr[parseInt(document.getElementById(id).value)];
-        const bzStr = `${getV('bzYg', TIAN_GAN)}${getV('bzYz', DI_ZHI)} ${getV('bzMg', TIAN_GAN)}${getV('bzMz', DI_ZHI)} ${getV('bzDg', TIAN_GAN)}${getV('bzDz', DI_ZHI)} ${getV('bzTg', TIAN_GAN)}${getV('bzTz', DI_ZHI)}`;
-        insertData.bazi_str = bzStr;
+        insertData.bazi_str = `${getV('bzYg', TIAN_GAN)}${getV('bzYz', DI_ZHI)} ${getV('bzMg', TIAN_GAN)}${getV('bzMz', DI_ZHI)} ${getV('bzDg', TIAN_GAN)}${getV('bzDz', DI_ZHI)} ${getV('bzTg', TIAN_GAN)}${getV('bzTz', DI_ZHI)}`;
     }
 
     const { error } = await _supabase.from('bazi_profiles').insert([insertData]);
     if (error) return alert("保存失败: " + error.message);
-    
     hideAddProfileForm();
     await fetchBaziProfiles();
 }
 
-// 核心：利用 Lunar.js 在前端生成八字盘 (兼容时间与纯四柱)
+function handleProfileSelect() {
+    const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
+    if (!profile) {
+        document.getElementById('baziTableContainer').style.display = 'none';
+        document.getElementById('baziConfirmSection').style.display = 'none';
+        return;
+    }
+    modifyBazi(); 
+    renderBaziTable(profile);
+    document.getElementById('baziConfirmSection').style.display = 'block';
+}
+
+function modifyBazi() {
+    baziConfirmed = false;
+    currentBaziString = ""; 
+    document.getElementById('baziResultSection').style.display = 'none';
+    document.querySelector('.profile-selector').style.display = 'flex';
+    document.getElementById('baziConfirmSection').style.display = 'block';
+    document.getElementById('baziTableContainer').style.opacity = '1';
+}
+
 function renderBaziTable(profile) {
     let yearGan, yearZhi, monthGan, monthZhi, dayGan, dayZhi, hourGan, hourZhi;
     let yearShiShen = "-", monthShiShen = "-", hourShiShen = "-";
 
     if (profile.birth_date) {
-        // 如果有时间戳，走标准推演
         const parts = profile.birth_date.match(/\d+/g);
         if (!parts || parts.length < 5) return;
-        const y = parseInt(parts[0], 10), m = parseInt(parts[1], 10), d = parseInt(parts[2], 10);
-        const h = parseInt(parts[3], 10), min = parseInt(parts[4], 10);
-
-        const baZi = window.Solar.fromYmdHms(y, m, d, h, min, 0).getLunar().getEightChar();
-        
+        const baZi = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0).getLunar().getEightChar();
         yearGan = baZi.getYearGan(); yearZhi = baZi.getYearZhi();
         monthGan = baZi.getMonthGan(); monthZhi = baZi.getMonthZhi();
         dayGan = baZi.getDayGan(); dayZhi = baZi.getDayZhi();
         hourGan = baZi.getTimeGan(); hourZhi = baZi.getTimeZhi();
-
-        yearShiShen = baZi.getYearShiShenGan();
-        monthShiShen = baZi.getMonthShiShenGan();
-        hourShiShen = baZi.getTimeShiShenGan();
+        yearShiShen = baZi.getYearShiShenGan(); monthShiShen = baZi.getMonthShiShenGan(); hourShiShen = baZi.getTimeShiShenGan();
     } else if (profile.bazi_str) {
-        // 如果是手动四柱直排，切分字符串
         const bzArr = profile.bazi_str.replace(/\s+/g, '').split('');
-        yearGan = bzArr[0]; yearZhi = bzArr[1];
-        monthGan = bzArr[2]; monthZhi = bzArr[3];
-        dayGan = bzArr[4]; dayZhi = bzArr[5];
-        hourGan = bzArr[6]; hourZhi = bzArr[7];
-
-        // 运用十神速查引擎计算主星
+        yearGan = bzArr[0]; yearZhi = bzArr[1]; monthGan = bzArr[2]; monthZhi = bzArr[3];
+        dayGan = bzArr[4]; dayZhi = bzArr[5]; hourGan = bzArr[6]; hourZhi = bzArr[7];
         if (SHI_SHEN_MAP[dayGan]) {
             yearShiShen = SHI_SHEN_MAP[dayGan][yearGan] || "-";
             monthShiShen = SHI_SHEN_MAP[dayGan][monthGan] || "-";
@@ -918,108 +778,44 @@ function renderBaziTable(profile) {
         }
     }
 
-    const tableHTML = `
-        <thead>
-            <tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr>
-        </thead>
+    document.getElementById('baziTable').innerHTML = `
+        <thead><tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr></thead>
         <tbody>
-            <tr>
-                <td class="bz-star">主星</td>
-                <td class="bz-star">${yearShiShen}</td>
-                <td class="bz-star">${monthShiShen}</td>
-                <td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td>
-                <td class="bz-star">${hourShiShen}</td>
-            </tr>
-            <tr>
-                <td class="bz-star">天干</td>
-                <td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td>
-                <td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td>
-                <td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td>
-                <td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td>
-            </tr>
-            <tr>
-                <td class="bz-star">地支</td>
-                <td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td>
-                <td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td>
-                <td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td>
-                <td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td>
-            </tr>
-        </tbody>
-    `;
-
-    document.getElementById('baziTable').innerHTML = tableHTML;
+            <tr><td class="bz-star">主星</td><td class="bz-star">${yearShiShen}</td><td class="bz-star">${monthShiShen}</td><td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td><td class="bz-star">${hourShiShen}</td></tr>
+            <tr><td class="bz-star">天干</td><td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td><td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td><td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td><td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td></tr>
+            <tr><td class="bz-star">地支</td><td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td><td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td><td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td><td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td></tr>
+        </tbody>`;
     document.getElementById('baziTableContainer').style.display = 'block';
-
-    const genderStr = profile.gender === 'M' ? '乾造(男)' : '坤造(女)';
-    currentBaziString = `求测人：${profile.name}，${genderStr}。\n八字：${yearGan}${yearZhi} ${monthGan}${monthZhi} ${dayGan}${dayZhi} ${hourGan}${hourZhi}`;
 }
 
-function handleProfileSelect() {
-    const select = document.getElementById('profileSelect');
-    const profile = baziProfiles.find(p => p.id === select.value);
-    if (!profile) {
-        document.getElementById('baziTableContainer').style.display = 'none';
-        document.getElementById('baziConfirmSection').style.display = 'none';
-        return;
-    }
-    modifyBazi(); // 每次切换档案，自动恢复到“修改(未锁定)”状态
-    renderBaziTable(profile);
-    document.getElementById('baziConfirmSection').style.display = 'block';
-}
-
-    // 进入修改态
-function modifyBazi() {
-    baziConfirmed = false;
-    currentBaziString = ""; // 清空奇门要用的串
-    document.getElementById('baziResultSection').style.display = 'none';
-    document.querySelector('.profile-selector').style.display = 'flex';
-    document.getElementById('baziConfirmSection').style.display = 'block';
-    document.getElementById('baziTableContainer').style.opacity = '1';
-}
-
-// 解析出给 AI 算八字所需的 Lunar 结构数据
 function generateLunarPromptData(profile) {
     let res = { name: profile.name, gender: profile.gender === 'M' ? '男' : '女', birthStr: "四柱直排，无具体出生日期", baziStr: "", daYunStr: "四柱直排，无法精确计算大运" };
-
     if (profile.birth_date) {
         const parts = profile.birth_date.match(/\d+/g);
         res.birthStr = `${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;
-        const solar = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0);
-        const baZi = solar.getLunar().getEightChar();
+        const baZi = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0).getLunar().getEightChar();
         res.baziStr = `${baZi.getYearGan()}${baZi.getYearZhi()} ${baZi.getMonthGan()}${baZi.getMonthZhi()} ${baZi.getDayGan()}${baZi.getDayZhi()} ${baZi.getTimeGan()}${baZi.getTimeZhi()}`;
-
-        // 调用 Lunar.js 强大的大运推演算法
         try {
-            const yun = baZi.getYun(profile.gender === 'M' ? 1 : 0);
-            const daYuns = yun.getDaYun();
-            const currentYear = new Date().getFullYear();
-            let currentDy = null;
-            for (let i = 0; i < daYuns.length; i++) {
-                if (currentYear >= daYuns[i].getStartYear() && currentYear <= daYuns[i].getEndYear()) {
-                    currentDy = daYuns[i]; break;
-                }
-            }
-            if (currentDy) {
-                res.daYunStr = `${currentDy.getGanZhi()}大运 (${currentDy.getStartAge()}岁-${currentDy.getEndAge()}岁，${currentDy.getStartYear()}年起运)`;
-            }
-        } catch(e) { console.log("大运计算失败", e); }
+            const daYuns = baZi.getYun(profile.gender === 'M' ? 1 : 0).getDaYun();
+            const cy = new Date().getFullYear();
+            let cd = daYuns.find(d => cy >= d.getStartYear() && cy <= d.getEndYear());
+            if (cd) res.daYunStr = `${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;
+        } catch(e) {}
     } else if (profile.bazi_str) {
         res.baziStr = profile.bazi_str;
     }
     return res;
 }
 
-// 确认并静默请求后台
 async function confirmBazi() {
-    const select = document.getElementById('profileSelect');
-    const profile = baziProfiles.find(p => p.id === select.value);
+    const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
     if (!profile) return;
 
     baziConfirmed = true;
     document.querySelector('.profile-selector').style.display = 'none';
     document.getElementById('profileForm').style.display = 'none';
     document.getElementById('baziConfirmSection').style.display = 'none';
-    document.getElementById('baziTableContainer').style.opacity = '0.4'; // 表格变暗以突出锁定态
+    document.getElementById('baziTableContainer').style.opacity = '0.4'; 
 
     const resultSec = document.getElementById('baziResultSection');
     const aiText = document.getElementById('baziAiText');
@@ -1029,10 +825,9 @@ async function confirmBazi() {
     resultSec.style.display = 'block'; aiText.style.display = 'none'; errSec.style.display = 'none'; loading.style.display = 'block';
     isBaziLoading = true;
 
-    const baziPromptData = generateLunarPromptData(profile);
-    const cacheKey = baziPromptData.baziStr + "_" + profile.gender;
+    const pd = generateLunarPromptData(profile);
+    const cacheKey = pd.baziStr + "_" + profile.gender;
 
-    // 前端缓存秒出
     if (frontBaziCache[cacheKey]) {
         loading.style.display = 'none'; aiText.innerHTML = frontBaziCache[cacheKey]; aiText.style.display = 'block';
         currentBaziString = frontBaziCache[cacheKey]; isBaziLoading = false; return;
@@ -1040,53 +835,28 @@ async function confirmBazi() {
 
     try {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时控制
-
-        const res = await fetch('/api/bazi', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ promptData: baziPromptData }),
-            signal: controller.signal
-        });
+        const timeoutId = setTimeout(() => controller.abort(), 60000); 
+        const res = await fetch('/api/bazi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ promptData: pd }), signal: controller.signal });
         clearTimeout(timeoutId);
-
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
         frontBaziCache[cacheKey] = data.result;
-        currentBaziString = data.result; // 将生成的断语挂载，等待奇门起局读取！
-        
-        loading.style.display = 'none';
-        aiText.innerHTML = data.result;
-        aiText.style.display = 'block';
+        currentBaziString = data.result; 
+        loading.style.display = 'none'; aiText.innerHTML = data.result; aiText.style.display = 'block';
     } catch (err) {
-        loading.style.display = 'none';
-        errSec.style.display = 'block';
+        loading.style.display = 'none'; errSec.style.display = 'block';
     } finally {
         isBaziLoading = false;
     }
 }
-    
-/* ═══════════════════════════════════════════════
-   动画与渲染引擎 (严密隔离)
-═══════════════════════════════════════════════ */
-function startLoaderCycle() {
-    _loaderMsgIdx = 0; document.getElementById('loaderText').textContent = LOADER_MESSAGES[0];
-    _loaderInterval = setInterval(() => {
-        _loaderMsgIdx = (_loaderMsgIdx + 1) % LOADER_MESSAGES.length;
-        const el = document.getElementById('loaderText');
-        el.style.opacity = 0;
-        setTimeout(() => { el.textContent = LOADER_MESSAGES[_loaderMsgIdx]; el.style.transition = 'opacity 0.4s'; el.style.opacity = 1; }, 300);
-    }, 2200);
-}
-function stopLoaderCycle() { clearInterval(_loaderInterval); }
 
-function animateScore(target) {
-    const el = document.getElementById('scoreValue');
-    if (!el) return;
-    let cur = 0, step = Math.ceil(target / 30);
-    const timer = setInterval(() => { cur = Math.min(cur + step, target); el.textContent = cur + ' 分'; if (cur >= target) clearInterval(timer); }, 35);
-}
+/* ═══════════════════════════════════════════════
+   5. 动画与卡片组装引擎
+═══════════════════════════════════════════════ */
+function startLoaderCycle() { _loaderMsgIdx = 0; document.getElementById('loaderText').textContent = LOADER_MESSAGES[0]; _loaderInterval = setInterval(() => { _loaderMsgIdx = (_loaderMsgIdx + 1) % LOADER_MESSAGES.length; const el = document.getElementById('loaderText'); el.style.opacity = 0; setTimeout(() => { el.textContent = LOADER_MESSAGES[_loaderMsgIdx]; el.style.transition = 'opacity 0.4s'; el.style.opacity = 1; }, 300); }, 2200); }
+function stopLoaderCycle() { clearInterval(_loaderInterval); }
+function animateScore(target) { const el = document.getElementById('scoreValue'); if (!el) return; let cur = 0, step = Math.ceil(target / 30); const timer = setInterval(() => { cur = Math.min(cur + step, target); el.textContent = cur + ' 分'; if (cur >= target) clearInterval(timer); }, 35); }
 
 function buildCardHTML(data) {
     const summary    = data.summary    || { title: "生成中...", conclusion: "暂无数据", score: 0 };
@@ -1106,10 +876,8 @@ function buildCardHTML(data) {
     const THEME_DIM = score < 60 ? "rgba(255,94,87,0.15)" : score < 80 ? "rgba(245,197,24,0.15)" : "rgba(0,210,106,0.15)";
 
     const strategies = (advice.strategy || []).map((s, i) => `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`).join('');
-    let riskHTML = '';
-    if (advice.risk?.trim()) riskHTML = `<div class="risk-alert reveal"><div class="risk-alert-title"><span>⚠️</span>避坑指南</div><div class="risk-alert-content">${advice.risk}</div></div>`;
-    let baziHTML = '';
-    if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes("未提供八字信息")) baziHTML = `<div class="grid-item bazi-insight reveal"><span class="label">🧬 命理 / 年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
+    let riskHTML = ''; if (advice.risk?.trim()) riskHTML = `<div class="risk-alert reveal"><div class="risk-alert-title"><span>⚠️</span>避坑指南</div><div class="risk-alert-content">${advice.risk}</div></div>`;
+    let baziHTML = ''; if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes("未提供八字信息")) baziHTML = `<div class="grid-item bazi-insight reveal"><span class="label">🧬 命理 / 年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
     
     let scoreBasisHTML = '';
     if (scoreBasis) {
@@ -1119,8 +887,7 @@ function buildCardHTML(data) {
         if (pos || neg || logic) scoreBasisHTML = `<div class="grid-item score-basis reveal"><span class="label">⚖️ 评分依据</span><div class="score-basis-body">${pos}${neg}${logic}</div></div>`;
     }
 
-    let timingHTML = '';
-    if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="grid-item dynamic-timing reveal"><span class="label">⏳ 动态应期（转机推演）</span><span class="value">${analysis.dynamic_timing}</span></div>`;
+    let timingHTML = ''; if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="grid-item dynamic-timing reveal"><span class="label">⏳ 动态应期（转机推演）</span><span class="value">${analysis.dynamic_timing}</span></div>`;
 
     let chartHTML = '';
     if (hasChart) {
@@ -1128,27 +895,18 @@ function buildCardHTML(data) {
         const isZhiShi = d => d && ju.zhi_shi && d.includes(ju.zhi_shi);
         const cells = palaces.map(p => {
             if (p.is_center) return `<div class="pan-cell"><div class="pan-center-earth">${p.earth || ''}</div></div>`;
-            const starCls = isZhiFu(p.star)  ? 'highlight-text' : '';
-            const doorCls = isZhiShi(p.door) ? 'highlight-text' : '';
-            let marks = '';
-            if (p.ma_xing?.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`;
-            if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`;
+            const starCls = isZhiFu(p.star)  ? 'highlight-text' : ''; const doorCls = isZhiShi(p.door) ? 'highlight-text' : '';
+            let marks = ''; if (p.ma_xing?.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`; if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`;
             return `<div class="pan-cell"><div class="pan-god">${p.god||''}</div><div class="pan-stem stem-sky">${p.sky||''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star||''}</div><div class="pan-door ${doorCls}">${p.door||''}</div><div class="pan-stem stem-earth">${p.earth||''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`;
         }).join('');
         chartHTML = `<div class="section-title reveal"><span class="icon">🧭</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu||'-'}</b>&emsp;值使：<b>${ju.zhi_shi||'-'}</b></div></div><div class="pan-grid">${cells}</div></div>`;
     }
 
-    const questionHTML = question ? `<div class="user-question reveal">${question}</div>` : '';
-
     return `
     <div class="card" style="display:block; --theme-color:${THEME}; --theme-color-dim:${THEME_DIM};">
-        <div class="card-header reveal">
-            <div><div class="title">${summary.title}</div></div>
-            <div class="score-badge"><div class="score" id="scoreValue">${score} 分</div><div class="score-label">吉凶评分</div></div>
-        </div>
-        <div class="conclusion reveal">${summary.conclusion}</div>
-        <div class="keyword reveal">🔑 ${summary.keyword}</div>
-        ${questionHTML}
+        <div class="card-header reveal"><div><div class="title">${summary.title}</div></div><div class="score-badge"><div class="score" id="scoreValue">${score} 分</div><div class="score-label">吉凶评分</div></div></div>
+        <div class="conclusion reveal">${summary.conclusion}</div><div class="keyword reveal">🔑 ${summary.keyword}</div>
+        ${question ? `<div class="user-question reveal">${question}</div>` : ''}
         <div class="ornament-divider reveal"><span>☰</span></div>
         ${chartHTML}
         <div class="section-title reveal"><span class="icon">🔍</span>深度局象</div>
@@ -1159,9 +917,7 @@ function buildCardHTML(data) {
             <div class="grid-item reveal"><span class="label">🔮 特殊格局</span><span class="value">${analysis.pattern||'-'}</span></div>
             <div class="grid-item reveal"><span class="label">🙏 神助指引</span><span class="value">${analysis.god_help||'-'}</span></div>
         </div>
-        <div class="section-title reveal"><span class="icon">💡</span>决策指引</div>
-        <ul class="strategy-list">${strategies}</ul>
-        ${riskHTML}
+        <div class="section-title reveal"><span class="icon">💡</span>决策指引</div><ul class="strategy-list">${strategies}</ul>${riskHTML}
         <div class="ornament-divider reveal"><span>☷</span></div>
         <div class="footer reveal">
             <div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction||'-'}</span></div>
@@ -1171,69 +927,18 @@ function buildCardHTML(data) {
     </div>`;
 }
 
-/* ═══════════════════════════════════════════════
-   背景动画自执行函数
-═══════════════════════════════════════════════ */
 (function initVisuals() {
-    const canvas = document.getElementById('cosmosCanvas');
-    const ctx = canvas.getContext('2d');
-    let W, H, stars = [];
-
+    const canvas = document.getElementById('cosmosCanvas'); const ctx = canvas.getContext('2d'); let W, H, stars = [];
     function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-    function initStars() {
-        stars = []; const count = Math.floor((W * H) / 5000);
-        for (let i = 0; i < count; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(), speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1 });
-    }
+    function initStars() { stars = []; const count = Math.floor((W * H) / 5000); for (let i = 0; i < count; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(), speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1 }); }
     function draw() {
         ctx.clearRect(0, 0, W, H);
-        stars.forEach(s => {
-            s.a += s.speed * 0.008; s.x += s.drift;
-            if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
-            ctx.save(); ctx.globalAlpha = ((Math.sin(s.a) + 1) / 2) * 0.5 + 0.05; ctx.fillStyle = '#E8CC80';
-            ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        });
-        for (let i = 0; i < stars.length; i++) {
-            for (let j = i + 1; j < stars.length; j++) {
-                const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 100) { ctx.save(); ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke(); ctx.restore(); }
-            }
-        }
-        requestAnimationFrame(draw);
+        stars.forEach(s => { s.a += s.speed * 0.008; s.x += s.drift; if (s.x < 0) s.x = W; if (s.x > W) s.x = 0; ctx.save(); ctx.globalAlpha = ((Math.sin(s.a) + 1) / 2) * 0.5 + 0.05; ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
+        for (let i = 0; i < stars.length; i++) { for (let j = i + 1; j < stars.length; j++) { const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy); if (dist < 100) { ctx.save(); ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke(); ctx.restore(); } } } requestAnimationFrame(draw);
     }
-    resize(); initStars(); draw();
-    window.addEventListener('resize', () => { resize(); initStars(); });
-
-    const ring = document.getElementById('trigramRing');
-    ['☰','☱','☲','☳','☴','☵','☶','☷'].forEach((sym, i) => {
-        const span = document.createElement('span'); span.textContent = sym; span.style.transform = `rotate(${(i / 8) * 360}deg) translateY(0px)`; ring.appendChild(span);
-    });
+    resize(); initStars(); draw(); window.addEventListener('resize', () => { resize(); initStars(); });
+    const ring = document.getElementById('trigramRing'); ['☰','☱','☲','☳','☴','☵','☶','☷'].forEach((sym, i) => { const span = document.createElement('span'); span.textContent = sym; span.style.transform = `rotate(${(i / 8) * 360}deg) translateY(0px)`; ring.appendChild(span); });
 })();
 </script>
-    <div id="baziInfoModal" class="bazi-info-overlay" onclick="hideBaziInfo(event)">
-    <div class="bazi-info-card" onclick="event.stopPropagation()">
-        <div class="bazi-info-title">
-            <span>何时需要注入八字？</span>
-            <span class="bazi-info-close" onclick="hideBaziInfo(event)">&times;</span>
-        </div>
-        <div class="bazi-info-text">
-            <h4>一、标准解卦：无需八字 ❌</h4>
-            <p>单纯预测<strong>具体事件走向</strong>（如今日出行、近期合同、求财结果等），奇门局本身已足够，不强制需要八字。</p>
-            
-            <h4>二、深度解卦：需要八字 ✅</h4>
-            <ul>
-                <li><strong>判断个人旺衰：</strong>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
-                <li><strong>流年大运配合：</strong>预测中长期运势，结合八字大运判断具体年份变化。</li>
-                <li><strong>六亲宫位对应：</strong>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
-                <li><strong>格局取用验证：</strong>验证高阶格局是否与命主五行"合用"。</li>
-                <li><strong>精准应期定位：</strong>两套体系交接点吻合，应验概率更高。</li>
-            </ul>
-
-            <div class="bazi-summary-box">
-                💡 <strong>一句话总结：</strong><br>
-                事不离人，凡涉及<strong>"这个人能不能成事"</strong>，而非单纯"这件事本身的走向"，引入八字能让两套体系互为印证，准确率大幅提升！
-            </div>
-        </div>
-    </div>
-</div>
 </body>
 </html>
