@@ -621,13 +621,16 @@ async function fetchBaziProfiles() {
 async function saveNewProfile() {
     const name = document.getElementById('pName').value.trim();
     const gender = document.getElementById('pGender').value;
-    const birth = document.getElementById('pBirth').value; // format: "YYYY-MM-DDTHH:mm"
+    const birth = document.getElementById('pBirth').value; // 格式如: "1998-07-26T18:50"
 
     if(!name || !birth) return alert("请填写姓名和出生时间");
 
-    const dateObj = new Date(birth);
+    // ⚠️ 关键修复：绝对不能用 new Date().toISOString()！
+    // 我们直接保存原汁原味的本地时间字面量，防止东八区被减去 8 小时
+    const localBirthString = birth.replace('T', ' ') + ':00'; 
+
     const { error } = await _supabase.from('bazi_profiles').insert([{
-        user_id: currentUser.id, name: name, gender: gender, birth_date: dateObj.toISOString()
+        user_id: currentUser.id, name: name, gender: gender, birth_date: localBirthString
     }]);
 
     if (error) { alert("保存失败: " + error.message); return; }
@@ -646,11 +649,19 @@ function handleProfileSelect() {
 
 // 核心：利用 Lunar.js 在前端生成八字盘
 function renderBaziTable(profile) {
-    const date = new Date(profile.birth_date);
-    const solar = window.Solar.fromDate(date);
+    // ⚠️ 关键修复：手动解析时间字符串，彻底绕开 JS 的时区陷阱
+    const parts = profile.birth_date.match(/\d+/g);
+    if (!parts || parts.length < 5) return;
+    const y = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const d = parseInt(parts[2], 10);
+    const h = parseInt(parts[3], 10);
+    const min = parseInt(parts[4], 10);
+
+    // 精确指定年月日时分，避免任何时区干扰
+    const solar = window.Solar.fromYmdHms(y, m, d, h, min, 0);
     const lunar = solar.getLunar();
     
-    // 排八字 (男女排法由大运管理，此处取干支)
     const baZi = lunar.getEightChar();
     
     const yearGan = baZi.getYearGan(); const yearZhi = baZi.getYearZhi();
