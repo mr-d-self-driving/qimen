@@ -833,7 +833,7 @@ function renderBaziTable(profile) {
         const matches = findDatesByBazi(yearGan+yearZhi, monthGan+monthZhi, dayGan+dayZhi, hourGan+hourZhi);
         if (matches.length > 0) {
             const matchStrs = matches.map(s => `${s.getYear()}年${String(s.getMonth()).padStart(2,'0')}月${String(s.getDay()).padStart(2,'0')}日 ${String(s.getHour()).padStart(2,'0')}:00`).join(" / ");
-            reversedTextHTML = `<div style="color: #FF5E57; font-size: 14px; margin-bottom: 12px; font-weight: 500; text-align: center; letter-spacing: 1px;">阳历：${matchStrs}</div>`;
+            reversedTextHTML = `<div style="color: #FF5E57; font-size: 13px; margin-bottom: 12px; font-weight: 500; text-align: center; letter-spacing: 1px;">阳历：${matchStrs}</div>`;
         } else {
             reversedTextHTML = `<div style="color: #FF5E57; font-size: 13px; margin-bottom: 12px; text-align: center;">⚠️ 未能反推出符合命理的阳历，请检查四柱是否冲突</div>`;
         }
