@@ -560,7 +560,7 @@ async function handleAuth() {
 async function handleSignOut() { await _supabase.auth.signOut(); }
 
 /* ═══════════════════════════════════════════════
-   3. 奇门推演核心
+   3. 奇门推演核心 (包含前后端双保险超时逻辑)
 ═══════════════════════════════════════════════ */
 async function startDivination() {
     const input = document.getElementById("questionInput").value.trim();
@@ -568,7 +568,7 @@ async function startDivination() {
     const loader = document.getElementById("loader");
     const rc = document.getElementById("resultContainer");
     
-    // 拦截器：如果开启了八字但未锁定完成，则不允许起局
+    // 拦截器
     if (document.getElementById('baziSwitch').checked) {
         if (!baziConfirmed) return alert("✋ 请先点击「确定」锁定命主档案！");
         if (isBaziLoading) return alert("⏳ 八字断语正在后台推演中，请耐心等待出现结果后再洞察天机！");
@@ -580,25 +580,33 @@ async function startDivination() {
     btn.innerHTML = '<span class="btn-icon" style="animation:spin 1s linear infinite;display:inline-block">☯</span>推演中…';
     rc.innerHTML = ""; loader.style.display = "flex"; startLoaderCycle();
 
+    // ✅ 新增前端超时防死锁机制 (90秒强制阻断)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
+
     try {
         const requestBody = { question: input };
-        // 关键数据传输点：带上准备好的八字数据
         if (document.getElementById('baziSwitch').checked && currentBaziString) {
             requestBody.baziInfo = currentBaziString;
         }
-
-        // 👇 新增：90 秒超时控制机制 👇
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 90000); // 90000 毫秒 = 90 秒
 
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody),
-            signal: controller.signal // 将终止信号绑定到本次请求
+            signal: controller.signal // 将请求与超时炸弹绑定
         });
         
-        clearTimeout(timeoutId); // 如果在 90 秒内成功返回，立即解除定时器炸弹
+        clearTimeout(timeoutId); // 成功返回后，立即解除炸弹
+
+        // 预防后端返回 HTML (如 Vercel/Cloudflare 报错) 的情况
+        if (!response.ok) {
+            let errorText = await response.text();
+            try { 
+                let errObj = JSON.parse(errorText); 
+                throw new Error(errObj.details || errObj.error);
+            } catch(e) { throw new Error(`服务器异常 (${response.status}): ` + errorText.substring(0, 50)); }
+        }
 
         const data = await response.json();
         if (data.error) throw new Error(data.details || data.error);
@@ -613,15 +621,16 @@ async function startDivination() {
         }, 100);
 
     } catch (err) {
+        clearTimeout(timeoutId);
         console.error(err); 
-        // 👇 新增：超时与失败的精确反馈 👇
+        // 捕获超时 AbortError 并给出人性化提示
         if (err.name === 'AbortError') {
-            alert("⏳ 云端超算推演超时 (超过 90 秒)。\n可能是大模型运算量过大或网络波动，请点击【确定】后重新尝试洞察！");
+            alert("⏳ 云端超算推演超时 (超过90秒无响应)。\n由于大模型运算排队或网络波动，请稍微等待后重试。");
         } else {
             alert("云端推演失败：\n" + err.message);
         }
     } finally {
-        // 无论成功、失败还是超时，都必须恢复界面状态，以便用户进行下一次操作
+        // 不管成功、失败还是超时，全部恢复初始可点击状态
         stopLoaderCycle();
         btn.disabled = false; document.getElementById("questionInput").disabled = false;
         btn.innerHTML = '<span class="btn-icon">☯</span>洞察天机';
