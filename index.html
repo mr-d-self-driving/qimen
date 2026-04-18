@@ -455,7 +455,42 @@
                 <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
                     <table class="bazi-table" id="baziTable">
                         </table>
+                    
+                <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
+                    <table class="bazi-table" id="baziTable">
+                        </table>
                 </div>
+
+                <div id="baziConfirmSection" style="text-align: right; margin-top: 14px; display: none;">
+                    <button class="submit-btn" style="padding: 10px 24px; font-size: 14px; letter-spacing: 2px;" onclick="confirmBazi()">确 定</button>
+                </div>
+
+                <div id="baziResultSection" style="display: none; margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(179,139,54,0.2);">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <span style="font-size: 13px; color: var(--gold-mid); font-weight: 600;">✨ 命理基底已锁定</span>
+                        <button class="cancel-btn" style="padding: 4px 12px; font-size: 12px;" onclick="modifyBazi()">修改</button>
+                    </div>
+                    <div id="baziLoading" style="display: none; font-size: 12px; color: var(--gold-mid); padding: 10px 0;">
+                        <span class="loader-dots"><span></span><span></span><span></span></span> 正在后台静默排定大运流年与原局断语...
+                    </div>
+                    <div id="baziError" style="display: none; font-size: 12px; color: #FF5E57; padding: 10px 0;">
+                        推演超时或失败。 <span style="text-decoration: underline; cursor: pointer; color: var(--gold-mid);" onclick="confirmBazi()">点击重试</span>
+                    </div>
+                    <div id="baziAiText" style="font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; opacity: 0.85; display: none;"></div>
+                </div>
+                ```
+
+---
+
+### 第三步：升级前端 JS 逻辑 (加入大运算法与状态锁)
+
+请在 `<script>` 标签内，替换和新增以下 JS 代码片段以实现前端逻辑。
+
+**1. 在全局变量区域增加这三个变量：**
+```javascript
+let baziConfirmed = false; // 是否已点击确认
+let isBaziLoading = false; // 是否正在静默获取断语
+let frontBaziCache = {};   // 前端双重缓存
             </div>
         </div>
         <div class="input-box">
@@ -594,7 +629,12 @@ async function startDivination() {
     const btn = document.getElementById("submitBtn");
     const loader = document.getElementById("loader");
     const rc = document.getElementById("resultContainer");
-
+    
+    if (document.getElementById('baziSwitch').checked) {
+        if (!baziConfirmed) return alert("✋ 请先点击「确定」锁定命主档案！");
+        if (isBaziLoading) return alert("⏳ 八字断语正在后台推演中，请耐心等待出现结果后再洞察天机！");
+        if (!currentBaziString) return alert("❌ 八字推演失败或未完成，请点击重试！");
+    }
     if (!input) return alert("问题不能为空哦！");
 
     btn.disabled = true; document.getElementById("questionInput").disabled = true;
@@ -917,9 +957,114 @@ function renderBaziTable(profile) {
 function handleProfileSelect() {
     const select = document.getElementById('profileSelect');
     const profile = baziProfiles.find(p => p.id === select.value);
+    if (!profile) {
+        document.getElementById('baziTableContainer').style.display = 'none';
+        document.getElementById('baziConfirmSection').style.display = 'none';
+        return;
+    }
+    modifyBazi(); // 每次切换档案，自动恢复到“修改(未锁定)”状态
+    renderBaziTable(profile);
+    document.getElementById('baziConfirmSection').style.display = 'block';
+}
+
+    // 进入修改态
+function modifyBazi() {
+    baziConfirmed = false;
+    currentBaziString = ""; // 清空奇门要用的串
+    document.getElementById('baziResultSection').style.display = 'none';
+    document.querySelector('.profile-selector').style.display = 'flex';
+    document.getElementById('baziConfirmSection').style.display = 'block';
+    document.getElementById('baziTableContainer').style.opacity = '1';
+}
+
+// 解析出给 AI 算八字所需的 Lunar 结构数据
+function generateLunarPromptData(profile) {
+    let res = { name: profile.name, gender: profile.gender === 'M' ? '男' : '女', birthStr: "四柱直排，无具体出生日期", baziStr: "", daYunStr: "四柱直排，无法精确计算大运" };
+
+    if (profile.birth_date) {
+        const parts = profile.birth_date.match(/\d+/g);
+        res.birthStr = `${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;
+        const solar = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0);
+        const baZi = solar.getLunar().getEightChar();
+        res.baziStr = `${baZi.getYearGan()}${baZi.getYearZhi()} ${baZi.getMonthGan()}${baZi.getMonthZhi()} ${baZi.getDayGan()}${baZi.getDayZhi()} ${baZi.getTimeGan()}${baZi.getTimeZhi()}`;
+
+        // 调用 Lunar.js 强大的大运推演算法
+        try {
+            const yun = baZi.getYun(profile.gender === 'M' ? 1 : 0);
+            const daYuns = yun.getDaYun();
+            const currentYear = new Date().getFullYear();
+            let currentDy = null;
+            for (let i = 0; i < daYuns.length; i++) {
+                if (currentYear >= daYuns[i].getStartYear() && currentYear <= daYuns[i].getEndYear()) {
+                    currentDy = daYuns[i]; break;
+                }
+            }
+            if (currentDy) {
+                res.daYunStr = `${currentDy.getGanZhi()}大运 (${currentDy.getStartAge()}岁-${currentDy.getEndAge()}岁，${currentDy.getStartYear()}年起运)`;
+            }
+        } catch(e) { console.log("大运计算失败", e); }
+    } else if (profile.bazi_str) {
+        res.baziStr = profile.bazi_str;
+    }
+    return res;
+}
+
+// 确认并静默请求后台
+async function confirmBazi() {
+    const select = document.getElementById('profileSelect');
+    const profile = baziProfiles.find(p => p.id === select.value);
     if (!profile) return;
 
-    renderBaziTable(profile);
+    baziConfirmed = true;
+    document.querySelector('.profile-selector').style.display = 'none';
+    document.getElementById('profileForm').style.display = 'none';
+    document.getElementById('baziConfirmSection').style.display = 'none';
+    document.getElementById('baziTableContainer').style.opacity = '0.4'; // 表格变暗以突出锁定态
+
+    const resultSec = document.getElementById('baziResultSection');
+    const aiText = document.getElementById('baziAiText');
+    const loading = document.getElementById('baziLoading');
+    const errSec = document.getElementById('baziError');
+
+    resultSec.style.display = 'block'; aiText.style.display = 'none'; errSec.style.display = 'none'; loading.style.display = 'block';
+    isBaziLoading = true;
+
+    const baziPromptData = generateLunarPromptData(profile);
+    const cacheKey = baziPromptData.baziStr + "_" + profile.gender;
+
+    // 前端缓存秒出
+    if (frontBaziCache[cacheKey]) {
+        loading.style.display = 'none'; aiText.innerHTML = frontBaziCache[cacheKey]; aiText.style.display = 'block';
+        currentBaziString = frontBaziCache[cacheKey]; isBaziLoading = false; return;
+    }
+
+    try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 60秒超时控制
+
+        const res = await fetch('/api/bazi', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ promptData: baziPromptData }),
+            signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+
+        frontBaziCache[cacheKey] = data.result;
+        currentBaziString = data.result; // 将生成的断语挂载，等待奇门起局读取！
+        
+        loading.style.display = 'none';
+        aiText.innerHTML = data.result;
+        aiText.style.display = 'block';
+    } catch (err) {
+        loading.style.display = 'none';
+        errSec.style.display = 'block';
+    } finally {
+        isBaziLoading = false;
+    }
 }
     
 /* ═══════════════════════════════════════════════
