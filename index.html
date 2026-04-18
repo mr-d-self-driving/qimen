@@ -296,6 +296,48 @@
         .profile-form { display: none; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border: 1px dashed var(--border-subtle); margin-bottom: 12px; }
         .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
         .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); color: white; }
+        /* ═══════════════════════════════════════════
+           问号图标与八字说明浮层
+        ═══════════════════════════════════════════ */
+        .info-icon {
+            display: inline-flex; justify-content: center; align-items: center;
+            width: 16px; height: 16px; border-radius: 50%;
+            border: 1px solid var(--text-muted); color: var(--text-muted);
+            font-size: 11px; margin-left: 8px; cursor: pointer; transition: all 0.2s;
+            font-family: Arial, sans-serif; opacity: 0.8;
+        }
+        .info-icon:hover { border-color: var(--gold-bright); color: var(--gold-bright); opacity: 1; transform: scale(1.1); }
+
+        .bazi-info-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+            z-index: 9999; display: none; align-items: center; justify-content: center;
+            padding: 20px; opacity: 0; transition: opacity 0.3s ease;
+        }
+        .bazi-info-overlay.show { display: flex; opacity: 1; }
+        
+        .bazi-info-card {
+            background: var(--bg-card); border: 1px solid rgba(179,139,54,0.3);
+            border-radius: var(--radius-card); padding: 24px; max-width: 420px;
+            width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8);
+            transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.22,1,0.36,1);
+            max-height: 80vh; overflow-y: auto;
+        }
+        .bazi-info-overlay.show .bazi-info-card { transform: translateY(0) scale(1); }
+        
+        .bazi-info-card::-webkit-scrollbar { width: 4px; }
+        .bazi-info-card::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
+
+        .bazi-info-title { font-size: 16px; color: var(--gold-bright); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; letter-spacing: 1px;}
+        .bazi-info-close { color: var(--text-muted); cursor: pointer; font-size: 24px; line-height: 1; transition: color 0.2s;}
+        .bazi-info-close:hover { color: #fff; }
+        
+        .bazi-info-text { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+        .bazi-info-text h4 { color: var(--gold-mid); margin: 16px 0 8px; font-size: 14px; font-weight: 600;}
+        .bazi-info-text ul { padding-left: 20px; margin-bottom: 12px; }
+        .bazi-info-text li { margin-bottom: 8px; }
+        .bazi-info-text strong { color: #fff; font-weight: 500; }
+        .bazi-summary-box { color: var(--gold-bright); background: rgba(179,139,54,0.08); border: 1px solid rgba(179,139,54,0.2); padding: 12px 14px; border-radius: 10px; margin-top: 16px; font-size: 12.5px; }
         
         @media (max-width: 400px) { .header-title { font-size: 24px; letter-spacing: 4px; } .conclusion { font-size: 22px; } }
     </style>
@@ -342,7 +384,10 @@
         
         <div class="input-box bazi-section">
             <label class="bazi-toggle">
-                <div class="bazi-toggle-text"><span>🧬</span> 注入命主八字分析 (精准度提升)</div>
+                <div class="bazi-toggle-text">
+                    <span>🧬</span> 注入命主八字分析 
+                    <span class="info-icon" onclick="showBaziInfo(event)">?</span>
+                </div>
                 <div class="switch">
                     <input type="checkbox" id="baziSwitch" onchange="toggleBaziWorkspace()">
                     <span class="slider"></span>
@@ -662,6 +707,18 @@ let currentInputMode = 'date'; // 'date' 或 'bazi'
 const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
 const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("");
 
+// 控制八字说明浮层的显示与隐藏
+function showBaziInfo(e) {
+    e.preventDefault(); 
+    e.stopPropagation(); // 阻止冒泡，防止触发外层的 checkbox 切换
+    document.getElementById('baziInfoModal').classList.add('show');
+}
+
+function hideBaziInfo(e) {
+    if (e) e.preventDefault();
+    document.getElementById('baziInfoModal').classList.remove('show');
+}
+    
 // 切换输入模式
 function switchInputMode(mode) {
     currentInputMode = mode;
@@ -1039,5 +1096,31 @@ function buildCardHTML(data) {
     });
 })();
 </script>
+    <div id="baziInfoModal" class="bazi-info-overlay" onclick="hideBaziInfo(event)">
+    <div class="bazi-info-card" onclick="event.stopPropagation()">
+        <div class="bazi-info-title">
+            <span>何时需要注入八字？</span>
+            <span class="bazi-info-close" onclick="hideBaziInfo(event)">&times;</span>
+        </div>
+        <div class="bazi-info-text">
+            <h4>一、标准解卦：无需八字 ❌</h4>
+            <p>单纯预测<strong>具体事件走向</strong>（如今日出行、近期合同、求财结果等），奇门局本身已足够，不强制需要八字。</p>
+            
+            <h4>二、深度解卦：需要八字 ✅</h4>
+            <ul>
+                <li><strong>判断个人旺衰：</strong>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
+                <li><strong>流年大运配合：</strong>预测中长期运势，结合八字大运判断具体年份变化。</li>
+                <li><strong>六亲宫位对应：</strong>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
+                <li><strong>格局取用验证：</strong>验证高阶格局是否与命主五行"合用"。</li>
+                <li><strong>精准应期定位：</strong>两套体系交接点吻合，应验概率更高。</li>
+            </ul>
+
+            <div class="bazi-summary-box">
+                💡 <strong>一句话总结：</strong><br>
+                事不离人，凡涉及<strong>"这个人能不能成事"</strong>，而非单纯"这件事本身的走向"，引入八字能让两套体系互为印证，准确率大幅提升！
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
