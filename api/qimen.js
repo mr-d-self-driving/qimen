@@ -59,14 +59,20 @@ module.exports = async function handler(req, res) {
         const hour = bjTime.getHours();
         const minute = bjTime.getMinutes();
 
+        // ... 前面的时间获取代码保持不变 ...
+
         // 4. 起局推演
         const solar = Solar.fromYmdHms(year, month, day, hour, minute, 0);
         const lunar = solar.getLunar();
         const ganzhiHour = lunar.getTimeInGanZhi();
         const ganzhiDay = lunar.getDayInGanZhi();
         
-        // 缓存 Key 生成 (例如：2026-4-17-甲戌时-问题文本)
-        const cacheKey = `${year}-${month}-${day}-${ganzhiHour}-${userQuestion}`;
+        // 获取前端传来的八字信息
+        const baziInfo = req.body.baziInfo || "未提供八字信息";
+
+        // ✅ 修复：将 baziInfo 的一段 Hash 纳入缓存 Key，防止不同八字串台！
+        const baziHash = baziInfo === "未提供八字信息" ? "NoBazi" : baziInfo.substring(0, 15);
+        const cacheKey = `${year}-${month}-${day}-${ganzhiHour}-${userQuestion}-${baziHash}`;
         if (memoryCache[cacheKey]) {
             console.log("⚡️ 命中云端时辰缓存！直接返回。");
             return res.status(200).json(memoryCache[cacheKey]);
@@ -98,7 +104,7 @@ module.exports = async function handler(req, res) {
         const tianRuiIndex = nineStars.indexOf("天芮");
         const centerEarthStem = diPan[4]; 
 
-        // 5. 拼装 Prompt 九宫文本
+        // 5. 拼装 Prompt 九宫文本 (代码不变)
         const palaceNames = ["巽", "离", "坤", "震", "中", "兑", "艮", "坎", "乾"];
         const palaceNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
         let palacesText = "";
@@ -169,65 +175,77 @@ ${baziInfo}
   "analysis": {
     "tensor": "时空能量 (如: 阳遁三局，金水相生)",
     "yong_shen": "用神分析 (如: 生门落巽宫属木，受生旺相)",
-    "bazi_insight": "年命/八字参考 (如提供了八字，请简述年命落宫吉凶及其对大局的影响；若未提供八字，返回空即可",
+    "bazi_insight": "年命/八字参考 (如提供了八字，请简述年命落宫吉凶及其对大局的影响；若未提供八字，返回空即可)",
     "pattern": "特殊格局 (如: 癸+己华盖地户，需防文书错漏)",
     "god_help": "神助 (如: 临九地，宜长线发展)",
     "dynamic_timing": "动态应期推演 (极其重要！详细说明当天的哪个时辰/未来的哪个日子能冲破阻碍或填实空亡，促成事情发展)"
   },
   "advice": {
     "strategy": [
-      "策略1 (如: 必须主动出击，不可坐等)",
-      "策略2 (如: 重点攻克对方的技术负责人)"
+      "策略1", "策略2"
     ],
-    "risk": "避坑指南 (如: 防备口头承诺，必须落实纸面)",
+    "risk": "避坑指南",
     "lucky_tips": {
-      "direction": "有利方位 (如: 西北方)",
-      "time": "有利时间 (如: 未时 13-15点)",
-      "action": "助运行为 (如: 穿着黑色衣物，携带金属配饰)"
+      "direction": "有利方位",
+      "time": "有利时间",
+      "action": "助运行为"
     }
   }
+}
 
 务必做到有根据、有理论支持，分析的详细还要体会我问问题的心理潜在因素，照顾我的心理感受。你先分析，我下面要问你问题了。
 问题：${userQuestion}`;
 
-// 6. 调用大模型 (使用标准的 Completions 接口)
-        // ⚠️ 请在 Vercel 后台配置环境变量 API_KEY (名字你可以自定)
+        // 6. 调用大模型 
         const API_KEY = process.env.GEMINI_API_KEY; 
-        
-        // ⚠️ 请替换为你实际使用的中转接口地址
         const API_URL = 'https://yinli.one/v1/chat/completions'; 
         
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${API_KEY}` 
-            },
-            body: JSON.stringify({
-                model: 'gemini-3.1-pro-preview', // 确保填写你的中转商支持的模型名称，如 'gpt-4o' 或 'gemini-1.5-pro'
-                messages: [
-                    { role: 'user', content: finalPrompt }
-                ],
-                // 大部分主流中转商支持强制 JSON 输出，如果不兼容可将此行注释掉
-                response_format: { type: "json_object" },
-                temperature: 0.7
-            })
-        });
+        // ✅ 核心修复：为后端的 Fetch 增加 AbortController，防止中转接口死机导致无限挂起
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // 设定后端最高 60 秒必须掐断
 
-        const apiData = await response.json();
-        
-        // 错误处理兼容
-        if (apiData.error) {
-             const errMsg = typeof apiData.error === 'string' ? apiData.error : (apiData.error.message || JSON.stringify(apiData.error));
-             throw new Error(errMsg);
+        let apiData;
+        try {
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${API_KEY}` 
+                },
+                body: JSON.stringify({
+                    model: 'gemini-3.1-pro-preview', // ⚠️ 请确保你的中转代理支持填入的这个模型名称，不要用生造的名字
+                    messages: [{ role: 'user', content: finalPrompt }],
+                    response_format: { type: "json_object" },
+                    temperature: 0.7
+                }),
+                signal: controller.signal // 绑定超时控制器
+            });
+
+            clearTimeout(timeoutId); // 成功返回则取消定时器
+
+            // 防御拦截：如果中转接口返回的是 502/504 等非 JSON 的 HTML 错误页面
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`LLM接口返回错误 (${response.status}): ${errText.substring(0, 100)}`);
+            }
+
+            apiData = await response.json();
+            if (apiData.error) throw new Error(apiData.error.message || JSON.stringify(apiData.error));
+
+        } catch (fetchError) {
+            clearTimeout(timeoutId);
+            if (fetchError.name === 'AbortError') {
+                throw new Error("大模型接口处理超时 (超60秒未响应)，请重试。");
+            }
+            throw fetchError;
         }
 
-        // 解析标准的 Completions 格式返回
+        // 解析返回数据
         let textResult = apiData.choices[0].message.content;
         textResult = textResult.replace(/```json/g, "").replace(/```/g, "").trim();
         const aiJsonData = JSON.parse(textResult);
 
-        // 7. 组装最终供前端 UI 渲染的超级 JSON
+        // 7. 组装前端超级 JSON ... (后续组装 qimenPalaces 的代码保持原样即可)
         let qimenPalaces = [];
         for (let i = 0; i < 9; i++) {
             if (i === 4) {
@@ -256,7 +274,6 @@ ${baziInfo}
             }
         };
 
-        // 写入缓存并返回
         memoryCache[cacheKey] = finalOutput;
         return res.status(200).json(finalOutput);
 
