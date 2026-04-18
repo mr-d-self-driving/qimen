@@ -7,6 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/lunar-javascript/lunar.js"></script>
     <style>
         /* ═══════════════════════════════════════════
            CSS 变量 & 全局重置
@@ -225,7 +226,49 @@
         @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 12px var(--theme-color-dim, rgba(179,139,54,0.15)); } 50% { box-shadow: 0 0 24px var(--theme-color-dim, rgba(179,139,54,0.3)), 0 0 8px var(--theme-color-dim, rgba(179,139,54,0.1)) inset; } }
         @keyframes dotPulse { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
         @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        /* ═══════════════════════════════════════════
+           八字档案与排盘 UI
+        ═══════════════════════════════════════════ */
+        .bazi-section { margin-bottom: 24px; }
+        .bazi-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: var(--radius-item); border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.3s;}
+        .bazi-toggle:hover { background: rgba(179,139,54,0.05); }
+        .bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;}
+        
+        /* 拟态开关 */
+        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 24px; }
+        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: var(--gold-mid); }
+        input:checked + .slider:before { transform: translateX(20px); background-color: #fff; }
 
+        /* 档案选择与添加区 */
+        .bazi-workspace { display: none; margin-top: 12px; animation: fadeInDown 0.4s ease; }
+        .profile-selector { display: flex; gap: 10px; margin-bottom: 12px; }
+        .profile-select { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--gold-mid); color: #fff; padding: 10px; border-radius: 8px; outline: none; font-size: 14px;}
+        .add-profile-btn { background: rgba(179,139,54,0.15); color: var(--gold-bright); border: 1px solid var(--gold-mid); padding: 0 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s;}
+        .add-profile-btn:hover { background: var(--gold-mid); color: #000; }
+
+        /* 八字排盘表格 (深度还原图4) */
+        .bazi-table-wrap { background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px; overflow-x: auto; }
+        .bazi-table { width: 100%; border-collapse: collapse; text-align: center; }
+        .bazi-table th, .bazi-table td { padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
+        .bazi-table th { color: var(--text-muted); font-weight: 500; font-size: 12px; }
+        .bazi-table tr:last-child td { border-bottom: none; }
+        .bz-star { font-size: 12px; color: var(--text-primary); }
+        .bz-char { font-size: 22px; font-weight: 600; font-family: var(--font-serif); }
+        /* 五行色 (基于暗金主题微调，避免太刺眼) */
+        .wx-jin { color: #E8CC80; } /* 金 */
+        .wx-mu { color: #81C784; }  /* 木 */
+        .wx-shui { color: #64B5F6; } /* 水 */
+        .wx-huo { color: #E57373; }  /* 火 */
+        .wx-tu { color: #DCE775; }   /* 土 */
+
+        /* 新增档案的弹窗表单 */
+        .profile-form { display: none; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border: 1px dashed var(--border-subtle); margin-bottom: 12px; }
+        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
+        .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); color: white; }
+        
         @media (max-width: 400px) { .header-title { font-size: 24px; letter-spacing: 4px; } .conclusion { font-size: 22px; } }
     </style>
 </head>
@@ -267,7 +310,47 @@
             没有账号？ <span>点击注册</span>
         </div>
     </div>
+<div class="input-box bazi-section">
+            <label class="bazi-toggle">
+                <div class="bazi-toggle-text"><span>🧬</span> 注入命主八字分析 (精准度提升)</div>
+                <div class="switch">
+                    <input type="checkbox" id="baziSwitch" onchange="toggleBaziWorkspace()">
+                    <span class="slider"></span>
+                </div>
+            </label>
 
+            <div id="baziWorkspace" class="bazi-workspace">
+                <div class="profile-selector">
+                    <select id="profileSelect" class="profile-select" onchange="handleProfileSelect()">
+                        <option value="">加载档案中...</option>
+                    </select>
+                    <button class="add-profile-btn" onclick="showAddProfileForm()">+ 新增</button>
+                </div>
+
+                <div id="profileForm" class="profile-form">
+                    <div class="form-row">
+                        <input type="text" id="pName" placeholder="命主姓名 (如: 自己/张总)">
+                        <select id="pGender">
+                            <option value="M">男 (乾造)</option>
+                            <option value="F">女 (坤造)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <input type="datetime-local" id="pBirth" style="color-scheme: dark;">
+                    </div>
+                    <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <button class="secondary-btn" style="padding:6px 12px;" onclick="hideAddProfileForm()">取消</button>
+                        <button class="add-profile-btn" style="padding:6px 12px;" onclick="saveNewProfile()">保存并排盘</button>
+                    </div>
+                </div>
+
+                <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
+                    <table class="bazi-table" id="baziTable">
+                        </table>
+                </div>
+            </div>
+        </div>
+    
     <div id="appSection" style="display: none;">
         <div class="input-box">
             <div>
@@ -414,10 +497,16 @@ async function startDivination() {
     rc.innerHTML = ""; loader.style.display = "flex"; startLoaderCycle();
 
     try {
+
+        const requestBody = { question: input };
+        if (document.getElementById('baziSwitch').checked && currentBaziString) {
+            requestBody.baziInfo = currentBaziString;
+        }
+
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ question: input })
+            body: JSON.stringify(requestBody)
         });
         const data = await response.json();
         if (data.error) throw new Error(data.details || data.error);
@@ -483,6 +572,135 @@ async function loadHistory() {
     });
 }
 
+    /* ═══════════════════════════════════════════════
+   八字排盘与档案系统 (Lunar JS)
+═══════════════════════════════════════════════ */
+let baziProfiles = [];
+let currentBaziString = ""; // 存给 AI 的纯文本八字
+
+// 简单的五行颜色判断映射
+const WX_MAP = {
+    '甲':'wx-mu', '乙':'wx-mu', '寅':'wx-mu', '卯':'wx-mu',
+    '丙':'wx-huo', '丁':'wx-huo', '巳':'wx-huo', '午':'wx-huo',
+    '戊':'wx-tu', '己':'wx-tu', '辰':'wx-tu', '戌':'wx-tu', '丑':'wx-tu', '未':'wx-tu',
+    '庚':'wx-jin', '辛':'wx-jin', '申':'wx-jin', '酉':'wx-jin',
+    '壬':'wx-shui', '癸':'wx-shui', '亥':'wx-shui', '子':'wx-shui'
+};
+
+function toggleBaziWorkspace() {
+    const ws = document.getElementById('baziWorkspace');
+    const isOn = document.getElementById('baziSwitch').checked;
+    ws.style.display = isOn ? 'block' : 'none';
+    if (isOn && baziProfiles.length === 0) fetchBaziProfiles();
+    if (!isOn) currentBaziString = ""; // 关闭时清空
+}
+
+function showAddProfileForm() { document.getElementById('profileForm').style.display = 'block'; }
+function hideAddProfileForm() { document.getElementById('profileForm').style.display = 'none'; }
+
+async function fetchBaziProfiles() {
+    if (!currentUser) return;
+    const select = document.getElementById('profileSelect');
+    select.innerHTML = '<option value="">加载中...</option>';
+    
+    const { data, error } = await _supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false });
+    
+    if (error || !data || data.length === 0) {
+        select.innerHTML = '<option value="">暂无档案，请先新增</option>';
+        baziProfiles = [];
+        return;
+    }
+    
+    baziProfiles = data;
+    select.innerHTML = data.map(p => `<option value="${p.id}">${p.name} (${p.gender === 'M'?'男':'女'})</option>`).join('');
+    
+    // 默认选中第一个并排盘
+    handleProfileSelect();
+}
+
+async function saveNewProfile() {
+    const name = document.getElementById('pName').value.trim();
+    const gender = document.getElementById('pGender').value;
+    const birth = document.getElementById('pBirth').value; // format: "YYYY-MM-DDTHH:mm"
+
+    if(!name || !birth) return alert("请填写姓名和出生时间");
+
+    const dateObj = new Date(birth);
+    const { error } = await _supabase.from('bazi_profiles').insert([{
+        user_id: currentUser.id, name: name, gender: gender, birth_date: dateObj.toISOString()
+    }]);
+
+    if (error) { alert("保存失败: " + error.message); return; }
+    
+    hideAddProfileForm();
+    await fetchBaziProfiles(); // 重新拉取并渲染
+}
+
+function handleProfileSelect() {
+    const select = document.getElementById('profileSelect');
+    const profile = baziProfiles.find(p => p.id === select.value);
+    if (!profile) return;
+
+    renderBaziTable(profile);
+}
+
+// 核心：利用 Lunar.js 在前端生成八字盘
+function renderBaziTable(profile) {
+    const date = new Date(profile.birth_date);
+    const solar = window.Solar.fromDate(date);
+    const lunar = solar.getLunar();
+    
+    // 排八字 (男女排法由大运管理，此处取干支)
+    const baZi = lunar.getEightChar();
+    
+    const yearGan = baZi.getYearGan(); const yearZhi = baZi.getYearZhi();
+    const monthGan = baZi.getMonthGan(); const monthZhi = baZi.getMonthZhi();
+    const dayGan = baZi.getDayGan(); const dayZhi = baZi.getDayZhi();
+    const hourGan = baZi.getTimeGan(); const hourZhi = baZi.getTimeZhi();
+
+    // 取主星 (十神)
+    const yearShiShen = baZi.getYearShiShenGan();
+    const monthShiShen = baZi.getMonthShiShenGan();
+    const hourShiShen = baZi.getTimeShiShenGan();
+
+    const tableHTML = `
+        <thead>
+            <tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="bz-star">主星</td>
+                <td class="bz-star">${yearShiShen}</td>
+                <td class="bz-star">${monthShiShen}</td>
+                <td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td>
+                <td class="bz-star">${hourShiShen}</td>
+            </tr>
+            <tr>
+                <td class="bz-star">天干</td>
+                <td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td>
+                <td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td>
+                <td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td>
+                <td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td>
+            </tr>
+            <tr>
+                <td class="bz-star">地支</td>
+                <td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td>
+                <td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td>
+                <td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td>
+                <td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td>
+            </tr>
+        </tbody>
+    `;
+
+    document.getElementById('baziTable').innerHTML = tableHTML;
+    document.getElementById('baziTableContainer').style.display = 'block';
+
+    // 拼装给 AI 的纯文本
+    const genderStr = profile.gender === 'M' ? '乾造(男)' : '坤造(女)';
+    currentBaziString = `求测人：${profile.name}，${genderStr}。\n八字：${yearGan}${yearZhi} ${monthGan}${monthZhi} ${dayGan}${dayZhi} ${hourGan}${hourZhi}`;
+}
+
+    
 /* ═══════════════════════════════════════════════
    动画与渲染引擎 (严密隔离)
 ═══════════════════════════════════════════════ */
