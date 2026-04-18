@@ -41,6 +41,7 @@ module.exports = async function handler(req, res) {
     try {
         // 2. 获取用户提问
         const userQuestion = req.body.question || "当前局势吉凶如何？";
+        const baziInfo = req.body.baziInfo || "null"; // 新增这行
         //const passcode = req.body.passcode || "";
 
         //if (passcode !== "8888") { // 这里的 "8888" 你可以改成任意你想要的密码
@@ -130,7 +131,7 @@ module.exports = async function handler(req, res) {
 ${palacesText}
 
 求测人命理信息(可选，若为空表示未提供)
-null
+${baziInfo}
 
 **【核心推演逻辑】**
 1. **定用神（含动态八字判断）**：
