@@ -233,6 +233,17 @@
         .bazi-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: var(--radius-item); border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.3s;}
         .bazi-toggle:hover { background: rgba(179,139,54,0.05); }
         .bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;}
+        .bz-select { 
+            display:block; width:44px; height:44px; border-radius:50%; margin:4px auto; 
+            background: rgba(179,139,54,0.15); border: 1px solid var(--gold-mid); color: #fff; 
+            text-align:center; font-size:16px; font-family: var(--font-serif); appearance:none; outline:none; 
+            text-align-last: center; /* 让文字在 select 中居中 */
+        }
+        .profile-delete-btn {
+            background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.3);
+            border-radius: 8px; padding: 0 12px; cursor: pointer; transition: 0.2s;
+        }
+        .profile-delete-btn:hover { background: #FF5E57; color: #fff; }
         
         /* 拟态开关 */
         .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
@@ -329,15 +340,48 @@
 
                 <div id="profileForm" class="profile-form">
                     <div class="form-row">
-                        <input type="text" id="pName" placeholder="命主姓名 (如: 自己/张总)">
+                        <input type="text" id="pName" placeholder="命主姓名 (如: 张总)">
                         <select id="pGender">
                             <option value="M">男 (乾造)</option>
                             <option value="F">女 (坤造)</option>
                         </select>
                     </div>
-                    <div class="form-row">
+                    
+                    <div class="input-tabs" style="display:flex; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
+                        <div id="tabDate" class="input-tab active" onclick="switchInputMode('date')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);">公历输入</div>
+                        <div id="tabBazi" class="input-tab" onclick="switchInputMode('bazi')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);">四柱直排</div>
+                    </div>
+
+                    <div id="modeDate" class="form-row">
                         <input type="datetime-local" id="pBirth" style="color-scheme: dark;">
                     </div>
+
+                    <div id="modeBazi" style="display:none; text-align:center;">
+                        <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;">
+                            <div class="pillar-group">
+                                <div style="font-size:10px; color:#888; margin-bottom:4px;">年柱</div>
+                                <select id="bzYg" class="bz-select" onchange="autoLinkMonth()"></select>
+                                <select id="bzYz" class="bz-select" onchange="autoLinkMonth()"></select>
+                            </div>
+                            <div class="pillar-group">
+                                <div style="font-size:10px; color:#888; margin-bottom:4px;">月柱</div>
+                                <select id="bzMg" class="bz-select" disabled style="opacity:0.6;"></select>
+                                <select id="bzMz" class="bz-select" onchange="autoLinkMonth()"></select>
+                            </div>
+                            <div class="pillar-group">
+                                <div style="font-size:10px; color:#888; margin-bottom:4px;">日柱</div>
+                                <select id="bzDg" class="bz-select" onchange="autoLinkTime()"></select>
+                                <select id="bzDz" class="bz-select" onchange="autoLinkTime()"></select>
+                            </div>
+                            <div class="pillar-group">
+                                <div style="font-size:10px; color:#888; margin-bottom:4px;">时柱</div>
+                                <select id="bzTg" class="bz-select" disabled style="opacity:0.6;"></select>
+                                <select id="bzTz" class="bz-select" onchange="autoLinkTime()"></select>
+                            </div>
+                        </div>
+                        <div style="font-size:10px; color:#E57373;">* 严格遵守五虎遁与五鼠遁，月干与时干将自动锁定计算</div>
+                    </div>
+
                     <div style="display:flex; justify-content:flex-end; gap:8px;">
                         <button class="secondary-btn" style="padding:6px 12px;" onclick="hideAddProfileForm()">取消</button>
                         <button class="add-profile-btn" style="padding:6px 12px;" onclick="saveNewProfile()">保存并排盘</button>
@@ -598,10 +642,58 @@ function toggleBaziWorkspace() {
 function showAddProfileForm() { document.getElementById('profileForm').style.display = 'block'; }
 function hideAddProfileForm() { document.getElementById('profileForm').style.display = 'none'; }
 
+let currentInputMode = 'date'; // 'date' 或 'bazi'
+const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
+const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("");
+
+// 切换输入模式
+function switchInputMode(mode) {
+    currentInputMode = mode;
+    document.getElementById('tabDate').style = mode === 'date' ? "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);" : "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);";
+    document.getElementById('tabBazi').style = mode === 'bazi' ? "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);" : "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);";
+    document.getElementById('modeDate').style.display = mode === 'date' ? 'flex' : 'none';
+    document.getElementById('modeBazi').style.display = mode === 'bazi' ? 'block' : 'none';
+    if(mode === 'bazi') initBaziSelects();
+}
+
+// 初始化下拉框选项
+function initBaziSelects() {
+    if(document.getElementById('bzYg').options.length > 0) return;
+    const gans = TIAN_GAN.map((g,i) => `<option value="${i}">${g}</option>`).join("");
+    const zhis = DI_ZHI.map((z,i) => `<option value="${i}">${z}</option>`).join("");
+    ['bzYg', 'bzMg', 'bzDg', 'bzTg'].forEach(id => document.getElementById(id).innerHTML = gans);
+    ['bzYz', 'bzMz', 'bzDz', 'bzTz'].forEach(id => document.getElementById(id).innerHTML = zhis);
+    
+    // 初始化默认值
+    document.getElementById('bzMz').value = 2; // 月支默认建寅
+    document.getElementById('bzTz').value = 0; // 时支默认起子
+    autoLinkMonth();
+    autoLinkTime();
+}
+
+// 核心校验：五虎遁 (年上起月) -> 甲己之年丙作首...
+function autoLinkMonth() {
+    const yg = parseInt(document.getElementById('bzYg').value);
+    const mz = parseInt(document.getElementById('bzMz').value);
+    // 月干公式: ((年干 % 5) * 2 + 2 + (月支偏移,寅为0)) % 10
+    const offsetZhi = (mz + 10) % 12; // 将子=0转为寅=0
+    const mg = ((yg % 5) * 2 + 2 + offsetZhi) % 10;
+    document.getElementById('bzMg').value = mg;
+}
+
+// 核心校验：五鼠遁 (日上起时) -> 甲己还加甲...
+function autoLinkTime() {
+    const dg = parseInt(document.getElementById('bzDg').value);
+    const tz = parseInt(document.getElementById('bzTz').value);
+    // 时干公式: ((日干 % 5) * 2 + 时支) % 10
+    const tg = ((dg % 5) * 2 + tz) % 10;
+    document.getElementById('bzTg').value = tg;
+}
+
+// 修改后的加载档案 (包含删除按钮)
 async function fetchBaziProfiles() {
     if (!currentUser) return;
     const select = document.getElementById('profileSelect');
-    select.innerHTML = '<option value="">加载中...</option>';
     
     const { data, error } = await _supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false });
     
@@ -614,29 +706,106 @@ async function fetchBaziProfiles() {
     baziProfiles = data;
     select.innerHTML = data.map(p => `<option value="${p.id}">${p.name} (${p.gender === 'M'?'男':'女'})</option>`).join('');
     
-    // 默认选中第一个并排盘
+    // 动态在 select 旁边注入一个删除按钮
+    let delBtn = document.getElementById('delProfileBtn');
+    if(!delBtn) {
+        select.insertAdjacentHTML('afterend', `<button id="delProfileBtn" class="profile-delete-btn" onclick="deleteProfile()">删除</button>`);
+    }
+    
     handleProfileSelect();
 }
 
+// 删除功能
+async function deleteProfile() {
+    const select = document.getElementById('profileSelect');
+    const profileId = select.value;
+    if(!profileId) return;
+    if(!confirm("确定要删除这个命主档案吗？")) return;
+    
+    await _supabase.from('bazi_profiles').delete().eq('id', profileId);
+    await fetchBaziProfiles();
+    document.getElementById('baziTableContainer').style.display = 'none'; // 清空图表
+}
+
+// 保存逻辑分支：处理公历或纯四柱
 async function saveNewProfile() {
     const name = document.getElementById('pName').value.trim();
     const gender = document.getElementById('pGender').value;
-    const birth = document.getElementById('pBirth').value; // 格式如: "1998-07-26T18:50"
+    if(!name) return alert("请填写姓名");
 
-    if(!name || !birth) return alert("请填写姓名和出生时间");
+    let insertData = { user_id: currentUser.id, name: name, gender: gender };
 
-    // ⚠️ 关键修复：绝对不能用 new Date().toISOString()！
-    // 我们直接保存原汁原味的本地时间字面量，防止东八区被减去 8 小时
-    const localBirthString = birth.replace('T', ' ') + ':00'; 
+    if (currentInputMode === 'date') {
+        const birth = document.getElementById('pBirth').value;
+        if(!birth) return alert("请填写出生时间");
+        insertData.birth_date = birth.replace('T', ' ') + ':00'; // 防止时区偏移
+    } else {
+        // 抓取四柱圆圈的索引，转为汉字
+        const getV = (id, arr) => arr[parseInt(document.getElementById(id).value)];
+        const bzStr = `${getV('bzYg', TIAN_GAN)}${getV('bzYz', DI_ZHI)} ${getV('bzMg', TIAN_GAN)}${getV('bzMz', DI_ZHI)} ${getV('bzDg', TIAN_GAN)}${getV('bzDz', DI_ZHI)} ${getV('bzTg', TIAN_GAN)}${getV('bzTz', DI_ZHI)}`;
+        insertData.bazi_str = bzStr;
+    }
 
-    const { error } = await _supabase.from('bazi_profiles').insert([{
-        user_id: currentUser.id, name: name, gender: gender, birth_date: localBirthString
-    }]);
-
-    if (error) { alert("保存失败: " + error.message); return; }
+    const { error } = await _supabase.from('bazi_profiles').insert([insertData]);
+    if (error) return alert("保存失败: " + error.message);
     
     hideAddProfileForm();
-    await fetchBaziProfiles(); // 重新拉取并渲染
+    await fetchBaziProfiles();
+}
+
+// 修改排盘渲染逻辑：兼容纯四柱字符串
+function renderBaziTable(profile) {
+    let yearGan, yearZhi, monthGan, monthZhi, dayGan, dayZhi, hourGan, hourZhi;
+    let yearShiShen = "-", monthShiShen = "-", hourShiShen = "-";
+
+    if (profile.birth_date) {
+        // 如果有真实时间，调用原逻辑
+        const parts = profile.birth_date.match(/\d+/g);
+        const solar = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0);
+        const baZi = solar.getLunar().getEightChar();
+        
+        yearGan = baZi.getYearGan(); yearZhi = baZi.getYearZhi();
+        monthGan = baZi.getMonthGan(); monthZhi = baZi.getMonthZhi();
+        dayGan = baZi.getDayGan(); dayZhi = baZi.getDayZhi();
+        hourGan = baZi.getTimeGan(); hourZhi = baZi.getTimeZhi();
+        yearShiShen = baZi.getYearShiShenGan(); monthShiShen = baZi.getMonthShiShenGan(); hourShiShen = baZi.getTimeShiShenGan();
+    } else if (profile.bazi_str) {
+        // 如果只有纯四柱字符串，直接截取展示 (十神需另外手写算法计算，此处简化直接渲染干支)
+        const bzArr = profile.bazi_str.replace(/\s+/g, '').split(''); // 剥离空格
+        yearGan = bzArr[0]; yearZhi = bzArr[1];
+        monthGan = bzArr[2]; monthZhi = bzArr[3];
+        dayGan = bzArr[4]; dayZhi = bzArr[5];
+        hourGan = bzArr[6]; hourZhi = bzArr[7];
+    }
+
+    const tableHTML = `
+        <thead><tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr></thead>
+        <tbody>
+            <tr>
+                <td class="bz-star">主星</td>
+                <td class="bz-star">${yearShiShen}</td>
+                <td class="bz-star">${monthShiShen}</td>
+                <td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td>
+                <td class="bz-star">${hourShiShen}</td>
+            </tr>
+            <tr>
+                <td class="bz-star">天干</td>
+                <td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td><td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td>
+                <td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td><td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td>
+            </tr>
+            <tr>
+                <td class="bz-star">地支</td>
+                <td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td><td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td>
+                <td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td><td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td>
+            </tr>
+        </tbody>
+    `;
+
+    document.getElementById('baziTable').innerHTML = tableHTML;
+    document.getElementById('baziTableContainer').style.display = 'block';
+
+    const genderStr = profile.gender === 'M' ? '乾造(男)' : '坤造(女)';
+    currentBaziString = `求测人：${profile.name}，${genderStr}。\n八字：${yearGan}${yearZhi} ${monthGan}${monthZhi} ${dayGan}${dayZhi} ${hourGan}${hourZhi}`;
 }
 
 function handleProfileSelect() {
