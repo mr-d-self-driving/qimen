@@ -9,6 +9,9 @@
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lunar-javascript/lunar.js"></script>
     <style>
+        /* ═══════════════════════════════════════════
+           CSS 变量 & 全局重置
+        ═══════════════════════════════════════════ */
         :root {
             --gold-bright:   #E8CC80; --gold-mid:      #B38B36;
             --gold-dim:      rgba(179,139,54,0.18); --gold-glow:     rgba(230,194,122,0.12);
@@ -141,28 +144,35 @@
         .card { background: var(--bg-card); border-radius: var(--radius-card); border: 1px solid rgba(255,255,255,0.07); padding: 26px 20px; display: none; margin-bottom: 40px; box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(179,139,54,0.08); animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) both; position: relative; overflow: hidden; }
         .card::before { content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, var(--theme-color, #B38B36), transparent); opacity: 0.6; }
         .card::after { content: '☰'; position: absolute; bottom: -20px; right: -10px; font-size: 120px; color: rgba(255,255,255,0.02); pointer-events: none; font-family: serif; line-height: 1; }
+
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
         .title { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
         .score-badge { display: flex; flex-direction: column; align-items: center; gap: 2px; }
         .score { background: var(--theme-color-dim, rgba(179,139,54,0.15)); color: var(--theme-color, #B38B36); padding: 5px 14px; border-radius: 20px; font-weight: 800; font-size: 20px; letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--theme-color, #B38B36) 30%, transparent); box-shadow: 0 0 16px var(--theme-color-dim, rgba(179,139,54,0.15)), 0 0 4px var(--theme-color-dim, rgba(179,139,54,0.1)) inset; animation: glowPulse 3s ease-in-out infinite; }
         .score-label { font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
+
         .conclusion { font-family: var(--font-serif); font-size: 26px; font-weight: 400; color: var(--theme-color, #E8CC80); margin-bottom: 8px; line-height: 1.3; letter-spacing: 1px; text-shadow: 0 0 30px color-mix(in srgb, var(--theme-color, #B38B36) 40%, transparent); }
         .keyword { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); padding: 4px 12px; border-radius: 20px; margin-bottom: 22px; letter-spacing: 0.5px; }
+
         .user-question { font-size: 14px; color: rgba(240,237,230,0.8); padding: 14px 16px; background: rgba(255,255,255,0.03); border-radius: var(--radius-item); border-left: 3px solid var(--theme-color, #B38B36); margin-bottom: 24px; font-style: italic; line-height: 1.7; position: relative; }
         .user-question::before { content: '"'; position: absolute; top: -8px; left: 10px; font-size: 40px; font-family: Georgia, serif; color: var(--theme-color, #B38B36); opacity: 0.3; line-height: 1; }
+
         .section-title { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; margin: 28px 0 14px; position: relative; }
         .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%); }
         .section-title .icon { font-size: 15px; opacity: 0.9; }
+
         .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
         .grid-item { background: var(--bg-item); border: 1px solid var(--border-subtle); padding: 14px; border-radius: var(--radius-item); transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s; position: relative; overflow: hidden; }
         .grid-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent); }
         .grid-item:hover { border-color: rgba(179,139,54,0.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
         .label { font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 7px; letter-spacing: 1.5px; text-transform: uppercase; }
         .value { font-size: 13px; font-weight: 400; color: #DDDDE5; line-height: 1.6; }
+
         .bazi-insight { grid-column: 1 / -1; background: linear-gradient(135deg, color-mix(in srgb, var(--theme-color, #B38B36) 8%, transparent), transparent); border-left: 2px solid var(--theme-color, #B38B36); }
         .bazi-insight .label { color: var(--theme-color, #B38B36); }
         .dynamic-timing { grid-column: 1 / -1; background: rgba(245,197,24,0.04); border-left: 2px solid #F5C518; }
         .dynamic-timing .label { color: #F5C518; }
+
         .score-basis { grid-column: 1 / -1; background: rgba(255,255,255,0.02); }
         .score-basis .label { color: var(--text-muted); }
         .score-basis-body { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
@@ -174,13 +184,16 @@
         .sb-tag.positive { background: rgba(0,210,106,0.1); color: #00D26A; border: 1px solid rgba(0,210,106,0.2); }
         .sb-tag.negative { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.2); }
         .sb-logic { font-size: 12px; color: #9090A0; line-height: 1.7; padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 2px solid var(--theme-color, #B38B36); }
+
         .strategy-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
         .strategy-list li { position: relative; padding: 12px 14px 12px 36px; background: var(--bg-item); border: 1px solid var(--border-subtle); border-radius: 10px; color: #CCCCD8; font-size: 13.5px; line-height: 1.65; transition: border-color 0.25s, background 0.25s; }
         .strategy-list li:hover { border-color: rgba(179,139,54,0.2); background: rgba(179,139,54,0.04); }
         .strategy-list li::before { content: "✦"; position: absolute; left: 14px; top: 13px; color: var(--theme-color, #B38B36); font-size: 11px; }
+
         .risk-alert { background: rgba(255,94,87,0.06); border: 1px solid rgba(255,94,87,0.15); border-left: 3px solid #FF5E57; border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
         .risk-alert-title { color: #FF5E57; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
         .risk-alert-content { color: #D0D0D8; font-size: 13px; line-height: 1.65; }
+
         .footer { display: flex; gap: 8px; background: linear-gradient(135deg, rgba(179,139,54,0.1), rgba(179,139,54,0.05)); border: 1px solid rgba(179,139,54,0.2); padding: 16px 12px; border-radius: 16px; margin-top: 28px; }
         .f-item { flex: 1; text-align: center; padding: 4px 0; border-right: 1px solid rgba(255,255,255,0.04); }
         .f-item:last-child { border-right: none; }
@@ -188,15 +201,18 @@
         .f-item:nth-child(2) .f-icon { animation-delay: 0.5s; }
         .f-item:nth-child(3) .f-icon { animation-delay: 1s; }
         .f-text { font-size: 12px; font-weight: 600; color: var(--theme-color, #E8CC80); letter-spacing: 0.5px; }
+
         .pan-wrapper { background: rgba(0,0,0,0.3); border: 1px solid rgba(179,139,54,0.15); border-radius: 16px; padding: 16px; position: relative; overflow: hidden; }
         .pan-wrapper::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(179,139,54,0.04) 0%, transparent 70%); pointer-events: none; }
         .pan-header { text-align: center; margin-bottom: 14px; }
         .pan-pillars { font-family: var(--font-serif); font-size: 17px; font-weight: 400; color: #FFF; letter-spacing: 3px; margin-bottom: 6px; }
         .pan-info { font-size: 11px; color: #888; line-height: 1.7; }
         .pan-info b { color: var(--theme-color, #B38B36); font-weight: 600; }
+
         .pan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.04); }
         .pan-cell { background: var(--bg-card); aspect-ratio: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background 0.2s; }
         .pan-cell:hover { background: rgba(255,255,255,0.03); }
+
         .pan-center-earth { font-size: 32px; font-weight: 900; color: var(--text-dim); }
         .pan-god { position: absolute; top: 6px; font-size: 9px; color: #666; letter-spacing: 1px; }
         .pan-star { font-size: 12px; color: #CCC; margin-bottom: 2px; z-index: 2; }
@@ -211,9 +227,11 @@
         .mark-ma { background: var(--theme-color, #B38B36); color: #000; }
         .mark-kong { border: 1px solid #555; color: #888; background: rgba(0,0,0,0.4); }
         .highlight-text { color: var(--theme-color, #E8CC80) !important; text-shadow: 0 0 12px color-mix(in srgb, var(--theme-color, #B38B36) 50%, transparent); }
+
         .ornament-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; opacity: 0.3; }
         .ornament-divider::before, .ornament-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(179,139,54,0.5), transparent); }
         .ornament-divider span { font-size: 10px; color: var(--gold-mid); }
+
         .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
         .reveal.visible { opacity: 1; transform: none; }
 
@@ -307,15 +325,6 @@
                         </div>
 
                         <div id="modeBazi" style="display:none; text-align:center;">
-                            <div style="margin-top: 16px;">
-    <button class="secondary-btn" style="width: 100%; padding: 8px; font-size: 13px;" onclick="triggerBaziReverse()">🔄 校验并反推公历时间</button>
-</div>
-
-<div id="reverseResultArea" style="display: none; margin-top: 12px; background: rgba(0,0,0,0.4); border: 1px solid var(--gold-mid); border-radius: 8px; padding: 12px; text-align: left;">
-    <div style="font-size: 12px; color: var(--gold-bright); margin-bottom: 8px;">✅ 推算成功，请选择具体出生时间：</div>
-    <div id="reverseOptions" style="display: flex; flex-direction: column; gap: 8px;">
-        </div>
-</div>
                             <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;">
                                 <div class="pillar-group">
                                     <div style="font-size:10px; color:#888; margin-bottom:4px;">年柱</div>
@@ -348,6 +357,7 @@
                     </div>
 
                     <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
+                        <div id="reversedDateDisplay"></div>
                         <table class="bazi-table" id="baziTable"></table>
                     </div>
 
@@ -434,7 +444,7 @@
 
 <script>
 /* ═══════════════════════════════════════════════
-   1. 全局配置与状态变量 (请勿遗漏)
+   1. 全局配置与状态变量
 ═══════════════════════════════════════════════ */
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'; 
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7';
@@ -448,7 +458,6 @@ const LOADER_MESSAGES = ['正在接通云端超算矩阵...', '推演时空坐�
 let _loaderMsgIdx = 0;
 let _loaderInterval = null;
 
-// 八字系统的状态开关 (前几版丢失的就是它们)
 let baziConfirmed = false;
 let isBaziLoading = false;
 let frontBaziCache = {};
@@ -644,7 +653,7 @@ async function loadHistory() {
 }
 
 /* ═══════════════════════════════════════════════
-   4. 八字界面与大运逻辑
+   4. 八字界面与大运逻辑 (核心算法强化版)
 ═══════════════════════════════════════════════ */
 function toggleBaziWorkspace() {
     const ws = document.getElementById('baziWorkspace');
@@ -692,98 +701,7 @@ function autoLinkTime() {
     const tg = ((dg % 5) * 2 + tz) % 10;
     document.getElementById('bzTg').value = tg;
 }
-// 八字反推公历时间算法 (范围：1900年 - 至今)
-function findDatesByBazi(yGanZhi, mGanZhi, dGanZhi, hGanZhi) {
-    const today = window.Solar.fromDate(new Date());
-    const results = [];
-    
-    // 1. 找年份：八字年柱60年一轮回，找出 1900年至今所有匹配年柱的年份
-    let possibleYears = [];
-    for (let y = 1900; y <= today.getYear(); y++) {
-        // 取每年的7月1日判断年干支，绝对安全（完美避开立春交界点）
-        if (window.Solar.fromYmd(y, 7, 1).getLunar().getYearInGanZhi() === yGanZhi) {
-            possibleYears.push(y);
-        }
-    }
-    
-    // 地支对应的起始小时
-    const zhiHours = {"子":0, "丑":2, "寅":4, "卯":6, "辰":8, "巳":10, "午":12, "未":14, "申":16, "酉":18, "戌":20, "亥":22};
-    
-    // 2. 在锁定的年份中，穷举日子
-    possibleYears.forEach(year => {
-        // 考虑立春在公历1月底到2月，年柱交替，前后扩大搜索范围
-        let cur = window.Solar.fromYmd(year - 1, 11, 1);
-        let end = window.Solar.fromYmd(year + 1, 3, 1);
-        
-        while (cur.toYmd() <= end.toYmd() && cur.toYmd() <= today.toYmd()) {
-            let lunar = cur.getLunar();
-            let bazi = lunar.getEightChar();
-            
-            // 校验 年、月、日柱 是否完全匹配
-            if (bazi.getYear() === yGanZhi && bazi.getMonth() === mGanZhi && bazi.getDay() === dGanZhi) {
-                
-                // 3. 校验时干支
-                let h = zhiHours[hGanZhi.charAt(1)];
-                // 构造该日子特定时辰的 Solar 对象，提取精准八字进行时干比对
-                let testSolar = window.Solar.fromYmdHms(cur.getYear(), cur.getMonth(), cur.getDay(), h, 30, 0);
-                if (testSolar.getLunar().getEightChar().getTime() === hGanZhi) {
-                    let timeRange = hGanZhi.charAt(1) === "子" ? "23:00-00:59" : `${String(h).padStart(2,'0')}:00-${String(h+1).padStart(2,'0')}:59`;
-                    
-                    results.push({
-                        dateStr: `${cur.toYmd()}T${String(h).padStart(2,'0')}:30`, // 组装为 datetime-local 标准格式
-                        label: `${cur.toYmd()} ${timeRange}`
-                    });
-                }
-            }
-            cur = cur.next(1);
-        }
-    });
-    
-    return results;
-}
 
-// 触发反推
-function triggerBaziReverse() {
-    const getV = (id, arr) => arr[parseInt(document.getElementById(id).value)];
-    const yg = getV('bzYg', TIAN_GAN) + getV('bzYz', DI_ZHI);
-    const mg = getV('bzMg', TIAN_GAN) + getV('bzMz', DI_ZHI);
-    const dg = getV('bzDg', TIAN_GAN) + getV('bzDz', DI_ZHI);
-    const hg = getV('bzTg', TIAN_GAN) + getV('bzTz', DI_ZHI);
-
-    const matches = findDatesByBazi(yg, mg, dg, hg);
-    const resultArea = document.getElementById('reverseResultArea');
-    const optionsBox = document.getElementById('reverseOptions');
-
-    if (matches.length === 0) {
-        alert(`❌ 命理规则校验失败：\n无法找到 [${yg} ${mg} ${dg} ${hg}] 对应的真实日期。\n请检查四柱干支是否冲突！`);
-        resultArea.style.display = 'none';
-        return;
-    }
-
-    // 渲染选项
-    optionsBox.innerHTML = matches.map(match => `
-        <div style="padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; color: #FFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.1);"
-             onmouseover="this.style.background='rgba(179,139,54,0.2)'"
-             onmouseout="this.style.background='rgba(255,255,255,0.05)'"
-             onclick="applyReversedDate('${match.dateStr}')">
-            🗓️ ${match.label}
-        </div>
-    `).join('');
-    
-    resultArea.style.display = 'block';
-}
-
-// 用户点击选择后，自动填入并切换到公历模式
-function applyReversedDate(datetimeStr) {
-    document.getElementById('pBirth').value = datetimeStr;
-    document.getElementById('reverseResultArea').style.display = 'none';
-    
-    // 丝滑切换回公历 Tab
-    switchInputMode('date');
-    alert("✅ 已将反推时间填入公历，现在您可以点击「保存并排盘」获取精准大运了！");
-}
-
-    
 async function fetchBaziProfiles() {
     if (!currentUser) return;
     const select = document.getElementById('profileSelect');
@@ -854,9 +772,44 @@ function modifyBazi() {
     document.getElementById('baziTableContainer').style.opacity = '1';
 }
 
+// 🔥 核心：八字反推公历算法 (1900年 - 至今) 🔥
+function findDatesByBazi(yGanZhi, mGanZhi, dGanZhi, hGanZhi) {
+    const today = window.Solar.fromDate(new Date());
+    const results = [];
+    let possibleYears = [];
+    
+    // 1. 穷举匹配年柱的年份 (通常命中2-3个)
+    for (let y = 1900; y <= today.getYear(); y++) {
+        if (window.Solar.fromYmd(y, 7, 1).getLunar().getYearInGanZhi() === yGanZhi) {
+            possibleYears.push(y);
+        }
+    }
+    
+    const zhiHours = {"子":0, "丑":2, "寅":4, "卯":6, "辰":8, "巳":10, "午":12, "未":14, "申":16, "酉":18, "戌":20, "亥":22};
+    
+    // 2. 遍历匹配日期和时辰
+    possibleYears.forEach(year => {
+        let cur = window.Solar.fromYmd(year - 1, 11, 1);
+        let end = window.Solar.fromYmd(year + 1, 3, 1);
+        while (cur.toYmd() <= end.toYmd() && cur.toYmd() <= today.toYmd()) {
+            let bazi = cur.getLunar().getEightChar();
+            if (bazi.getYear() === yGanZhi && bazi.getMonth() === mGanZhi && bazi.getDay() === dGanZhi) {
+                let h = zhiHours[hGanZhi.charAt(1)];
+                let testSolar = window.Solar.fromYmdHms(cur.getYear(), cur.getMonth(), cur.getDay(), h, 30, 0);
+                if (testSolar.getLunar().getEightChar().getTime() === hGanZhi) {
+                    results.push(testSolar); 
+                }
+            }
+            cur = cur.next(1);
+        }
+    });
+    return results;
+}
+
 function renderBaziTable(profile) {
     let yearGan, yearZhi, monthGan, monthZhi, dayGan, dayZhi, hourGan, hourZhi;
     let yearShiShen = "-", monthShiShen = "-", hourShiShen = "-";
+    let reversedTextHTML = "";
 
     if (profile.birth_date) {
         const parts = profile.birth_date.match(/\d+/g);
@@ -876,20 +829,34 @@ function renderBaziTable(profile) {
             monthShiShen = SHI_SHEN_MAP[dayGan][monthGan] || "-";
             hourShiShen = SHI_SHEN_MAP[dayGan][hourGan] || "-";
         }
+        // 执行自动反推并在前端展示
+        const matches = findDatesByBazi(yearGan+yearZhi, monthGan+monthZhi, dayGan+dayZhi, hourGan+hourZhi);
+        if (matches.length > 0) {
+            const matchStrs = matches.map(s => `${s.getYear()}年${String(s.getMonth()).padStart(2,'0')}月${String(s.getDay()).padStart(2,'0')}日 ${String(s.getHour()).padStart(2,'0')}:00`).join(" / ");
+            reversedTextHTML = `<div style="color: #FF5E57; font-size: 14px; margin-bottom: 12px; font-weight: 500; text-align: center; letter-spacing: 1px;">阳历：${matchStrs}</div>`;
+        } else {
+            reversedTextHTML = `<div style="color: #FF5E57; font-size: 13px; margin-bottom: 12px; text-align: center;">⚠️ 未能反推出符合命理的阳历，请检查四柱是否冲突</div>`;
+        }
     }
 
-    document.getElementById('baziTable').innerHTML = `
-        <thead><tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr></thead>
-        <tbody>
-            <tr><td class="bz-star">主星</td><td class="bz-star">${yearShiShen}</td><td class="bz-star">${monthShiShen}</td><td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td><td class="bz-star">${hourShiShen}</td></tr>
-            <tr><td class="bz-star">天干</td><td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td><td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td><td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td><td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td></tr>
-            <tr><td class="bz-star">地支</td><td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td><td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td><td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td><td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td></tr>
-        </tbody>`;
+    const tableHTML = `
+        <table class="bazi-table" id="baziTable">
+            <thead><tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr></thead>
+            <tbody>
+                <tr><td class="bz-star">主星</td><td class="bz-star">${yearShiShen}</td><td class="bz-star">${monthShiShen}</td><td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td><td class="bz-star">${hourShiShen}</td></tr>
+                <tr><td class="bz-star">天干</td><td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td><td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td><td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td><td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td></tr>
+                <tr><td class="bz-star">地支</td><td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td><td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td><td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td><td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td></tr>
+            </tbody>
+        </table>`;
+
+    document.getElementById('reversedDateDisplay').innerHTML = reversedTextHTML;
+    document.getElementById('reversedDateDisplay').style.display = reversedTextHTML ? 'block' : 'none';
+    document.getElementById('baziTable').outerHTML = tableHTML; // 完全替换掉table
     document.getElementById('baziTableContainer').style.display = 'block';
 }
 
 function generateLunarPromptData(profile) {
-    let res = { name: profile.name, gender: profile.gender === 'M' ? '男' : '女', birthStr: "四柱直排，无具体出生日期", baziStr: "", daYunStr: "四柱直排，无法精确计算大运" };
+    let res = { name: profile.name, gender: profile.gender === 'M' ? '男' : '女', birthStr: "四柱直排", baziStr: "", daYunStr: "四柱直排，无法精确计算大运" };
     if (profile.birth_date) {
         const parts = profile.birth_date.match(/\d+/g);
         res.birthStr = `${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;
@@ -903,6 +870,19 @@ function generateLunarPromptData(profile) {
         } catch(e) {}
     } else if (profile.bazi_str) {
         res.baziStr = profile.bazi_str;
+        const bzArr = profile.bazi_str.replace(/\s+/g, '').split('');
+        const matches = findDatesByBazi(bzArr[0]+bzArr[1], bzArr[2]+bzArr[3], bzArr[4]+bzArr[5], bzArr[6]+bzArr[7]);
+        if (matches.length > 0) {
+            // 自动选取最近的一个匹配日期进行大运计算
+            const solar = matches[matches.length - 1]; 
+            res.birthStr = `${solar.getYear()}年${solar.getMonth()}月${solar.getDay()}日 ${solar.getHour()}:00 (根据四柱反推)`;
+            try {
+                const daYuns = solar.getLunar().getEightChar().getYun(profile.gender === 'M' ? 1 : 0).getDaYun();
+                const cy = new Date().getFullYear();
+                let cd = daYuns.find(d => cy >= d.getStartYear() && cy <= d.getEndYear());
+                if (cd) res.daYunStr = `${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;
+            } catch(e) { console.error("大运推算失败", e); }
+        }
     }
     return res;
 }
@@ -954,10 +934,6 @@ async function confirmBazi() {
 /* ═══════════════════════════════════════════════
    5. 动画与卡片组装引擎
 ═══════════════════════════════════════════════ */
-function startLoaderCycle() { _loaderMsgIdx = 0; document.getElementById('loaderText').textContent = LOADER_MESSAGES[0]; _loaderInterval = setInterval(() => { _loaderMsgIdx = (_loaderMsgIdx + 1) % LOADER_MESSAGES.length; const el = document.getElementById('loaderText'); el.style.opacity = 0; setTimeout(() => { el.textContent = LOADER_MESSAGES[_loaderMsgIdx]; el.style.transition = 'opacity 0.4s'; el.style.opacity = 1; }, 300); }, 2200); }
-function stopLoaderCycle() { clearInterval(_loaderInterval); }
-function animateScore(target) { const el = document.getElementById('scoreValue'); if (!el) return; let cur = 0, step = Math.ceil(target / 30); const timer = setInterval(() => { cur = Math.min(cur + step, target); el.textContent = cur + ' 分'; if (cur >= target) clearInterval(timer); }, 35); }
-
 function buildCardHTML(data) {
     const summary    = data.summary    || { title: "生成中...", conclusion: "暂无数据", score: 0 };
     const analysis   = data.analysis   || {};
@@ -1027,17 +1003,35 @@ function buildCardHTML(data) {
     </div>`;
 }
 
+/* ═══════════════════════════════════════════════
+   背景动画自执行函数
+═══════════════════════════════════════════════ */
 (function initVisuals() {
     const canvas = document.getElementById('cosmosCanvas'); const ctx = canvas.getContext('2d'); let W, H, stars = [];
     function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-    function initStars() { stars = []; const count = Math.floor((W * H) / 5000); for (let i = 0; i < count; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(), speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1 }); }
+    function initStars() {
+        stars = []; const count = Math.floor((W * H) / 5000); for (let i = 0; i < count; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(), speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1 });
+    }
     function draw() {
         ctx.clearRect(0, 0, W, H);
-        stars.forEach(s => { s.a += s.speed * 0.008; s.x += s.drift; if (s.x < 0) s.x = W; if (s.x > W) s.x = 0; ctx.save(); ctx.globalAlpha = ((Math.sin(s.a) + 1) / 2) * 0.5 + 0.05; ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); });
-        for (let i = 0; i < stars.length; i++) { for (let j = i + 1; j < stars.length; j++) { const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy); if (dist < 100) { ctx.save(); ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke(); ctx.restore(); } } } requestAnimationFrame(draw);
+        stars.forEach(s => {
+            s.a += s.speed * 0.008; s.x += s.drift; if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
+            ctx.save(); ctx.globalAlpha = ((Math.sin(s.a) + 1) / 2) * 0.5 + 0.05; ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+        });
+        for (let i = 0; i < stars.length; i++) {
+            for (let j = i + 1; j < stars.length; j++) {
+                const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < 100) { ctx.save(); ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke(); ctx.restore(); }
+            }
+        }
+        requestAnimationFrame(draw);
     }
     resize(); initStars(); draw(); window.addEventListener('resize', () => { resize(); initStars(); });
-    const ring = document.getElementById('trigramRing'); ['☰','☱','☲','☳','☴','☵','☶','☷'].forEach((sym, i) => { const span = document.createElement('span'); span.textContent = sym; span.style.transform = `rotate(${(i / 8) * 360}deg) translateY(0px)`; ring.appendChild(span); });
+
+    const ring = document.getElementById('trigramRing');
+    ['☰','☱','☲','☳','☴','☵','☶','☷'].forEach((sym, i) => {
+        const span = document.createElement('span'); span.textContent = sym; span.style.transform = `rotate(${(i / 8) * 360}deg) translateY(0px)`; ring.appendChild(span);
+    });
 })();
 </script>
 </body>
