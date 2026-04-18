@@ -307,6 +307,15 @@
                         </div>
 
                         <div id="modeBazi" style="display:none; text-align:center;">
+                            <div style="margin-top: 16px;">
+    <button class="secondary-btn" style="width: 100%; padding: 8px; font-size: 13px;" onclick="triggerBaziReverse()">🔄 校验并反推公历时间</button>
+</div>
+
+<div id="reverseResultArea" style="display: none; margin-top: 12px; background: rgba(0,0,0,0.4); border: 1px solid var(--gold-mid); border-radius: 8px; padding: 12px; text-align: left;">
+    <div style="font-size: 12px; color: var(--gold-bright); margin-bottom: 8px;">✅ 推算成功，请选择具体出生时间：</div>
+    <div id="reverseOptions" style="display: flex; flex-direction: column; gap: 8px;">
+        </div>
+</div>
                             <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;">
                                 <div class="pillar-group">
                                     <div style="font-size:10px; color:#888; margin-bottom:4px;">年柱</div>
@@ -683,7 +692,98 @@ function autoLinkTime() {
     const tg = ((dg % 5) * 2 + tz) % 10;
     document.getElementById('bzTg').value = tg;
 }
+// 八字反推公历时间算法 (范围：1900年 - 至今)
+function findDatesByBazi(yGanZhi, mGanZhi, dGanZhi, hGanZhi) {
+    const today = window.Solar.fromDate(new Date());
+    const results = [];
+    
+    // 1. 找年份：八字年柱60年一轮回，找出 1900年至今所有匹配年柱的年份
+    let possibleYears = [];
+    for (let y = 1900; y <= today.getYear(); y++) {
+        // 取每年的7月1日判断年干支，绝对安全（完美避开立春交界点）
+        if (window.Solar.fromYmd(y, 7, 1).getLunar().getYearInGanZhi() === yGanZhi) {
+            possibleYears.push(y);
+        }
+    }
+    
+    // 地支对应的起始小时
+    const zhiHours = {"子":0, "丑":2, "寅":4, "卯":6, "辰":8, "巳":10, "午":12, "未":14, "申":16, "酉":18, "戌":20, "亥":22};
+    
+    // 2. 在锁定的年份中，穷举日子
+    possibleYears.forEach(year => {
+        // 考虑立春在公历1月底到2月，年柱交替，前后扩大搜索范围
+        let cur = window.Solar.fromYmd(year - 1, 11, 1);
+        let end = window.Solar.fromYmd(year + 1, 3, 1);
+        
+        while (cur.toYmd() <= end.toYmd() && cur.toYmd() <= today.toYmd()) {
+            let lunar = cur.getLunar();
+            let bazi = lunar.getEightChar();
+            
+            // 校验 年、月、日柱 是否完全匹配
+            if (bazi.getYear() === yGanZhi && bazi.getMonth() === mGanZhi && bazi.getDay() === dGanZhi) {
+                
+                // 3. 校验时干支
+                let h = zhiHours[hGanZhi.charAt(1)];
+                // 构造该日子特定时辰的 Solar 对象，提取精准八字进行时干比对
+                let testSolar = window.Solar.fromYmdHms(cur.getYear(), cur.getMonth(), cur.getDay(), h, 30, 0);
+                if (testSolar.getLunar().getEightChar().getTime() === hGanZhi) {
+                    let timeRange = hGanZhi.charAt(1) === "子" ? "23:00-00:59" : `${String(h).padStart(2,'0')}:00-${String(h+1).padStart(2,'0')}:59`;
+                    
+                    results.push({
+                        dateStr: `${cur.toYmd()}T${String(h).padStart(2,'0')}:30`, // 组装为 datetime-local 标准格式
+                        label: `${cur.toYmd()} ${timeRange}`
+                    });
+                }
+            }
+            cur = cur.next(1);
+        }
+    });
+    
+    return results;
+}
 
+// 触发反推
+function triggerBaziReverse() {
+    const getV = (id, arr) => arr[parseInt(document.getElementById(id).value)];
+    const yg = getV('bzYg', TIAN_GAN) + getV('bzYz', DI_ZHI);
+    const mg = getV('bzMg', TIAN_GAN) + getV('bzMz', DI_ZHI);
+    const dg = getV('bzDg', TIAN_GAN) + getV('bzDz', DI_ZHI);
+    const hg = getV('bzTg', TIAN_GAN) + getV('bzTz', DI_ZHI);
+
+    const matches = findDatesByBazi(yg, mg, dg, hg);
+    const resultArea = document.getElementById('reverseResultArea');
+    const optionsBox = document.getElementById('reverseOptions');
+
+    if (matches.length === 0) {
+        alert(`❌ 命理规则校验失败：\n无法找到 [${yg} ${mg} ${dg} ${hg}] 对应的真实日期。\n请检查四柱干支是否冲突！`);
+        resultArea.style.display = 'none';
+        return;
+    }
+
+    // 渲染选项
+    optionsBox.innerHTML = matches.map(match => `
+        <div style="padding: 8px 12px; background: rgba(255,255,255,0.05); border-radius: 6px; cursor: pointer; color: #FFF; font-size: 13px; border: 1px solid rgba(255,255,255,0.1);"
+             onmouseover="this.style.background='rgba(179,139,54,0.2)'"
+             onmouseout="this.style.background='rgba(255,255,255,0.05)'"
+             onclick="applyReversedDate('${match.dateStr}')">
+            🗓️ ${match.label}
+        </div>
+    `).join('');
+    
+    resultArea.style.display = 'block';
+}
+
+// 用户点击选择后，自动填入并切换到公历模式
+function applyReversedDate(datetimeStr) {
+    document.getElementById('pBirth').value = datetimeStr;
+    document.getElementById('reverseResultArea').style.display = 'none';
+    
+    // 丝滑切换回公历 Tab
+    switchInputMode('date');
+    alert("✅ 已将反推时间填入公历，现在您可以点击「保存并排盘」获取精准大运了！");
+}
+
+    
 async function fetchBaziProfiles() {
     if (!currentUser) return;
     const select = document.getElementById('profileSelect');
