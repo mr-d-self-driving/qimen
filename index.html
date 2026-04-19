@@ -623,7 +623,7 @@ async function startDivination() {
         animateScore(data.summary?.score || 0);
         setTimeout(() => {
             rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80));
+            rc.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80));
         }, 100);
 
     } catch (err) {
@@ -644,6 +644,19 @@ async function startDivination() {
     }
 }
 
+function animateScore(targetScore) {
+    const el = document.getElementById('scoreValue');
+    if (!el) return;
+    let current = 0;
+    const duration = 1000;
+    const step = targetScore / (duration / 16);
+    const timer = setInterval(() => {
+        current = Math.min(current + step, targetScore);
+        el.textContent = Math.round(current) + ' 分';
+        if (current >= targetScore) clearInterval(timer);
+    }, 16);
+}
+
 async function saveRecordToDatabase(question, jsonResult) {
     if (!currentUser) return;
     const { error } = await _supabase.from('qimen_records').insert([{ user_id: currentUser.id, question: question, qimen_data: jsonResult }]);
@@ -655,7 +668,6 @@ async function loadHistory() {
     if (!currentUser) return;
     const historyPanel = document.getElementById('historyPanel');
     const historyList = document.getElementById('historyList');
-
     const { data, error } = await _supabase
         .from('qimen_records')
         .select('id, question, qimen_data, created_at')
@@ -674,12 +686,18 @@ async function loadHistory() {
         item.className = 'history-item';
         item.innerHTML = `<div class="hi-title">${title} - ${record.question}</div><div class="hi-date">${dateStr}</div>`;
         item.onclick = () => {
-            document.getElementById("resultContainer").innerHTML = buildCardHTML(record.qimen_data);
+            const rc = document.getElementById("resultContainer");
+            rc.innerHTML = buildCardHTML(record.qimen_data);
             animateScore(record.qimen_data?.summary?.score || 0);
-            document.getElementById("resultContainer").scrollIntoView({ behavior: 'smooth', block: 'start' });
-            document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80));
-        };
-        historyList.appendChild(item);
+            setTimeout(() => {
+                rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                // ✅ 只对 resultContainer 内部的 .reveal 元素触发动画，不污染外部
+                rc.querySelectorAll('.reveal').forEach((el, i) => {
+                    setTimeout(() => el.classList.add('visible'), i * 80);
+                });
+                }, 100);
+            };
+          historyList.appendChild(item);
     });
 }
 
