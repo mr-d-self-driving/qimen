@@ -463,7 +463,32 @@ let currentUser = null;
 const LOADER_MESSAGES = ['正在接通云端超算矩阵...', '推演时空坐标与节气数据...', '计算奇门九宫落盘...', '分析值符、值使与神助...', '生成决策指引与应期推演...'];
 let _loaderMsgIdx = 0;
 let _loaderInterval = null;
+    
+function startLoaderCycle() {
+    _loaderMsgIdx = 0;
+    const el = document.getElementById('loaderText');
+    if (el) el.textContent = LOADER_MESSAGES[0];
+    _loaderInterval = setInterval(() => {
+        _loaderMsgIdx = (_loaderMsgIdx + 1) % LOADER_MESSAGES.length;
+        if (el) el.textContent = LOADER_MESSAGES[_loaderMsgIdx];
+    }, 3000);
+}
 
+function stopLoaderCycle() {
+    if (_loaderInterval) { clearInterval(_loaderInterval); _loaderInterval = null; }
+}
+
+function animateScore(targetScore) {
+    const el = document.getElementById('scoreValue');
+    if (!el) return;
+    let current = 0;
+    const step = targetScore / (1000 / 16);
+    const timer = setInterval(() => {
+        current = Math.min(current + step, targetScore);
+        el.textContent = Math.round(current) + ' 分';
+        if (current >= targetScore) clearInterval(timer);
+    }, 16);
+}
 let baziConfirmed = false;
 let isBaziLoading = false;
 let frontBaziCache = {};
