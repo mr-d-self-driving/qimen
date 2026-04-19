@@ -863,7 +863,7 @@ function animateScore(targetScore) {
 
 async function saveRecordToDatabase(question,jsonResult) {
     if(!currentUser) return;
-    const{error}=await _supabase.from('qimen_records').insert([{user_id:currentUser.id,question,qimen_data:jsonResult}]);
+    const{error}=await _supabase.from('qimen_records').insert([{user_id:currentUser.id,question,qimen_data:jsonResult,category: detectedCategory}]);
     if(error) console.error("保存历史记录失败:",error); else loadHistory();
 }
 
