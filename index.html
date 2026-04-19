@@ -338,11 +338,11 @@ input:checked+.slider:before{transform:translateX(20px);background:#fff}
 .pan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
 .pan-cell{background:rgba(14,14,31,0.9);aspect-ratio:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .2s}
 .pan-cell:hover{background:rgba(255,255,255,0.04)}
-.pan-center-earth{font-size:30px;font-weight:900;color:var(--text-dim)}
-.pan-god{position:absolute;top:5px;font-size:8px;color:#555;letter-spacing:1px}
-.pan-star{font-size:11px;color:#CCC;margin-bottom:1px;z-index:2}
-.pan-door{font-size:14px;font-weight:700;color:#FFF;z-index:2;letter-spacing:1px;font-family:var(--font-serif)}
-.pan-stem{position:absolute;font-size:10px;font-weight:600}
+.pan-center-earth{font-size:30px;font-weight:900;color:var(--text-dim);font-family:'Noto Serif SC','STSong','Songti SC',serif}
+.pan-god{position:absolute;top:5px;font-size:8px;color:#555;letter-spacing:1px;font-family:'Noto Serif SC','STSong','Songti SC',serif}
+.pan-star{font-size:11px;color:#CCC;margin-bottom:1px;z-index:2;font-family:'Noto Serif SC','STSong','Songti SC',serif}
+.pan-door{font-size:14px;font-weight:700;color:#FFF;z-index:2;letter-spacing:1px;font-family:'Noto Serif SC','STSong','Songti SC',serif}
+.pan-stem{position:absolute;font-size:10px;font-weight:600;font-family:'Noto Serif SC','STSong','Songti SC',serif}
 .stem-sky{top:5px;left:6px;color:#DDDDE8}
 .stem-earth{bottom:5px;right:6px;color:#666}
 .ji-sky{top:18px;left:6px;font-size:8px;color:#444}
@@ -446,7 +446,7 @@ input:checked+.slider:before{transform:translateX(20px);background:#fff}
     <button class="hamburger" id="hamburgerBtn" aria-label="历史记录">
         <span></span><span></span><span></span>
     </button>
-    <div class="site-logo">奇门遁甲</div>
+    <div class="site-logo" onclick="showInputState()" style="cursor: pointer;" title="返回首页">奇门遁甲</div>
     <div class="avatar-wrap">
         <div class="avatar-btn" id="avatarBtn" title="账号">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
