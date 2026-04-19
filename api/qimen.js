@@ -41,7 +41,6 @@ module.exports = async function handler(req, res) {
     try {
         // 2. 获取用户提问
         const userQuestion = req.body.question || "当前局势吉凶如何？";
-        const baziInfo = req.body.baziInfo || "null"; // 新增这行
         //const passcode = req.body.passcode || "";
 
         //if (passcode !== "8888") { // 这里的 "8888" 你可以改成任意你想要的密码
@@ -67,6 +66,8 @@ module.exports = async function handler(req, res) {
         const ganzhiHour = lunar.getTimeInGanZhi();
         const ganzhiDay = lunar.getDayInGanZhi();
         
+        // 获取前端传来的八字信息
+        const baziInfo = req.body.baziInfo || "未提供八字信息";
 
         // ✅ 修复：将 baziInfo 的一段 Hash 纳入缓存 Key，防止不同八字串台！
         const baziHash = baziInfo === "未提供八字信息" ? "NoBazi" : baziInfo.substring(0, 15);
