@@ -370,6 +370,12 @@
                             <span style="font-size: 13px; color: var(--gold-mid); font-weight: 600;">✨ 命理基底已锁定</span>
                             <button class="cancel-btn" style="padding: 4px 12px; font-size: 12px;" onclick="modifyBazi()">修改</button>
                         </div>
+                        <div style="text-align:right; margin-top:10px;">
+                                <button onclick="resetBaziCache()" 
+                                    style="font-size:11px; color:var(--text-muted); background:none; border:1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:6px; cursor:pointer; letter-spacing:1px;">
+                                    🔄 重新推演
+                                </button>
+                        </div>
                         <div id="baziLoading" style="display: none; font-size: 12px; color: var(--gold-mid); padding: 10px 0;">
                             <span class="loader-dots"><span></span><span></span><span></span></span> 正在后台静默排定大运流年与原局断语...
                         </div>
@@ -927,33 +933,96 @@ async function confirmBazi() {
     const loading = document.getElementById('baziLoading');
     const errSec = document.getElementById('baziError');
 
-    resultSec.style.display = 'block'; aiText.style.display = 'none'; errSec.style.display = 'none'; loading.style.display = 'block';
+    resultSec.style.display = 'block'; 
+    aiText.style.display = 'none'; 
+    errSec.style.display = 'none'; 
+    loading.style.display = 'block';
     isBaziLoading = true;
 
-    const pd = generateLunarPromptData(profile);
-    const cacheKey = pd.baziStr + "_" + profile.gender;
-
-    if (frontBaziCache[cacheKey]) {
-        loading.style.display = 'none'; aiText.innerHTML = frontBaziCache[cacheKey]; aiText.style.display = 'block';
-        currentBaziString = frontBaziCache[cacheKey]; isBaziLoading = false; return;
+    // ✅ 第一优先级：数据库已有缓存，直接用，0 Token 消耗
+    if (profile.bazi_summary) {
+        loading.style.display = 'none';
+        aiText.innerHTML = profile.bazi_summary;
+        aiText.style.display = 'block';
+        currentBaziString = profile.bazi_summary;
+        isBaziLoading = false;
+        return;
     }
 
+    // ✅ 第二优先级：本次会话内存缓存（同一命主切换后再切回来，不重复请求）
+    const pd = generateLunarPromptData(profile);
+    const cacheKey = pd.baziStr + "_" + profile.gender;
+    if (frontBaziCache[cacheKey]) {
+        loading.style.display = 'none';
+        aiText.innerHTML = frontBaziCache[cacheKey];
+        aiText.style.display = 'block';
+        currentBaziString = frontBaziCache[cacheKey];
+        isBaziLoading = false;
+        return;
+    }
+
+    // ✅ 第三优先级：调接口，然后把结果写回 Supabase 永久缓存
     try {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 60000); 
-        const res = await fetch('/api/bazi', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ promptData: pd }), signal: controller.signal });
+        const res = await fetch('/api/bazi', { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ promptData: pd }), 
+            signal: controller.signal 
+        });
         clearTimeout(timeoutId);
         const data = await res.json();
         if (data.error) throw new Error(data.error);
 
-        frontBaziCache[cacheKey] = data.result;
-        currentBaziString = data.result; 
-        loading.style.display = 'none'; aiText.innerHTML = data.result; aiText.style.display = 'block';
+        const resultText = data.result;
+
+        // 写入会话缓存
+        frontBaziCache[cacheKey] = resultText;
+        currentBaziString = resultText; 
+
+        // 🔥 写入 Supabase 持久化缓存（异步，不阻塞 UI）
+        _supabase.from('bazi_profiles')
+            .update({ bazi_summary: resultText })
+            .eq('id', profile.id)
+            .then(({ error }) => {
+                if (error) console.warn("八字断语写库失败:", error.message);
+                else {
+                    // 同步更新本地 baziProfiles 数组，避免本次会话重复请求
+                    const idx = baziProfiles.findIndex(p => p.id === profile.id);
+                    if (idx !== -1) baziProfiles[idx].bazi_summary = resultText;
+                    console.log("✅ 八字断语已持久化到 Supabase");
+                }
+            });
+
+        loading.style.display = 'none'; 
+        aiText.innerHTML = resultText; 
+        aiText.style.display = 'block';
+
     } catch (err) {
-        loading.style.display = 'none'; errSec.style.display = 'block';
+        loading.style.display = 'none'; 
+        errSec.style.display = 'block';
+        console.error("八字推演失败:", err);
     } finally {
         isBaziLoading = false;
     }
+}
+
+async function resetBaziCache() {
+    const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
+    if (!profile || !confirm("确定要清除此命主的断语缓存并重新推演吗？")) return;
+
+    // 清库
+    await _supabase.from('bazi_profiles').update({ bazi_summary: null }).eq('id', profile.id);
+    // 清本地
+    const idx = baziProfiles.findIndex(p => p.id === profile.id);
+    if (idx !== -1) baziProfiles[idx].bazi_summary = null;
+
+    // 重新走一遍确认流程
+    modifyBazi();
+    renderBaziTable(profile);
+    document.getElementById('baziConfirmSection').style.display = 'block';
+    alert("缓存已清除，请点击「确定」重新推演。");
 }
 
 /* ═══════════════════════════════════════════════
