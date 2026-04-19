@@ -141,13 +141,14 @@ async function detectIntentAndGetRules(question) {
         }
         
         console.log(`[Router] 识别类别: ${category}`);
-        return domainRules;
+        return { domainRules, category };
 
     } catch (e) {
         console.warn("[Router] 意图识别失败，降级使用通用规则:", e.message);
-        return `
+        return { domainRules: ` 
    - 【必看用神】：以日干为求测人，时干为所问之事，值使门为执行过程。
-   - 【吉凶判定】：对比日时生克综合判断。`;
+   - 【吉凶判定】：对比日时生克综合判断。`, category: "general" };
+
     }
 }
 
@@ -246,7 +247,7 @@ module.exports = async function handler(req, res) {
         // ==========================================
         // 🚀 核心改动点：在这里调用 Router，获取动态规则
         // ==========================================
-        const dynamicDomainRules = await detectIntentAndGetRules(userQuestion);
+        const { domainRules: dynamicDomainRules, category: detectedCategory } = await detectIntentAndGetRules(userQuestion);
 
         const finalPrompt = `你是一位精通“时家奇门拆补转盘法”的奇门遁甲预测大师。
 起局时间：${timestamp_solar}(${timestamp_lunar})。
@@ -379,6 +380,7 @@ ${baziInfo}
         const finalOutput = {
             ...aiJsonData,
             question: userQuestion,
+            category: detectedCategory,
             qimen_data: {
                 status: "success",
                 pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
