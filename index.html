@@ -412,6 +412,16 @@ input:checked+.slider:before{transform:translateX(20px);background:#fff}
 #authSection,#appSection{display:none;width:100%}
 .reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
 .reveal.visible{opacity:1;transform:none}
+    
+/* ── 抽屉筛选胶囊 ── */
+.drawer-filter{padding:12px 16px 10px;border-bottom:1px solid var(--glass-border)}
+.filter-label{font-size:10px;color:var(--text-muted);letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px;font-family:var(--font-serif)}
+.filter-caps{display:flex;flex-wrap:wrap;gap:6px}
+.f-cap{font-size:11px;padding:4px 11px;border-radius:20px;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);color:var(--text-muted);cursor:pointer;transition:all .2s;white-space:nowrap;user-select:none;-webkit-tap-highlight-color:transparent}
+.f-cap:hover{border-color:rgba(212,175,55,0.3);color:rgba(240,237,230,0.8)}
+.f-cap.active{background:rgba(212,175,55,0.12);border-color:rgba(212,175,55,0.5);color:var(--gold-light)}
+.d-hist-meta{font-size:10px;color:var(--text-muted);display:flex;gap:8px;align-items:center;margin-top:2px}
+.d-hist-meta span{display:flex;align-items:center;gap:2px}
 
 /* Keyframes */
 @keyframes riseIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
@@ -457,6 +467,18 @@ input:checked+.slider:before{transform:translateX(20px);background:#fff}
     <div class="drawer-head">
         <div class="drawer-label">推演轨迹</div>
         <div class="drawer-title-txt">历史问卜</div>
+    </div>
+    <div class="drawer-filter">
+        <div class="filter-label">问题类型</div>
+        <div class="filter-caps" id="filterCaps">
+            <div class="f-cap active" data-cat="all">全部</div>
+            <div class="f-cap" data-cat="career_business">💼 事业</div>
+            <div class="f-cap" data-cat="finance_wealth">💰 求财</div>
+            <div class="f-cap" data-cat="relationship">❤️ 感情</div>
+            <div class="f-cap" data-cat="health_action">🏥 健康</div>
+            <div class="f-cap" data-cat="item_transaction">📦 交易</div>
+            <div class="f-cap" data-cat="general">📋 杂事</div>
+        </div>
     </div>
     <div class="drawer-body" id="drawerBody">
         <div class="drawer-empty">
@@ -863,31 +885,77 @@ function animateScore(targetScore) {
 
 async function saveRecordToDatabase(question,jsonResult) {
     if(!currentUser) return;
-    const{error}=await _supabase.from('qimen_records').insert([{user_id:currentUser.id,question,qimen_data:jsonResult,category: detectedCategory}]);
+    const category = jsonResult?.category || 'general';
+    const{error}=await _supabase.from('qimen_records').insert([{user_id:currentUser.id,question,qimen_data:jsonResult,category}]);
     if(error) console.error("保存历史记录失败:",error); else loadHistory();
 }
+const CAT_LABEL = {
+    career_business:'💼 事业', finance_wealth:'💰 求财',
+    relationship:'❤️ 感情', health_action:'🏥 健康',
+    item_transaction:'📦 交易', general:'📋 杂事'
+};
+
+let _historyAllData = [];
+let _activeCategory = 'all';
 
 async function loadHistory() {
     if(!currentUser) return;
-    const{data,error}=await _supabase.from('qimen_records').select('id,question,qimen_data,created_at').order('created_at',{ascending:false});
-    const drawerBody=document.getElementById('drawerBody');
+    const{data,error}=await _supabase
+        .from('qimen_records')
+        .select('id,question,qimen_data,category,created_at')
+        .order('created_at',{ascending:false});
 
-    if(error||!data||data.length===0){
-        drawerBody.innerHTML=`<div class="drawer-empty"><svg width="64" height="64" viewBox="0 0 64 64" fill="none" opacity="0.3"><circle cx="32" cy="32" r="28" stroke="rgba(212,175,55,0.5)" stroke-width="1"/><circle cx="32" cy="32" r="18" stroke="rgba(212,175,55,0.3)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="32" cy="32" r="3" fill="rgba(212,175,55,0.5)"/></svg><p>尚无推演记录<br>缘起于此，万象皆空</p></div>`;
+    if(error){ console.error("加载历史失败:",error); return; }
+    _historyAllData = data || [];
+    renderDrawer();
+}
+
+function renderDrawer() {
+    const drawerBody = document.getElementById('drawerBody');
+    const filtered = _activeCategory === 'all'
+        ? _historyAllData
+        : _historyAllData.filter(r => r.category === _activeCategory);
+
+    if(!filtered.length){
+        drawerBody.innerHTML=`<div class="drawer-empty">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" opacity="0.3">
+                <circle cx="32" cy="32" r="28" stroke="rgba(212,175,55,0.5)" stroke-width="1"/>
+                <circle cx="32" cy="32" r="18" stroke="rgba(212,175,55,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
+                <circle cx="32" cy="32" r="3" fill="rgba(212,175,55,0.5)"/>
+            </svg>
+            <p>${_activeCategory==='all'?'尚无推演记录<br>缘起于此，万象皆空':'此类型暂无记录'}</p>
+        </div>`;
         return;
     }
-    drawerBody.innerHTML='';
-    data.forEach(record=>{
-        const dateObj=new Date(record.created_at);
-        const dateStr=`${dateObj.getMonth()+1}月${dateObj.getDate()}日 ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
-        const score=record.qimen_data?.summary?.score||0;
-        const vd=getVerdictInfo(score);
-        const item=document.createElement('div');
-        item.className='d-hist-item';
-        item.innerHTML=`<span class="d-hist-dot ${score>=75?'ji':score>=55?'ping':'xiong'}"></span><div class="d-hist-info"><div class="d-hist-q">${record.question}</div><div class="d-hist-time">${dateStr}</div></div><span class="d-hist-badge ${vd.cls}">${vd.label}</span>`;
-        item.onclick=()=>{
-            const rc=document.getElementById("resultContainer");
-            rc.innerHTML=buildCardHTML(record.qimen_data);
+
+    drawerBody.innerHTML = '';
+    filtered.forEach(record => {
+        const dateObj = new Date(record.created_at);
+        const dateStr = `${dateObj.getMonth()+1}月${dateObj.getDate()}日 ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+        const score   = record.qimen_data?.summary?.score || 0;
+        const vd      = getVerdictInfo(score);
+        const catLabel = CAT_LABEL[record.category] || '📋 杂事';
+        const dotCls  = score>=75?'ji':score>=55?'ping':'xiong';
+
+        const item = document.createElement('div');
+        item.className = 'd-hist-item';
+        item.innerHTML = `
+            <span class="d-hist-dot ${dotCls}"></span>
+            <div class="d-hist-info">
+                <div class="d-hist-q">${record.question}</div>
+                <div class="d-hist-meta">
+                    <span>${dateStr}</span>
+                    <span>·</span>
+                    <span>${catLabel}</span>
+                    <span>·</span>
+                    <span>${score}分</span>
+                </div>
+            </div>
+            <span class="d-hist-badge ${vd.cls}">${vd.label}</span>`;
+
+        item.onclick = () => {
+            const rc = document.getElementById("resultContainer");
+            rc.innerHTML = buildCardHTML(record.qimen_data);
             animateScore(record.qimen_data?.summary?.score||0);
             closeDrawer();
             showResultState();
@@ -1012,7 +1080,16 @@ function initHamburger(){
     const btn=document.getElementById('hamburgerBtn'),overlay=document.getElementById('drawerOverlay'),drawer=document.getElementById('historyDrawer');
     btn.addEventListener('click',()=>{drawer.classList.toggle('open');overlay.classList.toggle('open');btn.classList.toggle('open');});
     overlay.addEventListener('click',closeDrawer);
+    document.getElementById('filterCaps').addEventListener('click', e => {
+    const cap = e.target.closest('.f-cap');
+    if(!cap) return;
+    document.querySelectorAll('.f-cap').forEach(c => c.classList.remove('active'));
+    cap.classList.add('active');
+    _activeCategory = cap.dataset.cat;
+    renderDrawer();
+});
 }
+    
 function closeDrawer(){document.getElementById('historyDrawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');document.getElementById('hamburgerBtn').classList.remove('open');}
 
 function initAvatarMenu(){
