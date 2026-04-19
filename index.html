@@ -477,18 +477,7 @@ function startLoaderCycle() {
 function stopLoaderCycle() {
     if (_loaderInterval) { clearInterval(_loaderInterval); _loaderInterval = null; }
 }
-
-function animateScore(targetScore) {
-    const el = document.getElementById('scoreValue');
-    if (!el) return;
-    let current = 0;
-    const step = targetScore / (1000 / 16);
-    const timer = setInterval(() => {
-        current = Math.min(current + step, targetScore);
-        el.textContent = Math.round(current) + ' 分';
-        if (current >= targetScore) clearInterval(timer);
-    }, 16);
-}
+    
 let baziConfirmed = false;
 let isBaziLoading = false;
 let frontBaziCache = {};
