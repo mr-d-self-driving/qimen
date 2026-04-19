@@ -67,8 +67,6 @@ module.exports = async function handler(req, res) {
         const ganzhiHour = lunar.getTimeInGanZhi();
         const ganzhiDay = lunar.getDayInGanZhi();
         
-        // 获取前端传来的八字信息
-        const baziInfo = req.body.baziInfo || "未提供八字信息";
 
         // ✅ 修复：将 baziInfo 的一段 Hash 纳入缓存 Key，防止不同八字串台！
         const baziHash = baziInfo === "未提供八字信息" ? "NoBazi" : baziInfo.substring(0, 15);
