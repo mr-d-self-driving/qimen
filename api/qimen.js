@@ -43,11 +43,12 @@ async function detectIntentAndGetRules(question) {
 重点提取核心诉求，忽略客套话。
 
 可选分类：
-1. "career_wealth" (事业职场、求职跳槽、大客户谈判、投资理财、财务预测)
-2. "relationship" (感情桃花、婚姻关系、合伙人纠纷、人际交往)
-3. "health_action" (身体健康、疾病预测、高强度运动/比赛表现评估、出行安全、寻医问药)
-4. "item_transaction" (寻物寻人、买卖二手物品、房屋交易、合同真伪判定)
-5. "general" (日常运势、无法归入以上的杂事、或者极其模糊的问题)
+1. "career_business" (事业职场、求职跳槽、项目推进、大客户谈判、创业开展)
+2. "finance_wealth" (求财投资、收款催债、生意利润、财务预测、理财基金)
+3. "relationship" (感情桃花、婚姻关系、合伙人纠纷、人际交往)
+4. "health_action" (身体健康、疾病预测、高强度运动/比赛表现评估、寻医问药、手术吉凶)
+5. "item_transaction" (找回失物、寻人、买卖二手物品、房屋租赁/交易、合同文书真伪判定)
+6. "general" (日常出行、今日运势、时机选择、或者极其模糊无法归入以上分类的杂事)
 
 用户提问："${question}"
 
