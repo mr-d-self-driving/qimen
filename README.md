@@ -4,11 +4,11 @@
 > 时家奇门拆补转盘法 × Gemini 大模型 × 全栈 Web 应用
 
 <p align="center">
-  <img src="be10cdd1e135d71e0ddbe89a64451071.jpg" width="200" alt="主界面"/>
+  <img src="home.jpg" width="200" alt="主界面"/>
   &nbsp;&nbsp;
-  <img src="bacd56b1b8cb125e7fa66e144836aa15.jpg" width="200" alt="推演结果"/>
+  <img src="menu_1.jpg" width="200" alt="历史占卜"/>
   &nbsp;&nbsp;
-  <img src="a3b32cc30efd1c35afbd4c4a7d828059.jpg" width="200" alt="决策卡片"/>
+  <img src="sample_1.jpg" width="200" alt="决策卡片"/>
 </p>
 
 <p align="center">
@@ -178,9 +178,9 @@ GEMINI_API_KEY=your_api_key_here
 ## 效果展示
 
 <p align="center">
-  <img src="微信图片_20260228161822_475_16.jpg" width="220" alt="核心概览"/>
+  <img src="sample_1.jpg" width="220" alt="核心概览"/>
   &nbsp;
-  <img src="微信图片_20260228161823_476_16.jpg" width="220" alt="决策指引"/>
+  <img src="sample_2.jpg" width="220" alt="决策指引"/>
 </p>
 
 **结果卡片包含：**
