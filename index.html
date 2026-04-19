@@ -5,291 +5,495 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>奇门遁甲 AI 决策引擎</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
     <script src="https://unpkg.com/lunar-javascript/lunar.js"></script>
-    <style>
-        /* ═══════════════════════════════════════════
-           CSS 变量 & 全局重置
-        ═══════════════════════════════════════════ */
-        :root {
-            --gold-bright:   #E8CC80; --gold-mid:      #B38B36;
-            --gold-dim:      rgba(179,139,54,0.18); --gold-glow:     rgba(230,194,122,0.12);
-            --bg-deep:       #050508; --bg-card:       #0e0e13; --bg-item:       #161620;
-            --border-subtle: rgba(255,255,255,0.06); --text-primary:  #F0EDE6;
-            --text-muted:    #6E6E7A; --text-dim:      #3A3A45;
-            --radius-card:   22px; --radius-item:   12px;
-            --font-serif:    'ZCOOL XiaoWei', 'Noto Serif SC', serif;
-            --font-body:     'PingFang SC', -apple-system, sans-serif;
-        }
+<style>
+/* ═══════════════════════════════════════════════
+   变量 & 重置
+═══════════════════════════════════════════════ */
+:root {
+    --gold:          #D4AF37;
+    --gold-light:    #E8CC80;
+    --gold-dim:      rgba(212,175,55,0.15);
+    --gold-border:   rgba(212,175,55,0.22);
+    --bg-deep:       #05050A;
+    --bg-card:       rgba(255,255,255,0.03);
+    --bg-item:       rgba(255,255,255,0.025);
+    --glass-border:  rgba(255,255,255,0.07);
+    --text-primary:  rgba(240,237,230,0.95);
+    --text-muted:    #8E8E93;
+    --text-dim:      rgba(255,255,255,0.14);
+    --radius-card:   22px;
+    --radius-item:   12px;
+    --font-serif:    'ZCOOL XiaoWei','Noto Serif SC',serif;
+    --font-body:     'PingFang SC',-apple-system,sans-serif;
+    --spring:        cubic-bezier(0.34,1.56,0.64,1);
+    --ease:          cubic-bezier(0.4,0,0.2,1);
+    --teal:          #4ECDC4;
+    --crimson:       #FF5E57;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg-deep);color:var(--text-primary);font-family:var(--font-body);overflow-x:hidden;-webkit-font-smoothing:antialiased}
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* ── 背景 ── */
+#cosmosCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.bg-radial{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+        radial-gradient(ellipse 55% 45% at 15% 15%,rgba(107,140,255,0.06) 0%,transparent 60%),
+        radial-gradient(ellipse 50% 55% at 85% 85%,rgba(212,175,55,0.05) 0%,transparent 60%),
+        linear-gradient(155deg,#05050A 0%,#0E0E1F 55%,#1A1A2E 100%)}
 
-        body { background: var(--bg-deep); color: var(--text-primary); font-family: var(--font-body); min-height: 100vh; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
-        #cosmosCanvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-        .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 40px 20px 60px; }
-        .container { width: 100%; max-width: 520px; }
+/* ── 顶部导航 ── */
+#siteHeader{
+    position:fixed;top:0;left:0;right:0;z-index:300;
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px;
+    backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
+    background:rgba(5,5,10,0.65);
+    border-bottom:1px solid rgba(255,255,255,0.04);
+}
+.hamburger{width:38px;height:38px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;cursor:pointer;border-radius:10px;transition:background .2s;-webkit-tap-highlight-color:transparent;flex-shrink:0;border:none;background:transparent}
+.hamburger:active{background:rgba(255,255,255,0.06)}
+.hamburger span{display:block;width:18px;height:1.5px;background:var(--text-primary);border-radius:2px;transition:all .35s var(--spring);transform-origin:center}
+.hamburger.open span:nth-child(1){transform:translateY(6.5px) rotate(45deg)}
+.hamburger.open span:nth-child(2){opacity:0;transform:scaleX(0)}
+.hamburger.open span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg)}
 
-        /* 通用卡片与标题 */
-        .header-section { text-align: center; margin-bottom: 32px; animation: riseIn 1s cubic-bezier(0.22,1,0.36,1) both; }
-        .bagua-ring { position: relative; width: 90px; height: 90px; margin: 0 auto 18px; }
-        .bagua-ring .ring-outer { position: absolute; inset: 0; border-radius: 50%; border: 1px solid rgba(179,139,54,0.3); animation: spinSlow 24s linear infinite; }
-        .bagua-ring .ring-inner { position: absolute; inset: 10px; border-radius: 50%; border: 1px solid rgba(179,139,54,0.15); animation: spinSlow 16s linear infinite reverse; }
-        .bagua-ring .trigrams { position: absolute; inset: 0; animation: spinSlow 24s linear infinite; }
-        .bagua-ring .trigrams span { position: absolute; font-size: 11px; color: var(--gold-mid); opacity: 0.7; transform-origin: 45px 45px; width: 14px; text-align: center; left: 38px; top: 2px; }
-        .bagua-ring .center-eye { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px; font-family: var(--font-serif); color: var(--gold-bright); filter: drop-shadow(0 0 10px rgba(230,194,122,0.5)); animation: breathe 4s ease-in-out infinite; }
-        .header-title { font-family: var(--font-serif); font-size: 28px; letter-spacing: 6px; font-weight: 400; background: linear-gradient(160deg, #F2E0A0 0%, #B38B36 50%, #E8CC80 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; margin-bottom: 8px; filter: drop-shadow(0 0 20px rgba(179,139,54,0.2)); }
-        .header-sub { font-size: 11px; color: var(--text-muted); letter-spacing: 3px; text-transform: uppercase; }
-        .user-greeting { font-size: 11px; color: var(--text-muted); margin-top: 16px; display: flex; justify-content: center; align-items: center; gap: 12px; animation: fadeIn 0.8s ease; }
-        .logout-btn { color: var(--gold-mid); cursor: pointer; text-decoration: underline; background: none; border: none; font-size: 11px; padding: 0; letter-spacing: 1px; }
-        .logout-btn:hover { color: var(--gold-bright); }
+.site-logo{
+    font-family:'Noto Serif SC',serif;font-size:17px;letter-spacing:.15em;font-weight:500;
+    background:linear-gradient(135deg,var(--gold) 0%,var(--gold-light) 50%,var(--gold) 100%);
+    -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+    filter:drop-shadow(0 0 12px rgba(212,175,55,0.45));
+    position:relative;
+}
+.site-logo::after{content:'';position:absolute;bottom:-2px;left:50%;transform:translateX(-50%);width:24px;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
 
-        .input-box { display: flex; flex-direction: column; gap: 14px; background: var(--bg-card); border: 1px solid rgba(179,139,54,0.2); border-radius: var(--radius-card); padding: 24px; box-shadow: 0 0 0 1px rgba(179,139,54,0.05), 0 20px 50px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04); animation: riseIn 1s 0.2s cubic-bezier(0.22,1,0.36,1) both; position: relative; overflow: hidden; margin-bottom: 24px; }
-        .input-box::before { content: ''; position: absolute; top: -60px; right: -60px; width: 180px; height: 180px; background: radial-gradient(circle, rgba(179,139,54,0.08) 0%, transparent 70%); pointer-events: none; }
-        .field-label { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: -4px; }
-        input[type="email"], input[type="password"], textarea { width: 100%; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: var(--radius-item); padding: 13px 16px; color: var(--text-primary); font-size: 15px; font-family: var(--font-body); outline: none; transition: border-color 0.3s, box-shadow 0.3s, background 0.3s; line-height: 1.6; }
-        textarea { resize: none; min-height: 90px; }
-        input::placeholder, textarea::placeholder { color: var(--text-dim); }
-        input:focus, textarea:focus { border-color: rgba(179,139,54,0.5); background: rgba(179,139,54,0.04); box-shadow: 0 0 0 3px rgba(179,139,54,0.08), inset 0 1px 0 rgba(179,139,54,0.05); }
+/* 头像按钮 & 下拉 */
+.avatar-wrap{position:relative;flex-shrink:0}
+.avatar-btn{width:34px;height:34px;border-radius:50%;border:1px solid var(--gold-border);background:rgba(212,175,55,0.08);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color .3s,background .3s}
+.avatar-btn:hover{border-color:var(--gold);background:rgba(212,175,55,0.15)}
+.avatar-menu{
+    position:absolute;top:calc(100% + 10px);right:0;
+    min-width:180px;padding:8px 0;
+    background:rgba(14,14,31,0.95);
+    border:1px solid var(--gold-border);
+    border-radius:14px;
+    backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+    box-shadow:0 12px 40px rgba(0,0,0,0.6);
+    opacity:0;pointer-events:none;transform:translateY(-6px);
+    transition:opacity .25s var(--ease),transform .25s var(--ease);
+    z-index:400;
+}
+.avatar-menu.open{opacity:1;pointer-events:all;transform:translateY(0)}
+.avatar-email{padding:10px 16px;font-size:11px;color:var(--text-muted);letter-spacing:.03em;border-bottom:1px solid var(--glass-border);line-height:1.5;word-break:break-all}
+.avatar-logout{display:block;width:100%;padding:10px 16px;font-size:13px;color:var(--gold-light);background:none;border:none;cursor:pointer;text-align:left;letter-spacing:.05em;transition:background .2s}
+.avatar-logout:hover{background:rgba(212,175,55,0.08)}
 
-        .auth-switch { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 4px; cursor: pointer; letter-spacing: 1px; }
-        .auth-switch span { color: var(--gold-mid); text-decoration: underline; }
-        .history-list { display: flex; flex-direction: column; gap: 12px; max-height: 280px; overflow-y: auto; padding-right: 4px; }
-        .history-list::-webkit-scrollbar { width: 4px; }
-        .history-list::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
-        .history-item { background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 14px 16px; border-radius: var(--radius-item); cursor: pointer; transition: all 0.25s ease; }
-        .history-item:hover { border-color: rgba(179,139,54,0.4); background: rgba(179,139,54,0.06); transform: translateX(4px); }
-        .hi-title { font-size: 14px; color: var(--text-primary); margin-bottom: 6px; line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-        .hi-date { font-size: 11px; color: var(--gold-mid); opacity: 0.8;}
+/* ── 历史抽屉 ── */
+.drawer-overlay{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0);pointer-events:none;transition:background .4s var(--ease)}
+.drawer-overlay.open{background:rgba(0,0,0,0.65);pointer-events:all}
+#historyDrawer{
+    position:fixed;top:0;left:0;bottom:0;width:min(82vw,310px);z-index:201;
+    transform:translateX(-100%);transition:transform .5s var(--spring);
+    display:flex;flex-direction:column;
+    backdrop-filter:blur(40px) saturate(1.6);-webkit-backdrop-filter:blur(40px) saturate(1.6);
+    background:rgba(14,14,31,0.88);border-right:1px solid var(--gold-border);
+}
+#historyDrawer.open{transform:translateX(0)}
+.drawer-head{padding:64px 22px 18px;border-bottom:1px solid var(--glass-border)}
+.drawer-label{font-size:10px;color:var(--text-muted);letter-spacing:.25em;text-transform:uppercase;margin-bottom:4px;font-family:var(--font-serif)}
+.drawer-title-txt{font-size:20px;font-weight:300;letter-spacing:.05em}
+.drawer-body{flex:1;overflow-y:auto;padding:8px 0;scrollbar-width:none}
+.drawer-body::-webkit-scrollbar{display:none}
+.drawer-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;gap:14px}
+.drawer-empty p{font-size:12px;color:var(--text-muted);text-align:center;line-height:1.8;font-family:var(--font-serif)}
+.d-hist-item{padding:13px 20px;display:flex;align-items:center;gap:10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,0.03);transition:background .2s}
+.d-hist-item:hover{background:rgba(255,255,255,0.04)}
+.d-hist-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.d-hist-dot.ji{background:var(--teal);box-shadow:0 0 6px var(--teal)}
+.d-hist-dot.xiong{background:var(--crimson);box-shadow:0 0 6px var(--crimson)}
+.d-hist-dot.ping{background:var(--gold);box-shadow:0 0 6px var(--gold-dim)}
+.d-hist-info{flex:1;overflow:hidden}
+.d-hist-q{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px}
+.d-hist-time{font-size:10px;color:var(--text-muted)}
+.d-hist-badge{font-size:10px;padding:2px 7px;border-radius:20px;font-family:var(--font-serif);flex-shrink:0;border:1px solid}
+.d-hist-badge.da-ji   {color:#00D26A;background:rgba(0,210,106,0.1); border-color:rgba(0,210,106,0.25)}
+.d-hist-badge.xiao-ji {color:var(--teal);background:rgba(78,205,196,0.1);border-color:rgba(78,205,196,0.25)}
+.d-hist-badge.ping    {color:var(--gold-light);background:rgba(212,175,55,0.1);border-color:rgba(212,175,55,0.25)}
+.d-hist-badge.xiao-xiong{color:#F5A623;background:rgba(245,166,35,0.1);border-color:rgba(245,166,35,0.25)}
+.d-hist-badge.da-xiong  {color:var(--crimson);background:rgba(255,94,87,0.1);border-color:rgba(255,94,87,0.25)}
 
-        #authSection, #appSection { display: none; width: 100%; }
+/* ── 页面 ── */
+.page-wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:76px 18px 60px}
+.container{width:100%;max-width:520px}
 
-        .submit-btn { position: relative; overflow: hidden; background: linear-gradient(135deg, #E8CC80 0%, #B38B36 50%, #C9A052 100%); color: #0a0800; border: none; border-radius: var(--radius-item); padding: 16px; font-size: 15px; font-family: var(--font-serif); font-weight: 600; letter-spacing: 4px; cursor: pointer; transition: transform 0.25s, box-shadow 0.25s, opacity 0.25s; box-shadow: 0 4px 20px rgba(179,139,54,0.3), 0 1px 0 rgba(255,255,255,0.15) inset; }
-        .submit-btn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.18) 50%, transparent 100%); transform: translateX(-100%); transition: transform 0s; }
-        .submit-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(179,139,54,0.45); }
-        .submit-btn:hover::after { transform: translateX(100%); transition: transform 0.6s ease; }
-        .submit-btn:active { transform: translateY(1px); box-shadow: 0 2px 10px rgba(179,139,54,0.3); }
-        .submit-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
-        .btn-icon { display: inline-block; margin-right: 6px; transition: transform 0.4s; }
-        .submit-btn:not(:disabled):hover .btn-icon { transform: rotate(180deg); }
+/* ── 标语 ── */
+.tagline{text-align:center;padding:20px 0 12px}
+.tagline-main{font-family:var(--font-serif);font-size:13px;font-weight:300;letter-spacing:.3em;color:var(--text-muted);margin-bottom:6px}
+.tagline-sub{font-size:11px;letter-spacing:.18em;color:rgba(255,255,255,0.18)}
 
-        .cancel-btn { background: transparent; color: var(--text-muted); border: 1px solid rgba(255, 255, 255, 0.15); padding: 6px 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.25s ease; }
-        .cancel-btn:hover { background: rgba(255, 255, 255, 0.05); color: #FFFFFF; border-color: rgba(255, 255, 255, 0.3); }
+/* ── 通用玻璃卡片 ── */
+.glass-card,.input-box{
+    background:var(--bg-card);border:1px solid var(--glass-border);
+    border-radius:var(--radius-card);
+    backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);
+    box-shadow:0 4px 32px rgba(0,0,0,0.35),0 0 0 1px rgba(212,175,55,0.04),inset 0 1px 0 rgba(255,255,255,0.04);
+    position:relative;overflow:hidden;
+}
+.input-box{display:flex;flex-direction:column;gap:14px;padding:22px;margin-bottom:16px;animation:riseIn 1s .15s cubic-bezier(.22,1,.36,1) both}
+.input-box::before{content:'';position:absolute;top:-50px;right:-50px;width:150px;height:150px;background:radial-gradient(circle,rgba(212,175,55,0.06) 0%,transparent 70%);pointer-events:none}
+.input-box::after{content:'';position:absolute;top:0;left:15%;right:15%;height:1px;background:linear-gradient(90deg,transparent,var(--gold-border),transparent);opacity:.7}
 
-        /* 八字系统专区 */
-        .bazi-section { margin-bottom: 24px; }
-        .bazi-toggle { display: flex; align-items: center; justify-content: space-between; background: rgba(255,255,255,0.03); padding: 12px 16px; border-radius: var(--radius-item); border: 1px solid var(--border-subtle); cursor: pointer; transition: background 0.3s;}
-        .bazi-toggle:hover { background: rgba(179,139,54,0.05); }
-        .bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px;}
-        .bz-select { display:block; width:44px; height:44px; border-radius:50%; margin:4px auto; background: rgba(179,139,54,0.15); border: 1px solid var(--gold-mid); color: #fff; text-align:center; font-size:16px; font-family: var(--font-serif); appearance:none; outline:none; text-align-last: center; }
-        .profile-delete-btn { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.3); border-radius: 8px; padding: 0 12px; cursor: pointer; transition: 0.2s; }
-        .profile-delete-btn:hover { background: #FF5E57; color: #fff; }
-        .switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-        .switch input { opacity: 0; width: 0; height: 0; }
-        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(255,255,255,0.1); transition: .4s; border-radius: 24px; }
-        .slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background-color: var(--text-muted); transition: .4s; border-radius: 50%; }
-        input:checked + .slider { background-color: var(--gold-mid); }
-        input:checked + .slider:before { transform: translateX(20px); background-color: #fff; }
+/* ── 叩问天机 输入卡 ── */
+.input-card{padding:22px}
+.input-label{
+    font-family:var(--font-serif);font-size:11px;letter-spacing:.2em;
+    color:var(--text-muted);margin-bottom:14px;
+    display:flex;align-items:center;gap:8px;
+}
+.input-label::before,.input-label::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(212,175,55,0.2),transparent)}
 
-        .bazi-workspace { display: none; margin-top: 12px; animation: fadeInDown 0.4s ease; }
-        .profile-selector { display: flex; gap: 10px; margin-bottom: 12px; }
-        .profile-select { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--gold-mid); color: #fff; padding: 10px; border-radius: 8px; outline: none; font-size: 14px;}
-        .add-profile-btn { background: rgba(179,139,54,0.15); color: var(--gold-bright); border: 1px solid var(--gold-mid); padding: 0 16px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all 0.2s;}
-        .add-profile-btn:hover { background: var(--gold-mid); color: #000; }
-        .bazi-table-wrap { background: rgba(0,0,0,0.2); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 16px; overflow-x: auto; transition: opacity 0.3s; }
-        .bazi-table { width: 100%; border-collapse: collapse; text-align: center; }
-        .bazi-table th, .bazi-table td { padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.04); }
-        .bazi-table th { color: var(--text-muted); font-weight: 500; font-size: 12px; }
-        .bazi-table tr:last-child td { border-bottom: none; }
-        .bz-star { font-size: 12px; color: var(--text-primary); }
-        .bz-char { font-size: 22px; font-weight: 600; font-family: "Noto Serif SC", "STSong", "Songti SC", "PingFang SC", sans-serif; }
-        .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; }
-        .profile-form { display: none; background: rgba(255,255,255,0.03); padding: 16px; border-radius: 12px; border: 1px dashed var(--border-subtle); margin-bottom: 12px; }
-        .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
-        .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-subtle); color: white; }
-        
-        .info-icon { display: inline-flex; justify-content: center; align-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 11px; margin-left: 8px; cursor: pointer; transition: all 0.2s; font-family: Arial, sans-serif; opacity: 0.8; }
-        .info-icon:hover { border-color: var(--gold-bright); color: var(--gold-bright); opacity: 1; transform: scale(1.1); }
-        .bazi-info-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity 0.3s ease; }
-        .bazi-info-overlay.show { display: flex; opacity: 1; }
-        .bazi-info-card { background: var(--bg-card); border: 1px solid rgba(179,139,54,0.3); border-radius: var(--radius-card); padding: 24px; max-width: 420px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); transform: translateY(20px) scale(0.95); transition: all 0.3s cubic-bezier(0.22,1,0.36,1); max-height: 80vh; overflow-y: auto; }
-        .bazi-info-overlay.show .bazi-info-card { transform: translateY(0) scale(1); }
-        .bazi-info-card::-webkit-scrollbar { width: 4px; }
-        .bazi-info-card::-webkit-scrollbar-thumb { background: rgba(179,139,54,0.3); border-radius: 4px; }
-        .bazi-info-title { font-size: 16px; color: var(--gold-bright); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; font-weight: 600; letter-spacing: 1px;}
-        .bazi-info-close { color: var(--text-muted); cursor: pointer; font-size: 24px; line-height: 1; transition: color 0.2s;}
-        .bazi-info-close:hover { color: #fff; }
-        .bazi-info-text { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
-        .bazi-info-text h4 { color: var(--gold-mid); margin: 16px 0 8px; font-size: 14px; font-weight: 600;}
-        .bazi-info-text ul { padding-left: 20px; margin-bottom: 12px; }
-        .bazi-info-text li { margin-bottom: 8px; }
-        .bazi-info-text strong { color: #fff; font-weight: 500; }
-        .bazi-summary-box { color: var(--gold-bright); background: rgba(179,139,54,0.08); border: 1px solid rgba(179,139,54,0.2); padding: 12px 14px; border-radius: 10px; margin-top: 16px; font-size: 12.5px; }
+textarea{
+    width:100%;min-height:130px;
+    background:rgba(0,0,0,0.2);border:1px solid var(--glass-border);
+    border-radius:var(--radius-item);padding:16px;
+    color:var(--text-primary);
+    font-family:'Noto Serif SC',serif;font-size:15px;line-height:1.8;
+    resize:none;outline:none;
+    transition:border-color .4s,box-shadow .4s;
+    caret-color:var(--gold);
+}
+textarea::placeholder{color:var(--text-dim);font-size:13px;font-family:'Noto Serif SC',serif}
+textarea:focus{
+    border-color:var(--gold-border);
+    box-shadow:0 0 0 1px rgba(212,175,55,0.12),0 0 24px rgba(212,175,55,0.07),inset 0 0 20px rgba(212,175,55,0.02);
+}
 
-        /* 动画与卡片排版 */
-        #loader { display: none; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0 30px; animation: fadeIn 0.5s ease; }
-        .loader-bagua { position: relative; width: 60px; height: 60px; }
-        .loader-bagua .lb-ring { position: absolute; inset: 0; border-radius: 50%; border: 2px solid transparent; }
-        .lb-ring-1 { border-top-color: var(--gold-bright); border-right-color: rgba(230,194,122,0.3); animation: spin 1.4s ease-in-out infinite; }
-        .lb-ring-2 { inset: 8px; border-top-color: rgba(230,194,122,0.5); border-left-color: rgba(230,194,122,0.2); animation: spin 1.0s ease-in-out infinite reverse; }
-        .lb-ring-3 { inset: 16px; border-top-color: rgba(230,194,122,0.7); animation: spin 0.7s linear infinite; }
-        .lb-center { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; animation: breathe 2s ease-in-out infinite; }
-        .loader-steps { display: flex; flex-direction: column; align-items: center; gap: 6px; }
-        .loader-text { font-size: 13px; color: var(--gold-mid); letter-spacing: 1px; }
-        .loader-dots { display: flex; gap: 6px; }
-        .loader-dots span { width: 4px; height: 4px; border-radius: 50%; background: var(--gold-mid); opacity: 0.3; animation: dotPulse 1.2s ease-in-out infinite; }
-        .loader-dots span:nth-child(2) { animation-delay: 0.2s; }
-        .loader-dots span:nth-child(3) { animation-delay: 0.4s; }
+/* 时辰行 */
+.time-row{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.time-display{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:7px}
+.time-dot{width:5px;height:5px;border-radius:50%;background:var(--teal);box-shadow:0 0 6px var(--teal);animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.time-note{font-size:11px;color:rgba(255,255,255,0.18);font-family:var(--font-serif)}
 
-        .card { background: var(--bg-card); border-radius: var(--radius-card); border: 1px solid rgba(255,255,255,0.07); padding: 26px 20px; display: none; margin-bottom: 40px; box-shadow: 0 24px 60px rgba(0,0,0,0.7), 0 0 0 1px rgba(179,139,54,0.08); animation: riseIn 0.7s cubic-bezier(0.22,1,0.36,1) both; position: relative; overflow: hidden; }
-        .card::before { content: ''; position: absolute; top: 0; left: 10%; right: 10%; height: 1px; background: linear-gradient(90deg, transparent, var(--theme-color, #B38B36), transparent); opacity: 0.6; }
-        .card::after { content: '☰'; position: absolute; bottom: -20px; right: -10px; font-size: 120px; color: rgba(255,255,255,0.02); pointer-events: none; font-family: serif; line-height: 1; }
+/* ── CTA 按钮 ── */
+.cta-wrap{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:16px}
+.cta-btn{
+    width:100%;height:60px;border:none;outline:none;cursor:pointer;
+    border-radius:18px;position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#8B6914 0%,#D4AF37 35%,#E8CC80 55%,#D4AF37 75%,#8B6914 100%);
+    background-size:200% 100%;
+    animation:shimmer 3s ease-in-out infinite,breathe 3s ease-in-out infinite;
+    box-shadow:0 4px 20px rgba(212,175,55,0.3),0 0 40px rgba(212,175,55,0.1),inset 0 1px 0 rgba(255,255,255,0.2);
+    transition:transform .2s var(--spring),box-shadow .3s;
+    -webkit-tap-highlight-color:transparent;
+}
+.cta-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 8px 32px rgba(212,175,55,0.45),0 0 60px rgba(212,175,55,0.15);animation-play-state:paused}
+.cta-btn:active:not(:disabled){transform:translateY(0) scale(0.98)}
+.cta-btn:disabled{opacity:.5;cursor:not-allowed;animation:none}
+@keyframes shimmer{0%{background-position:100% 50%}50%{background-position:0% 50%}100%{background-position:100% 50%}}
+@keyframes breathe{0%,100%{box-shadow:0 4px 20px rgba(212,175,55,0.3),0 0 40px rgba(212,175,55,0.1),inset 0 1px 0 rgba(255,255,255,0.2)}50%{box-shadow:0 4px 28px rgba(212,175,55,0.5),0 0 60px rgba(212,175,55,0.2),inset 0 1px 0 rgba(255,255,255,0.2)}}
+.cta-inner{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;gap:10px;height:100%}
+.cta-text{font-family:'Noto Serif SC',serif;font-size:17px;font-weight:500;color:#1a1000;letter-spacing:.15em}
+.cta-hint{font-size:11px;color:rgba(255,255,255,0.2);letter-spacing:.1em;font-family:var(--font-serif)}
 
-        .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 14px; }
-        .title { font-size: 11px; color: var(--text-muted); letter-spacing: 2px; text-transform: uppercase; margin-top: 2px; }
-        .score-badge { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-        .score { background: var(--theme-color-dim, rgba(179,139,54,0.15)); color: var(--theme-color, #B38B36); padding: 5px 14px; border-radius: 20px; font-weight: 800; font-size: 20px; letter-spacing: 1px; border: 1px solid color-mix(in srgb, var(--theme-color, #B38B36) 30%, transparent); box-shadow: 0 0 16px var(--theme-color-dim, rgba(179,139,54,0.15)), 0 0 4px var(--theme-color-dim, rgba(179,139,54,0.1)) inset; animation: glowPulse 3s ease-in-out infinite; }
-        .score-label { font-size: 9px; color: var(--text-muted); letter-spacing: 1px; }
+/* ── 登录卡片 ── */
+.auth-card{display:flex;flex-direction:column;gap:14px;padding:22px;margin-bottom:16px;animation:riseIn 1s cubic-bezier(.22,1,.36,1) both}
+.field-label{font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:-4px}
+input[type="email"],input[type="password"]{
+    width:100%;background:rgba(0,0,0,0.25);border:1px solid var(--glass-border);
+    border-radius:var(--radius-item);padding:13px 16px;color:var(--text-primary);
+    font-size:15px;font-family:var(--font-body);outline:none;
+    transition:border-color .35s,box-shadow .35s;caret-color:var(--gold);
+}
+input::placeholder{color:var(--text-dim)}
+input:focus{border-color:var(--gold-border);box-shadow:0 0 0 3px rgba(212,175,55,0.08)}
 
-        .conclusion { font-family: var(--font-serif); font-size: 26px; font-weight: 400; color: var(--theme-color, #E8CC80); margin-bottom: 8px; line-height: 1.3; letter-spacing: 1px; text-shadow: 0 0 30px color-mix(in srgb, var(--theme-color, #B38B36) 40%, transparent); }
-        .keyword { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.06); padding: 4px 12px; border-radius: 20px; margin-bottom: 22px; letter-spacing: 0.5px; }
+.auth-submit{
+    width:100%;padding:15px;border:none;border-radius:var(--radius-item);
+    background:linear-gradient(135deg,#E8CC80 0%,#B38B36 45%,#C9A052 100%);
+    color:#0a0800;font-size:15px;font-family:var(--font-serif);font-weight:600;
+    letter-spacing:4px;cursor:pointer;transition:transform .25s,box-shadow .25s,opacity .25s;
+    box-shadow:0 4px 20px rgba(179,139,54,0.3);
+}
+.auth-submit:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(179,139,54,0.45)}
+.auth-submit:active{transform:translateY(1px)}
+.auth-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.auth-switch{text-align:center;font-size:12px;color:var(--text-muted);cursor:pointer;letter-spacing:1px}
+.auth-switch span{color:var(--gold);text-decoration:underline}
 
-        .user-question { font-size: 14px; color: rgba(240,237,230,0.8); padding: 14px 16px; background: rgba(255,255,255,0.03); border-radius: var(--radius-item); border-left: 3px solid var(--theme-color, #B38B36); margin-bottom: 24px; font-style: italic; line-height: 1.7; position: relative; }
-        .user-question::before { content: '"'; position: absolute; top: -8px; left: 10px; font-size: 40px; font-family: Georgia, serif; color: var(--theme-color, #B38B36); opacity: 0.3; line-height: 1; }
+/* ── 通用按钮 ── */
+.cancel-btn{background:transparent;color:var(--text-muted);border:1px solid rgba(255,255,255,0.12);padding:6px 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .25s ease}
+.cancel-btn:hover{background:rgba(255,255,255,0.05);color:#FFF;border-color:rgba(255,255,255,0.25)}
+.submit-btn{
+    position:relative;overflow:hidden;
+    background:linear-gradient(135deg,#E8CC80 0%,#B38B36 45%,#C9A052 100%);
+    color:#0a0800;border:none;border-radius:var(--radius-item);
+    padding:16px;font-size:15px;font-family:var(--font-serif);font-weight:600;
+    letter-spacing:4px;cursor:pointer;transition:transform .25s,box-shadow .25s,opacity .25s;
+    box-shadow:0 4px 20px rgba(179,139,54,0.3),inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.submit-btn:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(179,139,54,0.45)}
+.submit-btn:active{transform:translateY(1px)}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
 
-        .section-title { display: flex; align-items: center; gap: 8px; color: var(--text-muted); font-size: 11px; font-weight: 600; letter-spacing: 2.5px; text-transform: uppercase; margin: 28px 0 14px; position: relative; }
-        .section-title::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(255,255,255,0.05) 0%, transparent 100%); }
-        .section-title .icon { font-size: 15px; opacity: 0.9; }
+/* ── 八字区 ── */
+.bazi-toggle{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-radius:var(--radius-item);border:1px solid var(--glass-border);cursor:pointer;transition:background .3s;background:rgba(0,0,0,0.15)}
+.bazi-toggle:hover{background:rgba(212,175,55,0.05);border-color:var(--gold-border)}
+.bazi-toggle-text{font-size:14px;color:var(--text-primary);display:flex;align-items:center;gap:8px}
+.bz-select{display:block;width:44px;height:44px;border-radius:50%;margin:4px auto;background:rgba(212,175,55,0.12);border:1px solid var(--gold);color:#fff;text-align:center;font-size:16px;font-family:var(--font-serif);appearance:none;outline:none;text-align-last:center}
+.profile-delete-btn{background:rgba(255,94,87,0.1);color:#FF5E57;border:1px solid rgba(255,94,87,0.3);border-radius:8px;padding:0 12px;cursor:pointer;transition:.2s}
+.profile-delete-btn:hover{background:#FF5E57;color:#fff}
+.switch{position:relative;display:inline-block;width:44px;height:24px}
+.switch input{opacity:0;width:0;height:0}
+.slider{position:absolute;cursor:pointer;inset:0;background:rgba(255,255,255,0.08);transition:.4s;border-radius:24px}
+.slider:before{position:absolute;content:"";height:18px;width:18px;left:3px;bottom:3px;background:var(--text-muted);transition:.4s;border-radius:50%}
+input:checked+.slider{background:var(--gold)}
+input:checked+.slider:before{transform:translateX(20px);background:#fff}
+.bazi-workspace{display:none;margin-top:12px;animation:fadeInDown .4s ease}
+.profile-selector{display:flex;gap:10px;margin-bottom:12px}
+.profile-select{flex:1;background:rgba(0,0,0,0.35);border:1px solid var(--gold);color:#fff;padding:10px;border-radius:8px;outline:none;font-size:14px}
+.add-profile-btn{background:rgba(212,175,55,0.12);color:var(--gold-light);border:1px solid var(--gold);padding:0 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+.add-profile-btn:hover{background:var(--gold);color:#000}
+.bazi-table-wrap{background:rgba(0,0,0,0.25);border:1px solid var(--glass-border);border-radius:12px;padding:16px;overflow-x:auto;transition:opacity .3s}
+.bazi-table{width:100%;border-collapse:collapse;text-align:center}
+.bazi-table th,.bazi-table td{padding:9px 4px;border-bottom:1px solid rgba(255,255,255,0.04)}
+.bazi-table th{color:var(--text-muted);font-weight:500;font-size:12px}
+.bazi-table tr:last-child td{border-bottom:none}
+.bz-star{font-size:12px;color:var(--text-primary)}
+.bz-char{font-size:22px;font-weight:600;font-family:'Noto Serif SC','STSong','Songti SC','PingFang SC',sans-serif}
+.wx-jin{color:#E8CC80}.wx-mu{color:#81C784}.wx-shui{color:#64B5F6}.wx-huo{color:#E57373}.wx-tu{color:#DCE775}
+.profile-form{display:none;background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;border:1px dashed var(--glass-border);margin-bottom:12px}
+.form-row{display:flex;gap:12px;margin-bottom:12px}
+.form-row input,.form-row select{flex:1;padding:10px;border-radius:8px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);color:white}
+.info-icon{display:inline-flex;justify-content:center;align-items:center;width:16px;height:16px;border-radius:50%;border:1px solid var(--text-muted);color:var(--text-muted);font-size:11px;margin-left:8px;cursor:pointer;transition:all .2s;font-family:Arial,sans-serif;opacity:.8}
+.info-icon:hover{border-color:var(--gold-light);color:var(--gold-light);opacity:1;transform:scale(1.1)}
 
-        .info-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .grid-item { background: var(--bg-item); border: 1px solid var(--border-subtle); padding: 14px; border-radius: var(--radius-item); transition: border-color 0.25s, transform 0.25s, box-shadow 0.25s; position: relative; overflow: hidden; }
-        .grid-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent); }
-        .grid-item:hover { border-color: rgba(179,139,54,0.2); transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
-        .label { font-size: 10px; color: var(--text-muted); display: block; margin-bottom: 7px; letter-spacing: 1.5px; text-transform: uppercase; }
-        .value { font-size: 13px; font-weight: 400; color: #DDDDE5; line-height: 1.6; }
+/* ── 加载动画 (八卦 SVG) ── */
+#loader{display:none;flex-direction:column;align-items:center;gap:24px;padding:32px 0 40px}
+.bagua-ring-wrap{position:relative;width:120px;height:120px}
+.bagua-svg{width:100%;height:100%;animation:rotateBagua 8s linear infinite}
+.bagua-inner-g{animation:rotateBagua 4s linear infinite reverse;transform-origin:50% 50%}
+@keyframes rotateBagua{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+.loader-text-block{display:flex;flex-direction:column;align-items:center;gap:8px}
+.loader-main-text{font-family:var(--font-serif);font-size:13px;color:var(--gold);letter-spacing:.15em;text-align:center;line-height:2;animation:fadeTxt 2s ease-in-out infinite}
+@keyframes fadeTxt{0%,100%{opacity:.4}50%{opacity:.9}}
+.loader-dots{display:flex;gap:6px}
+.loader-dots span{width:4px;height:4px;border-radius:50%;background:var(--gold);opacity:.25;animation:dotPulse 1.2s ease-in-out infinite}
+.loader-dots span:nth-child(2){animation-delay:.2s}
+.loader-dots span:nth-child(3){animation-delay:.4s}
 
-        .bazi-insight { grid-column: 1 / -1; background: linear-gradient(135deg, color-mix(in srgb, var(--theme-color, #B38B36) 8%, transparent), transparent); border-left: 2px solid var(--theme-color, #B38B36); }
-        .bazi-insight .label { color: var(--theme-color, #B38B36); }
-        .dynamic-timing { grid-column: 1 / -1; background: rgba(245,197,24,0.04); border-left: 2px solid #F5C518; }
-        .dynamic-timing .label { color: #F5C518; }
+/* ── 再起一局 按钮 ── */
+.reset-btn{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    width:100%;height:50px;background:transparent;
+    border:1px solid var(--glass-border);border-radius:14px;
+    color:var(--text-muted);font-size:13px;letter-spacing:.12em;
+    cursor:pointer;transition:all .3s;
+    font-family:var(--font-serif);margin-top:4px;margin-bottom:32px;
+}
+.reset-btn:hover{background:rgba(255,255,255,0.04);border-color:rgba(255,255,255,0.14);color:var(--text-primary)}
 
-        .score-basis { grid-column: 1 / -1; background: rgba(255,255,255,0.02); }
-        .score-basis .label { color: var(--text-muted); }
-        .score-basis-body { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
-        .sb-row { display: flex; flex-direction: column; gap: 6px; }
-        .sb-row-title { font-size: 10px; color: var(--text-muted); font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; }
-        .sb-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-        .sb-tag { font-size: 12px; padding: 3px 10px; border-radius: 20px; font-weight: 500; line-height: 1.5; transition: transform 0.2s; }
-        .sb-tag:hover { transform: scale(1.05); }
-        .sb-tag.positive { background: rgba(0,210,106,0.1); color: #00D26A; border: 1px solid rgba(0,210,106,0.2); }
-        .sb-tag.negative { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.2); }
-        .sb-logic { font-size: 12px; color: #9090A0; line-height: 1.7; padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 8px; border-left: 2px solid var(--theme-color, #B38B36); }
+/* ── 结果卡片 ── */
+.card{
+    background:var(--bg-card);border-radius:var(--radius-card);
+    border:1px solid var(--glass-border);padding:24px 20px;
+    display:none;margin-bottom:16px;
+    box-shadow:0 24px 60px rgba(0,0,0,0.65),0 0 0 1px rgba(212,175,55,0.06);
+    animation:riseIn .7s cubic-bezier(.22,1,.36,1) both;
+    position:relative;overflow:hidden;
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+}
+.card::before{content:'';position:absolute;top:0;left:10%;right:10%;height:1px;background:linear-gradient(90deg,transparent,var(--theme-color,#B38B36),transparent);opacity:.55}
+.card::after{content:'☰';position:absolute;bottom:-20px;right:-10px;font-size:110px;color:rgba(255,255,255,0.015);pointer-events:none;font-family:serif;line-height:1}
 
-        .strategy-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-        .strategy-list li { position: relative; padding: 12px 14px 12px 36px; background: var(--bg-item); border: 1px solid var(--border-subtle); border-radius: 10px; color: #CCCCD8; font-size: 13.5px; line-height: 1.65; transition: border-color 0.25s, background 0.25s; }
-        .strategy-list li:hover { border-color: rgba(179,139,54,0.2); background: rgba(179,139,54,0.04); }
-        .strategy-list li::before { content: "✦"; position: absolute; left: 14px; top: 13px; color: var(--theme-color, #B38B36); font-size: 11px; }
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
+.title{font-size:10px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.score-badge{display:flex;flex-direction:column;align-items:center;gap:3px}
+.score{background:var(--theme-color-dim,rgba(179,139,54,0.15));color:var(--theme-color,#B38B36);padding:4px 12px;border-radius:20px;font-weight:800;font-size:18px;letter-spacing:1px;border:1px solid color-mix(in srgb,var(--theme-color,#B38B36) 30%,transparent);box-shadow:0 0 16px var(--theme-color-dim,rgba(179,139,54,0.15));animation:glowPulse 3s ease-in-out infinite}
+.score-label{font-size:9px;color:var(--text-muted);letter-spacing:1px}
+.verdict-badge{display:inline-flex;align-items:center;font-family:var(--font-serif);font-size:14px;padding:4px 14px;border-radius:20px;margin-bottom:6px;letter-spacing:.08em;border:1px solid}
+.verdict-da-ji   {color:#00D26A;background:rgba(0,210,106,0.08);border-color:rgba(0,210,106,0.25);text-shadow:0 0 12px rgba(0,210,106,0.4)}
+.verdict-xiao-ji {color:var(--teal);background:rgba(78,205,196,0.08);border-color:rgba(78,205,196,0.25);text-shadow:0 0 12px rgba(78,205,196,0.4)}
+.verdict-ping    {color:var(--gold-light);background:rgba(212,175,55,0.08);border-color:rgba(212,175,55,0.25);text-shadow:0 0 12px rgba(212,175,55,0.3)}
+.verdict-xiao-xiong{color:#F5A623;background:rgba(245,166,35,0.08);border-color:rgba(245,166,35,0.25);text-shadow:0 0 12px rgba(245,166,35,0.4)}
+.verdict-da-xiong  {color:var(--crimson);background:rgba(255,94,87,0.08);border-color:rgba(255,94,87,0.25);text-shadow:0 0 12px rgba(255,94,87,0.4)}
 
-        .risk-alert { background: rgba(255,94,87,0.06); border: 1px solid rgba(255,94,87,0.15); border-left: 3px solid #FF5E57; border-radius: 10px; padding: 14px 16px; margin-top: 14px; }
-        .risk-alert-title { color: #FF5E57; font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-        .risk-alert-content { color: #D0D0D8; font-size: 13px; line-height: 1.65; }
+.conclusion{font-family:var(--font-serif);font-size:24px;font-weight:400;color:var(--theme-color,#E8CC80);margin-bottom:8px;line-height:1.35;letter-spacing:1px;text-shadow:0 0 30px color-mix(in srgb,var(--theme-color,#B38B36) 40%,transparent)}
+.keyword{display:inline-flex;align-items:center;gap:4px;font-size:12px;color:var(--text-muted);background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.06);padding:4px 12px;border-radius:20px;margin-bottom:20px;letter-spacing:.5px}
+.user-question{font-size:14px;color:rgba(240,237,230,0.78);padding:13px 15px;background:rgba(255,255,255,0.025);border-radius:var(--radius-item);border-left:2px solid var(--theme-color,#B38B36);margin-bottom:22px;font-style:italic;line-height:1.7;position:relative}
+.user-question::before{content:'"';position:absolute;top:-8px;left:10px;font-size:36px;font-family:Georgia,serif;color:var(--theme-color,#B38B36);opacity:.25;line-height:1}
+.section-title{display:flex;align-items:center;gap:8px;color:var(--text-muted);font-size:10px;font-weight:600;letter-spacing:2.5px;text-transform:uppercase;margin:24px 0 12px;position:relative}
+.section-title::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(255,255,255,0.05) 0%,transparent 100%)}
+.section-title .icon{font-size:14px;opacity:.9}
 
-        .footer { display: flex; gap: 8px; background: linear-gradient(135deg, rgba(179,139,54,0.1), rgba(179,139,54,0.05)); border: 1px solid rgba(179,139,54,0.2); padding: 16px 12px; border-radius: 16px; margin-top: 28px; }
-        .f-item { flex: 1; text-align: center; padding: 4px 0; border-right: 1px solid rgba(255,255,255,0.04); }
-        .f-item:last-child { border-right: none; }
-        .f-icon { display: block; font-size: 22px; margin-bottom: 6px; animation: floatIcon 3s ease-in-out infinite; }
-        .f-item:nth-child(2) .f-icon { animation-delay: 0.5s; }
-        .f-item:nth-child(3) .f-icon { animation-delay: 1s; }
-        .f-text { font-size: 12px; font-weight: 600; color: var(--theme-color, #E8CC80); letter-spacing: 0.5px; }
+/* 九宫格 */
+.pan-wrapper{background:rgba(0,0,0,0.3);border:1px solid var(--gold-border);border-radius:16px;padding:14px;position:relative;overflow:hidden}
+.pan-wrapper::before{content:'';position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(212,175,55,0.04) 0%,transparent 70%);pointer-events:none}
+.pan-header{text-align:center;margin-bottom:12px}
+.pan-pillars{font-family:var(--font-serif);font-size:16px;font-weight:400;color:#FFF;letter-spacing:3px;margin-bottom:5px}
+.pan-info{font-size:11px;color:#888;line-height:1.75}
+.pan-info b{color:var(--theme-color,#B38B36);font-weight:600}
+.pan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:rgba(255,255,255,0.04);border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
+.pan-cell{background:rgba(14,14,31,0.9);aspect-ratio:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:background .2s}
+.pan-cell:hover{background:rgba(255,255,255,0.04)}
+.pan-center-earth{font-size:30px;font-weight:900;color:var(--text-dim)}
+.pan-god{position:absolute;top:5px;font-size:8px;color:#555;letter-spacing:1px}
+.pan-star{font-size:11px;color:#CCC;margin-bottom:1px;z-index:2}
+.pan-door{font-size:14px;font-weight:700;color:#FFF;z-index:2;letter-spacing:1px;font-family:var(--font-serif)}
+.pan-stem{position:absolute;font-size:10px;font-weight:600}
+.stem-sky{top:5px;left:6px;color:#DDDDE8}
+.stem-earth{bottom:5px;right:6px;color:#666}
+.ji-sky{top:18px;left:6px;font-size:8px;color:#444}
+.ji-earth{bottom:18px;right:6px;font-size:8px;color:#444}
+.pan-marks{position:absolute;bottom:4px;left:4px;display:flex;gap:2px;z-index:3}
+.pan-mark{font-size:8px;padding:1px 3px;border-radius:3px;font-weight:700}
+.mark-ma{background:var(--theme-color,#B38B36);color:#000}
+.mark-kong{border:1px solid #444;color:#666;background:rgba(0,0,0,0.4)}
+.highlight-text{color:var(--theme-color,#E8CC80)!important;text-shadow:0 0 12px color-mix(in srgb,var(--theme-color,#B38B36) 50%,transparent)}
 
-        .pan-wrapper { background: rgba(0,0,0,0.3); border: 1px solid rgba(179,139,54,0.15); border-radius: 16px; padding: 16px; position: relative; overflow: hidden; }
-        .pan-wrapper::before { content: ''; position: absolute; inset: 0; background: radial-gradient(circle at 50% 50%, rgba(179,139,54,0.04) 0%, transparent 70%); pointer-events: none; }
-        .pan-header { text-align: center; margin-bottom: 14px; }
-        .pan-pillars { font-family: var(--font-serif); font-size: 17px; font-weight: 400; color: #FFF; letter-spacing: 3px; margin-bottom: 6px; }
-        .pan-info { font-size: 11px; color: #888; line-height: 1.7; }
-        .pan-info b { color: var(--theme-color, #B38B36); font-weight: 600; }
+/* 信息网格 */
+.info-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.grid-item{background:rgba(0,0,0,0.2);border:1px solid var(--glass-border);padding:13px;border-radius:var(--radius-item);transition:border-color .25s,transform .25s,box-shadow .25s;position:relative;overflow:hidden}
+.grid-item::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.04),transparent)}
+.grid-item:hover{border-color:rgba(212,175,55,0.2);transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,0.3)}
+.label{font-size:9px;color:var(--text-muted);display:block;margin-bottom:6px;letter-spacing:1.5px;text-transform:uppercase}
+.value{font-size:13px;font-weight:400;color:#DDDDE5;line-height:1.65}
+.bazi-insight{grid-column:1/-1;background:linear-gradient(135deg,color-mix(in srgb,var(--theme-color,#B38B36) 6%,transparent),transparent);border-left:2px solid var(--theme-color,#B38B36)}
+.bazi-insight .label{color:var(--theme-color,#B38B36)}
+.dynamic-timing{grid-column:1/-1;background:rgba(245,197,24,0.03);border-left:2px solid #F5C518}
+.dynamic-timing .label{color:#F5C518}
+.score-basis{grid-column:1/-1;background:rgba(255,255,255,0.015)}
+.score-basis-body{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.sb-row{display:flex;flex-direction:column;gap:6px}
+.sb-row-title{font-size:9px;color:var(--text-muted);font-weight:600;letter-spacing:1.5px;text-transform:uppercase}
+.sb-tags{display:flex;flex-wrap:wrap;gap:6px}
+.sb-tag{font-size:11px;padding:3px 9px;border-radius:20px;font-weight:500;line-height:1.5;transition:transform .2s}
+.sb-tag:hover{transform:scale(1.05)}
+.sb-tag.positive{background:rgba(0,210,106,0.1);color:#00D26A;border:1px solid rgba(0,210,106,0.2)}
+.sb-tag.negative{background:rgba(255,94,87,0.1);color:#FF5E57;border:1px solid rgba(255,94,87,0.2)}
+.sb-logic{font-size:12px;color:#9090A0;line-height:1.7;padding:9px 11px;background:rgba(255,255,255,0.02);border-radius:8px;border-left:2px solid var(--theme-color,#B38B36)}
+.strategy-list{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:8px}
+.strategy-list li{position:relative;padding:11px 13px 11px 34px;background:rgba(0,0,0,0.2);border:1px solid var(--glass-border);border-radius:10px;color:#CCCCD8;font-size:13px;line-height:1.65;transition:border-color .25s,background .25s}
+.strategy-list li:hover{border-color:rgba(212,175,55,0.2);background:rgba(212,175,55,0.03)}
+.strategy-list li::before{content:"✦";position:absolute;left:13px;top:12px;color:var(--theme-color,#B38B36);font-size:10px}
+.risk-alert{background:rgba(255,94,87,0.05);border:1px solid rgba(255,94,87,0.15);border-left:2px solid #FF5E57;border-radius:10px;padding:13px 15px;margin-top:12px}
+.risk-alert-title{color:#FF5E57;font-size:10px;font-weight:600;letter-spacing:2px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:6px}
+.risk-alert-content{color:#D0D0D8;font-size:13px;line-height:1.65}
+.ornament-divider{display:flex;align-items:center;gap:10px;margin:4px 0;opacity:.25}
+.ornament-divider::before,.ornament-divider::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,transparent,rgba(212,175,55,0.5),transparent)}
+.ornament-divider span{font-size:10px;color:var(--gold)}
+.footer{display:flex;gap:8px;background:linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.04));border:1px solid var(--gold-border);padding:14px 10px;border-radius:14px;margin-top:24px}
+.f-item{flex:1;text-align:center;padding:3px 0;border-right:1px solid rgba(255,255,255,0.04)}
+.f-item:last-child{border-right:none}
+.f-icon{display:block;font-size:20px;margin-bottom:5px;animation:floatIcon 3s ease-in-out infinite}
+.f-item:nth-child(2) .f-icon{animation-delay:.5s}
+.f-item:nth-child(3) .f-icon{animation-delay:1s}
+.f-text{font-size:11px;font-weight:600;color:var(--theme-color,#E8CC80);letter-spacing:.5px}
 
-        .pan-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: rgba(255,255,255,0.04); border-radius: 8px; overflow: hidden; border: 1px solid rgba(255,255,255,0.04); }
-        .pan-cell { background: var(--bg-card); aspect-ratio: 1; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: background 0.2s; }
-        .pan-cell:hover { background: rgba(255,255,255,0.03); }
+/* 弹窗 */
+.bazi-info-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px;opacity:0;transition:opacity .3s ease}
+.bazi-info-overlay.show{display:flex;opacity:1}
+.bazi-info-card{background:rgba(14,14,31,0.95);border:1px solid var(--gold-border);border-radius:var(--radius-card);padding:24px;max-width:400px;width:100%;box-shadow:0 24px 60px rgba(0,0,0,0.8);transform:translateY(20px) scale(.95);transition:all .3s cubic-bezier(.22,1,.36,1);max-height:80vh;overflow-y:auto}
+.bazi-info-overlay.show .bazi-info-card{transform:translateY(0) scale(1)}
+.bazi-info-card::-webkit-scrollbar{width:3px}
+.bazi-info-card::-webkit-scrollbar-thumb{background:rgba(212,175,55,0.25);border-radius:4px}
+.bazi-info-title{font-size:15px;color:var(--gold-light);margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;font-weight:600;letter-spacing:1px}
+.bazi-info-close{color:var(--text-muted);cursor:pointer;font-size:22px;line-height:1;transition:color .2s}
+.bazi-info-close:hover{color:#fff}
+.bazi-info-text{font-size:13px;color:#D0D0D8;line-height:1.65}
+.bazi-info-text h4{color:var(--gold);margin:14px 0 7px;font-size:13px;font-weight:600}
+.bazi-info-text ul{padding-left:18px;margin-bottom:10px}
+.bazi-info-text li{margin-bottom:7px}
+.bazi-info-text strong{color:#fff;font-weight:500}
+.bazi-summary-box{color:var(--gold-light);background:rgba(212,175,55,0.07);border:1px solid rgba(212,175,55,0.2);padding:11px 13px;border-radius:10px;margin-top:14px;font-size:12px}
 
-        .pan-center-earth { font-size: 32px; font-weight: 900; color: var(--text-dim); }
-        .pan-god { position: absolute; top: 6px; font-size: 9px; color: #666; letter-spacing: 1px; }
-        .pan-star { font-size: 12px; color: #CCC; margin-bottom: 2px; z-index: 2; }
-        .pan-door { font-size: 15px; font-weight: 700; color: #FFF; z-index: 2; letter-spacing: 1px; font-family: var(--font-serif); }
-        .pan-stem { position: absolute; font-size: 11px; font-weight: 600; }
-        .stem-sky { top: 6px; left: 7px; color: #E0E0E8; }
-        .stem-earth { bottom: 6px; right: 7px; color: #777; }
-        .ji-sky { top: 20px; left: 7px; font-size: 9px; color: #555; }
-        .ji-earth { bottom: 20px; right: 7px; font-size: 9px; color: #555; }
-        .pan-marks { position: absolute; bottom: 5px; left: 5px; display: flex; gap: 3px; z-index: 3; }
-        .pan-mark { font-size: 9px; padding: 1px 4px; border-radius: 4px; font-weight: 700; }
-        .mark-ma { background: var(--theme-color, #B38B36); color: #000; }
-        .mark-kong { border: 1px solid #555; color: #888; background: rgba(0,0,0,0.4); }
-        .highlight-text { color: var(--theme-color, #E8CC80) !important; text-shadow: 0 0 12px color-mix(in srgb, var(--theme-color, #B38B36) 50%, transparent); }
+#authSection,#appSection{display:none;width:100%}
+.reveal{opacity:0;transform:translateY(14px);transition:opacity .6s ease,transform .6s ease}
+.reveal.visible{opacity:1;transform:none}
 
-        .ornament-divider { display: flex; align-items: center; gap: 10px; margin: 4px 0; opacity: 0.3; }
-        .ornament-divider::before, .ornament-divider::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(179,139,54,0.5), transparent); }
-        .ornament-divider span { font-size: 10px; color: var(--gold-mid); }
-
-        .reveal { opacity: 0; transform: translateY(16px); transition: opacity 0.6s ease, transform 0.6s ease; }
-        .reveal.visible { opacity: 1; transform: none; }
-
-        @keyframes riseIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
-        @keyframes spinSlow { 100% { transform: rotate(360deg); } }
-        @keyframes breathe { 0%, 100% { opacity: 0.8; filter: drop-shadow(0 0 8px rgba(230,194,122,0.3)); } 50% { opacity: 1; filter: drop-shadow(0 0 18px rgba(230,194,122,0.6)); } }
-        @keyframes glowPulse { 0%, 100% { box-shadow: 0 0 12px var(--theme-color-dim, rgba(179,139,54,0.15)); } 50% { box-shadow: 0 0 24px var(--theme-color-dim, rgba(179,139,54,0.3)), 0 0 8px var(--theme-color-dim, rgba(179,139,54,0.1)) inset; } }
-        @keyframes dotPulse { 0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); } 40% { opacity: 1; transform: scale(1.2); } }
-        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-        @media (max-width: 400px) { .header-title { font-size: 24px; letter-spacing: 4px; } .conclusion { font-size: 22px; } }
-    </style>
+/* Keyframes */
+@keyframes riseIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes fadeInDown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{100%{transform:rotate(360deg)}}
+@keyframes spinSlow{100%{transform:rotate(360deg)}}
+@keyframes breathe2{0%,100%{opacity:.8;filter:drop-shadow(0 0 8px rgba(230,194,122,0.3))}50%{opacity:1;filter:drop-shadow(0 0 18px rgba(230,194,122,0.65))}}
+@keyframes glowPulse{0%,100%{box-shadow:0 0 12px var(--theme-color-dim,rgba(179,139,54,0.15))}50%{box-shadow:0 0 24px var(--theme-color-dim,rgba(179,139,54,0.3))}}
+@keyframes dotPulse{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1.2)}}
+@keyframes floatIcon{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
+@media(max-width:400px){.conclusion{font-size:20px}}
+</style>
 </head>
 <body>
 
 <canvas id="cosmosCanvas"></canvas>
+<div class="bg-radial"></div>
+
+<!-- ══ 顶部导航 ══ -->
+<header id="siteHeader">
+    <button class="hamburger" id="hamburgerBtn" aria-label="历史记录">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="site-logo">奇门遁甲</div>
+    <div class="avatar-wrap">
+        <div class="avatar-btn" id="avatarBtn" title="账号">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <circle cx="8" cy="6" r="3" stroke="rgba(212,175,55,0.75)" stroke-width="1.2"/>
+                <path d="M2 15c0-3.3 2.7-5 6-5s6 1.7 6 5" stroke="rgba(212,175,55,0.75)" stroke-width="1.2" stroke-linecap="round"/>
+            </svg>
+        </div>
+        <div class="avatar-menu" id="avatarMenu">
+            <div class="avatar-email" id="avatarEmail">未登录</div>
+            <button class="avatar-logout" onclick="handleSignOut()">退出登录</button>
+        </div>
+    </div>
+</header>
+
+<!-- ══ 历史抽屉 ══ -->
+<div class="drawer-overlay" id="drawerOverlay"></div>
+<div id="historyDrawer">
+    <div class="drawer-head">
+        <div class="drawer-label">推演轨迹</div>
+        <div class="drawer-title-txt">历史问卜</div>
+    </div>
+    <div class="drawer-body" id="drawerBody">
+        <div class="drawer-empty">
+            <svg width="64" height="64" viewBox="0 0 64 64" fill="none" opacity="0.3"><circle cx="32" cy="32" r="28" stroke="rgba(212,175,55,0.5)" stroke-width="1"/><circle cx="32" cy="32" r="18" stroke="rgba(212,175,55,0.3)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="32" cy="32" r="3" fill="rgba(212,175,55,0.5)"/><g stroke="rgba(212,175,55,0.4)" stroke-width="1" stroke-linecap="round"><line x1="32" y1="4" x2="32" y2="12"/><line x1="32" y1="52" x2="32" y2="60"/><line x1="4" y1="32" x2="12" y2="32"/><line x1="52" y1="32" x2="60" y2="32"/><line x1="10" y1="10" x2="16" y2="16"/><line x1="48" y1="48" x2="54" y2="54"/><line x1="54" y1="10" x2="48" y2="16"/><line x1="16" y1="48" x2="10" y2="54"/></g></svg>
+            <p>尚无推演记录<br>缘起于此，万象皆空</p>
+        </div>
+    </div>
+</div>
+
+<!-- ══ 页面主体 ══ -->
 <div class="page-wrap">
-    <div class="container">
+<div class="container">
 
-        <div class="header-section">
-            <div class="bagua-ring" id="baguaRing">
-                <div class="ring-outer"></div>
-                <div class="ring-inner"></div>
-                <div class="trigrams" id="trigramRing"></div>
-                <div class="center-eye">☯</div>
-            </div>
-            <h1 class="header-title">奇门遁甲推演</h1>
-            <p class="header-sub">AI · 天机 · 决策引擎</p>
-            
-            <div id="userGreeting" class="user-greeting" style="display:none;">
-                <span id="userEmailTxt"></span>
-                <button class="logout-btn" onclick="handleSignOut()">退出登录</button>
-            </div>
-        </div>
+    <!-- 登录区 -->
+    <div id="authSection" class="glass-card auth-card">
+        <div class="field-label" id="authTitleLabel">身份认证 (登录)</div>
+        <input type="email" id="emailInput" placeholder="请输入邮箱地址"/>
+        <input type="password" id="passwordInput" placeholder="请输入密码 (至少6位)"/>
+        <button class="auth-submit" id="authBtn" onclick="handleAuth()"><span id="authBtnText">登 录</span></button>
+        <div class="auth-switch" onclick="toggleAuthMode()">没有账号？ <span>点击注册</span></div>
+    </div>
 
-        <div id="authSection" class="input-box">
-            <div>
-                <div class="field-label" id="authTitleLabel">身份认证 (登录)</div>
-                <input type="email" id="emailInput" placeholder="请输入邮箱地址" />
-            </div>
-            <div>
-                <input type="password" id="passwordInput" placeholder="请输入密码 (至少6位)" />
-            </div>
-            <button class="submit-btn" id="authBtn" onclick="handleAuth()">
-                <span class="btn-icon">🔑</span><span id="authBtnText">登 录</span>
-            </button>
-            <div class="auth-switch" onclick="toggleAuthMode()">
-                没有账号？ <span>点击注册</span>
-            </div>
-        </div>
+    <!-- 主应用区 -->
+    <div id="appSection">
 
-        <div id="appSection" style="display: none;">
-            
-            <div class="input-box bazi-section">
+        <!-- 输入区（结果显示时隐藏）-->
+        <div id="inputWrapper">
+            <div class="tagline">
+                <div class="tagline-main">天时 · 地利 · 人和</div>
+                <div class="tagline-sub">洞察天机，决胜千里</div>
+            </div>
+
+            <!-- 八字 -->
+            <div class="input-box" style="padding:16px">
                 <label class="bazi-toggle">
                     <div class="bazi-toggle-text">
-                        <span>🧬</span> 注入命主八字分析 
+                        <span>🧬</span> 注入命主八字分析
                         <span class="info-icon" onclick="showBaziInfo(event)">?</span>
                     </div>
                     <div class="switch">
@@ -309,48 +513,23 @@
                     <div id="profileForm" class="profile-form">
                         <div class="form-row">
                             <input type="text" id="pName" placeholder="命主姓名 (如: 张总)">
-                            <select id="pGender">
-                                <option value="M">男 (乾造)</option>
-                                <option value="F">女 (坤造)</option>
-                            </select>
+                            <select id="pGender"><option value="M">男 (乾造)</option><option value="F">女 (坤造)</option></select>
                         </div>
-                        
-                        <div class="input-tabs" style="display:flex; margin-bottom:12px; border-bottom:1px solid rgba(255,255,255,0.1);">
-                            <div id="tabDate" class="input-tab active" onclick="switchInputMode('date')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);">公历输入</div>
-                            <div id="tabBazi" class="input-tab" onclick="switchInputMode('bazi')" style="flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);">四柱直排</div>
+                        <div class="input-tabs" style="display:flex;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);">
+                            <div id="tabDate" onclick="switchInputMode('date')" style="flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);">公历输入</div>
+                            <div id="tabBazi" onclick="switchInputMode('bazi')" style="flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--text-muted);">四柱直排</div>
                         </div>
-
-                        <div id="modeDate" class="form-row">
-                            <input type="datetime-local" id="pBirth" style="color-scheme: dark;">
-                        </div>
-
-                        <div id="modeBazi" style="display:none; text-align:center;">
-                            <div style="display:flex; justify-content:space-between; gap:8px; margin-bottom:12px;">
-                                <div class="pillar-group">
-                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">年柱</div>
-                                    <select id="bzYg" class="bz-select" onchange="autoLinkMonth()"></select>
-                                    <select id="bzYz" class="bz-select" onchange="autoLinkMonth()"></select>
-                                </div>
-                                <div class="pillar-group">
-                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">月柱</div>
-                                    <select id="bzMg" class="bz-select" disabled style="opacity:0.6;"></select>
-                                    <select id="bzMz" class="bz-select" onchange="autoLinkMonth()"></select>
-                                </div>
-                                <div class="pillar-group">
-                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">日柱</div>
-                                    <select id="bzDg" class="bz-select" onchange="autoLinkTime()"></select>
-                                    <select id="bzDz" class="bz-select" onchange="autoLinkTime()"></select>
-                                </div>
-                                <div class="pillar-group">
-                                    <div style="font-size:10px; color:#888; margin-bottom:4px;">时柱</div>
-                                    <select id="bzTg" class="bz-select" disabled style="opacity:0.6;"></select>
-                                    <select id="bzTz" class="bz-select" onchange="autoLinkTime()"></select>
-                                </div>
+                        <div id="modeDate" class="form-row"><input type="datetime-local" id="pBirth" style="color-scheme:dark;"></div>
+                        <div id="modeBazi" style="display:none;text-align:center;">
+                            <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:12px;">
+                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">年柱</div><select id="bzYg" class="bz-select" onchange="autoLinkMonth()"></select><select id="bzYz" class="bz-select" onchange="autoLinkMonth()"></select></div>
+                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">月柱</div><select id="bzMg" class="bz-select" disabled style="opacity:.6;"></select><select id="bzMz" class="bz-select" onchange="autoLinkMonth()"></select></div>
+                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">日柱</div><select id="bzDg" class="bz-select" onchange="autoLinkTime()"></select><select id="bzDz" class="bz-select" onchange="autoLinkTime()"></select></div>
+                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">时柱</div><select id="bzTg" class="bz-select" disabled style="opacity:.6;"></select><select id="bzTz" class="bz-select" onchange="autoLinkTime()"></select></div>
                             </div>
-                            <div style="font-size:10px; color:#E57373;">* 严格遵守五虎遁与五鼠遁，月干与时干将自动锁定计算</div>
+                            <div style="font-size:10px;color:#E57373;">* 严格遵守五虎遁与五鼠遁，月干与时干将自动锁定计算</div>
                         </div>
-
-                        <div style="display:flex; justify-content:flex-end; gap:8px;">
+                        <div style="display:flex;justify-content:flex-end;gap:8px;">
                             <button class="cancel-btn" onclick="hideAddProfileForm()">取消</button>
                             <button class="add-profile-btn" style="padding:6px 12px;" onclick="saveNewProfile()">保存并排盘</button>
                         </div>
@@ -361,803 +540,497 @@
                         <table class="bazi-table" id="baziTable"></table>
                     </div>
 
-                    <div id="baziConfirmSection" style="text-align: right; margin-top: 14px; display: none;">
-                        <button class="submit-btn" style="padding: 10px 24px; font-size: 14px; letter-spacing: 2px;" onclick="confirmBazi()">确 定</button>
+                    <div id="baziConfirmSection" style="text-align:right;margin-top:14px;display:none;">
+                        <button class="submit-btn" style="padding:10px 24px;font-size:14px;letter-spacing:2px;" onclick="confirmBazi()">确 定</button>
                     </div>
 
-                    <div id="baziResultSection" style="display: none; margin-top: 16px; padding: 16px; background: rgba(255,255,255,0.03); border-radius: 12px; border: 1px solid rgba(179,139,54,0.2);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                            <span style="font-size: 13px; color: var(--gold-mid); font-weight: 600;">✨ 命理基底已锁定</span>
-                            <button class="cancel-btn" style="padding: 4px 12px; font-size: 12px;" onclick="modifyBazi()">修改</button>
+                    <div id="baziResultSection" style="display:none;margin-top:16px;padding:16px;background:rgba(255,255,255,0.025);border-radius:12px;border:1px solid var(--gold-border);">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+                            <span style="font-size:13px;color:var(--gold);font-weight:600;">✨ 命理基底已锁定</span>
+                            <div style="display:flex;gap:8px;">
+                                <button class="cancel-btn" style="padding:4px 12px;font-size:12px;" onclick="modifyBazi()">修改</button>
+                                <button class="cancel-btn" style="padding:4px 12px;font-size:12px;" onclick="resetBaziCache()">重新推演</button>
+                            </div>
                         </div>
-                        <div style="text-align:right; margin-top:10px;">
-                                <button onclick="resetBaziCache()" 
-                                    style="font-size:11px; color:var(--text-muted); background:none; border:1px solid rgba(255,255,255,0.1); padding:4px 10px; border-radius:6px; cursor:pointer; letter-spacing:1px;">
-                                    🔄 重新推演
-                                </button>
+                        <div id="baziLoading" style="display:none;font-size:12px;color:var(--gold);padding:10px 0;">
+                            <span style="display:flex;gap:5px;"><span style="width:4px;height:4px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s infinite;display:inline-block"></span><span style="width:4px;height:4px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s .2s infinite;display:inline-block"></span><span style="width:4px;height:4px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s .4s infinite;display:inline-block"></span></span>
+                            正在后台静默排定大运流年与原局断语...
                         </div>
-                        <div id="baziLoading" style="display: none; font-size: 12px; color: var(--gold-mid); padding: 10px 0;">
-                            <span class="loader-dots"><span></span><span></span><span></span></span> 正在后台静默排定大运流年与原局断语...
-                        </div>
-                        <div id="baziError" style="display: none; font-size: 12px; color: #FF5E57; padding: 10px 0;">
-                            推演超时或失败。 <span style="text-decoration: underline; cursor: pointer; color: var(--gold-mid);" onclick="confirmBazi()">点击重试</span>
-                        </div>
-                        <div id="baziAiText" style="font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; opacity: 0.85; display: none;"></div>
+                        <div id="baziError" style="display:none;font-size:12px;color:#FF5E57;padding:10px 0;">推演超时或失败。<span style="text-decoration:underline;cursor:pointer;color:var(--gold);" onclick="confirmBazi()">点击重试</span></div>
+                        <div id="baziAiText" style="font-size:12px;color:#D0D0D8;line-height:1.8;white-space:pre-wrap;opacity:.85;display:none;"></div>
                     </div>
                 </div>
             </div>
 
-            <div class="input-box">
-                <div>
-                    <div class="field-label">心中所问</div>
-                    <textarea id="questionInput" placeholder="在心中默念您的问题，例如：&#10;明天的大客户谈判能顺利拿下吗？"></textarea>
+            <!-- 问题输入卡 -->
+            <div class="glass-card input-card">
+                <div class="input-label">叩问天机</div>
+                <textarea id="questionInput" placeholder="在心中默念所求之事，写下您的羁绊与心中所惑……"></textarea>
+                <div class="time-row">
+                    <div class="time-display">
+                        <span class="time-dot"></span>
+                        <span id="clock">载入时辰中…</span>
+                    </div>
+                    <div class="time-note">以当下时辰起局</div>
                 </div>
-                <button class="submit-btn" id="submitBtn" onclick="startDivination()">
-                    <span class="btn-icon">☯</span>洞察天机
+            </div>
+
+            <!-- CTA -->
+            <div class="cta-wrap">
+                <button class="cta-btn" id="submitBtn" onclick="startDivination()">
+                    <div class="cta-inner">
+                        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="opacity:.75;flex-shrink:0">
+                            <circle cx="10" cy="10" r="8.5" stroke="#1a1000" stroke-width="1"/>
+                            <path d="M10 1.5a8.5 8.5 0 0 1 0 17A4.25 4.25 0 0 1 10 10a4.25 4.25 0 0 0 0-8.5z" fill="#1a1000" opacity=".5"/>
+                            <circle cx="10" cy="5.75" r="1.5" fill="#1a1000"/>
+                            <circle cx="10" cy="14.25" r="1.5" fill="#1a1000" opacity=".4"/>
+                        </svg>
+                        <span class="cta-text">洞察天机</span>
+                    </div>
                 </button>
+                <div class="cta-hint">奇门遁甲 · AI 深度推演</div>
             </div>
+        </div><!-- /inputWrapper -->
 
-            <div id="historyPanel" class="input-box" style="display:none;">
-                <div class="field-label" style="margin-bottom: 8px;">🕒 我的推演记录</div>
-                <div id="historyList" class="history-list"></div>
+        <!-- 历史（隐藏：抽屉展示）-->
+        <div id="historyPanel" style="display:none;"><div id="historyList"></div></div>
+
+        <!-- 加载动画 -->
+        <div id="loader">
+            <div class="bagua-ring-wrap">
+                <svg class="bagua-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="60" cy="60" r="56" stroke="rgba(212,175,55,0.15)" stroke-width="1" fill="none"/>
+                    <circle cx="60" cy="60" r="50" stroke="rgba(212,175,55,0.08)" stroke-width=".5" fill="none"/>
+                    <g stroke="rgba(212,175,55,0.6)" stroke-width="1.5" stroke-linecap="round">
+                        <line x1="52" y1="8"   x2="68" y2="8"/>  <line x1="52" y1="11"  x2="68" y2="11"/> <line x1="52" y1="14"  x2="68" y2="14"/>
+                        <line x1="52" y1="106" x2="59" y2="106"/><line x1="61" y1="106" x2="68" y2="106"/>
+                        <line x1="52" y1="109" x2="59" y2="109"/><line x1="61" y1="109" x2="68" y2="109"/>
+                        <line x1="52" y1="112" x2="59" y2="112"/><line x1="61" y1="112" x2="68" y2="112"/>
+                        <line x1="6"  y1="52"  x2="14" y2="52"/> <line x1="6"  y1="55"  x2="14" y2="55"/> <line x1="6"  y1="58"  x2="14" y2="58"/>
+                        <line x1="106" y1="52" x2="114" y2="52"/>
+                        <line x1="106" y1="55" x2="110" y2="55"/><line x1="112" y1="55" x2="114" y2="55"/>
+                        <line x1="106" y1="58" x2="114" y2="58"/>
+                    </g>
+                    <g class="bagua-inner-g">
+                        <circle cx="60" cy="60" r="28" stroke="rgba(107,140,255,0.2)" stroke-width="1" fill="rgba(107,140,255,0.02)"/>
+                        <circle cx="60" cy="60" r="18" stroke="rgba(212,175,55,0.25)" stroke-width="1" fill="none"/>
+                        <circle cx="60" cy="60" r="36" stroke="rgba(212,175,55,0.35)" stroke-width="1.5" fill="none" stroke-dasharray="8 6" stroke-linecap="round"/>
+                    </g>
+                    <circle cx="60" cy="60" r="4" fill="rgba(212,175,55,0.6)"/>
+                    <circle cx="60" cy="60" r="2" fill="rgba(212,175,55,0.9)"/>
+                </svg>
             </div>
-
-            <div id="loader">
-                <div class="loader-bagua">
-                    <div class="lb-ring lb-ring-1"></div>
-                    <div class="lb-ring lb-ring-2"></div>
-                    <div class="lb-ring lb-ring-3"></div>
-                    <div class="lb-center">☰</div>
-                </div>
-                <div class="loader-steps">
-                    <div class="loader-text" id="loaderText">正在推演时空局象...</div>
-                    <div class="loader-dots"><span></span><span></span><span></span></div>
-                </div>
+            <div class="loader-text-block">
+                <div class="loader-main-text" id="loaderText">正在连接云端算力<br>推演时空局象……</div>
+                <div class="loader-dots"><span></span><span></span><span></span></div>
             </div>
+        </div>
 
-            <div id="resultContainer"></div>
+        <!-- 结果 -->
+        <div id="resultContainer"></div>
 
-        </div> 
-    </div>
+        <!-- 再起一局 -->
+        <button class="reset-btn" id="resetBtn" style="display:none;" onclick="showInputState()">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            再起一局
+        </button>
+
+    </div><!-- /appSection -->
+</div>
 </div>
 
+<!-- 八字说明弹窗 -->
 <div id="baziInfoModal" class="bazi-info-overlay" onclick="hideBaziInfo(event)">
     <div class="bazi-info-card" onclick="event.stopPropagation()">
-        <div class="bazi-info-title">
-            <span>何时需要注入八字？</span>
-            <span class="bazi-info-close" onclick="hideBaziInfo(event)">&times;</span>
-        </div>
+        <div class="bazi-info-title"><span>何时需要注入八字？</span><span class="bazi-info-close" onclick="hideBaziInfo(event)">&times;</span></div>
         <div class="bazi-info-text">
             <h4>一、标准解卦：无需八字 ❌</h4>
-            <p>单纯预测<strong>具体事件走向</strong>（如今日出行、近期合同、求财结果等），奇门局本身已足够，不强制需要八字。</p>
-            
+            <p>单纯预测<strong>具体事件走向</strong>（如今日出行、近期合同、求财结果等），奇门局本身已足够。</p>
             <h4>二、深度解卦：需要八字 ✅</h4>
             <ul>
                 <li><strong>判断个人旺衰：</strong>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
-                <li><strong>流年大运配合：</strong>预测中长期运势，结合八字大运判断具体年份变化。</li>
+                <li><strong>流年大运配合：</strong>结合八字大运判断具体年份变化。</li>
                 <li><strong>六亲宫位对应：</strong>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
-                <li><strong>格局取用验证：</strong>验证高阶格局是否与命主五行"合用"。</li>
                 <li><strong>精准应期定位：</strong>两套体系交接点吻合，应验概率更高。</li>
             </ul>
-
-            <div class="bazi-summary-box">
-                💡 <strong>一句话总结：</strong><br>
-                事不离人，凡涉及<strong>"这个人能不能成事"</strong>，而非单纯"这件事本身的走向"，引入八字能让两套体系互为印证，准确率大幅提升！
-            </div>
+            <div class="bazi-summary-box">💡 <strong>一句话总结：</strong><br>凡涉及<strong>"这个人能不能成事"</strong>，引入八字让两套体系互为印证，准确率大幅提升！</div>
         </div>
     </div>
 </div>
 
 <script>
 /* ═══════════════════════════════════════════════
-   1. 全局配置与状态变量
+   1. 全局配置与状态
 ═══════════════════════════════════════════════ */
-const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'; 
+const SUPABASE_URL      = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7';
 const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-const API_URL = "/api/qimen"; 
+const API_URL   = "/api/qimen";
 
-let isLoginMode = true;
-let currentUser = null;
+let isLoginMode = true, currentUser = null;
 
-const LOADER_MESSAGES = ['正在接通云端超算矩阵...', '推演时空坐标与节气数据...', '计算奇门九宫落盘...', '分析值符、值使与神助...', '生成决策指引与应期推演...'];
-let _loaderMsgIdx = 0;
-let _loaderInterval = null;
-    
+const LOADER_MESSAGES = ['正在接通云端超算矩阵...','推演时空坐标与节气数据...','计算奇门九宫落盘...','分析值符、值使与神助...','生成决策指引与应期推演...'];
+let _loaderMsgIdx = 0, _loaderInterval = null;
+
 function startLoaderCycle() {
     _loaderMsgIdx = 0;
     const el = document.getElementById('loaderText');
-    if (el) el.textContent = LOADER_MESSAGES[0];
-    _loaderInterval = setInterval(() => {
-        _loaderMsgIdx = (_loaderMsgIdx + 1) % LOADER_MESSAGES.length;
-        if (el) el.textContent = LOADER_MESSAGES[_loaderMsgIdx];
-    }, 3000);
+    if(el) el.innerHTML = LOADER_MESSAGES[0];
+    _loaderInterval = setInterval(()=>{ _loaderMsgIdx=(_loaderMsgIdx+1)%LOADER_MESSAGES.length; if(el) el.innerHTML=LOADER_MESSAGES[_loaderMsgIdx]; },3000);
 }
+function stopLoaderCycle() { if(_loaderInterval){clearInterval(_loaderInterval);_loaderInterval=null;} }
 
-function stopLoaderCycle() {
-    if (_loaderInterval) { clearInterval(_loaderInterval); _loaderInterval = null; }
-}
-    
-let baziConfirmed = false;
-let isBaziLoading = false;
-let frontBaziCache = {};
-let baziProfiles = [];
-let currentBaziString = "";
-let currentInputMode = 'date'; 
+let baziConfirmed=false,isBaziLoading=false,frontBaziCache={},baziProfiles=[],currentBaziString="",currentInputMode='date';
+const TIAN_GAN="甲乙丙丁戊己庚辛壬癸".split("");
+const DI_ZHI  ="子丑寅卯辰巳午未申酉戌亥".split("");
+const HEAVENLY_STEMS   = TIAN_GAN;
+const EARTHLY_BRANCHES = DI_ZHI;
 
-const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
-const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("");
-
-const WX_MAP = {
-    '甲':'wx-mu', '乙':'wx-mu', '寅':'wx-mu', '卯':'wx-mu',
-    '丙':'wx-huo', '丁':'wx-huo', '巳':'wx-huo', '午':'wx-huo',
-    '戊':'wx-tu', '己':'wx-tu', '辰':'wx-tu', '戌':'wx-tu', '丑':'wx-tu', '未':'wx-tu',
-    '庚':'wx-jin', '辛':'wx-jin', '申':'wx-jin', '酉':'wx-jin',
-    '壬':'wx-shui', '癸':'wx-shui', '亥':'wx-shui', '子':'wx-shui'
-};
-
-const SHI_SHEN_MAP = {
-    '甲': {'甲':'比肩','乙':'劫财','丙':'食神','丁':'伤官','戊':'偏财','己':'正财','庚':'七杀','辛':'正官','壬':'偏印','癸':'正印'},
-    '乙': {'甲':'劫财','乙':'比肩','丙':'伤官','丁':'食神','戊':'正财','己':'偏财','庚':'正官','辛':'七杀','壬':'正印','癸':'偏印'},
-    '丙': {'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫财','戊':'食神','己':'伤官','庚':'偏财','辛':'正财','壬':'七杀','癸':'正官'},
-    '丁': {'甲':'正印','乙':'偏印','丙':'劫财','丁':'比肩','戊':'伤官','己':'食神','庚':'正财','辛':'偏财','壬':'正官','癸':'七杀'},
-    '戊': {'甲':'七杀','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫财','庚':'食神','辛':'伤官','壬':'偏财','癸':'正财'},
-    '己': {'甲':'正官','乙':'七杀','丙':'正印','丁':'偏印','戊':'劫财','己':'比肩','庚':'伤官','辛':'食神','壬':'正财','癸':'偏财'},
-    '庚': {'甲':'偏财','乙':'正财','丙':'七杀','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫财','壬':'食神','癸':'伤官'},
-    '辛': {'甲':'正财','乙':'偏财','丙':'正官','丁':'七杀','戊':'正印','己':'偏印','庚':'劫财','辛':'比肩','壬':'伤官','癸':'食神'},
-    '壬': {'甲':'食神','乙':'伤官','丙':'偏财','丁':'正财','戊':'七杀','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫财'},
-    '癸': {'甲':'伤官','乙':'食神','丙':'正财','丁':'偏财','戊':'正官','己':'七杀','庚':'正印','辛':'偏印','壬':'劫财','癸':'比肩'}
-};
+const WX_MAP={'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'};
+const SHI_SHEN_MAP={'甲':{'甲':'比肩','乙':'劫财','丙':'食神','丁':'伤官','戊':'偏财','己':'正财','庚':'七杀','辛':'正官','壬':'偏印','癸':'正印'},'乙':{'甲':'劫财','乙':'比肩','丙':'伤官','丁':'食神','戊':'正财','己':'偏财','庚':'正官','辛':'七杀','壬':'正印','癸':'偏印'},'丙':{'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫财','戊':'食神','己':'伤官','庚':'偏财','辛':'正财','壬':'七杀','癸':'正官'},'丁':{'甲':'正印','乙':'偏印','丙':'劫财','丁':'比肩','戊':'伤官','己':'食神','庚':'正财','辛':'偏财','壬':'正官','癸':'七杀'},'戊':{'甲':'七杀','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫财','庚':'食神','辛':'伤官','壬':'偏财','癸':'正财'},'己':{'甲':'正官','乙':'七杀','丙':'正印','丁':'偏印','戊':'劫财','己':'比肩','庚':'伤官','辛':'食神','壬':'正财','癸':'偏财'},'庚':{'甲':'偏财','乙':'正财','丙':'七杀','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫财','壬':'食神','癸':'伤官'},'辛':{'甲':'正财','乙':'偏财','丙':'正官','丁':'七杀','戊':'正印','己':'偏印','庚':'劫财','辛':'比肩','壬':'伤官','癸':'食神'},'壬':{'甲':'食神','乙':'伤官','丙':'偏财','丁':'正财','戊':'七杀','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫财'},'癸':{'甲':'伤官','乙':'食神','丙':'正财','丁':'偏财','戊':'正官','己':'七杀','庚':'正印','辛':'偏印','壬':'劫财','癸':'比肩'}};
 
 /* ═══════════════════════════════════════════════
-   2. 页面加载与认证
+   2. 时辰时钟
+═══════════════════════════════════════════════ */
+function updateClock() {
+    const now = new Date();
+    const h   = String(now.getHours()).padStart(2,'0');
+    const m   = String(now.getMinutes()).padStart(2,'0');
+    const shichenIdx = Math.floor((now.getHours()+1)/2)%12;
+    const stemIdx    = Math.floor(now.getTime()/86400000)%10;
+    const el = document.getElementById('clock');
+    if(el) el.textContent = `${h}:${m}\u2002${HEAVENLY_STEMS[stemIdx]}日 ${EARTHLY_BRANCHES[shichenIdx]}时`;
+}
+
+/* ═══════════════════════════════════════════════
+   3. 状态管理（输入 ↔ 结果）
+═══════════════════════════════════════════════ */
+function showInputState() {
+    const wrapper = document.getElementById('inputWrapper');
+    const rc      = document.getElementById('resultContainer');
+    const resetBtn= document.getElementById('resetBtn');
+    rc.innerHTML  = '';
+    resetBtn.style.display = 'none';
+    wrapper.style.opacity  = '0';
+    wrapper.style.display  = '';
+    wrapper.style.transition = 'opacity .5s ease';
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ wrapper.style.opacity='1'; }));
+    document.getElementById('questionInput').value = '';
+    const btn = document.getElementById('submitBtn');
+    if(btn){ btn.disabled=false; }
+    // restore bazi switch state
+    if(document.getElementById('baziSwitch').checked) {
+        baziConfirmed=false; currentBaziString="";
+        document.getElementById('baziResultSection').style.display='none';
+        document.querySelector('.profile-selector').style.display='flex';
+        document.getElementById('baziConfirmSection').style.display='block';
+    }
+}
+
+function showResultState() {
+    const wrapper = document.getElementById('inputWrapper');
+    wrapper.style.transition = 'opacity .4s ease';
+    wrapper.style.opacity    = '0';
+    setTimeout(()=>{ wrapper.style.display='none'; }, 420);
+    document.getElementById('resetBtn').style.display = 'flex';
+}
+
+/* ═══════════════════════════════════════════════
+   4. 认证
 ═══════════════════════════════════════════════ */
 window.onload = async () => {
+    initHamburger();
+    initAvatarMenu();
+    updateClock();
+    setInterval(updateClock, 30000);
     try {
-        const { data: { session }, error } = await _supabase.auth.getSession();
-        if (error) throw error;
+        const { data:{ session }, error } = await _supabase.auth.getSession();
+        if(error) throw error;
         updateUIForSession(session);
-        _supabase.auth.onAuthStateChange((_event, session) => updateUIForSession(session));
-    } catch (error) {
-        console.error("Supabase 初始化失败:", error);
-        updateUIForSession(null); 
-        alert("数据库连接失败，请检查密钥是否填写正确！\n报错: " + error.message);
+        _supabase.auth.onAuthStateChange((_,session)=>updateUIForSession(session));
+    } catch(error) {
+        console.error("Supabase 初始化失败:",error);
+        updateUIForSession(null);
+        alert("数据库连接失败，请检查密钥是否填写正确！\n报错: "+error.message);
     }
 };
 
 function updateUIForSession(session) {
-    const authSec = document.getElementById('authSection');
-    const appSec = document.getElementById('appSection');
-    const greet = document.getElementById('userGreeting');
-    
-    if (session) {
-        currentUser = session.user;
-        authSec.style.display = 'none';
-        appSec.style.display = 'block';
-        greet.style.display = 'flex';
-        document.getElementById('userEmailTxt').innerText = `已登录: ${currentUser.email}`;
-        loadHistory(); 
+    const authSec=document.getElementById('authSection');
+    const appSec =document.getElementById('appSection');
+    if(session) {
+        currentUser=session.user;
+        authSec.style.display='none';
+        appSec.style.display ='block';
+        document.getElementById('avatarEmail').textContent=currentUser.email;
+        loadHistory();
     } else {
-        currentUser = null;
-        authSec.style.display = 'flex';
-        appSec.style.display = 'none';
-        greet.style.display = 'none';
-        document.getElementById("resultContainer").innerHTML = "";
+        currentUser=null;
+        authSec.style.display='flex';
+        appSec.style.display ='none';
+        document.getElementById('avatarEmail').textContent='未登录';
+        document.getElementById("resultContainer").innerHTML="";
     }
 }
 
 function toggleAuthMode() {
-    isLoginMode = !isLoginMode;
-    document.getElementById('authTitleLabel').innerText = isLoginMode ? '身份认证 (登录)' : '创建账号 (注册)';
-    document.getElementById('authBtnText').innerText = isLoginMode ? '登 录' : '注 册';
-    document.querySelector('.auth-switch').innerHTML = isLoginMode ? '没有账号？ <span>点击注册</span>' : '已有账号？ <span>点击登录</span>';
+    isLoginMode=!isLoginMode;
+    document.getElementById('authTitleLabel').innerText=isLoginMode?'身份认证 (登录)':'创建账号 (注册)';
+    document.getElementById('authBtnText').innerText=isLoginMode?'登 录':'注 册';
+    document.querySelector('.auth-switch').innerHTML=isLoginMode?'没有账号？ <span>点击注册</span>':'已有账号？ <span>点击登录</span>';
 }
 
 async function handleAuth() {
-    const email = document.getElementById('emailInput').value.trim();
-    const password = document.getElementById('passwordInput').value.trim();
-    const btnText = document.getElementById('authBtnText');
-    const btn = document.getElementById('authBtn');
-
-    if (!email || !password) return alert("请填写完整的邮箱和密码");
-    btn.disabled = true; btnText.innerText = '验证中...';
-
+    const email=document.getElementById('emailInput').value.trim();
+    const password=document.getElementById('passwordInput').value.trim();
+    const btn=document.getElementById('authBtn');
+    if(!email||!password) return alert("请填写完整的邮箱和密码");
+    btn.disabled=true; document.getElementById('authBtnText').innerText='验证中...';
     try {
-        if (isLoginMode) {
-            const { error } = await _supabase.auth.signInWithPassword({ email, password });
-            if (error) throw error;
-        } else {
-            const { error } = await _supabase.auth.signUp({ email, password });
-            if (error) throw error;
-            alert("注册成功！(如果系统未自动登录，请去邮箱点击验证链接)");
-        }
-    } catch (error) {
-        alert("认证失败: " + error.message);
-    } finally {
-        btn.disabled = false; btnText.innerText = isLoginMode ? '登 录' : '注 册';
-    }
+        if(isLoginMode){ const{error}=await _supabase.auth.signInWithPassword({email,password}); if(error) throw error; }
+        else { const{error}=await _supabase.auth.signUp({email,password}); if(error) throw error; alert("注册成功！请去邮箱点击验证链接后登录。"); }
+    } catch(error){ alert("认证失败: "+error.message); }
+    finally { btn.disabled=false; document.getElementById('authBtnText').innerText=isLoginMode?'登 录':'注 册'; }
 }
-async function handleSignOut() { await _supabase.auth.signOut(); }
+async function handleSignOut() {
+    closeAvatarMenu();
+    await _supabase.auth.signOut();
+}
 
 /* ═══════════════════════════════════════════════
-   3. 奇门推演核心 (包含前后端双保险超时逻辑)
+   5. 奇门推演核心
 ═══════════════════════════════════════════════ */
 async function startDivination() {
-    const input = document.getElementById("questionInput").value.trim();
-    const btn = document.getElementById("submitBtn");
-    const loader = document.getElementById("loader");
-    const rc = document.getElementById("resultContainer");
-    
-    // 拦截器
-    if (document.getElementById('baziSwitch').checked) {
-        if (!baziConfirmed) return alert("✋ 请先点击「确定」锁定命主档案！");
-        if (isBaziLoading) return alert("⏳ 八字断语正在后台推演中，请耐心等待出现结果后再洞察天机！");
-        if (!currentBaziString) return alert("❌ 八字推演失败或未完成，请点击重试！");
+    const input =document.getElementById("questionInput").value.trim();
+    const btn   =document.getElementById("submitBtn");
+    const loader=document.getElementById("loader");
+    const rc    =document.getElementById("resultContainer");
+
+    if(document.getElementById('baziSwitch').checked){
+        if(!baziConfirmed)     return alert("✋ 请先点击「确定」锁定命主档案！");
+        if(isBaziLoading)      return alert("⏳ 八字断语正在后台推演中，请耐心等待！");
+        if(!currentBaziString) return alert("❌ 八字推演失败或未完成，请点击重试！");
     }
-    if (!input) return alert("问题不能为空哦！");
+    if(!input) return alert("问题不能为空哦！");
 
-    btn.disabled = true; document.getElementById("questionInput").disabled = true;
-    btn.innerHTML = '<span class="btn-icon" style="animation:spin 1s linear infinite;display:inline-block">☯</span>推演中…';
-    rc.innerHTML = ""; loader.style.display = "flex"; startLoaderCycle();
+    btn.disabled=true;
+    document.getElementById("questionInput").disabled=true;
+    rc.innerHTML=""; loader.style.display="flex"; startLoaderCycle();
 
-    // ✅ 新增前端超时防死锁机制 (90秒强制阻断)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000);
+    const controller=new AbortController();
+    const timeoutId=setTimeout(()=>controller.abort(),90000);
 
     try {
-        const requestBody = { question: input };
-        if (document.getElementById('baziSwitch').checked && currentBaziString) {
-            requestBody.baziInfo = currentBaziString;
-        }
+        const requestBody={question:input};
+        if(document.getElementById('baziSwitch').checked&&currentBaziString) requestBody.baziInfo=currentBaziString;
 
-        const response = await fetch(API_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal // 将请求与超时炸弹绑定
-        });
-        
-        clearTimeout(timeoutId); // 成功返回后，立即解除炸弹
-
-        // 预防后端返回 HTML (如 Vercel/Cloudflare 报错) 的情况
-        if (!response.ok) {
-            let errorText = await response.text();
-            try { 
-                let errObj = JSON.parse(errorText); 
-                throw new Error(errObj.details || errObj.error);
-            } catch(e) { throw new Error(`服务器异常 (${response.status}): ` + errorText.substring(0, 50)); }
-        }
-
-        const data = await response.json();
-        if (data.error) throw new Error(data.details || data.error);
-
-        await saveRecordToDatabase(input, data);
-
-        rc.innerHTML = buildCardHTML(data);
-        animateScore(data.summary?.score || 0);
-        setTimeout(() => {
-            rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            rc.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80));
-        }, 100);
-
-    } catch (err) {
+        const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody),signal:controller.signal});
         clearTimeout(timeoutId);
-        console.error(err); 
-        // 捕获超时 AbortError 并给出人性化提示
-        if (err.name === 'AbortError') {
-            alert("⏳ 云端超算推演超时 (超过90秒无响应)。\n由于大模型运算排队或网络波动，请稍微等待后重试。");
-        } else {
-            alert("云端推演失败：\n" + err.message);
+
+        if(!response.ok){
+            let errorText=await response.text();
+            try{let errObj=JSON.parse(errorText);throw new Error(errObj.details||errObj.error);}
+            catch(e){throw new Error(`服务器异常 (${response.status}): `+errorText.substring(0,50));}
         }
+        const data=await response.json();
+        if(data.error) throw new Error(data.details||data.error);
+
+        await saveRecordToDatabase(input,data);
+        rc.innerHTML=buildCardHTML(data);
+        animateScore(data.summary?.score||0);
+        showResultState();
+        setTimeout(()=>{ rc.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('visible'),i*80)); },450);
+
+    } catch(err) {
+        clearTimeout(timeoutId);
+        console.error(err);
+        if(err.name==='AbortError') alert("⏳ 云端超算推演超时 (超过90秒无响应)。\n请稍等后重试。");
+        else alert("云端推演失败：\n"+err.message);
     } finally {
-        // 不管成功、失败还是超时，全部恢复初始可点击状态
         stopLoaderCycle();
-        btn.disabled = false; document.getElementById("questionInput").disabled = false;
-        btn.innerHTML = '<span class="btn-icon">☯</span>洞察天机';
-        loader.style.display = "none";
+        btn.disabled=false;
+        document.getElementById("questionInput").disabled=false;
+        loader.style.display="none";
     }
 }
 
 function animateScore(targetScore) {
-    const el = document.getElementById('scoreValue');
-    if (!el) return;
-    let current = 0;
-    const duration = 1000;
-    const step = targetScore / (duration / 16);
-    const timer = setInterval(() => {
-        current = Math.min(current + step, targetScore);
-        el.textContent = Math.round(current) + ' 分';
-        if (current >= targetScore) clearInterval(timer);
-    }, 16);
+    const el=document.getElementById('scoreValue');
+    if(!el) return;
+    let current=0; const step=targetScore/(1000/16);
+    const timer=setInterval(()=>{ current=Math.min(current+step,targetScore); el.textContent=Math.round(current)+' 分'; if(current>=targetScore) clearInterval(timer); },16);
 }
 
-async function saveRecordToDatabase(question, jsonResult) {
-    if (!currentUser) return;
-    const { error } = await _supabase.from('qimen_records').insert([{ user_id: currentUser.id, question: question, qimen_data: jsonResult }]);
-    if (error) console.error("保存历史记录失败:", error);
-    else loadHistory();
+async function saveRecordToDatabase(question,jsonResult) {
+    if(!currentUser) return;
+    const{error}=await _supabase.from('qimen_records').insert([{user_id:currentUser.id,question,qimen_data:jsonResult}]);
+    if(error) console.error("保存历史记录失败:",error); else loadHistory();
 }
 
 async function loadHistory() {
-    if (!currentUser) return;
-    const historyPanel = document.getElementById('historyPanel');
-    const historyList = document.getElementById('historyList');
-    const { data, error } = await _supabase
-        .from('qimen_records')
-        .select('id, question, qimen_data, created_at')
-        .order('created_at', { ascending: false });
+    if(!currentUser) return;
+    const{data,error}=await _supabase.from('qimen_records').select('id,question,qimen_data,created_at').order('created_at',{ascending:false});
+    const drawerBody=document.getElementById('drawerBody');
 
-    if (error || !data || data.length === 0) {
-        historyPanel.style.display = 'none'; return;
+    if(error||!data||data.length===0){
+        drawerBody.innerHTML=`<div class="drawer-empty"><svg width="64" height="64" viewBox="0 0 64 64" fill="none" opacity="0.3"><circle cx="32" cy="32" r="28" stroke="rgba(212,175,55,0.5)" stroke-width="1"/><circle cx="32" cy="32" r="18" stroke="rgba(212,175,55,0.3)" stroke-width="1" stroke-dasharray="3 3"/><circle cx="32" cy="32" r="3" fill="rgba(212,175,55,0.5)"/></svg><p>尚无推演记录<br>缘起于此，万象皆空</p></div>`;
+        return;
     }
-    historyPanel.style.display = 'flex';
-    historyList.innerHTML = '';
-    data.forEach(record => {
-        const dateObj = new Date(record.created_at);
-        const dateStr = `${dateObj.getMonth()+1}月${dateObj.getDate()}日 ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
-        const title = record.qimen_data?.summary?.title || "未知预测";
-        const item = document.createElement('div');
-        item.className = 'history-item';
-        item.innerHTML = `<div class="hi-title">${title} - ${record.question}</div><div class="hi-date">${dateStr}</div>`;
-        item.onclick = () => {
-            const rc = document.getElementById("resultContainer");
-            rc.innerHTML = buildCardHTML(record.qimen_data);
-            animateScore(record.qimen_data?.summary?.score || 0);
-            setTimeout(() => {
-                rc.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                // ✅ 只对 resultContainer 内部的 .reveal 元素触发动画，不污染外部
-                rc.querySelectorAll('.reveal').forEach((el, i) => {
-                    setTimeout(() => el.classList.add('visible'), i * 80);
-                });
-                }, 100);
-            };
-          historyList.appendChild(item);
+    drawerBody.innerHTML='';
+    data.forEach(record=>{
+        const dateObj=new Date(record.created_at);
+        const dateStr=`${dateObj.getMonth()+1}月${dateObj.getDate()}日 ${dateObj.getHours()}:${String(dateObj.getMinutes()).padStart(2,'0')}`;
+        const score=record.qimen_data?.summary?.score||0;
+        const vd=getVerdictInfo(score);
+        const item=document.createElement('div');
+        item.className='d-hist-item';
+        item.innerHTML=`<span class="d-hist-dot ${score>=75?'ji':score>=55?'ping':'xiong'}"></span><div class="d-hist-info"><div class="d-hist-q">${record.question}</div><div class="d-hist-time">${dateStr}</div></div><span class="d-hist-badge ${vd.cls}">${vd.label}</span>`;
+        item.onclick=()=>{
+            const rc=document.getElementById("resultContainer");
+            rc.innerHTML=buildCardHTML(record.qimen_data);
+            animateScore(record.qimen_data?.summary?.score||0);
+            closeDrawer();
+            showResultState();
+            setTimeout(()=>{ rc.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('visible'),i*80)); },450);
+        };
+        drawerBody.appendChild(item);
     });
 }
 
 /* ═══════════════════════════════════════════════
-   4. 八字界面与大运逻辑 (核心算法强化版)
+   6. 八字系统
 ═══════════════════════════════════════════════ */
-function toggleBaziWorkspace() {
-    const ws = document.getElementById('baziWorkspace');
-    const isOn = document.getElementById('baziSwitch').checked;
-    ws.style.display = isOn ? 'block' : 'none';
-    if (isOn && baziProfiles.length === 0) fetchBaziProfiles();
-    if (!isOn) currentBaziString = ""; 
+function toggleBaziWorkspace(){const ws=document.getElementById('baziWorkspace');const isOn=document.getElementById('baziSwitch').checked;ws.style.display=isOn?'block':'none';if(isOn&&baziProfiles.length===0)fetchBaziProfiles();if(!isOn)currentBaziString="";}
+function showBaziInfo(e){e.preventDefault();e.stopPropagation();document.getElementById('baziInfoModal').classList.add('show');}
+function hideBaziInfo(e){if(e)e.preventDefault();document.getElementById('baziInfoModal').classList.remove('show');}
+function showAddProfileForm(){document.getElementById('profileForm').style.display='block';}
+function hideAddProfileForm(){document.getElementById('profileForm').style.display='none';}
+function switchInputMode(mode){
+    currentInputMode=mode;
+    document.getElementById('tabDate').style=mode==='date'?"flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);":"flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--text-muted);";
+    document.getElementById('tabBazi').style=mode==='bazi'?"flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);":"flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--text-muted);";
+    document.getElementById('modeDate').style.display=mode==='date'?'flex':'none';
+    document.getElementById('modeBazi').style.display=mode==='bazi'?'block':'none';
+    if(mode==='bazi')initBaziSelects();
 }
+function initBaziSelects(){if(document.getElementById('bzYg').options.length>0)return;const gans=TIAN_GAN.map((g,i)=>`<option value="${i}">${g}</option>`).join("");const zhis=DI_ZHI.map((z,i)=>`<option value="${i}">${z}</option>`).join("");['bzYg','bzMg','bzDg','bzTg'].forEach(id=>document.getElementById(id).innerHTML=gans);['bzYz','bzMz','bzDz','bzTz'].forEach(id=>document.getElementById(id).innerHTML=zhis);document.getElementById('bzMz').value=2;document.getElementById('bzTz').value=0;autoLinkMonth();autoLinkTime();}
+function autoLinkMonth(){const yg=parseInt(document.getElementById('bzYg').value);const mz=parseInt(document.getElementById('bzMz').value);document.getElementById('bzMg').value=((yg%5)*2+2+((mz+10)%12))%10;}
+function autoLinkTime(){const dg=parseInt(document.getElementById('bzDg').value);const tz=parseInt(document.getElementById('bzTz').value);document.getElementById('bzTg').value=((dg%5)*2+tz)%10;}
 
-function showBaziInfo(e) { e.preventDefault(); e.stopPropagation(); document.getElementById('baziInfoModal').classList.add('show'); }
-function hideBaziInfo(e) { if (e) e.preventDefault(); document.getElementById('baziInfoModal').classList.remove('show'); }
-function showAddProfileForm() { document.getElementById('profileForm').style.display = 'block'; }
-function hideAddProfileForm() { document.getElementById('profileForm').style.display = 'none'; }
+async function fetchBaziProfiles(){if(!currentUser)return;const select=document.getElementById('profileSelect');const{data,error}=await _supabase.from('bazi_profiles').select('*').order('created_at',{ascending:false});if(error||!data||data.length===0){select.innerHTML='<option value="">暂无档案，请先新增</option>';baziProfiles=[];return;}baziProfiles=data;select.innerHTML=data.map(p=>`<option value="${p.id}">${p.name} (${p.gender==='M'?'男':'女'})</option>`).join('');let delBtn=document.getElementById('delProfileBtn');if(!delBtn)select.insertAdjacentHTML('afterend',`<button id="delProfileBtn" class="profile-delete-btn" onclick="deleteProfile()">删除</button>`);handleProfileSelect();}
+async function deleteProfile(){const profileId=document.getElementById('profileSelect').value;if(!profileId||!confirm("确定要删除这个命主档案吗？"))return;await _supabase.from('bazi_profiles').delete().eq('id',profileId);document.getElementById('baziTableContainer').style.display='none';document.getElementById('baziConfirmSection').style.display='none';await fetchBaziProfiles();}
+async function saveNewProfile(){const name=document.getElementById('pName').value.trim();const gender=document.getElementById('pGender').value;if(!name)return alert("请填写姓名");let insertData={user_id:currentUser.id,name,gender};if(currentInputMode==='date'){const birth=document.getElementById('pBirth').value;if(!birth)return alert("请填写出生时间");insertData.birth_date=birth.replace('T',' ')+':00';}else{const getV=(id,arr)=>arr[parseInt(document.getElementById(id).value)];insertData.bazi_str=`${getV('bzYg',TIAN_GAN)}${getV('bzYz',DI_ZHI)} ${getV('bzMg',TIAN_GAN)}${getV('bzMz',DI_ZHI)} ${getV('bzDg',TIAN_GAN)}${getV('bzDz',DI_ZHI)} ${getV('bzTg',TIAN_GAN)}${getV('bzTz',DI_ZHI)}`;}const{error}=await _supabase.from('bazi_profiles').insert([insertData]);if(error)return alert("保存失败: "+error.message);hideAddProfileForm();await fetchBaziProfiles();}
+function handleProfileSelect(){const profile=baziProfiles.find(p=>p.id===document.getElementById('profileSelect').value);if(!profile){document.getElementById('baziTableContainer').style.display='none';document.getElementById('baziConfirmSection').style.display='none';return;}modifyBazi();renderBaziTable(profile);document.getElementById('baziConfirmSection').style.display='block';}
+function modifyBazi(){baziConfirmed=false;currentBaziString="";document.getElementById('baziResultSection').style.display='none';document.querySelector('.profile-selector').style.display='flex';document.getElementById('baziConfirmSection').style.display='block';document.getElementById('baziTableContainer').style.opacity='1';}
 
-function switchInputMode(mode) {
-    currentInputMode = mode;
-    document.getElementById('tabDate').style = mode === 'date' ? "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);" : "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);";
-    document.getElementById('tabBazi').style = mode === 'bazi' ? "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--gold-mid); border-bottom:2px solid var(--gold-mid);" : "flex:1; text-align:center; padding:8px; cursor:pointer; color:var(--text-muted);";
-    document.getElementById('modeDate').style.display = mode === 'date' ? 'flex' : 'none';
-    document.getElementById('modeBazi').style.display = mode === 'bazi' ? 'block' : 'none';
-    if(mode === 'bazi') initBaziSelects();
-}
+function findDatesByBazi(yGanZhi,mGanZhi,dGanZhi,hGanZhi){const today=window.Solar.fromDate(new Date());const results=[];let possibleYears=[];for(let y=1900;y<=today.getYear();y++){if(window.Solar.fromYmd(y,7,1).getLunar().getYearInGanZhi()===yGanZhi)possibleYears.push(y);}const zhiHours={"子":0,"丑":2,"寅":4,"卯":6,"辰":8,"巳":10,"午":12,"未":14,"申":16,"酉":18,"戌":20,"亥":22};possibleYears.forEach(year=>{let cur=window.Solar.fromYmd(year-1,11,1);let end=window.Solar.fromYmd(year+1,3,1);while(cur.toYmd()<=end.toYmd()&&cur.toYmd()<=today.toYmd()){let bazi=cur.getLunar().getEightChar();if(bazi.getYear()===yGanZhi&&bazi.getMonth()===mGanZhi&&bazi.getDay()===dGanZhi){let h=zhiHours[hGanZhi.charAt(1)];let testSolar=window.Solar.fromYmdHms(cur.getYear(),cur.getMonth(),cur.getDay(),h,30,0);if(testSolar.getLunar().getEightChar().getTime()===hGanZhi)results.push(testSolar);}cur=cur.next(1);}});return results;}
 
-function initBaziSelects() {
-    if(document.getElementById('bzYg').options.length > 0) return;
-    const gans = TIAN_GAN.map((g,i) => `<option value="${i}">${g}</option>`).join("");
-    const zhis = DI_ZHI.map((z,i) => `<option value="${i}">${z}</option>`).join("");
-    ['bzYg', 'bzMg', 'bzDg', 'bzTg'].forEach(id => document.getElementById(id).innerHTML = gans);
-    ['bzYz', 'bzMz', 'bzDz', 'bzTz'].forEach(id => document.getElementById(id).innerHTML = zhis);
-    document.getElementById('bzMz').value = 2; // 寅
-    document.getElementById('bzTz').value = 0; // 子
-    autoLinkMonth(); autoLinkTime();
-}
+function renderBaziTable(profile){let yearGan,yearZhi,monthGan,monthZhi,dayGan,dayZhi,hourGan,hourZhi;let yearShiShen="-",monthShiShen="-",hourShiShen="-",reversedTextHTML="";if(profile.birth_date){const parts=profile.birth_date.match(/\d+/g);if(!parts||parts.length<5)return;const baZi=window.Solar.fromYmdHms(parseInt(parts[0]),parseInt(parts[1]),parseInt(parts[2]),parseInt(parts[3]),parseInt(parts[4]),0).getLunar().getEightChar();yearGan=baZi.getYearGan();yearZhi=baZi.getYearZhi();monthGan=baZi.getMonthGan();monthZhi=baZi.getMonthZhi();dayGan=baZi.getDayGan();dayZhi=baZi.getDayZhi();hourGan=baZi.getTimeGan();hourZhi=baZi.getTimeZhi();yearShiShen=baZi.getYearShiShenGan();monthShiShen=baZi.getMonthShiShenGan();hourShiShen=baZi.getTimeShiShenGan();}else if(profile.bazi_str){const bzArr=profile.bazi_str.replace(/\s+/g,'').split('');yearGan=bzArr[0];yearZhi=bzArr[1];monthGan=bzArr[2];monthZhi=bzArr[3];dayGan=bzArr[4];dayZhi=bzArr[5];hourGan=bzArr[6];hourZhi=bzArr[7];if(SHI_SHEN_MAP[dayGan]){yearShiShen=SHI_SHEN_MAP[dayGan][yearGan]||"-";monthShiShen=SHI_SHEN_MAP[dayGan][monthGan]||"-";hourShiShen=SHI_SHEN_MAP[dayGan][hourGan]||"-";}const matches=findDatesByBazi(yearGan+yearZhi,monthGan+monthZhi,dayGan+dayZhi,hourGan+hourZhi);if(matches.length>0){const matchStrs=matches.map(s=>`${s.getYear()}年${String(s.getMonth()).padStart(2,'0')}月${String(s.getDay()).padStart(2,'0')}日 ${String(s.getHour()).padStart(2,'0')}:00`).join(" / ");reversedTextHTML=`<div style="color:#FF5E57;font-size:13px;margin-bottom:12px;font-weight:500;text-align:center;letter-spacing:1px;">阳历：${matchStrs}</div>`;}else{reversedTextHTML=`<div style="color:#FF5E57;font-size:13px;margin-bottom:12px;text-align:center;">⚠️ 未能反推出符合命理的阳历，请检查四柱是否冲突</div>`;}}
+const tableHTML=`<table class="bazi-table" id="baziTable"><thead><tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr></thead><tbody><tr><td class="bz-star">主星</td><td class="bz-star">${yearShiShen}</td><td class="bz-star">${monthShiShen}</td><td class="bz-star" style="color:var(--gold);font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td><td class="bz-star">${hourShiShen}</td></tr><tr><td class="bz-star">天干</td><td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td><td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td><td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td><td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td></tr><tr><td class="bz-star">地支</td><td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td><td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td><td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td><td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td></tr></tbody></table>`;
+document.getElementById('reversedDateDisplay').innerHTML=reversedTextHTML;document.getElementById('reversedDateDisplay').style.display=reversedTextHTML?'block':'none';document.getElementById('baziTable').outerHTML=tableHTML;document.getElementById('baziTableContainer').style.display='block';}
 
-function autoLinkMonth() {
-    const yg = parseInt(document.getElementById('bzYg').value);
-    const mz = parseInt(document.getElementById('bzMz').value);
-    const mg = ((yg % 5) * 2 + 2 + ((mz + 10) % 12)) % 10;
-    document.getElementById('bzMg').value = mg;
-}
+function generateLunarPromptData(profile){let res={name:profile.name,gender:profile.gender==='M'?'男':'女',birthStr:"四柱直排",baziStr:"",daYunStr:"四柱直排，无法精确计算大运"};if(profile.birth_date){const parts=profile.birth_date.match(/\d+/g);res.birthStr=`${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;const baZi=window.Solar.fromYmdHms(parseInt(parts[0]),parseInt(parts[1]),parseInt(parts[2]),parseInt(parts[3]),parseInt(parts[4]),0).getLunar().getEightChar();res.baziStr=`${baZi.getYearGan()}${baZi.getYearZhi()} ${baZi.getMonthGan()}${baZi.getMonthZhi()} ${baZi.getDayGan()}${baZi.getDayZhi()} ${baZi.getTimeGan()}${baZi.getTimeZhi()}`;try{const daYuns=baZi.getYun(profile.gender==='M'?1:0).getDaYun();const cy=new Date().getFullYear();let cd=daYuns.find(d=>cy>=d.getStartYear()&&cy<=d.getEndYear());if(cd)res.daYunStr=`${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;}catch(e){}}else if(profile.bazi_str){res.baziStr=profile.bazi_str;const bzArr=profile.bazi_str.replace(/\s+/g,'').split('');const matches=findDatesByBazi(bzArr[0]+bzArr[1],bzArr[2]+bzArr[3],bzArr[4]+bzArr[5],bzArr[6]+bzArr[7]);if(matches.length>0){const solar=matches[matches.length-1];res.birthStr=`${solar.getYear()}年${solar.getMonth()}月${solar.getDay()}日 ${solar.getHour()}:00 (根据四柱反推)`;try{const daYuns=solar.getLunar().getEightChar().getYun(profile.gender==='M'?1:0).getDaYun();const cy=new Date().getFullYear();let cd=daYuns.find(d=>cy>=d.getStartYear()&&cy<=d.getEndYear());if(cd)res.daYunStr=`${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;}catch(e){console.error("大运推算失败",e);}}}return res;}
 
-function autoLinkTime() {
-    const dg = parseInt(document.getElementById('bzDg').value);
-    const tz = parseInt(document.getElementById('bzTz').value);
-    const tg = ((dg % 5) * 2 + tz) % 10;
-    document.getElementById('bzTg').value = tg;
-}
+async function confirmBazi(){const profile=baziProfiles.find(p=>p.id===document.getElementById('profileSelect').value);if(!profile)return;baziConfirmed=true;document.querySelector('.profile-selector').style.display='none';document.getElementById('profileForm').style.display='none';document.getElementById('baziConfirmSection').style.display='none';document.getElementById('baziTableContainer').style.opacity='0.4';const resultSec=document.getElementById('baziResultSection');const aiText=document.getElementById('baziAiText');const loading=document.getElementById('baziLoading');const errSec=document.getElementById('baziError');resultSec.style.display='block';aiText.style.display='none';errSec.style.display='none';loading.style.display='block';isBaziLoading=true;if(profile.bazi_summary){loading.style.display='none';aiText.innerHTML=profile.bazi_summary;aiText.style.display='block';currentBaziString=profile.bazi_summary;isBaziLoading=false;return;}const pd=generateLunarPromptData(profile);const cacheKey=pd.baziStr+"_"+profile.gender;if(frontBaziCache[cacheKey]){loading.style.display='none';aiText.innerHTML=frontBaziCache[cacheKey];aiText.style.display='block';currentBaziString=frontBaziCache[cacheKey];isBaziLoading=false;return;}try{const controller=new AbortController();const timeoutId=setTimeout(()=>controller.abort(),60000);const res=await fetch('/api/bazi',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({promptData:pd}),signal:controller.signal});clearTimeout(timeoutId);const data=await res.json();if(data.error)throw new Error(data.error);const resultText=data.result;frontBaziCache[cacheKey]=resultText;currentBaziString=resultText;_supabase.from('bazi_profiles').update({bazi_summary:resultText}).eq('id',profile.id).then(({error})=>{if(error)console.warn("八字断语写库失败:",error.message);else{const idx=baziProfiles.findIndex(p=>p.id===profile.id);if(idx!==-1)baziProfiles[idx].bazi_summary=resultText;}});loading.style.display='none';aiText.innerHTML=resultText;aiText.style.display='block';}catch(err){loading.style.display='none';errSec.style.display='block';console.error("八字推演失败:",err);}finally{isBaziLoading=false;}}
 
-async function fetchBaziProfiles() {
-    if (!currentUser) return;
-    const select = document.getElementById('profileSelect');
-    const { data, error } = await _supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false });
-    if (error || !data || data.length === 0) {
-        select.innerHTML = '<option value="">暂无档案，请先新增</option>';
-        baziProfiles = [];
-        return;
-    }
-    baziProfiles = data;
-    select.innerHTML = data.map(p => `<option value="${p.id}">${p.name} (${p.gender === 'M'?'男':'女'})</option>`).join('');
-    
-    let delBtn = document.getElementById('delProfileBtn');
-    if(!delBtn) {
-        select.insertAdjacentHTML('afterend', `<button id="delProfileBtn" class="profile-delete-btn" onclick="deleteProfile()">删除</button>`);
-    }
-    handleProfileSelect();
-}
+async function resetBaziCache(){const profile=baziProfiles.find(p=>p.id===document.getElementById('profileSelect').value);if(!profile||!confirm("确定要清除此命主的断语缓存并重新推演吗？"))return;await _supabase.from('bazi_profiles').update({bazi_summary:null}).eq('id',profile.id);const idx=baziProfiles.findIndex(p=>p.id===profile.id);if(idx!==-1)baziProfiles[idx].bazi_summary=null;modifyBazi();renderBaziTable(profile);document.getElementById('baziConfirmSection').style.display='block';alert("缓存已清除，请点击「确定」重新推演。");}
 
-async function deleteProfile() {
-    const profileId = document.getElementById('profileSelect').value;
-    if(!profileId || !confirm("确定要删除这个命主档案吗？")) return;
-    await _supabase.from('bazi_profiles').delete().eq('id', profileId);
-    document.getElementById('baziTableContainer').style.display = 'none'; 
-    document.getElementById('baziConfirmSection').style.display = 'none'; 
-    await fetchBaziProfiles();
-}
-
-async function saveNewProfile() {
-    const name = document.getElementById('pName').value.trim();
-    const gender = document.getElementById('pGender').value;
-    if(!name) return alert("请填写姓名");
-
-    let insertData = { user_id: currentUser.id, name: name, gender: gender };
-    if (currentInputMode === 'date') {
-        const birth = document.getElementById('pBirth').value;
-        if(!birth) return alert("请填写出生时间");
-        insertData.birth_date = birth.replace('T', ' ') + ':00'; 
-    } else {
-        const getV = (id, arr) => arr[parseInt(document.getElementById(id).value)];
-        insertData.bazi_str = `${getV('bzYg', TIAN_GAN)}${getV('bzYz', DI_ZHI)} ${getV('bzMg', TIAN_GAN)}${getV('bzMz', DI_ZHI)} ${getV('bzDg', TIAN_GAN)}${getV('bzDz', DI_ZHI)} ${getV('bzTg', TIAN_GAN)}${getV('bzTz', DI_ZHI)}`;
-    }
-
-    const { error } = await _supabase.from('bazi_profiles').insert([insertData]);
-    if (error) return alert("保存失败: " + error.message);
-    hideAddProfileForm();
-    await fetchBaziProfiles();
-}
-
-function handleProfileSelect() {
-    const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
-    if (!profile) {
-        document.getElementById('baziTableContainer').style.display = 'none';
-        document.getElementById('baziConfirmSection').style.display = 'none';
-        return;
-    }
-    modifyBazi(); 
-    renderBaziTable(profile);
-    document.getElementById('baziConfirmSection').style.display = 'block';
-}
-
-function modifyBazi() {
-    baziConfirmed = false;
-    currentBaziString = ""; 
-    document.getElementById('baziResultSection').style.display = 'none';
-    document.querySelector('.profile-selector').style.display = 'flex';
-    document.getElementById('baziConfirmSection').style.display = 'block';
-    document.getElementById('baziTableContainer').style.opacity = '1';
-}
-
-// 🔥 核心：八字反推公历算法 (1900年 - 至今) 🔥
-function findDatesByBazi(yGanZhi, mGanZhi, dGanZhi, hGanZhi) {
-    const today = window.Solar.fromDate(new Date());
-    const results = [];
-    let possibleYears = [];
-    
-    // 1. 穷举匹配年柱的年份 (通常命中2-3个)
-    for (let y = 1900; y <= today.getYear(); y++) {
-        if (window.Solar.fromYmd(y, 7, 1).getLunar().getYearInGanZhi() === yGanZhi) {
-            possibleYears.push(y);
-        }
-    }
-    
-    const zhiHours = {"子":0, "丑":2, "寅":4, "卯":6, "辰":8, "巳":10, "午":12, "未":14, "申":16, "酉":18, "戌":20, "亥":22};
-    
-    // 2. 遍历匹配日期和时辰
-    possibleYears.forEach(year => {
-        let cur = window.Solar.fromYmd(year - 1, 11, 1);
-        let end = window.Solar.fromYmd(year + 1, 3, 1);
-        while (cur.toYmd() <= end.toYmd() && cur.toYmd() <= today.toYmd()) {
-            let bazi = cur.getLunar().getEightChar();
-            if (bazi.getYear() === yGanZhi && bazi.getMonth() === mGanZhi && bazi.getDay() === dGanZhi) {
-                let h = zhiHours[hGanZhi.charAt(1)];
-                let testSolar = window.Solar.fromYmdHms(cur.getYear(), cur.getMonth(), cur.getDay(), h, 30, 0);
-                if (testSolar.getLunar().getEightChar().getTime() === hGanZhi) {
-                    results.push(testSolar); 
-                }
-            }
-            cur = cur.next(1);
-        }
-    });
-    return results;
-}
-
-function renderBaziTable(profile) {
-    let yearGan, yearZhi, monthGan, monthZhi, dayGan, dayZhi, hourGan, hourZhi;
-    let yearShiShen = "-", monthShiShen = "-", hourShiShen = "-";
-    let reversedTextHTML = "";
-
-    if (profile.birth_date) {
-        const parts = profile.birth_date.match(/\d+/g);
-        if (!parts || parts.length < 5) return;
-        const baZi = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0).getLunar().getEightChar();
-        yearGan = baZi.getYearGan(); yearZhi = baZi.getYearZhi();
-        monthGan = baZi.getMonthGan(); monthZhi = baZi.getMonthZhi();
-        dayGan = baZi.getDayGan(); dayZhi = baZi.getDayZhi();
-        hourGan = baZi.getTimeGan(); hourZhi = baZi.getTimeZhi();
-        yearShiShen = baZi.getYearShiShenGan(); monthShiShen = baZi.getMonthShiShenGan(); hourShiShen = baZi.getTimeShiShenGan();
-    } else if (profile.bazi_str) {
-        const bzArr = profile.bazi_str.replace(/\s+/g, '').split('');
-        yearGan = bzArr[0]; yearZhi = bzArr[1]; monthGan = bzArr[2]; monthZhi = bzArr[3];
-        dayGan = bzArr[4]; dayZhi = bzArr[5]; hourGan = bzArr[6]; hourZhi = bzArr[7];
-        if (SHI_SHEN_MAP[dayGan]) {
-            yearShiShen = SHI_SHEN_MAP[dayGan][yearGan] || "-";
-            monthShiShen = SHI_SHEN_MAP[dayGan][monthGan] || "-";
-            hourShiShen = SHI_SHEN_MAP[dayGan][hourGan] || "-";
-        }
-        // 执行自动反推并在前端展示
-        const matches = findDatesByBazi(yearGan+yearZhi, monthGan+monthZhi, dayGan+dayZhi, hourGan+hourZhi);
-        if (matches.length > 0) {
-            const matchStrs = matches.map(s => `${s.getYear()}年${String(s.getMonth()).padStart(2,'0')}月${String(s.getDay()).padStart(2,'0')}日 ${String(s.getHour()).padStart(2,'0')}:00`).join(" / ");
-            reversedTextHTML = `<div style="color: #FF5E57; font-size: 13px; margin-bottom: 12px; font-weight: 500; text-align: center; letter-spacing: 1px;">阳历：${matchStrs}</div>`;
-        } else {
-            reversedTextHTML = `<div style="color: #FF5E57; font-size: 13px; margin-bottom: 12px; text-align: center;">⚠️ 未能反推出符合命理的阳历，请检查四柱是否冲突</div>`;
-        }
-    }
-
-    const tableHTML = `
-        <table class="bazi-table" id="baziTable">
-            <thead><tr><th>日期</th><th>年柱</th><th>月柱</th><th>日柱</th><th>时柱</th></tr></thead>
-            <tbody>
-                <tr><td class="bz-star">主星</td><td class="bz-star">${yearShiShen}</td><td class="bz-star">${monthShiShen}</td><td class="bz-star" style="color:var(--gold-mid); font-weight:bold;">${profile.gender==='M'?'元男':'元女'}</td><td class="bz-star">${hourShiShen}</td></tr>
-                <tr><td class="bz-star">天干</td><td class="bz-char ${WX_MAP[yearGan]}">${yearGan}</td><td class="bz-char ${WX_MAP[monthGan]}">${monthGan}</td><td class="bz-char ${WX_MAP[dayGan]}">${dayGan}</td><td class="bz-char ${WX_MAP[hourGan]}">${hourGan}</td></tr>
-                <tr><td class="bz-star">地支</td><td class="bz-char ${WX_MAP[yearZhi]}">${yearZhi}</td><td class="bz-char ${WX_MAP[monthZhi]}">${monthZhi}</td><td class="bz-char ${WX_MAP[dayZhi]}">${dayZhi}</td><td class="bz-char ${WX_MAP[hourZhi]}">${hourZhi}</td></tr>
-            </tbody>
-        </table>`;
-
-    document.getElementById('reversedDateDisplay').innerHTML = reversedTextHTML;
-    document.getElementById('reversedDateDisplay').style.display = reversedTextHTML ? 'block' : 'none';
-    document.getElementById('baziTable').outerHTML = tableHTML; // 完全替换掉table
-    document.getElementById('baziTableContainer').style.display = 'block';
-}
-
-function generateLunarPromptData(profile) {
-    let res = { name: profile.name, gender: profile.gender === 'M' ? '男' : '女', birthStr: "四柱直排", baziStr: "", daYunStr: "四柱直排，无法精确计算大运" };
-    if (profile.birth_date) {
-        const parts = profile.birth_date.match(/\d+/g);
-        res.birthStr = `${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;
-        const baZi = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0).getLunar().getEightChar();
-        res.baziStr = `${baZi.getYearGan()}${baZi.getYearZhi()} ${baZi.getMonthGan()}${baZi.getMonthZhi()} ${baZi.getDayGan()}${baZi.getDayZhi()} ${baZi.getTimeGan()}${baZi.getTimeZhi()}`;
-        try {
-            const daYuns = baZi.getYun(profile.gender === 'M' ? 1 : 0).getDaYun();
-            const cy = new Date().getFullYear();
-            let cd = daYuns.find(d => cy >= d.getStartYear() && cy <= d.getEndYear());
-            if (cd) res.daYunStr = `${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;
-        } catch(e) {}
-    } else if (profile.bazi_str) {
-        res.baziStr = profile.bazi_str;
-        const bzArr = profile.bazi_str.replace(/\s+/g, '').split('');
-        const matches = findDatesByBazi(bzArr[0]+bzArr[1], bzArr[2]+bzArr[3], bzArr[4]+bzArr[5], bzArr[6]+bzArr[7]);
-        if (matches.length > 0) {
-            // 自动选取最近的一个匹配日期进行大运计算
-            const solar = matches[matches.length - 1]; 
-            res.birthStr = `${solar.getYear()}年${solar.getMonth()}月${solar.getDay()}日 ${solar.getHour()}:00 (根据四柱反推)`;
-            try {
-                const daYuns = solar.getLunar().getEightChar().getYun(profile.gender === 'M' ? 1 : 0).getDaYun();
-                const cy = new Date().getFullYear();
-                let cd = daYuns.find(d => cy >= d.getStartYear() && cy <= d.getEndYear());
-                if (cd) res.daYunStr = `${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;
-            } catch(e) { console.error("大运推算失败", e); }
-        }
-    }
-    return res;
-}
-
-async function confirmBazi() {
-    const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
-    if (!profile) return;
-
-    baziConfirmed = true;
-    document.querySelector('.profile-selector').style.display = 'none';
-    document.getElementById('profileForm').style.display = 'none';
-    document.getElementById('baziConfirmSection').style.display = 'none';
-    document.getElementById('baziTableContainer').style.opacity = '0.4'; 
-
-    const resultSec = document.getElementById('baziResultSection');
-    const aiText = document.getElementById('baziAiText');
-    const loading = document.getElementById('baziLoading');
-    const errSec = document.getElementById('baziError');
-
-    resultSec.style.display = 'block'; 
-    aiText.style.display = 'none'; 
-    errSec.style.display = 'none'; 
-    loading.style.display = 'block';
-    isBaziLoading = true;
-
-    // ✅ 第一优先级：数据库已有缓存，直接用，0 Token 消耗
-    if (profile.bazi_summary) {
-        loading.style.display = 'none';
-        aiText.innerHTML = profile.bazi_summary;
-        aiText.style.display = 'block';
-        currentBaziString = profile.bazi_summary;
-        isBaziLoading = false;
-        return;
-    }
-
-    // ✅ 第二优先级：本次会话内存缓存（同一命主切换后再切回来，不重复请求）
-    const pd = generateLunarPromptData(profile);
-    const cacheKey = pd.baziStr + "_" + profile.gender;
-    if (frontBaziCache[cacheKey]) {
-        loading.style.display = 'none';
-        aiText.innerHTML = frontBaziCache[cacheKey];
-        aiText.style.display = 'block';
-        currentBaziString = frontBaziCache[cacheKey];
-        isBaziLoading = false;
-        return;
-    }
-
-    // ✅ 第三优先级：调接口，然后把结果写回 Supabase 永久缓存
-    try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000); 
-        const res = await fetch('/api/bazi', { 
-            method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ promptData: pd }), 
-            signal: controller.signal 
-        });
-        clearTimeout(timeoutId);
-        const data = await res.json();
-        if (data.error) throw new Error(data.error);
-
-        const resultText = data.result;
-
-        // 写入会话缓存
-        frontBaziCache[cacheKey] = resultText;
-        currentBaziString = resultText; 
-
-        // 🔥 写入 Supabase 持久化缓存（异步，不阻塞 UI）
-        _supabase.from('bazi_profiles')
-            .update({ bazi_summary: resultText })
-            .eq('id', profile.id)
-            .then(({ error }) => {
-                if (error) console.warn("八字断语写库失败:", error.message);
-                else {
-                    // 同步更新本地 baziProfiles 数组，避免本次会话重复请求
-                    const idx = baziProfiles.findIndex(p => p.id === profile.id);
-                    if (idx !== -1) baziProfiles[idx].bazi_summary = resultText;
-                    console.log("✅ 八字断语已持久化到 Supabase");
-                }
-            });
-
-        loading.style.display = 'none'; 
-        aiText.innerHTML = resultText; 
-        aiText.style.display = 'block';
-
-    } catch (err) {
-        loading.style.display = 'none'; 
-        errSec.style.display = 'block';
-        console.error("八字推演失败:", err);
-    } finally {
-        isBaziLoading = false;
-    }
-}
-
-async function resetBaziCache() {
-    const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
-    if (!profile || !confirm("确定要清除此命主的断语缓存并重新推演吗？")) return;
-
-    // 清库
-    await _supabase.from('bazi_profiles').update({ bazi_summary: null }).eq('id', profile.id);
-    // 清本地
-    const idx = baziProfiles.findIndex(p => p.id === profile.id);
-    if (idx !== -1) baziProfiles[idx].bazi_summary = null;
-
-    // 重新走一遍确认流程
-    modifyBazi();
-    renderBaziTable(profile);
-    document.getElementById('baziConfirmSection').style.display = 'block';
-    alert("缓存已清除，请点击「确定」重新推演。");
+/* ═══════════════════════════════════════════════
+   7. 吉凶断语
+═══════════════════════════════════════════════ */
+function getVerdictInfo(score){
+    if(score>=90) return{label:'大吉',cls:'da-ji'};
+    if(score>=75) return{label:'小吉',cls:'xiao-ji'};
+    if(score>=55) return{label:'平',  cls:'ping'};
+    if(score>=40) return{label:'小凶',cls:'xiao-xiong'};
+    return              {label:'大凶',cls:'da-xiong'};
 }
 
 /* ═══════════════════════════════════════════════
-   5. 动画与卡片组装引擎
+   8. 卡片渲染
 ═══════════════════════════════════════════════ */
-function buildCardHTML(data) {
-    const summary    = data.summary    || { title: "生成中...", conclusion: "暂无数据", score: 0 };
-    const analysis   = data.analysis   || {};
-    const advice     = data.advice     || { lucky_tips: {} };
-    const question   = data.question   || "";
-    const scoreBasis = data.summary?.score_basis || null;
-    const chartData  = data.qimen_data || data;
-    const palaces    = chartData.palaces || [];
-    const pillars    = chartData.pillars || {};
-    const ju         = chartData.ju_info || {};
-    const ts         = chartData.timestamp || {};
-    const hasChart   = palaces.length > 0;
+function buildCardHTML(data){
+    const summary   =data.summary   ||{title:"生成中...",conclusion:"暂无数据",score:0};
+    const analysis  =data.analysis  ||{};
+    const advice    =data.advice    ||{lucky_tips:{}};
+    const question  =data.question  ||"";
+    const scoreBasis=data.summary?.score_basis||null;
+    const chartData =data.qimen_data||data;
+    const palaces   =chartData.palaces||[];
+    const pillars   =chartData.pillars||{};
+    const ju        =chartData.ju_info||{};
+    const ts        =chartData.timestamp||{};
+    const hasChart  =palaces.length>0;
 
-    const score = summary.score || 0;
-    const THEME  = score < 60 ? "#FF5E57" : score < 80 ? "#F5C518" : "#00D26A";
-    const THEME_DIM = score < 60 ? "rgba(255,94,87,0.15)" : score < 80 ? "rgba(245,197,24,0.15)" : "rgba(0,210,106,0.15)";
+    const score=summary.score||0;
+    const vd   =getVerdictInfo(score);
+    const THEME    =score<55?"#FF5E57":score<75?"#F5C518":"#00D26A";
+    const THEME_DIM=score<55?"rgba(255,94,87,0.15)":score<75?"rgba(245,197,24,0.15)":"rgba(0,210,106,0.15)";
 
-    const strategies = (advice.strategy || []).map((s, i) => `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`).join('');
-    let riskHTML = ''; if (advice.risk?.trim()) riskHTML = `<div class="risk-alert reveal"><div class="risk-alert-title"><span>⚠️</span>避坑指南</div><div class="risk-alert-content">${advice.risk}</div></div>`;
-    let baziHTML = ''; if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes("未提供八字信息")) baziHTML = `<div class="grid-item bazi-insight reveal"><span class="label">🧬 命理 / 年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
-    
-    let scoreBasisHTML = '';
-    if (scoreBasis) {
-        const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">✅ 吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s=>`<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : '';
-        const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">⚠️ 风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s=>`<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : '';
-        const logic = scoreBasis.score_logic ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : '';
-        if (pos || neg || logic) scoreBasisHTML = `<div class="grid-item score-basis reveal"><span class="label">⚖️ 评分依据</span><div class="score-basis-body">${pos}${neg}${logic}</div></div>`;
-    }
+    const strategies=(advice.strategy||[]).map((s,i)=>`<li class="reveal" style="transition-delay:${i*60}ms">${s}</li>`).join('');
+    let riskHTML=''; if(advice.risk?.trim()) riskHTML=`<div class="risk-alert reveal"><div class="risk-alert-title"><span>⚠️</span>避坑指南</div><div class="risk-alert-content">${advice.risk}</div></div>`;
+    let baziHTML=''; if(analysis.bazi_insight?.trim()&&!analysis.bazi_insight.includes("未提供八字信息")) baziHTML=`<div class="grid-item bazi-insight reveal"><span class="label">🧬 命理 / 年命参考</span><span class="value">${analysis.bazi_insight}</span></div>`;
 
-    let timingHTML = ''; if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="grid-item dynamic-timing reveal"><span class="label">⏳ 动态应期（转机推演）</span><span class="value">${analysis.dynamic_timing}</span></div>`;
+    let scoreBasisHTML='';
+    if(scoreBasis){const pos=(scoreBasis.positive_signals||[]).length?`<div class="sb-row"><div class="sb-row-title">✅ 吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s=>`<span class="sb-tag positive">${s}</span>`).join('')}</div></div>`:'';const neg=(scoreBasis.negative_signals||[]).length?`<div class="sb-row"><div class="sb-row-title">⚠️ 风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s=>`<span class="sb-tag negative">${s}</span>`).join('')}</div></div>`:'';const logic=scoreBasis.score_logic?`<div class="sb-logic">${scoreBasis.score_logic}</div>`:'';if(pos||neg||logic)scoreBasisHTML=`<div class="grid-item score-basis reveal"><span class="label">⚖️ 评分依据</span><div class="score-basis-body">${pos}${neg}${logic}</div></div>`;}
 
-    let chartHTML = '';
-    if (hasChart) {
-        const isZhiFu  = s => s && ju.zhi_fu  && s.includes(ju.zhi_fu);
-        const isZhiShi = d => d && ju.zhi_shi && d.includes(ju.zhi_shi);
-        const cells = palaces.map(p => {
-            if (p.is_center) return `<div class="pan-cell"><div class="pan-center-earth">${p.earth || ''}</div></div>`;
-            const starCls = isZhiFu(p.star)  ? 'highlight-text' : ''; const doorCls = isZhiShi(p.door) ? 'highlight-text' : '';
-            let marks = ''; if (p.ma_xing?.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`; if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`;
-            return `<div class="pan-cell"><div class="pan-god">${p.god||''}</div><div class="pan-stem stem-sky">${p.sky||''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star||''}</div><div class="pan-door ${doorCls}">${p.door||''}</div><div class="pan-stem stem-earth">${p.earth||''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`;
+    let timingHTML=''; if(analysis.dynamic_timing?.trim()) timingHTML=`<div class="grid-item dynamic-timing reveal"><span class="label">⏳ 动态应期（转机推演）</span><span class="value">${analysis.dynamic_timing}</span></div>`;
+
+    let chartHTML='';
+    if(hasChart){
+        const isZhiFu =s=>s&&ju.zhi_fu&&s.includes(ju.zhi_fu);
+        const isZhiShi=d=>d&&ju.zhi_shi&&d.includes(ju.zhi_shi);
+        const cells=palaces.map(p=>{
+            if(p.is_center) return `<div class="pan-cell"><div class="pan-center-earth">${p.earth||''}</div></div>`;
+            const starCls=isZhiFu(p.star)?'highlight-text':'';const doorCls=isZhiShi(p.door)?'highlight-text':'';
+            let marks='';if(p.ma_xing?.has_ma)marks+=`<span class="pan-mark mark-ma">马</span>`;if(p.kong_wang?.is_kong)marks+=`<span class="pan-mark mark-kong">空</span>`;
+            return `<div class="pan-cell"><div class="pan-god">${p.god||''}</div><div class="pan-stem stem-sky">${p.sky||''}</div>${p.ji_sky?`<div class="pan-stem ji-sky">${p.ji_sky}</div>`:''}<div class="pan-star ${starCls}">${p.star||''}</div><div class="pan-door ${doorCls}">${p.door||''}</div><div class="pan-stem stem-earth">${p.earth||''}</div>${p.ji_earth?`<div class="pan-stem ji-earth">${p.ji_earth}</div>`:''}<div class="pan-marks">${marks}</div></div>`;
         }).join('');
-        chartHTML = `<div class="section-title reveal"><span class="icon">🧭</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu||'-'}</b>&emsp;值使：<b>${ju.zhi_shi||'-'}</b></div></div><div class="pan-grid">${cells}</div></div>`;
+        chartHTML=`<div class="section-title reveal"><span class="icon">🧭</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year,pillars.month,pillars.day,pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar||''} | ${ju.name||''} · ${ju.jieqi||''}<br>值符：<b>${ju.zhi_fu||'-'}</b>&emsp;值使：<b>${ju.zhi_shi||'-'}</b></div></div><div class="pan-grid">${cells}</div></div>`;
     }
 
-    return `
-    <div class="card" style="display:block; --theme-color:${THEME}; --theme-color-dim:${THEME_DIM};">
-        <div class="card-header reveal"><div><div class="title">${summary.title}</div></div><div class="score-badge"><div class="score" id="scoreValue">${score} 分</div><div class="score-label">吉凶评分</div></div></div>
-        <div class="conclusion reveal">${summary.conclusion}</div><div class="keyword reveal">🔑 ${summary.keyword}</div>
-        ${question ? `<div class="user-question reveal">${question}</div>` : ''}
+    return `<div class="card" style="display:block;--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
+        <div class="card-header reveal"><div><div class="title">${summary.title}</div><div class="verdict-badge verdict-${vd.cls}">${vd.label}</div></div><div class="score-badge"><div class="score" id="scoreValue">${score} 分</div><div class="score-label">吉凶评分</div></div></div>
+        <div class="conclusion reveal">${summary.conclusion}</div>
+        <div class="keyword reveal">🔑 ${summary.keyword}</div>
+        ${question?`<div class="user-question reveal">${question}</div>`:''}
         <div class="ornament-divider reveal"><span>☰</span></div>
         ${chartHTML}
         <div class="section-title reveal"><span class="icon">🔍</span>深度局象</div>
-        <div class="info-grid">
-            ${baziHTML}${scoreBasisHTML}${timingHTML}
-            <div class="grid-item reveal"><span class="label">🌌 时空能量</span><span class="value">${analysis.tensor||'-'}</span></div>
-            <div class="grid-item reveal"><span class="label">👤 用神分析</span><span class="value">${analysis.yong_shen||'-'}</span></div>
-            <div class="grid-item reveal"><span class="label">🔮 特殊格局</span><span class="value">${analysis.pattern||'-'}</span></div>
-            <div class="grid-item reveal"><span class="label">🙏 神助指引</span><span class="value">${analysis.god_help||'-'}</span></div>
-        </div>
-        <div class="section-title reveal"><span class="icon">💡</span>决策指引</div><ul class="strategy-list">${strategies}</ul>${riskHTML}
+        <div class="info-grid">${baziHTML}${scoreBasisHTML}${timingHTML}<div class="grid-item reveal"><span class="label">🌌 时空能量</span><span class="value">${analysis.tensor||'-'}</span></div><div class="grid-item reveal"><span class="label">👤 用神分析</span><span class="value">${analysis.yong_shen||'-'}</span></div><div class="grid-item reveal"><span class="label">🔮 特殊格局</span><span class="value">${analysis.pattern||'-'}</span></div><div class="grid-item reveal"><span class="label">🙏 神助指引</span><span class="value">${analysis.god_help||'-'}</span></div></div>
+        <div class="section-title reveal"><span class="icon">💡</span>决策指引</div>
+        <ul class="strategy-list">${strategies}</ul>${riskHTML}
         <div class="ornament-divider reveal"><span>☷</span></div>
-        <div class="footer reveal">
-            <div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction||'-'}</span></div>
-            <div class="f-item"><span class="f-icon">⏰</span><span class="f-text">${advice.lucky_tips.time||'-'}</span></div>
-            <div class="f-item"><span class="f-icon">✨</span><span class="f-text">${advice.lucky_tips.action||'-'}</span></div>
-        </div>
+        <div class="footer reveal"><div class="f-item"><span class="f-icon">🧭</span><span class="f-text">${advice.lucky_tips.direction||'-'}</span></div><div class="f-item"><span class="f-icon">⏰</span><span class="f-text">${advice.lucky_tips.time||'-'}</span></div><div class="f-item"><span class="f-icon">✨</span><span class="f-text">${advice.lucky_tips.action||'-'}</span></div></div>
     </div>`;
 }
 
 /* ═══════════════════════════════════════════════
-   背景动画自执行函数
+   9. 导航控制
 ═══════════════════════════════════════════════ */
-(function initVisuals() {
-    const canvas = document.getElementById('cosmosCanvas'); const ctx = canvas.getContext('2d'); let W, H, stars = [];
-    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-    function initStars() {
-        stars = []; const count = Math.floor((W * H) / 5000); for (let i = 0; i < count; i++) stars.push({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 0.9 + 0.2, a: Math.random(), speed: (Math.random() * 0.3 + 0.05) * (Math.random() > 0.5 ? 1 : -1), drift: (Math.random() - 0.5) * 0.1 });
-    }
-    function draw() {
-        ctx.clearRect(0, 0, W, H);
-        stars.forEach(s => {
-            s.a += s.speed * 0.008; s.x += s.drift; if (s.x < 0) s.x = W; if (s.x > W) s.x = 0;
-            ctx.save(); ctx.globalAlpha = ((Math.sin(s.a) + 1) / 2) * 0.5 + 0.05; ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2); ctx.fill(); ctx.restore();
-        });
-        for (let i = 0; i < stars.length; i++) {
-            for (let j = i + 1; j < stars.length; j++) {
-                const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx * dx + dy * dy);
-                if (dist < 100) { ctx.save(); ctx.globalAlpha = (1 - dist / 100) * 0.04; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = 0.5; ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke(); ctx.restore(); }
-            }
-        }
-        requestAnimationFrame(draw);
-    }
-    resize(); initStars(); draw(); window.addEventListener('resize', () => { resize(); initStars(); });
+function initHamburger(){
+    const btn=document.getElementById('hamburgerBtn'),overlay=document.getElementById('drawerOverlay'),drawer=document.getElementById('historyDrawer');
+    btn.addEventListener('click',()=>{drawer.classList.toggle('open');overlay.classList.toggle('open');btn.classList.toggle('open');});
+    overlay.addEventListener('click',closeDrawer);
+}
+function closeDrawer(){document.getElementById('historyDrawer').classList.remove('open');document.getElementById('drawerOverlay').classList.remove('open');document.getElementById('hamburgerBtn').classList.remove('open');}
 
-    const ring = document.getElementById('trigramRing');
-    ['☰','☱','☲','☳','☴','☵','☶','☷'].forEach((sym, i) => {
-        const span = document.createElement('span'); span.textContent = sym; span.style.transform = `rotate(${(i / 8) * 360}deg) translateY(0px)`; ring.appendChild(span);
-    });
+function initAvatarMenu(){
+    const btn=document.getElementById('avatarBtn'),menu=document.getElementById('avatarMenu');
+    btn.addEventListener('click',(e)=>{e.stopPropagation();menu.classList.toggle('open');});
+    document.addEventListener('click',()=>menu.classList.remove('open'));
+}
+function closeAvatarMenu(){document.getElementById('avatarMenu').classList.remove('open');}
+
+/* ═══════════════════════════════════════════════
+   10. 星空背景
+═══════════════════════════════════════════════ */
+(function initVisuals(){
+    const canvas=document.getElementById('cosmosCanvas'),ctx=canvas.getContext('2d');let W,H,stars=[];
+    function resize(){W=canvas.width=window.innerWidth;H=canvas.height=window.innerHeight;}
+    function initStars(){stars=[];const count=Math.floor((W*H)/5000);for(let i=0;i<count;i++)stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*0.9+0.2,a:Math.random(),speed:(Math.random()*0.3+0.05)*(Math.random()>.5?1:-1),drift:(Math.random()-.5)*0.1});}
+    function draw(){ctx.clearRect(0,0,W,H);stars.forEach(s=>{s.a+=s.speed*0.008;s.x+=s.drift;if(s.x<0)s.x=W;if(s.x>W)s.x=0;ctx.save();ctx.globalAlpha=((Math.sin(s.a)+1)/2)*0.5+0.05;ctx.fillStyle='#E8CC80';ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();ctx.restore();});for(let i=0;i<stars.length;i++){for(let j=i+1;j<stars.length;j++){const dx=stars[i].x-stars[j].x,dy=stars[i].y-stars[j].y,dist=Math.sqrt(dx*dx+dy*dy);if(dist<90){ctx.save();ctx.globalAlpha=(1-dist/90)*0.035;ctx.strokeStyle='#B38B36';ctx.lineWidth=.5;ctx.beginPath();ctx.moveTo(stars[i].x,stars[i].y);ctx.lineTo(stars[j].x,stars[j].y);ctx.stroke();ctx.restore();}}}requestAnimationFrame(draw);}
+    resize();initStars();draw();window.addEventListener('resize',()=>{resize();initStars();});
 })();
 </script>
 </body>
