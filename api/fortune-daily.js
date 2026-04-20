@@ -10,13 +10,20 @@ const supabase = createClient(
 );
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  // ============================================================================
+  // 🛡️ 防线 1：CORS 跨域限制 (防别人克隆前端盗用)
+  // 配置环境变量 FRONTEND_URL 为你的正式域名 (如 https://xxx.vercel.app)
+  // ============================================================================
+  const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
   res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
   try {
-    // ── 1. 获取当前登录用户 ──
+    // ============================================================================
+    // 🛡️ 防线 2：JWT 鉴权拦截 (防 Postman 脚本刷接口)
+    // ============================================================================
     const authHeader = req.headers.authorization;
     if (!authHeader) return res.status(401).json({ error: '未登录，请先登录' });
 
@@ -45,10 +52,25 @@ export default async function handler(req, res) {
       .gt('expires_at', new Date().toISOString())
       .single();
 
+    // 如果今天已经算过了，直接返回缓存 (不扣额度，也不消耗 Token)
     if (cached?.data_json) {
       console.log(`⚡️ 命中数据库缓存 [${userId}] ${todayKey}`);
       res.setHeader('Cache-Control', `s-maxage=${secondsUntilMidnight}, stale-while-revalidate`);
       return res.status(200).json(cached.data_json);
+    }
+
+    // ============================================================================
+    // 🛡️ 防线 3：3 次免费额度限制 (拦截超额请求)
+    // ============================================================================
+    const { count, error: countError } = await supabase
+      .from('fortune_cache')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('dimension', 'day');
+
+    if (!countError && count >= 3) {
+      // 只要该用户在数据库里已经有 3 条及以上不同日期的日运记录，直接拒绝服务
+      return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
     }
 
     console.log(`☁️ 缓存未命中，启动日运推演 [${userId}] ${todayKey}`);
@@ -87,7 +109,7 @@ export default async function handler(req, res) {
     const day_clash   = lunar.getDayChongDesc();
     const day_nayin   = lunar.getDayNaYin();
 
-    // ── 6. 组装 Prompt ──
+    // ── 6. 组装 Prompt (完全保留原版) ──
     const prompt = `
 你是一位精通《渊海子平》与紫微斗数的命理顾问，同时熟悉现代命理App的日运算法架构。
 请基于【命主档案】与【今日精准历法数据】，严格执行下方推演逻辑，输出今日日运。
@@ -259,7 +281,7 @@ day_guide（格式：宜xx、xx；忌xx、xx）：
 }
 `;
 
-    // ── 7. 调用大模型 ──
+    // ── 7. 调用大模型 (完全保留原版调用参数) ──
     const llmResponse = await fetch('https://yinli.one/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -315,6 +337,7 @@ day_guide（格式：宜xx、xx；忌xx、xx）：
 
   } catch (error) {
     console.error('日运推演异常:', error);
-    return res.status(500).json({ error: '云端日运推演失败', details: error.message });
+    // 如果是因为没有额度而抛出的错误，返回 403，否则返回 500
+    return res.status(error.message.includes("额度") ? 403 : 500).json({ error: '云端日运推演失败', details: error.message });
   }
 }
