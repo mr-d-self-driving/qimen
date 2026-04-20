@@ -184,18 +184,32 @@ module.exports = async function handler(req, res) {
         if (authError || !user) return res.status(401).json({ error: '登录状态已过期，请重新登录' });
 
         const userId = user.id;
-
+        
         // ============================================================================
-        // 🛡️ 防线 3：3 次免费额度限制 (拦截超额请求)
+        // 🛡️ 防线 3：3 次免费额度限制 + 👑 白名单特权
         // ============================================================================
-        const { count, error: countError } = await supabase
-            .from('qimen_records')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', userId);
+        // 1. 获取白名单列表并转为小写 (兼容未配置环境变量的情况)
+        const whitelistStr = process.env.WHITELIST_EMAILS || "";
+        const whitelist = whitelistStr.split(',').map(email => email.trim().toLowerCase());
+        const currentUserEmail = user.email ? user.email.toLowerCase() : "";
 
-        if (!countError && count >= 3) {
-            return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
+        // 2. 判断当前用户是否在白名单中
+        const isVIP = whitelist.includes(currentUserEmail);
+
+        if (isVIP) {
+            console.log(`👑 白名单特权账户 [${currentUserEmail}] 发起推演，免除额度限制`);
+        } else {
+            // 如果不是 VIP，才去数据库查他算过几次
+            const { count, error: countError } = await supabase
+                .from('qimen_records') // 注意：如果是 bazi.js，这里表名是 bazi_profiles；fortune-daily.js 是 fortune_cache
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', userId);
+
+            if (!countError && count >= 3) {
+                return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
+            }
         }
+
 
         // 2. 获取用户提问
         const userQuestion = req.body.question || "当前局势吉凶如何？";
