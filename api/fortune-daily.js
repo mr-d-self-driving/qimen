@@ -301,7 +301,7 @@ day_guide（格式：宜xx、xx；忌xx、xx）：
         'Authorization': `Bearer ${process.env.LLM_API_KEY}`
       },
       body: JSON.stringify({
-        model: 'gemini-2.5-pro-preview-06-05',
+        model: 'gemini-3.1-pro-preview',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.5,
         response_format: { type: 'json_object' }
