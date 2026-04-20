@@ -59,7 +59,7 @@ module.exports = async function handler(req, res) {
             return bzTemp.getShiShenGan() || "未知"; 
         };
 
-        // 3. 组装客观数据大字典 (这部分完全不需要 LLM 参与)
+        // 3. 组装客观数据大字典 (剔除不存在的函数，使用绝对安全的原生方法)
         const objectiveBaziData = {
             // [1-4] 四柱
             year_pillar: baZi.getYear(),
@@ -67,15 +67,15 @@ module.exports = async function handler(req, res) {
             day_pillar: baZi.getDay(),
             time_pillar: baZi.getTime(),
             
-            // [6-9] 四柱藏干
+            // [6-9] 四柱藏干 (lunar原生返回数组)
             hidden_stems: {
-                year: baZi.getYearHideGan(),   // e.g. ['戊', '丙', '甲']
+                year: baZi.getYearHideGan(), 
                 month: baZi.getMonthHideGan(),
                 day: baZi.getDayHideGan(),
                 time: baZi.getTimeHideGan()
             },
 
-            // [10-13] 四柱十神
+            // [10-13] 四柱十神 (lunar原生返回天干字符串与地支数组)
             ten_gods: {
                 year: { gan: baZi.getYearShiShenGan(), zhi: baZi.getYearShiShenZhi() },
                 month: { gan: baZi.getMonthShiShenGan(), zhi: baZi.getMonthShiShenZhi() },
@@ -91,25 +91,16 @@ module.exports = async function handler(req, res) {
                 liunian_zhi: currentLiuNianZhi
             },
 
-            // [24] 神煞 (通过 lunar-javascript 提取)
-            shensha: {
-                year: baZi.getYearShenSha().map(s => s.getName()),
-                month: baZi.getMonthShenSha().map(s => s.getName()),
-                day: baZi.getDayShenSha().map(s => s.getName()),
-                time: baZi.getTimeShenSha().map(s => s.getName())
-            },
-
-            // [23] 天干地支合克关系 (lunar-javascript 原生提取地支刑冲合害)
-            relations: {
-                zhi_chong: [baZi.getYearZhi(), baZi.getMonthZhi(), baZi.getDayZhi(), baZi.getTimeZhi()].join(",") + " 内查冲",
-                // lunar 对象可以获取日柱是否被冲等
-                day_chong: baZi.getDayChongDesc(),
-                year_chong: baZi.getYearChongDesc()
+            // 补充：绝对安全的黄历维度空亡与冲煞
+            auxiliary: {
+                day_kongwang: lunarObj.getDayXunKong(),
+                time_kongwang: lunarObj.getTimeXunKong(),
+                day_chong: lunarObj.getDayChongDesc()
             }
         };
 
 
-// ============================================================================
+        // ============================================================================
         // 🌟 第二步：只把需要“定性分析”的任务交给大模型 (引入 Few-Shot 与三字段拆分)
         // ============================================================================
         
@@ -120,18 +111,19 @@ module.exports = async function handler(req, res) {
 • 原局地支十神：年[${objectiveBaziData.ten_gods.year.zhi}] 月[${objectiveBaziData.ten_gods.month.zhi}] 日[${objectiveBaziData.ten_gods.day.zhi}] 时[${objectiveBaziData.ten_gods.time.zhi}]
 • 当前大运：${promptData.daYunStr}
 • 当前流年：${currentLiuNianGan}${currentLiuNianZhi}年
+• 辅助信息：日空亡[${objectiveBaziData.auxiliary.day_kongwang}]
 
 请基于以上八字，执行以下分析：
 1. 【身强/身弱定性】：判断日主强弱。标准：得令、得地、得势，满足两项及以上为身强，否则身弱。
 2. 【提取十神喜忌】：结合原局结构，提取喜用神与忌仇神。
-3. 【刑冲合害深度解析】：综合原局、大运、流年，总结核心的合克关系。
+3. 【神煞与刑冲合害】：依据原局四柱推导核心神煞(如桃花/驿马/羊刃等)，并综合大运流年，总结核心的合克关系。
 4. 【八字断语】：分别撰写原局核心、当前大运和当前流年简评。
 
 【断语文案风格参考 (Few-Shot)】
 请严格模仿以下示例的专业术语和推演逻辑，分别撰写 \`yuanju_core\`、\`current_dayun\` 和 \`current_liunian\`，不要使用废话：
 
-原局核心：甲木日主生于未月，季夏土旺，日主失令。天干戊己土正偏财并透，地支未戌皆为土，全局财星极旺；虽有年支寅木作为日主之根，时干癸水正印贴身相生，但总体依然耗泄过重。整体属于“财多身弱”格局。喜水木（印星、比劫）生扶帮身以担财，忌火土（食伤、财星）加重耗泄，逢金（官杀）克身亦为忌。
-当前大运：壬戌大运，天干壬水为偏印，透出生扶弱身且能润泽原局燥土，为喜用；但地支戌土为偏财忌神，不仅加重原局财星旺势，还与月支引发“未戌相刑”激旺土气。此大运天干喜印生身，地支忌财耗身，属于吉凶参半、财重压身且求财较为辛苦的运势。
+原局核心：甲木日主生于未月，季夏土旺，日主失令。天干戊己土正偏财并透，全局财星极旺；虽有时干癸水正印贴身相生，且命带驿马桃花，但总体耗泄过重。整体属于“财多身弱”格局。喜水木生扶帮身以担财，忌火土加重耗泄。地支子未相害，需防暗耗。
+当前大运：壬戌大运，天干壬水偏印生扶弱身为喜；但地支戌土不仅加重原局财星旺势，还引发“未戌相刑”激旺土气。此运喜印生身，忌财耗身，属于财重压身、求财辛苦的运势。
 当前流年：结合流年干支与原局大运的生克制化，...（此处补充流年简评）
 
 【输出格式要求】
@@ -140,7 +132,7 @@ module.exports = async function handler(req, res) {
   "strong_weak": "身强 或 身弱 或 中和偏弱等",
   "favorable_gods": ["印星", "比劫"],
   "unfavorable_gods": ["官杀", "财星"],
-  "relations_analysis": "核心刑冲合害描述文字，例如：原局地支寅申相冲...",
+  "relations_analysis": "核心神煞与刑冲合害描述，例如：命带桃花，原局寅申相冲...",
   "yuanju_core": "此处填写模仿 Few-Shot 风格生成的原局核心分析",
   "current_dayun": "此处填写模仿 Few-Shot 风格生成的当前大运分析",
   "current_liunian": "此处填写模仿 Few-Shot 风格生成的当前流年简评"
