@@ -25,86 +25,105 @@ module.exports = async function handler(req, res) {
             return res.status(200).json(memoryCache[cacheKey]);
         }
 
+ // ============================================================================
+        // 🌟 第一步：完全依靠 lunar-javascript 在本地生成所有客观维度数据 (对齐专业排盘)
         // ============================================================================
-        // 🌟 第一步：完全依靠 lunar-javascript 在本地生成所有客观维度数据
-        // ============================================================================
-        // 1. 解析出生时间，构建八字对象
-        let solarObj, lunarObj, baZi;
-        const dateMatch = promptData.birthStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
-        const timeMatch = promptData.birthStr.match(/(\d{1,2}):(\d{1,2})/);
-        if (dateMatch) {
-            const y = parseInt(dateMatch[1]), m = parseInt(dateMatch[2]), d = parseInt(dateMatch[3]);
-            const h = timeMatch ? parseInt(timeMatch[1]) : 12;
-            const min = timeMatch ? parseInt(timeMatch[2]) : 0;
-            solarObj = Solar.fromYmdHms(y, m, d, h, min, 0);
-            lunarObj = solarObj.getLunar();
-            baZi = lunarObj.getEightChar();
-        } else {
-            throw new Error("出生日期格式解析失败");
-        }
-
-        // 2. 当前流年与大运提取
-        const nowLunar = Solar.fromDate(new Date()).getLunar();
-        const currentLiuNianGan = nowLunar.getYearGan();
-        const currentLiuNianZhi = nowLunar.getYearZhi();
         
-        let currentDaYunGan = "未知", currentDaYunZhi = "未知";
-        const dyMatch = promptData.daYunStr.match(/^([甲乙丙丁戊己庚辛壬癸])([子丑寅卯辰巳午未申酉戌亥])/);
-        if(dyMatch) {
-            currentDaYunGan = dyMatch[1];
-            currentDaYunZhi = dyMatch[2];
+        // ... (保留你原有的时间解析和 solarObj/baZi 实例化代码) ...
+        const dayGan = baZi.getDayGan();
+
+        // 1. 性别转换与起运对象 (1为男，0为女)
+        const genderCode = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造') ? 1 : 0;
+        const yun = baZi.getYun(genderCode);
+
+        // 2. 提取大运时间轴 (取前10步大运，约100年)
+        const daYunList = yun.getDaYun().slice(0, 10).map(dy => ({
+            start_age: dy.getStartAge(),
+            start_year: dy.getStartYear(),
+            ganzhi: dy.getGanZhi(),
+        }));
+
+        // 3. 提取流年 (以当前所处的大运为例，你可以按需遍历所有大运)
+        // 获取当前自然年，定位大运
+        const currentYear = new Date().getFullYear();
+        let currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
+        let liuNianList = [];
+        if (currentDaYunObj) {
+             liuNianList = currentDaYunObj.getLiuNian().map(ln => ({
+                 year: ln.getYear(),
+                 age: ln.getAge(),
+                 ganzhi: ln.getGanZhi()
+             }));
         }
 
-        // 提取日主天干，用于计算大运流年十神
-        const dayGan = baZi.getDayGan();
-        const getShiShen = (gan) => {
-            // lunar-javascript 内部十神映射逻辑 (简化版引用)
-            // 这里为了确保独立运算，可以直接调用 lunar-javascript 获取，但对于大运流年，我们可以借助原局日干
-            // 简单起见，利用 lunar 自身能力或预设逻辑：
-            const bzTemp = solarObj.getLunar().getEightChar();
-            return bzTemp.getShiShenGan() || "未知"; 
-        };
-
-        // 3. 组装客观数据大字典 (剔除不存在的函数，使用绝对安全的原生方法)
+        // 4. 组装专业排盘大字典 (完美对齐截图参数)
         const objectiveBaziData = {
-            // [1-4] 四柱
-            year_pillar: baZi.getYear(),
-            month_pillar: baZi.getMonth(),
-            day_pillar: baZi.getDay(),
-            time_pillar: baZi.getTime(),
-            
-            // [6-9] 四柱藏干 (lunar原生返回数组)
-            hidden_stems: {
-                year: baZi.getYearHideGan(), 
-                month: baZi.getMonthHideGan(),
-                day: baZi.getDayHideGan(),
-                time: baZi.getTimeHideGan()
+            // 【顶部基础信息区】
+            base_info: {
+                // 起运：出生后X年X月X天起运
+                qi_yun: `出生后${yun.getStartYear()}年${yun.getStartMonth()}个月${yun.getStartDay()}天起运`,
+                // 交运：这里简化为每逢哪一年交运 (lunar也支持精确到交运的具体阳历日期)
+                jiao_yun: `逢尾数 ${yun.getStartYear() % 10} 之年交大运`,
+                // 日空亡 (截图中的 申酉空亡)
+                day_kongwang: baZi.getDayXunKong(),
+                // 司令 (月支的主气藏干)
+                si_ling: baZi.getMonthHideGan().length > 0 ? baZi.getMonthHideGan()[0] : ""
             },
 
-            // [10-13] 四柱十神 (lunar原生返回天干字符串与地支数组)
-            ten_gods: {
-                year: { gan: baZi.getYearShiShenGan(), zhi: baZi.getYearShiShenZhi() },
-                month: { gan: baZi.getMonthShiShenGan(), zhi: baZi.getMonthShiShenZhi() },
-                day: { gan: "日主", zhi: baZi.getDayShiShenZhi() },
-                time: { gan: baZi.getTimeShiShenGan(), zhi: baZi.getTimeShiShenZhi() }
+            // 【四柱排盘矩阵】
+            pillars: {
+                // 第一行：日期/天干/地支
+                ganzhi: {
+                    year: baZi.getYear(),
+                    month: baZi.getMonth(),
+                    day: baZi.getDay(),
+                    time: baZi.getTime()
+                },
+                // 第二行：主星 (天干十神)
+                main_stars: {
+                    year: baZi.getYearShiShenGan(),
+                    month: baZi.getMonthShiShenGan(),
+                    day: "日主", // 截图中的“元男/元女”
+                    time: baZi.getTimeShiShenGan()
+                },
+                // 第三行：藏干 (地支藏干数组)
+                hidden_stems: {
+                    year: baZi.getYearHideGan(),
+                    month: baZi.getMonthHideGan(),
+                    day: baZi.getDayHideGan(),
+                    time: baZi.getTimeHideGan()
+                },
+                // 第四行：星运 (十二长生：日干对地支的状态)
+                xing_yun: {
+                    year: baZi.getYearDiShi(),
+                    month: baZi.getMonthDiShi(),
+                    day: baZi.getDayDiShi(),
+                    time: baZi.getTimeDiShi()
+                },
+                // 第五行：空亡 (本柱地支是否空亡)
+                kong_wang_flags: {
+                    year: baZi.getDayXunKong().includes(baZi.getYearZhi()),
+                    month: baZi.getDayXunKong().includes(baZi.getMonthZhi()),
+                    day: false, // 日柱自身不标日空
+                    time: baZi.getDayXunKong().includes(baZi.getTimeZhi())
+                },
+                // 第六行：纳音
+                na_yin: {
+                    year: baZi.getYearNaYin(),
+                    month: baZi.getMonthNaYin(),
+                    day: baZi.getDayNaYin(),
+                    time: baZi.getTimeNaYin()
+                }
             },
 
-            // [17-22] 当前大运与流年
-            current_yun_nian: {
-                dayun_gan: currentDaYunGan,
-                dayun_zhi: currentDaYunZhi,
-                liunian_gan: currentLiuNianGan,
-                liunian_zhi: currentLiuNianZhi
-            },
-
-            // 补充：绝对安全的黄历维度空亡与冲煞
-            auxiliary: {
-                day_kongwang: lunarObj.getDayXunKong(),
-                time_kongwang: lunarObj.getTimeXunKong(),
-                day_chong: lunarObj.getDayChongDesc()
+            // 【大运流年时间轴】
+            timeline: {
+                da_yun: daYunList,       // 包含起运年龄、年份、干支
+                current_liu_nian: liuNianList // 当前大运下的 10 个流年
             }
         };
 
+        // 将这个 objectiveBaziData 合并到最后返回给前端的 bazi_detail 中
 
         // ============================================================================
         // 🌟 第二步：只把需要“定性分析”的任务交给大模型 (引入 Few-Shot 与三字段拆分)
