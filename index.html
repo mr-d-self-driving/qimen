@@ -1003,7 +1003,32 @@ document.getElementById('reversedDateDisplay').innerHTML=reversedTextHTML;docume
 
 function generateLunarPromptData(profile){let res={name:profile.name,gender:profile.gender==='M'?'男':'女',birthStr:"四柱直排",baziStr:"",daYunStr:"四柱直排，无法精确计算大运"};if(profile.birth_date){const parts=profile.birth_date.match(/\d+/g);res.birthStr=`${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;const baZi=window.Solar.fromYmdHms(parseInt(parts[0]),parseInt(parts[1]),parseInt(parts[2]),parseInt(parts[3]),parseInt(parts[4]),0).getLunar().getEightChar();res.baziStr=`${baZi.getYearGan()}${baZi.getYearZhi()} ${baZi.getMonthGan()}${baZi.getMonthZhi()} ${baZi.getDayGan()}${baZi.getDayZhi()} ${baZi.getTimeGan()}${baZi.getTimeZhi()}`;try{const daYuns=baZi.getYun(profile.gender==='M'?1:0).getDaYun();const cy=new Date().getFullYear();let cd=daYuns.find(d=>cy>=d.getStartYear()&&cy<=d.getEndYear());if(cd)res.daYunStr=`${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;}catch(e){}}else if(profile.bazi_str){res.baziStr=profile.bazi_str;const bzArr=profile.bazi_str.replace(/\s+/g,'').split('');const matches=findDatesByBazi(bzArr[0]+bzArr[1],bzArr[2]+bzArr[3],bzArr[4]+bzArr[5],bzArr[6]+bzArr[7]);if(matches.length>0){const solar=matches[matches.length-1];res.birthStr=`${solar.getYear()}年${solar.getMonth()}月${solar.getDay()}日 ${solar.getHour()}:00 (根据四柱反推)`;try{const daYuns=solar.getLunar().getEightChar().getYun(profile.gender==='M'?1:0).getDaYun();const cy=new Date().getFullYear();let cd=daYuns.find(d=>cy>=d.getStartYear()&&cy<=d.getEndYear());if(cd)res.daYunStr=`${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;}catch(e){console.error("大运推算失败",e);}}}return res;}
 
-async function confirmBazi(){const profile=baziProfiles.find(p=>p.id===document.getElementById('profileSelect').value);if(!profile)return;baziConfirmed=true;document.querySelector('.profile-selector').style.display='none';document.getElementById('profileForm').style.display='none';document.getElementById('baziConfirmSection').style.display='none';document.getElementById('baziTableContainer').style.opacity='0.4';const resultSec=document.getElementById('baziResultSection');const aiText=document.getElementById('baziAiText');const loading=document.getElementById('baziLoading');const errSec=document.getElementById('baziError');resultSec.style.display='block';aiText.style.display='none';errSec.style.display='none';loading.style.display='block';isBaziLoading=true;if(profile.bazi_summary){loading.style.display='none';aiText.innerHTML=profile.bazi_summary;aiText.style.display='block';currentBaziString=profile.bazi_summary;isBaziLoading=false;return;}const pd=generateLunarPromptData(profile);const cacheKey=pd.baziStr+"_"+profile.gender;if(frontBaziCache[cacheKey]){loading.style.display='none';aiText.innerHTML=frontBaziCache[cacheKey];aiText.style.display='block';currentBaziString=frontBaziCache[cacheKey];isBaziLoading=false;return;}try{const controller=new AbortController();const timeoutId=setTimeout(()=>controller.abort(),60000);const res=await fetch('/api/bazi',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({promptData:pd}),signal:controller.signal});clearTimeout(timeoutId);const data=await res.json();if(data.error)throw new Error(data.error);const resultText=data.result;frontBaziCache[cacheKey]=resultText;currentBaziString=resultText;_supabase.from('bazi_profiles').update({bazi_summary:resultText}).eq('id',profile.id).then(({error})=>{if(error)console.warn("八字断语写库失败:",error.message);else{const idx=baziProfiles.findIndex(p=>p.id===profile.id);if(idx!==-1)baziProfiles[idx].bazi_summary=resultText;}});loading.style.display='none';aiText.innerHTML=resultText;aiText.style.display='block';}catch(err){loading.style.display='none';errSec.style.display='block';console.error("八字推演失败:",err);}finally{isBaziLoading=false;}}
+async function confirmBazi() {
+    // 1. 获取必要的参数
+    const params = {
+        profileId: currentProfileId, // 必须传 ID，后端才知道更新哪条记录
+        baziStr: ...,
+        gender: ...,
+        // ... 其他参数
+    };
+
+    try {
+        // 2. 只负责发起请求并等待结果
+        const response = await fetch('/api/bazi', {
+            method: 'POST',
+            body: JSON.stringify(params)
+        });
+        const data = await response.json();
+
+        if (data.result) {
+            // 3. 直接展示后端返回的现成结果，无需再写库
+            showResultUI(data.result); 
+            alert("测算完成并已同步至云端档案");
+        }
+    } catch (err) {
+        console.error("测算失败", err);
+    }
+}
 
 async function resetBaziCache(){const profile=baziProfiles.find(p=>p.id===document.getElementById('profileSelect').value);if(!profile||!confirm("确定要清除此命主的断语缓存并重新推演吗？"))return;await _supabase.from('bazi_profiles').update({bazi_summary:null}).eq('id',profile.id);const idx=baziProfiles.findIndex(p=>p.id===profile.id);if(idx!==-1)baziProfiles[idx].bazi_summary=null;modifyBazi();renderBaziTable(profile);document.getElementById('baziConfirmSection').style.display='block';alert("缓存已清除，请点击「确定」重新推演。");}
 
