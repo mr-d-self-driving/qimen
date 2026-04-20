@@ -2,6 +2,7 @@
   "name": "qimen-api",
   "version": "1.0.0",
   "dependencies": {
-    "lunar-javascript": "^1.6.12"
+    "lunar-javascript": "^1.6.12",
+    "@supabase/supabase-js": "^2.39.0"
   }
 }
