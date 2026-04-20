@@ -1004,29 +1004,52 @@ document.getElementById('reversedDateDisplay').innerHTML=reversedTextHTML;docume
 function generateLunarPromptData(profile){let res={name:profile.name,gender:profile.gender==='M'?'男':'女',birthStr:"四柱直排",baziStr:"",daYunStr:"四柱直排，无法精确计算大运"};if(profile.birth_date){const parts=profile.birth_date.match(/\d+/g);res.birthStr=`${parts[0]}年${parts[1]}月${parts[2]}日 ${parts[3]}:${parts[4]}`;const baZi=window.Solar.fromYmdHms(parseInt(parts[0]),parseInt(parts[1]),parseInt(parts[2]),parseInt(parts[3]),parseInt(parts[4]),0).getLunar().getEightChar();res.baziStr=`${baZi.getYearGan()}${baZi.getYearZhi()} ${baZi.getMonthGan()}${baZi.getMonthZhi()} ${baZi.getDayGan()}${baZi.getDayZhi()} ${baZi.getTimeGan()}${baZi.getTimeZhi()}`;try{const daYuns=baZi.getYun(profile.gender==='M'?1:0).getDaYun();const cy=new Date().getFullYear();let cd=daYuns.find(d=>cy>=d.getStartYear()&&cy<=d.getEndYear());if(cd)res.daYunStr=`${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;}catch(e){}}else if(profile.bazi_str){res.baziStr=profile.bazi_str;const bzArr=profile.bazi_str.replace(/\s+/g,'').split('');const matches=findDatesByBazi(bzArr[0]+bzArr[1],bzArr[2]+bzArr[3],bzArr[4]+bzArr[5],bzArr[6]+bzArr[7]);if(matches.length>0){const solar=matches[matches.length-1];res.birthStr=`${solar.getYear()}年${solar.getMonth()}月${solar.getDay()}日 ${solar.getHour()}:00 (根据四柱反推)`;try{const daYuns=solar.getLunar().getEightChar().getYun(profile.gender==='M'?1:0).getDaYun();const cy=new Date().getFullYear();let cd=daYuns.find(d=>cy>=d.getStartYear()&&cy<=d.getEndYear());if(cd)res.daYunStr=`${cd.getGanZhi()}大运 (${cd.getStartAge()}岁-${cd.getEndAge()}岁，${cd.getStartYear()}年起运)`;}catch(e){console.error("大运推算失败",e);}}}return res;}
 
 async function confirmBazi() {
-    // 1. 获取必要的参数
-    const params = {
-        profileId: currentProfileId, // 必须传 ID，后端才知道更新哪条记录
-        baziStr: ...,
-        gender: ...,
-        // ... 其他参数
-    };
+    // 1. 获取当前选中的档案 ID
+    const select = document.getElementById('profileSelect');
+    const profileId = select.value;
+    if (!profileId) return alert("请先选择或新增命主档案");
+
+    const profile = baziProfiles.find(p => p.id === profileId);
+    if (!profile) return;
+
+    // 2. 利用你代码里原有的生成函数，构建传给后端的数据
+    const promptData = generateLunarPromptData(profile);
+    promptData.profileId = profile.id; // 把 ID 挂载进去，让后端知道往哪条记录写库
+
+    // 3. UI 切换到加载状态
+    document.getElementById('baziConfirmSection').style.display = 'none';
+    document.getElementById('baziResultSection').style.display = 'block';
+    document.getElementById('baziLoading').style.display = 'block';
+    document.getElementById('baziError').style.display = 'none';
+    document.getElementById('baziAiText').style.display = 'none';
 
     try {
-        // 2. 只负责发起请求并等待结果
+        // 4. 发起请求调用重构后的后端接口
         const response = await fetch('/api/bazi', {
             method: 'POST',
-            body: JSON.stringify(params)
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ promptData: promptData })
         });
-        const data = await response.json();
 
-        if (data.result) {
-            // 3. 直接展示后端返回的现成结果，无需再写库
-            showResultUI(data.result); 
-            alert("测算完成并已同步至云端档案");
-        }
+        const data = await response.json();
+        if (data.error) throw new Error(data.error);
+
+        // 5. 展示后端返回的推演结果
+        document.getElementById('baziLoading').style.display = 'none';
+        const textEl = document.getElementById('baziAiText');
+        textEl.style.display = 'block';
+        textEl.innerHTML = data.result;
+
+        // 6. 更新全局状态，允许用户点击"洞察天机"按钮发起奇门提问
+        baziConfirmed = true;
+        currentBaziString = `命主：${profile.name}\n性别：${promptData.gender}\n八字结构：${promptData.baziStr}\n八字断语：\n${data.result}`;
+
     } catch (err) {
-        console.error("测算失败", err);
+        console.error("八字推演失败", err);
+        // 显示错误提示，并允许用户点击重试
+        document.getElementById('baziLoading').style.display = 'none';
+        document.getElementById('baziError').style.display = 'block';
+        baziConfirmed = false;
     }
 }
 
