@@ -1,7 +1,13 @@
 const { Solar, Lunar } = require('lunar-javascript');
+const { createClient } = require('@supabase/supabase-js');
 
 // 内存缓存
 const memoryCache = {};
+// 初始化管理员权限的 supabase 客户端 (绕过前端 RLS)
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY // 使用 Service Role Key
+);
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -183,7 +189,26 @@ module.exports = async function handler(req, res) {
         // 这里我们在后端自动把三个字段拼接成带换行的长文本赋值给 result。
         // 这样你的前端代码一行都不用改，照样能渲染！而数据库落表时可以直接取 bazi_detail 里的独立字段。
         const combinedResultText = `原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
+        
+        // 在返回前端之前，直接在后端落库！
+        const { error: dbError } = await supabase
+            .from('bazi_profiles')
+            .update({
+                bazi_summary: combinedResultText,
+                strong_weak: finalBaziDetail.strong_weak,
+                favorable_elements: finalBaziDetail.favorable_gods.join(", "),
+                unfavorable_elements: finalBaziDetail.unfavorable_gods.join(", "),
+                yuanju_core: finalBaziDetail.yuanju_core,
+                current_dayun: finalBaziDetail.current_dayun,
+                current_liunian: finalBaziDetail.current_liunian,
+                bazi_detail: finalBaziDetail
+            })
+            .eq('id', promptData.profileId); // 假设前端传来了档案的 ID
 
+        if (dbError) {
+            console.error("后端数据库写入失败:", dbError);
+            // 可以选择抛出错误，或者依然返回结果但记录日志
+}
         const outputPayload = { 
             result: combinedResultText,  // 兼容旧前端 UI
             bazi_detail: finalBaziDetail // 供存入数据库结构化使用
