@@ -1,4 +1,5 @@
 const { Solar } = require('lunar-javascript');
+const { createClient } = require('@supabase/supabase-js'); // 引入 Supabase
 const C = require('../lib/QimenConstants');
 const U = require('../lib/QimenUtils');
 const Calc = require('../lib/QimenCalculations');
@@ -7,6 +8,14 @@ const Calc = require('../lib/QimenCalculations');
 // ⚡️ 云端内存缓存 (基于 时辰 + 问题)
 // ==========================================
 let memoryCache = {};
+
+// ==========================================
+// Supabase 服务端客户端（Service Key 绕过 RLS）
+// ==========================================
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
 
 // 辅助函数：马星与空亡推导
 function getMaXing(zhi) {
@@ -154,13 +163,40 @@ async function detectIntentAndGetRules(question) {
 
 
 module.exports = async function handler(req, res) {
-    // 1. 处理 CORS 跨域请求
-    res.setHeader('Access-Control-Allow-Origin', '*');
+    // ============================================================================
+    // 🛡️ 防线 1：CORS 跨域限制 (防别人克隆前端盗用)
+    // ============================================================================
+    const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
+    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // 必须允许 Authorization
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
+        // ============================================================================
+        // 🛡️ 防线 2：JWT 鉴权拦截 (防 Postman 脚本刷接口)
+        // ============================================================================
+        const authHeader = req.headers.authorization;
+        if (!authHeader) return res.status(401).json({ error: '未登录，请先登录' });
+
+        const token = authHeader.replace('Bearer ', '');
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+        if (authError || !user) return res.status(401).json({ error: '登录状态已过期，请重新登录' });
+
+        const userId = user.id;
+
+        // ============================================================================
+        // 🛡️ 防线 3：3 次免费额度限制 (拦截超额请求)
+        // ============================================================================
+        const { count, error: countError } = await supabase
+            .from('qimen_records')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId);
+
+        if (!countError && count >= 3) {
+            return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
+        }
+
         // 2. 获取用户提问
         const userQuestion = req.body.question || "当前局势吉凶如何？";
 
@@ -306,7 +342,7 @@ ${baziInfo}
     "lucky_tips": {
       "direction": "有利方位",
       "time": "有利时间",
-      "action": "助运行为"
+      "action": "助运行行为"
     }
   }
 }
@@ -396,6 +432,6 @@ ${baziInfo}
 
     } catch (error) {
         console.error(error);
-        return res.status(500).json({ error: "奇门引擎推演失败", details: error.message });
+        return res.status(error.message && error.message.includes("额度") ? 403 : 500).json({ error: "奇门引擎推演失败", details: error.message });
     }
 }
