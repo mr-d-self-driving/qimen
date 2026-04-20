@@ -75,7 +75,7 @@ export default async function handler(req, res) {
         } else {
             // 如果不是 VIP，才去数据库查他算过几次
             const { count, error: countError } = await supabase
-                .from('qimen_records') // 注意：如果是 bazi.js，这里表名是 bazi_profiles；fortune-daily.js 是 fortune_cache
+                .from('fortune_cache') // 注意：如果是 bazi.js，这里表名是 bazi_profiles；fortune-daily.js 是 fortune_cache
                 .select('*', { count: 'exact', head: true })
                 .eq('user_id', userId);
 
