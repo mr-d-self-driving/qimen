@@ -1,4 +1,7 @@
-const memoryCache = {}; // 内存缓存，省 Token 利器
+const { Solar, Lunar } = require('lunar-javascript');
+
+// 内存缓存
+const memoryCache = {};
 
 module.exports = async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -10,37 +13,138 @@ module.exports = async function handler(req, res) {
         const { promptData } = req.body;
         if (!promptData) return res.status(400).json({ error: "缺少八字数据" });
 
-        // 生成唯一的缓存 Key（基于八字字符串和性别）
-        const cacheKey = `${promptData.baziStr}_${promptData.gender}`;
+        const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
         if (memoryCache[cacheKey]) {
-            console.log("⚡️ 命中八字云端缓存！直接返回。");
-            return res.status(200).json({ result: memoryCache[cacheKey] });
+            console.log("⚡️ 命中混合架构缓存！直接返回。");
+            return res.status(200).json(memoryCache[cacheKey]);
         }
 
-        // 构建专属八字 Prompt
-        const finalPrompt = `你是一位精通子平八字的命理大师。请根据以下命主信息，生成一段简明扼要的八字断语（不需要解释奇门遁甲，仅专注于八字原局和大运的分析）。
+        // ============================================================================
+        // 🌟 第一步：完全依靠 lunar-javascript 在本地生成所有客观维度数据
+        // ============================================================================
+        // 1. 解析出生时间，构建八字对象
+        let solarObj, lunarObj, baZi;
+        const dateMatch = promptData.birthStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
+        const timeMatch = promptData.birthStr.match(/(\d{1,2}):(\d{1,2})/);
+        if (dateMatch) {
+            const y = parseInt(dateMatch[1]), m = parseInt(dateMatch[2]), d = parseInt(dateMatch[3]);
+            const h = timeMatch ? parseInt(timeMatch[1]) : 12;
+            const min = timeMatch ? parseInt(timeMatch[2]) : 0;
+            solarObj = Solar.fromYmdHms(y, m, d, h, min, 0);
+            lunarObj = solarObj.getLunar();
+            baZi = lunarObj.getEightChar();
+        } else {
+            throw new Error("出生日期格式解析失败");
+        }
 
-命主信息：
-性别：${promptData.gender}
-出生日期：${promptData.birthStr}
-八字原局：${promptData.baziStr}
-当前大运：${promptData.daYunStr}
+        // 2. 当前流年与大运提取
+        const nowLunar = Solar.fromDate(new Date()).getLunar();
+        const currentLiuNianGan = nowLunar.getYearGan();
+        const currentLiuNianZhi = nowLunar.getYearZhi();
+        
+        let currentDaYunGan = "未知", currentDaYunZhi = "未知";
+        const dyMatch = promptData.daYunStr.match(/^([甲乙丙丁戊己庚辛壬癸])([子丑寅卯辰巳午未申酉戌亥])/);
+        if(dyMatch) {
+            currentDaYunGan = dyMatch[1];
+            currentDaYunZhi = dyMatch[2];
+        }
 
-请严格参考以下排版格式输出（保持纯文本，勿使用 markdown 代码块包裹）：
+        // 提取日主天干，用于计算大运流年十神
+        const dayGan = baZi.getDayGan();
+        const getShiShen = (gan) => {
+            // lunar-javascript 内部十神映射逻辑 (简化版引用)
+            // 这里为了确保独立运算，可以直接调用 lunar-javascript 获取，但对于大运流年，我们可以借助原局日干
+            // 简单起见，利用 lunar 自身能力或预设逻辑：
+            const bzTemp = solarObj.getLunar().getEightChar();
+            return bzTemp.getShiShenGan() || "未知"; 
+        };
+
+        // 3. 组装客观数据大字典 (这部分完全不需要 LLM 参与)
+        const objectiveBaziData = {
+            // [1-4] 四柱
+            year_pillar: baZi.getYear(),
+            month_pillar: baZi.getMonth(),
+            day_pillar: baZi.getDay(),
+            time_pillar: baZi.getTime(),
+            
+            // [6-9] 四柱藏干
+            hidden_stems: {
+                year: baZi.getYearHideGan(),   // e.g. ['戊', '丙', '甲']
+                month: baZi.getMonthHideGan(),
+                day: baZi.getDayHideGan(),
+                time: baZi.getTimeHideGan()
+            },
+
+            // [10-13] 四柱十神
+            ten_gods: {
+                year: { gan: baZi.getYearShiShenGan(), zhi: baZi.getYearShiShenZhi() },
+                month: { gan: baZi.getMonthShiShenGan(), zhi: baZi.getMonthShiShenZhi() },
+                day: { gan: "日主", zhi: baZi.getDayShiShenZhi() },
+                time: { gan: baZi.getTimeShiShenGan(), zhi: baZi.getTimeShiShenZhi() }
+            },
+
+            // [17-22] 当前大运与流年
+            current_yun_nian: {
+                dayun_gan: currentDaYunGan,
+                dayun_zhi: currentDaYunZhi,
+                liunian_gan: currentLiuNianGan,
+                liunian_zhi: currentLiuNianZhi
+            },
+
+            // [24] 神煞 (通过 lunar-javascript 提取)
+            shensha: {
+                year: baZi.getYearShenSha().map(s => s.getName()),
+                month: baZi.getMonthShenSha().map(s => s.getName()),
+                day: baZi.getDayShenSha().map(s => s.getName()),
+                time: baZi.getTimeShenSha().map(s => s.getName())
+            },
+
+            // [23] 天干地支合克关系 (lunar-javascript 原生提取地支刑冲合害)
+            relations: {
+                zhi_chong: [baZi.getYearZhi(), baZi.getMonthZhi(), baZi.getDayZhi(), baZi.getTimeZhi()].join(",") + " 内查冲",
+                // lunar 对象可以获取日柱是否被冲等
+                day_chong: baZi.getDayChongDesc(),
+                year_chong: baZi.getYearChongDesc()
+            }
+        };
+
+
+// ============================================================================
+        // 🌟 第二步：只把需要“定性分析”的任务交给大模型 (引入 Few-Shot 与三字段拆分)
+        // ============================================================================
+        
+        const llmPrompt = `你是一位精通子平八字的命理大师。
+下面是命主的客观基础数据：
 • 性别：${promptData.gender}
-• 出生日期：${promptData.birthStr}
-• 八字原局：${promptData.baziStr}
-• 原局核心：[一两句话概括日主得令得势情况，整体格局身旺/身弱，喜用神和忌神]
-• 当前大运：[讲清楚当前大运干支,喜忌关系即可]
+• 八字原局：${objectiveBaziData.year_pillar} ${objectiveBaziData.month_pillar} ${objectiveBaziData.day_pillar} ${objectiveBaziData.time_pillar}
+• 原局地支十神：年[${objectiveBaziData.ten_gods.year.zhi}] 月[${objectiveBaziData.ten_gods.month.zhi}] 日[${objectiveBaziData.ten_gods.day.zhi}] 时[${objectiveBaziData.ten_gods.time.zhi}]
+• 当前大运：${promptData.daYunStr}
+• 当前流年：${currentLiuNianGan}${currentLiuNianZhi}年
 
-参考：
-• 性别：女
-• 出生日期：1988年5月24日 亥时 21:17:00
-• 八字原局 (坤造)：戊辰 (年) 丁巳 (月) 己卯 (日) 乙亥 (时)
-• 原局核心：己土日主生于巳月，偏印当令，初夏火旺土相。月干透出丁火偏印贴身相生，年柱戊辰干支一气劫财帮身，日主得令得势。日支坐卯木七杀，时柱乙亥财杀相生，用以克制旺土。整体属于“身旺”格局。喜水木金（财、官杀、食伤），忌火土（印星、比劫）。
-• 当前大运：癸丑大运 (37岁-46岁，2024年起运)，天干癸水为偏财，透干润局并生扶原局七杀，地支丑土为比肩帮身。大运天干见财为喜，但地支比肩有劫财之象，属于吉凶参杂的运势。
+请基于以上八字，执行以下分析：
+1. 【身强/身弱定性】：判断日主强弱。标准：得令、得地、得势，满足两项及以上为身强，否则身弱。
+2. 【提取十神喜忌】：结合原局结构，提取喜用神与忌仇神。
+3. 【刑冲合害深度解析】：综合原局、大运、流年，总结核心的合克关系。
+4. 【八字断语】：分别撰写原局核心、当前大运和当前流年简评。
 
-`;
+【断语文案风格参考 (Few-Shot)】
+请严格模仿以下示例的专业术语和推演逻辑，分别撰写 \`yuanju_core\`、\`current_dayun\` 和 \`current_liunian\`，不要使用废话：
+
+原局核心：甲木日主生于未月，季夏土旺，日主失令。天干戊己土正偏财并透，地支未戌皆为土，全局财星极旺；虽有年支寅木作为日主之根，时干癸水正印贴身相生，但总体依然耗泄过重。整体属于“财多身弱”格局。喜水木（印星、比劫）生扶帮身以担财，忌火土（食伤、财星）加重耗泄，逢金（官杀）克身亦为忌。
+当前大运：壬戌大运，天干壬水为偏印，透出生扶弱身且能润泽原局燥土，为喜用；但地支戌土为偏财忌神，不仅加重原局财星旺势，还与月支引发“未戌相刑”激旺土气。此大运天干喜印生身，地支忌财耗身，属于吉凶参半、财重压身且求财较为辛苦的运势。
+当前流年：结合流年干支与原局大运的生克制化，...（此处补充流年简评）
+
+【输出格式要求】
+必须且仅输出纯 JSON 字符串（不要 Markdown 标记），结构严格如下：
+{
+  "strong_weak": "身强 或 身弱 或 中和偏弱等",
+  "favorable_gods": ["印星", "比劫"],
+  "unfavorable_gods": ["官杀", "财星"],
+  "relations_analysis": "核心刑冲合害描述文字，例如：原局地支寅申相冲...",
+  "yuanju_core": "此处填写模仿 Few-Shot 风格生成的原局核心分析",
+  "current_dayun": "此处填写模仿 Few-Shot 风格生成的当前大运分析",
+  "current_liunian": "此处填写模仿 Few-Shot 风格生成的当前流年简评"
+}`;
 
         const API_KEY = process.env.GEMINI_API_KEY; 
         const API_URL = 'https://yinli.one/v1/chat/completions'; 
@@ -52,21 +156,50 @@ module.exports = async function handler(req, res) {
                 "Authorization": `Bearer ${API_KEY}` 
             },
             body: JSON.stringify({
-                model: 'gemini-3.1-pro-preview', // 填你的模型
-                messages: [{ role: 'user', content: finalPrompt }],
-                temperature: 0.7
+                model: 'gemini-3.1-pro-preview', 
+                messages: [{ role: 'user', content: llmPrompt }],
+                temperature: 0.2, // 低温，确保定性稳定
+                response_format: { type: "json_object" }
             })
         });
 
         const apiData = await response.json();
         if (apiData.error) throw new Error(apiData.error.message || "请求大模型失败");
 
-        let textResult = apiData.choices[0].message.content;
-        textResult = textResult.replace(/```json/g, "").replace(/```/g, "").trim();
+        let rawResult = apiData.choices[0].message.content;
+        rawResult = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
+        const llmQualitativeData = JSON.parse(rawResult);
 
-        // 写入缓存并返回
-        memoryCache[cacheKey] = textResult;
-        return res.status(200).json({ result: textResult });
+        // ============================================================================
+        // 🌟 第三步：Node.js 合并两套数据并返回
+        // ============================================================================
+        
+        // 组合最终完整的 bazi_detail
+        const finalBaziDetail = {
+            ...objectiveBaziData, // 包含原生精确计算结果
+            strong_weak: llmQualitativeData.strong_weak,                
+            favorable_gods: llmQualitativeData.favorable_gods,          
+            unfavorable_gods: llmQualitativeData.unfavorable_gods,      
+            relations_analysis: llmQualitativeData.relations_analysis,  
+            yuanju_core: llmQualitativeData.yuanju_core,                
+            current_dayun: llmQualitativeData.current_dayun,            
+            current_liunian: llmQualitativeData.current_liunian         
+        };
+
+        // 💡 兼容性魔法：
+        // 你的前端 index.html 里原来是通过 data.result 取完整字符串渲染的。
+        // 这里我们在后端自动把三个字段拼接成带换行的长文本赋值给 result。
+        // 这样你的前端代码一行都不用改，照样能渲染！而数据库落表时可以直接取 bazi_detail 里的独立字段。
+        const combinedResultText = `原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
+
+        const outputPayload = { 
+            result: combinedResultText,  // 兼容旧前端 UI
+            bazi_detail: finalBaziDetail // 供存入数据库结构化使用
+        };
+
+        memoryCache[cacheKey] = outputPayload;
+        
+        return res.status(200).json(outputPayload);
 
     } catch (error) {
         console.error(error);
