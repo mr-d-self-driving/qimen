@@ -3,6 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 
 // 内存缓存
 const memoryCache = {};
+
 // 初始化管理员权限的 supabase 客户端 (绕过前端 RLS)
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -12,13 +13,10 @@ const supabase = createClient(
 module.exports = async function handler(req, res) {
     // ============================================================================
     // 🛡️ 防线 1：CORS 跨域限制 (防浏览器盗站调用)
-    // 强烈建议在 Vercel 环境变量中配置 FRONTEND_URL，例如：https://my-qimen.vercel.app
-    // 未配置时默认 '*' 保证调试不断，配置后瞬间锁死域名
     // ============================================================================
     const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
     res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    // ⚠️ 必须允许 Authorization 请求头通过预检
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); 
     if (req.method === 'OPTIONS') return res.status(200).end();
 
@@ -44,44 +42,54 @@ module.exports = async function handler(req, res) {
         }
 
         // ============================================================================
-        // 🛡️ 防线 3：3 次免费额度限制 (精准计费管控)
+        // 🛡️ 防线 3：3 次免费额度限制 + 👑 VIP 白名单特权
         // ============================================================================
-        // 查询该用户已成功推演过（有断语结果）的八字档案数量
-        const { count, error: countError } = await supabase
-            .from('bazi_profiles')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', user.id)
-            .not('bazi_summary', 'is', null);
+        // 1. 获取白名单列表并转为小写
+        const whitelistStr = process.env.WHITELIST_EMAILS || "";
+        const whitelist = whitelistStr.split(',').map(email => email.trim().toLowerCase());
+        const currentUserEmail = user.email ? user.email.toLowerCase() : "";
 
-        if (countError) throw new Error("无法验证用户额度状态");
+        // 2. 判断当前用户是否在白名单中
+        const isVIP = whitelist.includes(currentUserEmail);
 
-        // 如果用户已有的推演次数 >= 3
-        if (count >= 3) {
-            // 查一下当前请求的档案是否以前算过。如果是针对已有结果的档案点击"重新推演"，则放行；
-            // 如果是针对新档案首次推演，则拦截！
-            const { data: existingProfile } = await supabase
+        if (isVIP) {
+            console.log(`👑 白名单特权账户 [${currentUserEmail}] 发起八字推演，免除额度限制`);
+        } else {
+            // 查询该普通用户已成功推演过（有断语结果）的八字档案数量
+            const { count, error: countError } = await supabase
                 .from('bazi_profiles')
-                .select('bazi_summary')
-                .eq('id', promptData.profileId)
-                .single();
-            
-            if (!existingProfile || !existingProfile.bazi_summary) {
-                return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id)
+                .not('bazi_summary', 'is', null);
+
+            if (countError) throw new Error("无法验证用户额度状态");
+
+            // 如果用户已有的推演次数 >= 3
+            if (count >= 3) {
+                // 查一下当前请求的档案是否以前算过。如果是针对已有结果的档案点击"重新推演"，则放行；
+                // 如果是针对新档案首次推演，则拦截！
+                const { data: existingProfile } = await supabase
+                    .from('bazi_profiles')
+                    .select('bazi_summary')
+                    .eq('id', promptData.profileId)
+                    .single();
+                
+                if (!existingProfile || !existingProfile.bazi_summary) {
+                    return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
+                }
             }
         }
 
-        // --- 缓存判断 ---
+        // --- 内存缓存判断 ---
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
         if (memoryCache[cacheKey]) {
-            console.log("⚡️ 命中混合架构缓存！直接返回。");
+            console.log("⚡️ 命中云端内存缓存！直接返回。");
             return res.status(200).json(memoryCache[cacheKey]);
         }
 
         // ============================================================================
-        // 🌟 第一步：完全依靠 lunar-javascript 在本地生成所有客观维度数据
+        // 🌟 核心一：依靠 lunar-javascript 在本地生成全量客观维度数据 (对齐专业排盘)
         // ============================================================================
-        
-        // 假设 promptData 传入了精确的出生阳历字符串，这里需重新实例化获取 baZi
         const dateMatch = promptData.birthStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
         const timeMatch = promptData.birthStr.match(/(\d{1,2}):(\d{1,2})/);
         if (!dateMatch) throw new Error("出生日期格式解析失败");
@@ -94,11 +102,11 @@ module.exports = async function handler(req, res) {
         const baZi = solarObj.getLunar().getEightChar();
         const dayGan = baZi.getDayGan();
 
-        // 性别转换与起运对象
+        // 性别转换与起运对象 (1为男，0为女)
         const genderCode = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造') ? 1 : 0;
         const yun = baZi.getYun(genderCode);
 
-        // 提取大运时间轴
+        // 提取大运时间轴 (10步大运)
         const daYunList = yun.getDaYun().slice(0, 10).map(dy => ({
             start_age: dy.getStartAge(),
             start_year: dy.getStartYear(),
@@ -113,7 +121,6 @@ module.exports = async function handler(req, res) {
         
         if (currentDaYunObj) {
              liuNianList = currentDaYunObj.getLiuNian().map(ln => {
-                 // 顺便拿到当年的干支给大模型用
                  if (ln.getYear() === currentYear) {
                      currentLiuNianGan = ln.getGanZhi().charAt(0);
                      currentLiuNianZhi = ln.getGanZhi().charAt(1);
@@ -142,9 +149,8 @@ module.exports = async function handler(req, res) {
         };
 
         // ============================================================================
-        // 🌟 第二步：定性分析交由 Gemini
+        // 🌟 核心二：定性分析交由 Gemini (引入 Few-Shot 与三字段拆分)
         // ============================================================================
-        
         const llmPrompt = `你是一位精通子平八字的命理大师。
 下面是命主的客观基础数据：
 • 性别：${promptData.gender}
@@ -155,10 +161,17 @@ module.exports = async function handler(req, res) {
 • 辅助信息：日空亡[${objectiveBaziData.base_info.day_kongwang}]
 
 请基于以上八字，执行以下分析：
-1. 【身强/身弱定性】：判断日主强弱。
-2. 【提取十神喜忌】：提取喜用神与忌仇神。
-3. 【神煞与刑冲合害】：综合大运流年，总结核心的合克关系。
+1. 【身强/身弱定性】：判断日主强弱。标准：得令、得地、得势，满足两项及以上为身强，否则身弱。
+2. 【提取十神喜忌】：结合原局结构，提取喜用神与忌仇神。
+3. 【神煞与刑冲合害】：依据原局四柱推导核心神煞(如桃花/驿马/羊刃等)，并综合大运流年，总结核心的合克关系。
 4. 【八字断语】：分别撰写原局核心、当前大运和当前流年简评。
+
+【断语文案风格参考 (Few-Shot)】
+请严格模仿以下示例的专业术语和推演逻辑，分别撰写 \`yuanju_core\`、\`current_dayun\` 和 \`current_liunian\`，不要使用废话：
+
+原局核心：甲木日主生于未月，季夏土旺，日主失令。天干戊己土正偏财并透，全局财星极旺；虽有时干癸水正印贴身相生，且命带驿马桃花，但总体耗泄过重。整体属于“财多身弱”格局。喜水木生扶帮身以担财，忌火土加重耗泄。地支子未相害，需防暗耗。
+当前大运：壬戌大运，天干壬水偏印生扶弱身为喜；但地支戌土不仅加重原局财星旺势，还引发“未戌相刑”激旺土气。此运喜印生身，忌财耗身，属于财重压身、求财辛苦的运势。
+当前流年：结合流年干支与原局大运的生克制化，...（此处补充流年简评）
 
 【输出格式要求】
 必须且仅输出纯 JSON 字符串（不要 Markdown 标记），结构严格如下：
@@ -166,10 +179,10 @@ module.exports = async function handler(req, res) {
   "strong_weak": "身强 或 身弱 或 中和偏弱等",
   "favorable_gods": ["印星", "比劫"],
   "unfavorable_gods": ["官杀", "财星"],
-  "relations_analysis": "核心神煞与刑冲合害描述...",
-  "yuanju_core": "原局核心分析",
-  "current_dayun": "当前大运分析",
-  "current_liunian": "当前流年简评"
+  "relations_analysis": "核心神煞与刑冲合害描述，例如：命带桃花，原局寅申相冲...",
+  "yuanju_core": "此处填写模仿 Few-Shot 风格生成的原局核心分析",
+  "current_dayun": "此处填写模仿 Few-Shot 风格生成的当前大运分析",
+  "current_liunian": "此处填写模仿 Few-Shot 风格生成的当前流年简评"
 }`;
 
         const API_KEY = process.env.GEMINI_API_KEY; 
@@ -184,7 +197,7 @@ module.exports = async function handler(req, res) {
             body: JSON.stringify({
                 model: 'gemini-3.1-pro-preview', 
                 messages: [{ role: 'user', content: llmPrompt }],
-                temperature: 0.2, 
+                temperature: 0.2, // 低温，确保定性稳定
                 response_format: { type: "json_object" }
             })
         });
@@ -197,7 +210,7 @@ module.exports = async function handler(req, res) {
         const llmQualitativeData = JSON.parse(rawResult);
 
         // ============================================================================
-        // 🌟 第三步：合并数据、后端写库并返回
+        // 🌟 核心三：合并数据、后端安全写库并返回
         // ============================================================================
         const finalBaziDetail = {
             ...objectiveBaziData, 
