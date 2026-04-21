@@ -148,15 +148,19 @@ module.exports = async function handler(req, res) {
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
         if (memoryCache[cacheKey]) return res.status(200).json(memoryCache[cacheKey]);
 
-        // ============================================================================
         // 🌟 核心一：历法与 BaziEngine 本地计算 (神煞、格局直接算出，杜绝大模型幻觉)
         // ============================================================================
-        const dateMatch = promptData.birthStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
-        const timeMatch = promptData.birthStr.match(/(\d{1,2}):(\d{1,2})/);
-        if (!dateMatch) throw new Error("出生日期格式解析失败");
+        // 🚀 修复：改用全局数字提取，完美兼容 YYYY-MM-DD 和 YYYY年MM月DD日 各种格式
+        const dateParts = promptData.birthStr ? promptData.birthStr.match(/\d+/g) : null;
+        if (!dateParts || dateParts.length < 3) {
+            throw new Error(`出生日期解析失败，收到的异常数据为: ${promptData.birthStr || '空'}`);
+        }
         
-        const y = parseInt(dateMatch[1]), m = parseInt(dateMatch[2]), d = parseInt(dateMatch[3]);
-        const h = timeMatch ? parseInt(timeMatch[1]) : 12, min = timeMatch ? parseInt(timeMatch[2]) : 0;
+        const y = parseInt(dateParts[0]);
+        const m = parseInt(dateParts[1]);
+        const d = parseInt(dateParts[2]);
+        const h = dateParts[3] ? parseInt(dateParts[3]) : 12; // 缺失小时默认中午 12 点
+        const min = dateParts[4] ? parseInt(dateParts[4]) : 0; // 缺失分钟默认 0 分
         
         const solarObj = Solar.fromYmdHms(y, m, d, h, min, 0);
         const baZi = solarObj.getLunar().getEightChar();
