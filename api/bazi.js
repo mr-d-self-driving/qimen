@@ -286,7 +286,7 @@ module.exports = async function handler(req, res) {
                 current_dayun: finalBaziDetail.current_dayun,
                 current_liunian: finalBaziDetail.current_liunian,
                 bazi_detail: finalBaziDetail,
-                shensha: shenshaResult, // ⚠️ 重要：将前端急需的神煞对象存入专属字段
+                shensha: JSON.stringify(shenshaResult), 
                 geju: geJu              // ⚠️ 重要：将格局存入专属字段
             })
             .eq('id', promptData.profileId);
