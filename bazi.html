@@ -277,13 +277,19 @@
             renderDashboard();
         }
 
-        function generateLunarPromptData(profile) {
+function generateLunarPromptData(profile) {
             let res = { gender: profile.gender === 'M' ? '男' : '女', birthStr: "", baziStr: "", daYunStr: "当前大运" };
             if (profile.birth_date) {
                 const p = profile.birth_date.match(/\d+/g);
-                res.birthStr = `${p[0]}年${p[1]}月${p[2]}日 ${p[3]}:${p[4]}`;
-                const b = window.Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(p[3]), parseInt(p[4]), 0).getLunar().getEightChar();
-                res.baziStr = `${b.getYear()} ${b.getMonth()} ${b.getDay()} ${b.getTime()}`;
+                if (p && p.length >= 3) {
+                    // 增加容错：如果缺失时分，默认补 12:00
+                    const hour = p[3] || '12';
+                    const minute = p[4] || '00';
+                    res.birthStr = `${p[0]}年${p[1]}月${p[2]}日 ${hour}:${minute}`;
+                    
+                    const b = window.Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(hour), parseInt(minute), 0).getLunar().getEightChar();
+                    res.baziStr = `${b.getYear()} ${b.getMonth()} ${b.getDay()} ${b.getTime()}`;
+                }
             }
             return res;
         }
