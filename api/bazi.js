@@ -10,6 +10,100 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY // 务必使用具有最高权限的 Service Role Key
 );
 
+// ============================================================================
+// 🌟 东方玄学 OS - 八字核心推算引擎 (本地精准计算，防大模型幻觉)
+// ============================================================================
+const BaziEngine = {
+    Rules: {
+        tianYi:   { 甲:'丑未', 乙:'子申', 丙:'亥酉', 丁:'亥酉', 戊:'丑未', 己:'子申', 庚:'寅午', 辛:'寅午', 壬:'卯巳', 癸:'卯巳' },
+        wenChang: { 甲:'巳', 乙:'午', 丙:'申', 丁:'酉', 戊:'申', 己:'酉', 庚:'亥', 辛:'子', 壬:'寅', 癸:'卯' },
+        yangRen:  { 甲:'卯', 丙:'午', 戊:'午', 庚:'酉', 壬:'子' },
+        luShen:   { 甲:'寅', 乙:'卯', 丙:'巳', 丁:'午', 戊:'巳', 己:'午', 庚:'申', 辛:'酉', 壬:'亥', 癸:'子' },
+        yiMa:     { 申:'寅', 子:'寅', 辰:'寅', 寅:'申', 午:'申', 戌:'申', 亥:'巳', 卯:'巳', 未:'巳', 巳:'亥', 酉:'亥', 丑:'亥' },
+        taoHua:   { 申:'酉', 子:'酉', 辰:'酉', 寅:'卯', 午:'卯', 戌:'卯', 亥:'子', 卯:'子', 未:'子', 巳:'午', 酉:'午', 丑:'午' },
+        huaGai:   { 申:'辰', 子:'辰', 辰:'辰', 寅:'戌', 午:'戌', 戌:'戌', 亥:'未', 卯:'未', 未:'未', 巳:'丑', 酉:'丑', 丑:'丑' },
+        jiangXing:{ 申:'子', 子:'子', 辰:'子', 寅:'午', 午:'午', 戌:'午', 亥:'卯', 卯:'卯', 未:'卯', 巳:'酉', 酉:'酉', 丑:'酉' },
+        guChen:   { 寅:'巳', 卯:'巳', 辰:'巳', 巳:'申', 午:'申', 未:'申', 申:'亥', 酉:'亥', 戌:'亥', 亥:'寅', 子:'寅', 丑:'寅' },
+        guaSu:    { 寅:'丑', 卯:'丑', 辰:'丑', 巳:'辰', 午:'辰', 未:'辰', 申:'未', 酉:'未', 戌:'未', 亥:'戌', 子:'戌', 丑:'戌' },
+        yueDe:    { 寅:'丙', 午:'丙', 戌:'丙', 申:'壬', 子:'壬', 辰:'壬', 亥:'甲', 卯:'甲', 未:'甲', 巳:'庚', 酉:'庚', 丑:'庚' },
+        tianDe:   { 寅:'丁', 卯:'申', 辰:'壬', 巳:'辛', 午:'亥', 未:'甲', 申:'癸', 酉:'寅', 戌:'丙', 亥:'乙', 子:'巳', 丑:'庚' }
+    },
+    calculateShenSha: function(bazi) {
+        const { year, month, day, time } = bazi;
+        const pillars = { year, month, day, time };
+        const result = { year: [], month: [], day: [], time: [] };
+        const dayGan = day[0], monthZhi = month[1], yearZhi = year[1], dayZhi = day[1];
+
+        for (const [key, pillar] of Object.entries(pillars)) {
+            const zhi = pillar[1], gan = pillar[0];
+            if (this.Rules.tianYi[dayGan]?.includes(zhi)) result[key].push("天乙贵人");
+            if (this.Rules.wenChang[dayGan] === zhi) result[key].push("文昌贵人");
+            if (this.Rules.yangRen[dayGan] === zhi) result[key].push("羊刃");
+            if (this.Rules.luShen[dayGan] === zhi) result[key].push("禄神");
+
+            const zhiRules = ['yiMa', 'taoHua', 'huaGai', 'jiangXing', 'guChen', 'guaSu'];
+            const zhiNames = ['驿马', '桃花', '华盖', '将星', '孤辰', '寡宿'];
+            for (let i = 0; i < zhiRules.length; i++) {
+                if (this.Rules[zhiRules[i]][yearZhi] === zhi || this.Rules[zhiRules[i]][dayZhi] === zhi) {
+                    if (!result[key].includes(zhiNames[i])) result[key].push(zhiNames[i]);
+                }
+            }
+            if (this.Rules.yueDe[monthZhi] === gan) result[key].push("月德贵人");
+            if (this.Rules.tianDe[monthZhi] === gan || this.Rules.tianDe[monthZhi] === zhi) result[key].push("天德贵人");
+        }
+        return {
+            year: result.year.length > 0 ? result.year.join(" ") : "-",
+            month: result.month.length > 0 ? result.month.join(" ") : "-",
+            day: result.day.length > 0 ? result.day.join(" ") : "-",
+            time: result.time.length > 0 ? result.time.join(" ") : "-"
+        };
+    },
+    extractSpecialPatterns: function(bazi) {
+        const patterns = [];
+        const dayPillar = bazi.day.join('');
+        const timePillar = bazi.time.join('');
+        const allZhis = [bazi.year[1], bazi.month[1], bazi.day[1], bazi.time[1]];
+
+        if (['庚辰', '庚戌', '壬辰', '戊戌'].includes(dayPillar)) patterns.push("【魁罡】重叠逢之主大贵。");
+        if (['乙丑', '己巳', '癸酉'].includes(timePillar)) patterns.push("【金神】威猛刚烈，逢火乡发富贵。");
+        
+        if (allZhis.includes('辰') && allZhis.includes('巳')) patterns.push("【地网】宜遵纪守法。");
+        if (allZhis.includes('戌') && allZhis.includes('亥')) patterns.push("【天罗】易怀才不遇。");
+
+        const sheng = allZhis.filter(z => ['寅','申','巳','亥'].includes(z));
+        const bai = allZhis.filter(z => ['子','午','卯','酉'].includes(z));
+        const ku = allZhis.filter(z => ['辰','戌','丑','未'].includes(z));
+        if (sheng.length >= 3) patterns.push("【四生局】寅申巳亥多，奔波变动大。");
+        if (bai.length >= 3) patterns.push("【四败局】子午卯酉多，异性缘极佳。");
+        if (ku.length >= 3) patterns.push("【四库局】辰戌丑未多，稳重藏锋芒。");
+        return patterns;
+    },
+    ShiShen: {
+        '甲': { '甲':'比', '乙':'劫', '丙':'食', '丁':'伤', '戊':'才', '己':'财', '庚':'杀', '辛':'官', '壬':'枭', '癸':'印' },
+        '乙': { '甲':'劫', '乙':'比', '丙':'伤', '丁':'食', '戊':'财', '己':'才', '庚':'官', '辛':'杀', '壬':'印', '癸':'枭' },
+        '丙': { '甲':'枭', '乙':'印', '丙':'比', '丁':'劫', '戊':'食', '己':'伤', '庚':'才', '辛':'财', '壬':'杀', '癸':'官' },
+        '丁': { '甲':'印', '乙':'枭', '丙':'劫', '丁':'比', '戊':'伤', '己':'食', '庚':'财', '辛':'才', '壬':'官', '癸':'杀' },
+        '戊': { '甲':'杀', '乙':'官', '丙':'枭', '丁':'印', '戊':'比', '己':'劫', '庚':'食', '辛':'伤', '壬':'才', '癸':'财' },
+        '己': { '甲':'官', '乙':'杀', '丙':'印', '丁':'枭', '戊':'劫', '己':'比', '庚':'伤', '辛':'食', '壬':'财', '癸':'才' },
+        '庚': { '甲':'才', '乙':'财', '丙':'杀', '丁':'官', '戊':'枭', '己':'印', '庚':'比', '辛':'劫', '壬':'食', '癸':'伤' },
+        '辛': { '甲':'财', '乙':'才', '丙':'官', '丁':'杀', '戊':'印', '己':'枭', '庚':'劫', '辛':'比', '壬':'伤', '癸':'食' },
+        '壬': { '甲':'食', '乙':'伤', '丙':'才', '丁':'财', '戊':'杀', '己':'官', '庚':'枭', '辛':'印', '壬':'比', '癸':'劫' },
+        '癸': { '甲':'伤', '乙':'食', '丙':'财', '丁':'才', '戊':'官', '己':'杀', '庚':'印', '辛':'枭', '壬':'劫', '癸':'比' }
+    },
+    ZhiMainGan: { '子':'癸', '丑':'己', '寅':'甲', '卯':'乙', '辰':'戊', '巳':'丙', '午':'丁', '未':'己', '申':'庚', '酉':'辛', '戌':'戊', '亥':'壬' },
+    getGeJu: function(bazi) {
+        const dayGan = bazi.day[0], monthZhi = bazi.month[1];
+        const jianLuMap = { '甲':'寅', '乙':'卯', '丙':'巳', '丁':'午', '戊':'巳', '己':'午', '庚':'申', '辛':'酉', '壬':'亥', '癸':'子' };
+        const yueRenMap = { '甲':'卯', '庚':'酉', '壬':'子' }; 
+        if (jianLuMap[dayGan] === monthZhi) return "建禄格";
+        if (yueRenMap[dayGan] === monthZhi) return "月刃格";
+        const mainGan = this.ZhiMainGan[monthZhi];
+        const gejuName = this.ShiShen[dayGan][mainGan];
+        const formatMap = { '官':'正官格', '杀':'七杀格', '财':'正财格', '才':'偏财格', '食':'食神格', '伤':'伤官格', '印':'正印格', '枭':'偏印格', '比':'比肩格', '劫':'劫财格' };
+        return formatMap[gejuName] || (gejuName + "格");
+    }
+};
+
 module.exports = async function handler(req, res) {
     // ============================================================================
     // 🛡️ 防线 1：CORS 跨域限制 (防浏览器盗站调用)
@@ -25,164 +119,115 @@ module.exports = async function handler(req, res) {
         // 🛡️ 防线 2：JWT 鉴权拦截 (防 Postman 和 Python 脚本刷接口)
         // ============================================================================
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ error: "Unauthorized: 缺少身份令牌，拒绝访问" });
-        }
+        if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: "Unauthorized: 缺少身份令牌" });
         const token = authHeader.split(' ')[1];
-        
-        // 验证前端传来的 supabase Token 的合法性
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-        if (authError || !user) {
-            return res.status(401).json({ error: "Unauthorized: 令牌无效或已过期，请重新登录" });
-        }
+        if (authError || !user) return res.status(401).json({ error: "Unauthorized: 令牌无效或已过期" });
 
         const { promptData } = req.body;
-        if (!promptData || !promptData.profileId) {
-            return res.status(400).json({ error: "缺少八字数据或档案 ID" });
-        }
+        if (!promptData || !promptData.profileId) return res.status(400).json({ error: "缺少八字数据或档案 ID" });
 
         // ============================================================================
         // 🛡️ 防线 3：3 次免费额度限制 + 👑 VIP 白名单特权
         // ============================================================================
-        // 1. 获取白名单列表并转为小写
         const whitelistStr = process.env.WHITELIST_EMAILS || "";
         const whitelist = whitelistStr.split(',').map(email => email.trim().toLowerCase());
         const currentUserEmail = user.email ? user.email.toLowerCase() : "";
-
-        // 2. 判断当前用户是否在白名单中
         const isVIP = whitelist.includes(currentUserEmail);
 
-        if (isVIP) {
-            console.log(`👑 白名单特权账户 [${currentUserEmail}] 发起八字推演，免除额度限制`);
-        } else {
-            // 查询该普通用户已成功推演过（有断语结果）的八字档案数量
-            const { count, error: countError } = await supabase
-                .from('bazi_profiles')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id)
-                .not('bazi_summary', 'is', null);
-
+        if (!isVIP) {
+            const { count, error: countError } = await supabase.from('bazi_profiles').select('*', { count: 'exact', head: true })
+                .eq('user_id', user.id).not('bazi_summary', 'is', null);
             if (countError) throw new Error("无法验证用户额度状态");
-
-            // 如果用户已有的推演次数 >= 3
             if (count >= 3) {
-                // 查一下当前请求的档案是否以前算过。如果是针对已有结果的档案点击"重新推演"，则放行；
-                // 如果是针对新档案首次推演，则拦截！
-                const { data: existingProfile } = await supabase
-                    .from('bazi_profiles')
-                    .select('bazi_summary')
-                    .eq('id', promptData.profileId)
-                    .single();
-                
-                if (!existingProfile || !existingProfile.bazi_summary) {
-                    return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
-                }
+                const { data: existingProfile } = await supabase.from('bazi_profiles').select('bazi_summary').eq('id', promptData.profileId).single();
+                if (!existingProfile || !existingProfile.bazi_summary) return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
             }
         }
 
-        // --- 内存缓存判断 ---
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
-        if (memoryCache[cacheKey]) {
-            console.log("⚡️ 命中云端内存缓存！直接返回。");
-            return res.status(200).json(memoryCache[cacheKey]);
-        }
+        if (memoryCache[cacheKey]) return res.status(200).json(memoryCache[cacheKey]);
 
         // ============================================================================
-        // 🌟 核心一：依靠 lunar-javascript 在本地生成全量客观维度数据 (对齐专业排盘)
+        // 🌟 核心一：历法与 BaziEngine 本地计算 (神煞、格局直接算出，杜绝大模型幻觉)
         // ============================================================================
         const dateMatch = promptData.birthStr.match(/(\d{4})年(\d{1,2})月(\d{1,2})日/);
         const timeMatch = promptData.birthStr.match(/(\d{1,2}):(\d{1,2})/);
         if (!dateMatch) throw new Error("出生日期格式解析失败");
         
         const y = parseInt(dateMatch[1]), m = parseInt(dateMatch[2]), d = parseInt(dateMatch[3]);
-        const h = timeMatch ? parseInt(timeMatch[1]) : 12;
-        const min = timeMatch ? parseInt(timeMatch[2]) : 0;
+        const h = timeMatch ? parseInt(timeMatch[1]) : 12, min = timeMatch ? parseInt(timeMatch[2]) : 0;
         
         const solarObj = Solar.fromYmdHms(y, m, d, h, min, 0);
         const baZi = solarObj.getLunar().getEightChar();
-        const dayGan = baZi.getDayGan();
-
-        // 性别转换与起运对象 (1为男，0为女)
         const genderCode = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造') ? 1 : 0;
         const yun = baZi.getYun(genderCode);
 
-        // 提取大运时间轴 (10步大运)
-        const daYunList = yun.getDaYun().slice(0, 10).map(dy => ({
-            start_age: dy.getStartAge(),
-            start_year: dy.getStartYear(),
-            ganzhi: dy.getGanZhi(),
-        }));
+        // 构建格式化八字供 BaziEngine 调用
+        const baziObj = {
+            year: baZi.getYear().split(''),
+            month: baZi.getMonth().split(''),
+            day: baZi.getDay().split(''),
+            time: baZi.getTime().split('')
+        };
+        
+        // 🚀 调用本地引擎算出客观玄学数据
+        const shenshaResult = BaziEngine.calculateShenSha(baziObj);
+        const geJu = BaziEngine.getGeJu(baziObj);
+        const specialPatterns = BaziEngine.extractSpecialPatterns(baziObj);
 
-        // 提取流年
         const currentYear = new Date().getFullYear();
         let currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
-        let liuNianList = [];
         let currentLiuNianGan = "未知", currentLiuNianZhi = "未知";
-        
         if (currentDaYunObj) {
-             liuNianList = currentDaYunObj.getLiuNian().map(ln => {
+             currentDaYunObj.getLiuNian().forEach(ln => {
                  if (ln.getYear() === currentYear) {
                      currentLiuNianGan = ln.getGanZhi().charAt(0);
                      currentLiuNianZhi = ln.getGanZhi().charAt(1);
                  }
-                 return { year: ln.getYear(), age: ln.getAge(), ganzhi: ln.getGanZhi() };
              });
         }
 
-        // 组装专业排盘大字典
         const objectiveBaziData = {
             base_info: {
-                qi_yun: `出生后${yun.getStartYear()}年${yun.getStartMonth()}个月${yun.getStartDay()}天起运`,
-                jiao_yun: `逢尾数 ${yun.getStartYear() % 10} 之年交大运`,
-                day_kongwang: baZi.getDayXunKong(),
-                si_ling: baZi.getMonthHideGan().length > 0 ? baZi.getMonthHideGan()[0] : ""
+                qi_yun: `出生后${yun.getStartYear()}年起运`,
+                ge_ju: geJu, // 写入格局
+                special_patterns: specialPatterns // 写入特殊命局
             },
             pillars: {
                 ganzhi: { year: baZi.getYear(), month: baZi.getMonth(), day: baZi.getDay(), time: baZi.getTime() },
                 main_stars: { year: baZi.getYearShiShenGan(), month: baZi.getMonthShiShenGan(), day: "日主", time: baZi.getTimeShiShenGan() },
-                hidden_stems: { year: baZi.getYearHideGan(), month: baZi.getMonthHideGan(), day: baZi.getDayHideGan(), time: baZi.getTimeHideGan() },
-                xing_yun: { year: baZi.getYearDiShi(), month: baZi.getMonthDiShi(), day: baZi.getDayDiShi(), time: baZi.getTimeDiShi() },
-                kong_wang_flags: { year: baZi.getDayXunKong().includes(baZi.getYearZhi()), month: baZi.getDayXunKong().includes(baZi.getMonthZhi()), day: false, time: baZi.getDayXunKong().includes(baZi.getTimeZhi()) },
-                na_yin: { year: baZi.getYearNaYin(), month: baZi.getMonthNaYin(), day: baZi.getDayNaYin(), time: baZi.getTimeNaYin() }
-            },
-            timeline: { da_yun: daYunList, current_liu_nian: liuNianList }
+                shensha: shenshaResult // 完美结构化的神煞对象，供前端直接读取
+            }
         };
 
         // ============================================================================
-        // 🌟 核心二：定性分析交由 Gemini (引入 Few-Shot 与三字段拆分)
+        // 🌟 核心二：LLM 仅负责定性分析与断语文案 (不负责算神煞)
         // ============================================================================
         const llmPrompt = `你是一位精通子平八字的命理大师。
-下面是命主的客观基础数据：
+下面是命主的客观基础数据（由专业排盘系统严谨推演，请直接使用，切勿自行更改或捏造神煞）：
 • 性别：${promptData.gender}
 • 八字原局：${objectiveBaziData.pillars.ganzhi.year} ${objectiveBaziData.pillars.ganzhi.month} ${objectiveBaziData.pillars.ganzhi.day} ${objectiveBaziData.pillars.ganzhi.time}
-• 原局天干十神：年[${objectiveBaziData.pillars.main_stars.year}] 月[${objectiveBaziData.pillars.main_stars.month}] 时[${objectiveBaziData.pillars.main_stars.time}]
+• 命主格局：${geJu}
+• 核心神煞：年[${shenshaResult.year}] 月[${shenshaResult.month}] 日[${shenshaResult.day}] 时[${shenshaResult.time}]
+• 特殊命局：${specialPatterns.length > 0 ? specialPatterns.join(' | ') : '无'}
 • 当前大运：${promptData.daYunStr}
 • 当前流年：${currentLiuNianGan}${currentLiuNianZhi}年
-• 辅助信息：日空亡[${objectiveBaziData.base_info.day_kongwang}]
 
 请基于以上八字，执行以下分析：
-1. 【身强/身弱定性】：判断日主强弱。标准：得令、得地、得势，满足两项及以上为身强，否则身弱。
-2. 【提取十神喜忌】：结合原局结构，提取喜用神与忌仇神。
-3. 【神煞与刑冲合害】：依据原局四柱推导核心神煞(如桃花/驿马/羊刃等)，并综合大运流年，总结核心的合克关系。
-4. 【八字断语】：分别撰写原局核心、当前大运和当前流年简评。
-
-【断语文案风格参考 (Few-Shot)】
-请严格模仿以下示例的专业术语和推演逻辑，分别撰写 \`yuanju_core\`、\`current_dayun\` 和 \`current_liunian\`，不要使用废话：
-
-原局核心：甲木日主生于未月，季夏土旺，日主失令。天干戊己土正偏财并透，全局财星极旺；虽有时干癸水正印贴身相生，且命带驿马桃花，但总体耗泄过重。整体属于“财多身弱”格局。喜水木生扶帮身以担财，忌火土加重耗泄。地支子未相害，需防暗耗。
-当前大运：壬戌大运，天干壬水偏印生扶弱身为喜；但地支戌土不仅加重原局财星旺势，还引发“未戌相刑”激旺土气。此运喜印生身，忌财耗身，属于财重压身、求财辛苦的运势。
-当前流年：结合流年干支与原局大运的生克制化，...（此处补充流年简评）
+1. 【身强/身弱定性】：判断日主强弱。
+2. 【提取十神喜忌】：提取喜用神与忌仇神。
+3. 【八字断语】：结合给定的格局、神煞与大运流年生克，分别撰写原局核心、当前大运和当前流年简评。
 
 【输出格式要求】
-必须且仅输出纯 JSON 字符串（不要 Markdown 标记），结构严格如下：
+必须且仅输出纯 JSON 字符串（不要 Markdown 标记），模型中【不需要】再输出神煞数据，结构严格如下：
 {
-  "strong_weak": "身强 或 身弱 或 中和偏弱等",
+  "strong_weak": "身强 或 身弱",
   "favorable_gods": ["印星", "比劫"],
   "unfavorable_gods": ["官杀", "财星"],
-  "relations_analysis": "核心神煞与刑冲合害描述，例如：命带桃花，原局寅申相冲...",
-  "yuanju_core": "此处填写模仿 Few-Shot 风格生成的原局核心分析",
-  "current_dayun": "此处填写模仿 Few-Shot 风格生成的当前大运分析",
-  "current_liunian": "此处填写模仿 Few-Shot 风格生成的当前流年简评"
+  "yuanju_core": "原局核心分析文案...",
+  "current_dayun": "当前大运分析文案...",
+  "current_liunian": "当前流年简评文案..."
 }`;
 
         const API_KEY = process.env.GEMINI_API_KEY; 
@@ -190,14 +235,11 @@ module.exports = async function handler(req, res) {
         
         const llmResponse = await fetch(API_URL, {
             method: 'POST',
-            headers: { 
-                "Content-Type": "application/json",
-                "Authorization": `Bearer ${API_KEY}` 
-            },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
             body: JSON.stringify({
                 model: 'gemini-3.1-pro-preview', 
                 messages: [{ role: 'user', content: llmPrompt }],
-                temperature: 0.2, // 低温，确保定性稳定
+                temperature: 0.2, 
                 response_format: { type: "json_object" }
             })
         });
@@ -205,27 +247,25 @@ module.exports = async function handler(req, res) {
         const apiData = await llmResponse.json();
         if (apiData.error) throw new Error(apiData.error.message || "请求大模型失败");
 
-        let rawResult = apiData.choices[0].message.content;
-        rawResult = rawResult.replace(/```json/g, "").replace(/```/g, "").trim();
+        let rawResult = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
         const llmQualitativeData = JSON.parse(rawResult);
 
         // ============================================================================
         // 🌟 核心三：合并数据、后端安全写库并返回
         // ============================================================================
+        const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
+        
         const finalBaziDetail = {
             ...objectiveBaziData, 
             strong_weak: llmQualitativeData.strong_weak,                
             favorable_gods: llmQualitativeData.favorable_gods,          
             unfavorable_gods: llmQualitativeData.unfavorable_gods,      
-            relations_analysis: llmQualitativeData.relations_analysis,  
             yuanju_core: llmQualitativeData.yuanju_core,                
             current_dayun: llmQualitativeData.current_dayun,            
             current_liunian: llmQualitativeData.current_liunian         
         };
 
-        const combinedResultText = `原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
-        
-        // 极其安全的后端写库操作
+        // 极其安全的后端写库操作，直接将神煞以 JSON 格式独立写入字段
         const { error: dbError } = await supabase
             .from('bazi_profiles')
             .update({
@@ -236,17 +276,19 @@ module.exports = async function handler(req, res) {
                 yuanju_core: finalBaziDetail.yuanju_core,
                 current_dayun: finalBaziDetail.current_dayun,
                 current_liunian: finalBaziDetail.current_liunian,
-                bazi_detail: finalBaziDetail
+                bazi_detail: finalBaziDetail,
+                shensha: shenshaResult, // ⚠️ 重要：将前端急需的神煞对象存入专属字段
+                geju: geJu              // ⚠️ 重要：将格局存入专属字段
             })
             .eq('id', promptData.profileId);
 
-        if (dbError) {
-            console.error("后端数据库写入失败:", dbError);
-        }
+        if (dbError) console.error("后端数据库写入失败:", dbError);
 
         const outputPayload = { 
             result: combinedResultText,
-            bazi_detail: finalBaziDetail
+            bazi_detail: finalBaziDetail,
+            shensha: shenshaResult,
+            geju: geJu
         };
 
         memoryCache[cacheKey] = outputPayload;
