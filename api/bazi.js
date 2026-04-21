@@ -228,58 +228,43 @@ module.exports = async function handler(req, res) {
             }
         };
 
-        // ==================== 3. 请求 LLM 进行断语生成 ====================
-const llmPrompt = `
-你是一位精通子平八字命理的专业分析模型，遵循传统命理体系进行推演。
+// ==================== 3. 请求 LLM 进行断语生成 ====================
+        const llmPrompt = `你是一位精通子平八字与传统命理学（《渊海子平》、《滴天髓》、《三命通会》）的现代高级命理大师。
+请基于下方提供的精确命理数据，为用户进行详尽、专业、且符合现代人语境的八字推演。
 
-## 命主基础数据（由排盘系统严谨生成，禁止更改或捏造）
+【命理基础理论预设（请在分析时严格遵循）】
+1. 论身强身弱：须综合考察日干在月令的得令状态、地支是否有强根、天干印比帮扶之多寡，以及是否有食伤泄气、财星耗力、官杀克身。必须给出明确结论（如身强、身弱、从格、极弱等）。
+2. 取用神忌神法则：身强喜克泄耗（官杀、食伤、财星），忌生扶（印星、比劫）；身弱喜生扶（印星、比劫），忌克泄耗（官杀、食伤、财星）。特殊格局（如专旺、从格）需按特殊法则取用神。
+3. 神煞与格局：神煞仅为锦上添花的参考，不可喧宾夺主，核心仍需以五行生克制化、格局喜忌为准。例如：天乙贵人主逢凶化吉，驿马主变动奔波，华盖主孤高艺术，桃花主异性缘与人缘。
+4. 大运流年作用机制：大运重地支，流年重天干。流年干支与原局、大运发生刑冲合害（如子午冲、寅申巳亥三刑、辰戌丑未四库冲等）时，需重点分析其引发的具体吉凶事件倾向。
 
-| 项目 | 数据 |
-|------|------|
-| 性别 | ${promptData.gender} |
-| 八字原局 | ${objectiveBaziData.pillars.ganzhi.year} ${objectiveBaziData.pillars.ganzhi.month} ${objectiveBaziData.pillars.ganzhi.day} ${objectiveBaziData.pillars.ganzhi.time} |
-| 命局格局 | ${geJu} |
-| 核心神煞 | 年[${shenshaResult.year}] 月[${shenshaResult.month}] 日[${shenshaResult.day}] 时[${shenshaResult.time}] |
-| 特殊命局 | ${specialPatterns.length > 0 ? specialPatterns.join(' | ') : '无'} |
-| 当前大运 | ${promptData.daYunStr} |
-| 当前流年 | ${currentLiuNianGan}${currentLiuNianZhi}年 |
+【命主客观基础数据】（由严谨的天文历法引擎推演生成，请直接作为事实使用，切勿自行捏造或篡改神煞数据）：
+• 性别：${promptData.gender}
+• 八字原局：${objectiveBaziData.pillars.ganzhi.year} ${objectiveBaziData.pillars.ganzhi.month} ${objectiveBaziData.pillars.ganzhi.day} ${objectiveBaziData.pillars.ganzhi.time}
+• 命主格局：${geJu}
+• 核心神煞：年柱[${shenshaResult.year}] 月柱[${shenshaResult.month}] 日柱[${shenshaResult.day}] 时柱[${shenshaResult.time}]
+• 特殊命局：${specialPatterns.length > 0 ? specialPatterns.join(' | ') : '无'}
+• 当前大运：${promptData.daYunStr}
+• 当前流年：${currentLiuNianGan}${currentLiuNianZhi}年
 
----
+【推演任务执行清单】
+请结合上述详尽数据与经典命理法则，执行以下深度分析：
+1. 【定性分析】：判断日主强弱，并简述核心判断依据。
+2. 【喜忌提取】：明确提取喜用神与忌仇神（请输出为精简的数组格式）。
+3. 【原局深度评析】：结合格局、神煞、五行流通，评价命主的性格特质、事业财运潜力、六亲关系倾向等核心特质。要求语言专业且有实际指导意义。
+4. 【当前大运解析】：分析当前十步大运对原局的整体影响，是吉是凶，侧重点在何处（如：利求财、宜深造、防破财、注意健康等）。
+5. 【当前流年简评】：结合流年干支与原局大运的生克冲合关系，给出今年的具体运势研判和切实可行的行动建议。
 
-## 分析任务
-
-请严格按照以下步骤推演，步骤之间存在逻辑依赖，不得跳步：
-
-**Step 1【身强/身弱定性】**
-综合月令得令、得地、得势、天干透出等因素，判断日主旺衰，得出「身强」或「身弱」结论。
-
-**Step 2【喜忌神提取】**
-在 Step 1 定性基础上，结合格局类型，提取喜用神（有利五行/十神）与忌仇神（不利五行/十神），以十神名称表达（如：印星、比劫、食伤、财星、官杀）。
-
-**Step 3【原局核心断语】**
-基于格局、神煞配置与五行生克，概括命主一生的核心命运走向、性格底色与主要人生课题。字数 80～120 字，语言专业简洁。
-
-**Step 4【当前大运简评】**
-结合 Step 2 喜忌，分析当前大运的五行/十神与日主、格局的生克关系，判断此运整体吉凶走势及影响方向（事业/财运/婚姻等主要领域）。字数 60～100 字。
-
-**Step 5【当前流年简评】**
-分析流年干支与大运、命局的会合刑冲，聚焦本年度最突出的变动与机遇风险提示。字数 50～80 字。
-
----
-
-## 输出格式
-
-仅输出合法 JSON 字符串，禁止包含任何 Markdown 标记、代码块符号或注释，字段说明如下：
-
+【输出格式要求】
+必须且仅输出纯 JSON 字符串对象（绝对不要附带任何 Markdown 标记，如 \`\`\`json，也不要包含任何多余的解释说明文字），JSON 的结构必须严格如下：
 {
-  "strong_weak": "身强 或 身弱（二选一）",
-  "favorable_gods": ["十神名称1", "十神名称2"],
-  "unfavorable_gods": ["十神名称1", "十神名称2"],
-  "yuanju_core": "原局核心断语（80～120 字）",
-  "current_dayun": "当前大运简评（60～100 字）",
-  "current_liunian": "当前流年简评（50～80 字）"
-}
-`.trim();
+  "strong_weak": "身强 或 身弱",
+  "favorable_gods": ["印星", "比劫"],
+  "unfavorable_gods": ["官杀", "财星"],
+  "yuanju_core": "原局核心深度分析文案...",
+  "current_dayun": "当前大运分析文案...",
+  "current_liunian": "当前流年简评文案..."
+}`;
 
         const API_URL = 'https://yinli.one/v1/chat/completions'; 
         const llmResponse = await fetch(API_URL, {
