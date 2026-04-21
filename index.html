@@ -528,65 +528,25 @@ input:checked+.slider:before{transform:translateX(20px);background:#fff}
                     </div>
                 </label>
 
-                <div id="baziWorkspace" class="bazi-workspace">
+                 <div id="baziWorkspace" class="bazi-workspace">
                     <div class="profile-selector">
                         <select id="profileSelect" class="profile-select" onchange="handleProfileSelect()">
                             <option value="">加载档案中...</option>
                         </select>
-                        <button class="add-profile-btn" onclick="showAddProfileForm()">+ 新增</button>
-                    </div>
-
-                    <div id="profileForm" class="profile-form">
-                        <div class="form-row">
-                            <input type="text" id="pName" placeholder="命主姓名 (如: 张总)">
-                            <select id="pGender"><option value="M">男 (乾造)</option><option value="F">女 (坤造)</option></select>
-                        </div>
-                        <div class="input-tabs" style="display:flex;margin-bottom:12px;border-bottom:1px solid rgba(255,255,255,0.08);">
-                            <div id="tabDate" onclick="switchInputMode('date')" style="flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--gold);border-bottom:2px solid var(--gold);">公历输入</div>
-                            <div id="tabBazi" onclick="switchInputMode('bazi')" style="flex:1;text-align:center;padding:8px;cursor:pointer;color:var(--text-muted);">四柱直排</div>
-                        </div>
-                        <div id="modeDate" class="form-row"><input type="datetime-local" id="pBirth" style="color-scheme:dark;"></div>
-                        <div id="modeBazi" style="display:none;text-align:center;">
-                            <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:12px;">
-                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">年柱</div><select id="bzYg" class="bz-select" onchange="autoLinkMonth()"></select><select id="bzYz" class="bz-select" onchange="autoLinkMonth()"></select></div>
-                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">月柱</div><select id="bzMg" class="bz-select" disabled style="opacity:.6;"></select><select id="bzMz" class="bz-select" onchange="autoLinkMonth()"></select></div>
-                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">日柱</div><select id="bzDg" class="bz-select" onchange="autoLinkTime()"></select><select id="bzDz" class="bz-select" onchange="autoLinkTime()"></select></div>
-                                <div class="pillar-group"><div style="font-size:10px;color:#888;margin-bottom:4px;">时柱</div><select id="bzTg" class="bz-select" disabled style="opacity:.6;"></select><select id="bzTz" class="bz-select" onchange="autoLinkTime()"></select></div>
-                            </div>
-                            <div style="font-size:10px;color:#E57373;">* 严格遵守五虎遁与五鼠遁，月干与时干将自动锁定计算</div>
-                        </div>
-                        <div style="display:flex;justify-content:flex-end;gap:8px;">
-                            <button class="cancel-btn" onclick="hideAddProfileForm()">取消</button>
-                            <button class="add-profile-btn" style="padding:6px 12px;" onclick="saveNewProfile()">保存并排盘</button>
-                        </div>
-                    </div>
-
-                    <div id="baziTableContainer" class="bazi-table-wrap" style="display:none;">
-                        <div id="reversedDateDisplay"></div>
-                        <table class="bazi-table" id="baziTable"></table>
-                    </div>
-
-                    <div id="baziConfirmSection" style="text-align:right;margin-top:14px;display:none;">
-                        <button class="submit-btn" style="padding:10px 24px;font-size:14px;letter-spacing:2px;" onclick="confirmBazi()">确 定</button>
                     </div>
 
                     <div id="baziResultSection" style="display:none;margin-top:16px;padding:16px;background:rgba(255,255,255,0.025);border-radius:12px;border:1px solid var(--gold-border);">
-                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-                            <span style="font-size:13px;color:var(--gold);font-weight:600;">✨ 命理基底已锁定</span>
-                            <div style="display:flex;gap:8px;">
-                                <button class="cancel-btn" style="padding:4px 12px;font-size:12px;" onclick="modifyBazi()">修改</button>
-                                <button class="cancel-btn" style="padding:4px 12px;font-size:12px;" onclick="resetBaziCache()">重新推演</button>
-                            </div>
+                        <div style="font-size:13px;color:var(--gold);font-weight:600;margin-bottom:8px;">✨ 命理基底已锁定</div>
+                        <div id="baziAiText" style="font-size:12px;color:#D0D0D8;line-height:1.8;white-space:pre-wrap;opacity:.85;"></div>
+                    </div>
+
+                    <div id="baziWarningSection" style="display:none;margin-top:16px;padding:16px;background:rgba(255,94,87,0.05);border-radius:12px;border:1px solid rgba(255,94,87,0.2);">
+                        <div style="font-size:12px;color:#FF5E57;line-height:1.6;">
+                            ⚠️ 该档案暂无云端排盘数据。<br>请先前往底部 <b>「八字」</b> 模块点击推演，生成命理基底后再行注入。
                         </div>
-                        <div id="baziLoading" style="display:none;font-size:12px;color:var(--gold);padding:10px 0;">
-                            <span style="display:flex;gap:5px;"><span style="width:4px;height:4px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s infinite;display:inline-block"></span><span style="width:4px;height:4px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s .2s infinite;display:inline-block"></span><span style="width:4px;height:4px;border-radius:50%;background:var(--gold);animation:dotPulse 1.2s .4s infinite;display:inline-block"></span></span>
-                            正在后台静默排定大运流年与原局断语...
-                        </div>
-                        <div id="baziError" style="display:none;font-size:12px;color:#FF5E57;padding:10px 0;">推演超时或失败。<span style="text-decoration:underline;cursor:pointer;color:var(--gold);" onclick="confirmBazi()">点击重试</span></div>
-                        <div id="baziAiText" style="font-size:12px;color:#D0D0D8;line-height:1.8;white-space:pre-wrap;opacity:.85;display:none;"></div>
                     </div>
                 </div>
-            </div>
+
 
             <!-- 问题输入卡 -->
             <div class="glass-card input-card">
@@ -744,14 +704,106 @@ function showInputState() {
     document.getElementById('questionInput').value = '';
     const btn = document.getElementById('submitBtn');
     if(btn){ btn.disabled=false; }
-    // restore bazi switch state
+    
+    // 如果再起一局时开启了八字，清空重置，防止误投
     if(document.getElementById('baziSwitch').checked) {
-        baziConfirmed=false; currentBaziString="";
-        document.getElementById('baziResultSection').style.display='none';
-        document.querySelector('.profile-selector').style.display='flex';
-        document.getElementById('baziConfirmSection').style.display='block';
+        document.getElementById('profileSelect').value = "";
+        document.getElementById('baziResultSection').style.display = 'none';
+        document.getElementById('baziWarningSection').style.display = 'none';
+        baziConfirmed = false; 
+        currentBaziString = "";
     }
 }
+
+function showResultState() {
+    const wrapper = document.getElementById('inputWrapper');
+    wrapper.style.transition = 'opacity .4s ease';
+    wrapper.style.opacity    = '0';
+    setTimeout(()=>{ wrapper.style.display='none'; }, 420);
+    document.getElementById('resetBtn').style.display = 'flex';
+}
+
+/* ═══════════════════════════════════════════════
+   6. 八字系统 (极简拉取版)
+═══════════════════════════════════════════════ */
+let baziConfirmed = false;
+let currentBaziString = "";
+let baziProfiles = [];
+
+function toggleBaziWorkspace(){
+    const ws = document.getElementById('baziWorkspace');
+    const isOn = document.getElementById('baziSwitch').checked;
+    ws.style.display = isOn ? 'block' : 'none';
+    
+    if(isOn && baziProfiles.length === 0) fetchBaziProfiles();
+    
+    if(!isOn) {
+        currentBaziString = "";
+        baziConfirmed = false;
+        document.getElementById('profileSelect').value = "";
+        document.getElementById('baziResultSection').style.display = 'none';
+        document.getElementById('baziWarningSection').style.display = 'none';
+    }
+}
+
+function showBaziInfo(e){ e.preventDefault(); e.stopPropagation(); document.getElementById('baziInfoModal').classList.add('show'); }
+function hideBaziInfo(e){ if(e) e.preventDefault(); document.getElementById('baziInfoModal').classList.remove('show'); }
+
+async function fetchBaziProfiles(){
+    if(!currentUser) return;
+    const select = document.getElementById('profileSelect');
+    
+    const { data, error } = await _supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false});
+    
+    if(error || !data || data.length === 0){
+        select.innerHTML = '<option value="">暂无档案，请前往下方「八字」页新增</option>';
+        baziProfiles = [];
+        return;
+    }
+    
+    baziProfiles = data;
+    select.innerHTML = '<option value="">-- 请选择命主档案 --</option>' + data.map(p => `<option value="${p.id}">${p.name} (${p.gender==='M'?'男':'女'})</option>`).join('');
+    
+    document.getElementById('baziResultSection').style.display = 'none';
+    document.getElementById('baziWarningSection').style.display = 'none';
+    baziConfirmed = false;
+    currentBaziString = "";
+}
+
+function handleProfileSelect(){
+    const profileId = document.getElementById('profileSelect').value;
+    const resultSec = document.getElementById('baziResultSection');
+    const warningSec = document.getElementById('baziWarningSection');
+    const textEl = document.getElementById('baziAiText');
+
+    baziConfirmed = false;
+    currentBaziString = "";
+
+    if(!profileId) {
+        resultSec.style.display = 'none';
+        warningSec.style.display = 'none';
+        return;
+    }
+
+    const profile = baziProfiles.find(p => p.id === profileId);
+    if(!profile) return;
+
+    // 核心判断：只有在 bazi.html 推演过产生 bazi_summary 的档案才能被注入
+    if(profile.bazi_summary) {
+        resultSec.style.display = 'block';
+        warningSec.style.display = 'none';
+        textEl.innerHTML = profile.bazi_summary;
+
+        // 组装发给大模型的字符串
+        const baziStr = profile.bazi_str || (profile.bazi_detail?.pillars?.ganzhi ? `${profile.bazi_detail.pillars.ganzhi.year} ${profile.bazi_detail.pillars.ganzhi.month} ${profile.bazi_detail.pillars.ganzhi.day} ${profile.bazi_detail.pillars.ganzhi.time}` : "未知");
+        currentBaziString = `命主：${profile.name}\n性别：${profile.gender==='M'?'男':'女'}\n八字结构：${baziStr}\n八字断语：\n${profile.bazi_summary}`;
+        baziConfirmed = true;
+    } else {
+        resultSec.style.display = 'none';
+        warningSec.style.display = 'block';
+    }
+}
+
 
 function showResultState() {
     const wrapper = document.getElementById('inputWrapper');
@@ -827,58 +879,82 @@ async function handleSignOut() {
    5. 奇门推演核心
 ═══════════════════════════════════════════════ */
 async function startDivination() {
-    const input =document.getElementById("questionInput").value.trim();
-    const btn   =document.getElementById("submitBtn");
-    const loader=document.getElementById("loader");
-    const rc    =document.getElementById("resultContainer");
+    const input = document.getElementById("questionInput").value.trim();
+    const btn = document.getElementById("submitBtn");
+    const loader = document.getElementById("loader");
+    const rc = document.getElementById("resultContainer");
 
+    // 八字前置校验
     if(document.getElementById('baziSwitch').checked){
-        if(!baziConfirmed)     return alert("✋ 请先点击「确定」锁定命主档案！");
-        if(isBaziLoading)      return alert("⏳ 八字断语正在后台推演中，请耐心等待！");
-        if(!currentBaziString) return alert("❌ 八字推演失败或未完成，请点击重试！");
+        if(!baziConfirmed) return alert("✋ 请先在上方选择拥有断语的命主档案！");
+        if(!currentBaziString) return alert("❌ 八字数据缺失，请重新选择！");
     }
     if(!input) return alert("问题不能为空哦！");
 
-    btn.disabled=true;
-    document.getElementById("questionInput").disabled=true;
-    rc.innerHTML=""; loader.style.display="flex"; startLoaderCycle();
+    // 修复 401：获取当前用户的 Token
+    const { data: { session } } = await _supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return alert("身份验证失效，请重新登录");
 
-    const controller=new AbortController();
-    const timeoutId=setTimeout(()=>controller.abort(),90000);
+    btn.disabled = true;
+    document.getElementById("questionInput").disabled = true;
+    rc.innerHTML = ""; 
+    loader.style.display = "flex"; 
+    startLoaderCycle();
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000);
 
     try {
-        const requestBody={question:input};
-        if(document.getElementById('baziSwitch').checked&&currentBaziString) requestBody.baziInfo=currentBaziString;
+        const requestBody = { question: input };
+        if(document.getElementById('baziSwitch').checked && currentBaziString) {
+            requestBody.baziInfo = currentBaziString;
+        }
 
-        const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(requestBody),signal:controller.signal});
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` // ✅ 补上缺失的鉴权头
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
+        });
+        
         clearTimeout(timeoutId);
 
         if(!response.ok){
-            let errorText=await response.text();
-            try{let errObj=JSON.parse(errorText);throw new Error(errObj.details||errObj.error);}
-            catch(e){throw new Error(`服务器异常 (${response.status}): `+errorText.substring(0,50));}
+            let errorText = await response.text();
+            try {
+                let errObj = JSON.parse(errorText);
+                throw new Error(errObj.details || errObj.error);
+            } catch(e) {
+                throw new Error(`服务器异常 (${response.status}): ` + errorText.substring(0,50));
+            }
         }
-        const data=await response.json();
-        if(data.error) throw new Error(data.details||data.error);
+        
+        const data = await response.json();
+        if(data.error) throw new Error(data.details || data.error);
 
-        await saveRecordToDatabase(input,data);
-        rc.innerHTML=buildCardHTML(data);
-        animateScore(data.summary?.score||0);
+        await saveRecordToDatabase(input, data);
+        rc.innerHTML = buildCardHTML(data);
+        animateScore(data.summary?.score || 0);
         showResultState();
-        setTimeout(()=>{ rc.querySelectorAll('.reveal').forEach((el,i)=>setTimeout(()=>el.classList.add('visible'),i*80)); },450);
+        setTimeout(() => { rc.querySelectorAll('.reveal').forEach((el,i) => setTimeout(() => el.classList.add('visible'), i*80)); }, 450);
 
     } catch(err) {
         clearTimeout(timeoutId);
         console.error(err);
-        if(err.name==='AbortError') alert("⏳ 云端超算推演超时 (超过90秒无响应)。\n请稍等后重试。");
-        else alert("云端推演失败：\n"+err.message);
+        if(err.name === 'AbortError') alert("⏳ 云端超算推演超时 (超过90秒无响应)。\n请稍等后重试。");
+        else alert("云端推演失败：\n" + err.message);
     } finally {
         stopLoaderCycle();
-        btn.disabled=false;
-        document.getElementById("questionInput").disabled=false;
-        loader.style.display="none";
+        btn.disabled = false;
+        document.getElementById("questionInput").disabled = false;
+        loader.style.display = "none";
     }
 }
+
 
 function animateScore(targetScore) {
     const el=document.getElementById('scoreValue');
