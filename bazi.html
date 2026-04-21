@@ -62,13 +62,14 @@
         .tab.active {color:var(--gold);border-bottom-color:var(--gold);font-weight:500}
 
         .bazi-table-wrap {overflow-x:auto;scrollbar-width:none}
-        .bazi-table {width:100%;border-collapse:collapse;text-align:center;min-width:320px}
+        .bazi-table {width:100%;border-collapse:collapse;text-align:center;min-width:360px}
         .bazi-table th, .bazi-table td {padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top}
-        .bazi-table th {color:var(--text-muted);font-weight:normal;font-size:11px}
+
+        .bz-label, .bazi-table th {color:var(--text-muted);font-weight:500;font-size:12px; vertical-align: middle;}
         
         .bz-star {font-size:12px;color:var(--text-primary)}
-        .bz-char {font-size:24px;font-weight:600;font-family:'Noto Serif SC',serif;margin:4px 0}
-        .bz-sub {font-size:10px;color:#aaa;line-height:1.5}
+        .bz-char {font-size:22px;font-weight:600;font-family:'Noto Serif SC',serif;margin:4px 0}
+        .bz-sub {font-size:11px;color:#aaa;line-height:1.6}
         
         .wx-jin{color:#E8CC80} .wx-mu{color:#81C784} .wx-shui{color:#64B5F6} .wx-huo{color:#E57373} .wx-tu{color:#DCE775}
         
@@ -246,7 +247,6 @@
 
             document.getElementById('dashboardPanel').style.display = 'block';
             
-            // 解决切换失效的核心：每次渲染都根据当前 profile 重新生成历法对象
             const formatted = generateLunarPromptData(profile);
             const p = formatted.birthStr.match(/\d+/g);
             if (!p) return;
@@ -256,40 +256,44 @@
             const bazi = lunar.getEightChar();
             const genderCode = profile.gender === 'M' ? 1 : 0;
             const yun = bazi.getYun(genderCode);
+            
+            const dayGan = bazi.getDayGan(); // 日主天干
+            const xunKong = bazi.getDayXunKong(); // 日柱空亡
 
             document.getElementById('bName').innerText = profile.name;
             document.getElementById('bSolarDate').innerText = `阳历：${solar.toYmdHms()}`;
             document.getElementById('bLunarDate').innerText = `农历：${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} ${lunar.getTimeZhi()}时`;
 
+            // 提取四柱基础数据
             const pillars = [
-                { k: '年', g: bazi.getYearGan(), z: bazi.getYearZhi(), s: bazi.getYearShiShenGan(), h: bazi.getYearHideGan(), hs: bazi.getYearShiShenZhi(), shi: bazi.getYearDiShi(), n: bazi.getYearNaYin() },
-                { k: '月', g: bazi.getMonthGan(), z: bazi.getMonthZhi(), s: bazi.getMonthShiShenGan(), h: bazi.getMonthHideGan(), hs: bazi.getMonthShiShenZhi(), shi: bazi.getMonthDiShi(), n: bazi.getMonthNaYin() },
-                { k: '日', g: bazi.getDayGan(), z: bazi.getDayZhi(), s: profile.gender==='M'?'元男':'元女', h: bazi.getDayHideGan(), hs: bazi.getDayShiShenZhi(), shi: bazi.getDayDiShi(), n: bazi.getDayNaYin() },
-                { k: '时', g: bazi.getTimeGan(), z: bazi.getTimeZhi(), s: bazi.getTimeShiShenGan(), h: bazi.getTimeHideGan(), hs: bazi.getTimeShiShenZhi(), shi: bazi.getTimeDiShi(), n: bazi.getTimeNaYin() }
+                { k: '年', g: bazi.getYearGan(), z: bazi.getYearZhi(), s: bazi.getYearShiShenGan(), h: bazi.getYearHideGan(), shi: bazi.getYearDiShi(), zizuo: window.LunarUtil.getDiShi(bazi.getYearGan(), bazi.getYearZhi()), n: bazi.getYearNaYin(), x: xunKong.includes(bazi.getYearZhi()) ? '空' : '', shen: profile.shensha?.year || '待算' },
+                { k: '月', g: bazi.getMonthGan(), z: bazi.getMonthZhi(), s: bazi.getMonthShiShenGan(), h: bazi.getMonthHideGan(), shi: bazi.getMonthDiShi(), zizuo: window.LunarUtil.getDiShi(bazi.getMonthGan(), bazi.getMonthZhi()), n: bazi.getMonthNaYin(), x: xunKong.includes(bazi.getMonthZhi()) ? '空' : '', shen: profile.shensha?.month || '待算' },
+                { k: '日', g: bazi.getDayGan(), z: bazi.getDayZhi(), s: profile.gender==='M'?'元男':'元女', h: bazi.getDayHideGan(), shi: bazi.getDayDiShi(), zizuo: window.LunarUtil.getDiShi(bazi.getDayGan(), bazi.getDayZhi()), n: bazi.getDayNaYin(), x: xunKong.includes(bazi.getDayZhi()) ? '空' : '', shen: profile.shensha?.day || '待算' },
+                { k: '时', g: bazi.getTimeGan(), z: bazi.getTimeZhi(), s: bazi.getTimeShiShenGan(), h: bazi.getTimeHideGan(), shi: bazi.getTimeDiShi(), zizuo: window.LunarUtil.getDiShi(bazi.getTimeGan(), bazi.getTimeZhi()), n: bazi.getTimeNaYin(), x: xunKong.includes(bazi.getTimeZhi()) ? '空' : '', shen: profile.shensha?.time || '待算' }
             ];
 
-            let html = '';
+            let columns = [];
             if (currentTab === 'basic') {
                 document.getElementById('timelineSection').style.display = 'none';
-                html = `<thead><tr><th>柱位</th>${pillars.map(x=>`<th>${x.k}柱</th>`).join('')}</tr></thead><tbody>
-                <tr><td>主星</td>${pillars.map(x=>`<td class="bz-star">${x.s}</td>`).join('')}</tr>
-                <tr><td>天干</td>${pillars.map(x=>`<td class="bz-char ${WX_MAP[x.g]}">${x.g}</td>`).join('')}</tr>
-                <tr><td>地支</td>${pillars.map(x=>`<td class="bz-char ${WX_MAP[x.z]}">${x.z}</td>`).join('')}</tr>
-                <tr><td>藏干</td>${pillars.map(x=>`<td class="bz-sub">${x.h.join('<br>')}</td>`).join('')}</tr>
-                <tr><td>副星</td>${pillars.map(x=>`<td class="bz-sub">${x.hs.join('<br>')}</td>`).join('')}</tr>
-                <tr><td>星运</td>${pillars.map(x=>`<td class="bz-sub">${x.shi}</td>`).join('')}</tr>
-                <tr><td>纳音</td>${pillars.map(x=>`<td class="bz-sub">${x.n}</td>`).join('')}</tr></tbody>`;
+                columns = pillars;
             } else {
                 document.getElementById('timelineSection').style.display = 'block';
                 const curYear = new Date().getFullYear();
                 const dy = yun.getDaYun().find(d => curYear >= d.getStartYear() && curYear <= d.getEndYear()) || yun.getDaYun()[0];
                 const ln = dy.getLiuNian().find(l => l.getYear() === curYear);
-                const proCols = [{k:'流年', g:ln.getGanZhi()[0], z:ln.getGanZhi()[1], s:'流年'}, {k:'大运', g:dy.getGanZhi()[0], z:dy.getGanZhi()[1], s:'大运'}, ...pillars];
-                html = `<thead><tr><th>专业</th>${proCols.map(x=>`<th>${x.k}</th>`).join('')}</tr></thead><tbody>
-                <tr><td>主星</td>${proCols.map(x=>`<td class="bz-star">${x.s}</td>`).join('')}</tr>
-                <tr><td>天干</td>${proCols.map(x=>`<td class="bz-char ${WX_MAP[x.g]}">${x.g}</td>`).join('')}</tr>
-                <tr><td>地支</td>${proCols.map(x=>`<td class="bz-char ${WX_MAP[x.z]}">${x.z}</td>`).join('')}</tr></tbody>`;
                 
+                // 大运和流年的天干地支
+                const dyG = dy.getGanZhi()[0], dyZ = dy.getGanZhi()[1];
+                const lnG = ln.getGanZhi()[0], lnZ = ln.getGanZhi()[1];
+
+                const proCols = [
+                    { k: '流年', g: lnG, z: lnZ, s: '流年', h: window.LunarUtil.getZhiCang(lnZ), shi: window.LunarUtil.getDiShi(dayGan, lnZ), zizuo: window.LunarUtil.getDiShi(lnG, lnZ), n: window.LunarUtil.getJiaZiNaYin(ln.getGanZhi()), x: xunKong.includes(lnZ) ? '空' : '', shen: '-' },
+                    { k: '大运', g: dyG, z: dyZ, s: '大运', h: window.LunarUtil.getZhiCang(dyZ), shi: window.LunarUtil.getDiShi(dayGan, dyZ), zizuo: window.LunarUtil.getDiShi(dyG, dyZ), n: window.LunarUtil.getJiaZiNaYin(dy.getGanZhi()), x: xunKong.includes(dyZ) ? '空' : '', shen: '-' },
+                    ...pillars
+                ];
+                columns = proCols;
+
+                // 渲染时间轴
                 document.getElementById('dayunGrid').innerHTML = yun.getDaYun().slice(0,10).map(d => `
                 <div class="dayun-item ${d.getGanZhi()===dy.getGanZhi()?'active':''}">
                     <div class="dy-age">${d.getStartYear()}年<br>${d.getStartAge()}岁</div>
@@ -297,6 +301,20 @@
                     <div class="dy-char ${WX_MAP[d.getGanZhi()[1]]}">${d.getGanZhi()[1]}</div>
                 </div>`).join('');
             }
+
+            // 统一生成表格 HTML
+            let html = `<thead><tr><th class="bz-label">柱位</th>${columns.map(x=>`<th class="bz-label">${x.k}${currentTab==='basic'?'柱':''}</th>`).join('')}</tr></thead><tbody>
+                <tr><td class="bz-label">主星</td>${columns.map(x=>`<td class="bz-star">${x.s}</td>`).join('')}</tr>
+                <tr><td class="bz-label">天干</td>${columns.map(x=>`<td class="bz-char ${WX_MAP[x.g]}">${x.g}</td>`).join('')}</tr>
+                <tr><td class="bz-label">地支</td>${columns.map(x=>`<td class="bz-char ${WX_MAP[x.z]}">${x.z}</td>`).join('')}</tr>
+                <tr><td class="bz-label">藏干</td>${columns.map(x=>`<td class="bz-sub">${x.h.map(gan => `<span class="${WX_MAP[gan]}">${gan}</span>`).join('<br>')}</td>`).join('')}</tr>
+                <tr><td class="bz-label">星运</td>${columns.map(x=>`<td class="bz-sub">${x.shi}</td>`).join('')}</tr>
+                <tr><td class="bz-label">自座</td>${columns.map(x=>`<td class="bz-sub">${x.zizuo}</td>`).join('')}</tr>
+                <tr><td class="bz-label">空亡</td>${columns.map(x=>`<td class="bz-sub" style="color:var(--crimson)">${x.x}</td>`).join('')}</tr>
+                <tr><td class="bz-label">纳音</td>${columns.map(x=>`<td class="bz-sub">${x.n}</td>`).join('')}</tr>
+                <tr><td class="bz-label">神煞</td>${columns.map(x=>`<td class="bz-sub" style="color:#B39DDB">${x.shen}</td>`).join('')}</tr>
+            </tbody>`;
+            
             document.getElementById('baziTable').innerHTML = html;
             
             const sumBox = document.getElementById('summarySection');
