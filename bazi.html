@@ -9,139 +9,79 @@
     <script src="https://unpkg.com/lunar-javascript/lunar.js"></script>
     
     <style>
-        /* ==========================================================================
-           1. 继承全局核心变量与基础重置 (与 index.html 100% 对齐)
-        ========================================================================== */
+        /* 保持原有样式，与 index.html 完全对齐 */
         :root {
-            --gold:          #D4AF37;
-            --gold-light:    #E8CC80;
-            --gold-dim:      rgba(212,175,55,0.15);
-            --gold-border:   rgba(212,175,55,0.22);
-            --bg-deep:       #05050A;
-            --bg-card:       rgba(255,255,255,0.03);
-            --bg-item:       rgba(255,255,255,0.025);
-            --glass-border:  rgba(255,255,255,0.07);
-            --text-primary:  rgba(240,237,230,0.95);
-            --text-muted:    #8E8E93;
-            --text-dim:      rgba(255,255,255,0.14);
-            --radius-card:   22px;
-            --radius-item:   12px;
-            --font-serif:    'ZCOOL XiaoWei','Noto Serif SC',serif;
-            --font-body:     'PingFang SC',-apple-system,sans-serif;
-            --spring:        cubic-bezier(0.34,1.56,0.64,1);
-            --ease:          cubic-bezier(0.4,0,0.2,1);
-            --teal:          #4ECDC4;
-            --crimson:       #FF5E57;
+            --gold: #D4AF37; --gold-light: #E8CC80; --gold-dim: rgba(212,175,55,0.15);
+            --gold-border: rgba(212,175,55,0.22); --bg-deep: #05050A; --bg-card: rgba(255,255,255,0.03);
+            --glass-border: rgba(255,255,255,0.07); --text-primary: rgba(240,237,230,0.95);
+            --text-muted: #8E8E93; --radius-card: 22px; --radius-item: 12px;
+            --font-serif: 'ZCOOL XiaoWei','Noto Serif SC',serif;
+            --font-body: 'PingFang SC',-apple-system,sans-serif;
+            --teal: #4ECDC4; --crimson: #FF5E57;
         }
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         html,body{min-height:100%;background:var(--bg-deep);color:var(--text-primary);font-family:var(--font-body);overflow-x:hidden;-webkit-font-smoothing:antialiased}
         body { padding-bottom: 90px !important; }
 
-        /* 背景 */
         #cosmosCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
         .bg-radial{position:fixed;inset:0;z-index:0;pointer-events:none;
-            background:
-                radial-gradient(ellipse 55% 45% at 15% 15%,rgba(107,140,255,0.06) 0%,transparent 60%),
-                radial-gradient(ellipse 50% 55% at 85% 85%,rgba(212,175,55,0.05) 0%,transparent 60%),
-                linear-gradient(155deg,#05050A 0%,#0E0E1F 55%,#1A1A2E 100%)}
+            background: radial-gradient(ellipse 55% 45% at 15% 15%,rgba(107,140,255,0.06) 0%,transparent 60%),
+                        radial-gradient(ellipse 50% 55% at 85% 85%,rgba(212,175,55,0.05) 0%,transparent 60%),
+                        linear-gradient(155deg,#05050A 0%,#0E0E1F 55%,#1A1A2E 100%)}
 
-        /* 顶部导航 */
-        #siteHeader{
-            position:fixed;top:0;left:0;right:0;z-index:300;
-            display:flex;align-items:center;justify-content:center;
-            padding:14px 20px; height: 60px;
-            backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);
-            background:rgba(5,5,10,0.65); border-bottom:1px solid rgba(255,255,255,0.04);
-        }
-        .site-logo{
-            font-family:'Noto Serif SC',serif;font-size:17px;letter-spacing:.15em;font-weight:500;
-            background:linear-gradient(135deg,var(--gold) 0%,var(--gold-light) 50%,var(--gold) 100%);
-            -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
-            filter:drop-shadow(0 0 12px rgba(212,175,55,0.45)); position:relative;
-        }
+        #siteHeader{position:fixed;top:0;left:0;right:0;z-index:300;display:flex;align-items:center;justify-content:center;padding:14px 20px;height:60px;backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5);background:rgba(5,5,10,0.65);border-bottom:1px solid rgba(255,255,255,0.04)}
+        .site-logo{font-family:'Noto Serif SC',serif;font-size:17px;letter-spacing:.15em;font-weight:500;background:linear-gradient(135deg,var(--gold) 0%,var(--gold-light) 50%,var(--gold) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;filter:drop-shadow(0 0 12px rgba(212,175,55,0.45))}
 
-        /* 底部导航 */
-        #globalBottomNav {
-            position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
-            height: calc(65px + env(safe-area-inset-bottom));
-            background: rgba(14, 14, 31, 0.88); backdrop-filter: blur(40px);
-            border-top: 1px solid rgba(212,175,55,0.22);
-            display: flex; justify-content: space-around; align-items: center;
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; color: #8E8E93; cursor: pointer; text-decoration: none; transition: all 0.3s;}
-        .nav-item.active { color: #D4AF37; }
-        .nav-icon { font-size: 22px; }
-        .nav-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; }
+        #globalBottomNav {position:fixed;bottom:0;left:0;right:0;z-index:9999;height:calc(65px + env(safe-area-inset-bottom));background:rgba(14,14,31,0.88);backdrop-filter:blur(40px);border-top:1px solid rgba(212,175,55,0.22);display:flex;justify-content:space-around;align-items:center;padding-bottom:env(safe-area-inset-bottom)}
+        .nav-item {flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;color:#8E8E93;cursor:pointer;text-decoration:none;transition:all 0.3s}
+        .nav-item.active {color:#D4AF37}
+        .nav-icon {font-size:22px}
+        .nav-label {font-size:10px;font-weight:600;letter-spacing:1px}
 
-        /* 页面容器与卡片 */
         .page-wrap{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:76px 18px 60px}
         .container{width:100%;max-width:520px}
-        .glass-card {
-            background:var(--bg-card);border:1px solid var(--glass-border);
-            border-radius:var(--radius-card); padding: 20px; margin-bottom: 16px;
-            backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);
-            box-shadow:0 4px 32px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.04);
-            animation: riseIn 0.5s ease both;
-        }
+        .glass-card {background:var(--bg-card);border:1px solid var(--glass-border);border-radius:var(--radius-card);padding:20px;margin-bottom:16px;backdrop-filter:blur(20px) saturate(1.2);-webkit-backdrop-filter:blur(20px) saturate(1.2);box-shadow:0 4px 32px rgba(0,0,0,0.35);animation:riseIn 0.5s ease both}
         @keyframes riseIn{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
 
-        /* ==========================================================================
-           2. 档案管理区 UI (对齐 index.html)
-        ========================================================================== */
-        .profile-selector{display:flex;gap:10px;margin-bottom:16px;}
-        .profile-select{flex:1;background:rgba(0,0,0,0.35);border:1px solid var(--gold);color:#fff;padding:10px;border-radius:8px;outline:none;font-size:14px; font-family:var(--font-body);}
-        .btn-ghost { background:rgba(212,175,55,0.12);color:var(--gold-light);border:1px solid var(--gold);padding:0 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s;}
-        .btn-ghost:hover { background:var(--gold);color:#000; }
-        .btn-danger { background:rgba(255,94,87,0.1);color:#FF5E57;border:1px solid rgba(255,94,87,0.3);border-radius:8px;padding:0 12px;cursor:pointer;transition:.2s; }
-        
-        .profile-form{display:none;background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;border:1px dashed var(--glass-border);margin-bottom:16px;}
-        .form-row{display:flex;gap:12px;margin-bottom:12px;}
-        .form-row input, .form-row select{flex:1;padding:10px;border-radius:8px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);color:white; outline:none; font-family:var(--font-body);}
-        .submit-btn { width: 100%; background:linear-gradient(135deg,#E8CC80 0%,#B38B36 45%,#C9A052 100%);color:#0a0800;border:none;border-radius:var(--radius-item);padding:12px;font-size:15px;font-family:var(--font-serif);font-weight:600;letter-spacing:2px;cursor:pointer;box-shadow:0 4px 20px rgba(179,139,54,0.3); transition: transform 0.2s;}
-        .submit-btn:active { transform: scale(0.98); }
+        .profile-selector{display:flex;gap:10px;margin-bottom:16px}
+        .profile-select{flex:1;background:rgba(0,0,0,0.35);border:1px solid var(--gold);color:#fff;padding:10px;border-radius:8px;outline:none;font-size:14px}
+        .btn-ghost {background:rgba(212,175,55,0.12);color:var(--gold-light);border:1px solid var(--gold);padding:0 16px;border-radius:8px;cursor:pointer;font-size:13px;transition:all .2s}
+        .btn-ghost:hover {background:var(--gold);color:#000}
+        .btn-danger {background:rgba(255,94,87,0.1);color:#FF5E57;border:1px solid rgba(255,94,87,0.3);border-radius:8px;padding:0 12px;cursor:pointer}
 
-        /* ==========================================================================
-           3. 八字排盘专属 UI (问真风格)
-        ========================================================================== */
-        .bazi-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass-border); padding-bottom: 16px; margin-bottom: 16px; }
-        .bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px;}
-        .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 4px; }
-        
-        /* Tab 切换 */
-        .tabs { display: flex; gap: 20px; margin-bottom: 16px; }
-        .tab { font-size: 14px; color: var(--text-muted); cursor: pointer; padding-bottom: 6px; border-bottom: 2px solid transparent; transition: all 0.3s; }
-        .tab.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 500;}
+        .profile-form{display:none;background:rgba(255,255,255,0.02);padding:16px;border-radius:12px;border:1px dashed var(--glass-border);margin-bottom:16px}
+        .form-row{display:flex;gap:12px;margin-bottom:12px}
+        .form-row input, .form-row select{flex:1;padding:10px;border-radius:8px;background:rgba(0,0,0,0.4);border:1px solid var(--glass-border);color:white;outline:none}
 
-        /* 排盘表格 */
-        .bazi-table-wrap { overflow-x: auto; scrollbar-width: none; }
-        .bazi-table-wrap::-webkit-scrollbar { display: none; }
-        .bazi-table { width: 100%; border-collapse: collapse; text-align: center; font-family: var(--font-body); min-width: 320px;}
-        .bazi-table th, .bazi-table td { padding: 10px 4px; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: top;}
-        .bazi-table th { color: var(--text-muted); font-weight: normal; font-size: 11px; letter-spacing: 1px;}
+        .bazi-header {display:flex;justify-content:space-between;align-items:flex-start;border-bottom:1px solid var(--glass-border);padding-bottom:16px;margin-bottom:16px}
+        .bazi-name {font-family:var(--font-serif);font-size:20px;color:var(--gold-light);letter-spacing:2px}
+        .bazi-meta {font-size:11px;color:var(--text-muted);line-height:1.6;margin-top:4px}
         
-        /* 字符样式 */
-        .bz-label { font-size: 11px; color: var(--text-muted); }
-        .bz-star { font-size: 12px; color: var(--text-primary); }
-        .bz-char { font-size: 24px; font-weight: 600; font-family: 'Noto Serif SC', serif; margin: 4px 0;}
-        .bz-sub { font-size: 10px; color: #aaa; line-height: 1.5; }
+        .tabs {display:flex;gap:20px;margin-bottom:16px}
+        .tab {font-size:14px;color:var(--text-muted);cursor:pointer;padding-bottom:6px;border-bottom:2px solid transparent;transition:all 0.3s}
+        .tab.active {color:var(--gold);border-bottom-color:var(--gold);font-weight:500}
+
+        .bazi-table-wrap {overflow-x:auto;scrollbar-width:none}
+        .bazi-table {width:100%;border-collapse:collapse;text-align:center;min-width:320px}
+        .bazi-table th, .bazi-table td {padding:10px 4px;border-bottom:1px solid rgba(255,255,255,0.03);vertical-align:top}
+        .bazi-table th {color:var(--text-muted);font-weight:normal;font-size:11px}
         
-        /* 五行颜色 */
+        .bz-star {font-size:12px;color:var(--text-primary)}
+        .bz-char {font-size:24px;font-weight:600;font-family:'Noto Serif SC',serif;margin:4px 0}
+        .bz-sub {font-size:10px;color:#aaa;line-height:1.5}
+        
         .wx-jin{color:#E8CC80} .wx-mu{color:#81C784} .wx-shui{color:#64B5F6} .wx-huo{color:#E57373} .wx-tu{color:#DCE775}
         
-        /* 大运流年 Timeline */
-        .timeline-section { margin-top: 20px; border-top: 1px dashed var(--glass-border); padding-top: 16px;}
-        .timeline-title { font-size: 12px; color: var(--gold); margin-bottom: 12px; font-family: var(--font-serif);}
-        .dayun-grid { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none;}
-        .dayun-grid::-webkit-scrollbar { display: none; }
-        .dayun-item { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 10px; min-width: 60px; text-align: center; flex-shrink: 0; cursor: pointer; transition: 0.2s;}
-        .dayun-item.active { border-color: var(--gold); background: rgba(212,175,55,0.1);}
-        .dy-age { font-size: 10px; color: var(--text-muted); margin-bottom: 4px;}
-        .dy-char { font-size: 16px; font-family: 'Noto Serif SC', serif; font-weight: 600;}
+        .timeline-section {margin-top:20px;border-top:1px dashed var(--glass-border);padding-top:16px}
+        .timeline-title {font-size:12px;color:var(--gold);margin-bottom:12px;font-family:var(--font-serif)}
+        .dayun-grid {display:flex;gap:8px;overflow-x:auto;padding-bottom:10px;scrollbar-width:none}
+        .dayun-item {background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px;min-width:64px;text-align:center;flex-shrink:0}
+        .dayun-item.active {border-color:var(--gold);background:rgba(212,175,55,0.1)}
+        .dy-age {font-size:10px;color:var(--text-muted);margin-bottom:4px}
+        .dy-char {font-size:16px;font-family:'Noto Serif SC',serif;font-weight:600}
 
-        /* 断语区块 */
-        .summary-box { background: linear-gradient(135deg, rgba(212,175,55,0.08), rgba(212,175,55,0.02)); border: 1px solid var(--gold-border); border-radius: 12px; padding: 16px; margin-top: 16px; font-size: 13px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap;}
-        .summary-box h4 { color: var(--gold); margin: 0 0 8px 0; font-size: 14px;}
+        .summary-box {background:linear-gradient(135deg,rgba(212,175,55,0.08),rgba(212,175,55,0.02));border:1px solid var(--gold-border);border-radius:12px;padding:16px;margin-top:16px;font-size:13px;color:#D0D0D8;line-height:1.8;white-space:pre-wrap}
+        .summary-box h4 {color:var(--gold);margin:0 0 8px 0;font-size:14px}
     </style>
 </head>
 <body>
@@ -154,8 +94,7 @@
 
     <div class="page-wrap">
         <div class="container">
-            
-            <div class="glass-card" id="controlPanel">
+            <div class="glass-card">
                 <div class="profile-selector">
                     <select id="profileSelect" class="profile-select" onchange="renderDashboard()">
                         <option value="">正在加载档案...</option>
@@ -166,46 +105,41 @@
 
                 <div id="profileForm" class="profile-form">
                     <div class="form-row">
-                        <input type="text" id="pName" placeholder="命主姓名 (如: 张总)">
+                        <input type="text" id="pName" placeholder="命主姓名">
                         <select id="pGender"><option value="M">男 (乾造)</option><option value="F">女 (坤造)</option></select>
                     </div>
                     <div class="form-row">
-                        <input type="datetime-local" id="pBirth" style="color-scheme:dark;" required>
+                        <input type="datetime-local" id="pBirth" style="color-scheme:dark;">
                     </div>
                     <div style="display:flex;justify-content:flex-end;gap:8px;">
-                        <button class="btn-ghost" style="border-color:transparent; color:var(--text-muted);" onclick="hideAddForm()">取消</button>
+                        <button class="btn-ghost" style="border:none;color:var(--text-muted)" onclick="hideAddForm()">取消</button>
                         <button class="btn-ghost" onclick="saveProfile()">保存档案</button>
                     </div>
                 </div>
             </div>
 
             <div class="glass-card" id="dashboardPanel" style="display: none;">
-                
                 <div class="bazi-header">
                     <div>
-                        <div class="bazi-name" id="bName">林俊彦</div>
-                        <div class="bazi-meta" id="bLunarDate">农历：1998年六月初四 酉时 乾造</div>
-                        <div class="bazi-meta" id="bSolarDate">阳历：1998年07月26日 18:35:00</div>
+                        <div class="bazi-name" id="bName">---</div>
+                        <div class="bazi-meta" id="bLunarDate">农历加载中...</div>
+                        <div class="bazi-meta" id="bSolarDate">阳历加载中...</div>
                     </div>
-                    <div style="text-align: right;">
-                        <button class="btn-ghost" style="padding: 6px 12px; font-size: 12px;" onclick="requestAiSummary()">重新解读</button>
-                    </div>
+                    <button class="btn-ghost" style="padding:6px 12px;font-size:12px" onclick="requestAiSummary()">解读天机</button>
                 </div>
 
                 <div class="tabs">
-                    <div class="tab active" id="tabBasic" onclick="switchTab('basic')">基本排盘</div>
+                    <div class="tab active" id="tabBasic" onclick="switchTab('basic')">基础排盘</div>
                     <div class="tab" id="tabPro" onclick="switchTab('pro')">专业细盘</div>
                 </div>
 
                 <div class="bazi-table-wrap">
-                    <table class="bazi-table" id="baziTable">
-                        </table>
+                    <table class="bazi-table" id="baziTable"></table>
                 </div>
 
                 <div id="timelineSection" class="timeline-section" style="display: none;">
-                    <div class="timeline-title">大运排盘 (10年一运)</div>
-                    <div class="dayun-grid" id="dayunGrid">
-                        </div>
+                    <div class="timeline-title">大运排盘</div>
+                    <div class="dayun-grid" id="dayunGrid"></div>
                 </div>
 
                 <div id="summarySection" style="display: none;">
@@ -214,112 +148,47 @@
                         <div id="summaryContent"></div>
                     </div>
                 </div>
-
             </div>
-
         </div>
     </div>
 
     <nav id="globalBottomNav">
-        <a href="index.html" class="nav-item">
-            <div class="nav-icon">🧭</div>
-            <div class="nav-label">奇门</div>
-        </a>
-        <a href="bazi.html" class="nav-item active">
-            <div class="nav-icon">🧬</div>
-            <div class="nav-label">八字</div>
-        </a>
-        <a href="me.html" class="nav-item">
-            <div class="nav-icon">👤</div>
-            <div class="nav-label">我的</div>
-        </a>
+        <a href="index.html" class="nav-item"><div class="nav-icon">🧭</div><div class="nav-label">奇门</div></a>
+        <a href="bazi.html" class="nav-item active"><div class="nav-icon">🧬</div><div class="nav-label">八字</div></a>
+        <a href="me.html" class="nav-item"><div class="nav-icon">👤</div><div class="nav-label">我的</div></a>
     </nav>
 
     <script>
-        // ==========================================
-        // 1. 全局配置与状态管理
-        // ==========================================
         const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co';
         const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7';
         const _supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
         
-        let currentUser = null;
-        let baziProfiles = [];
-        let currentTab = 'basic'; // 'basic' | 'pro'
-        
-        // 五行颜色映射
+        let currentUser = null, baziProfiles = [], currentTab = 'basic';
+        const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
+        const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("");
         const WX_MAP={'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'};
 
-        // ==========================================
-        // 2. 初始化与鉴权
-        // ==========================================
         window.onload = async () => {
-            initVisuals(); // 星空背景
-            const { data: { session }, error } = await _supabase.auth.getSession();
-            if (error || !session) {
-                window.location.href = 'index.html'; // 未登录踢回主页
-                return;
-            }
+            initVisuals();
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (!session) return window.location.href = 'index.html';
             currentUser = session.user;
             await fetchProfiles();
         };
 
-        // ==========================================
-        // 3. Supabase 数据操作
-        // ==========================================
         async function fetchProfiles() {
+            const { data } = await _supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false});
+            baziProfiles = data || [];
             const select = document.getElementById('profileSelect');
-            const { data, error } = await _supabase.from('bazi_profiles')
-                .select('*')
-                .eq('user_id', currentUser.id)
-                .order('created_at', {ascending: false});
-            
-            if (error || !data || data.length === 0) {
-                select.innerHTML = '<option value="">暂无档案，请先新增</option>';
-                baziProfiles = [];
+            if (baziProfiles.length > 0) {
+                select.innerHTML = baziProfiles.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+                renderDashboard();
+            } else {
+                select.innerHTML = '<option value="">请先新增档案</option>';
                 document.getElementById('dashboardPanel').style.display = 'none';
-                return;
             }
-            
-            baziProfiles = data;
-            select.innerHTML = data.map(p => `<option value="${p.id}">${p.name} (${p.gender==='M'?'男':'女'})</option>`).join('');
-            renderDashboard();
         }
 
-        function showAddForm() { document.getElementById('profileForm').style.display = 'block'; }
-        function hideAddForm() { document.getElementById('profileForm').style.display = 'none'; }
-
-        async function saveProfile() {
-            const name = document.getElementById('pName').value.trim();
-            const gender = document.getElementById('pGender').value;
-            const birth = document.getElementById('pBirth').value;
-            
-            if(!name || !birth) return alert("请填写完整姓名和出生时间");
-            
-            const insertData = { 
-                user_id: currentUser.id, 
-                name, 
-                gender, 
-                birth_date: birth.replace('T', ' ') + ':00' 
-            };
-            
-            const { error } = await _supabase.from('bazi_profiles').insert([insertData]);
-            if (error) return alert("保存失败: " + error.message);
-            
-            hideAddForm();
-            await fetchProfiles();
-        }
-
-        async function deleteProfile() {
-            const pid = document.getElementById('profileSelect').value;
-            if(!pid || !confirm("确定要删除这个命主档案吗？")) return;
-            await _supabase.from('bazi_profiles').delete().eq('id', pid);
-            await fetchProfiles();
-        }
-
-        // ==========================================
-        // 4. 核心渲染逻辑 (利用 lunar-javascript)
-        // ==========================================
         function switchTab(tab) {
             currentTab = tab;
             document.getElementById('tabBasic').classList.toggle('active', tab === 'basic');
@@ -327,179 +196,185 @@
             renderDashboard();
         }
 
+        // --- 核心工具函数：同步 index.html 的格式逻辑 ---
+        function findDatesByBazi(yGZ, mGZ, dGZ, hGZ) {
+            const results = [];
+            const today = window.Solar.fromDate(new Date());
+            const zhiHours = {"子":0,"丑":2,"寅":4,"卯":6,"辰":8,"巳":10,"午":12,"未":14,"申":16,"酉":18,"戌":20,"亥":22};
+            for (let y = 1900; y <= today.getYear(); y++) {
+                const s = window.Solar.fromYmd(y, 7, 1);
+                if (s.getLunar().getYearInGanZhi() === yGZ) {
+                    let cur = window.Solar.fromYmd(y - 1, 11, 1);
+                    let end = window.Solar.fromYmd(y + 1, 3, 1);
+                    while (cur.toYmd() <= end.toYmd()) {
+                        const bazi = cur.getLunar().getEightChar();
+                        if (bazi.getYear() === yGZ && bazi.getMonth() === mGZ && bazi.getDay() === dGZ) {
+                            let h = zhiHours[hGZ.charAt(1)];
+                            const test = window.Solar.fromYmdHms(cur.getYear(), cur.getMonth(), cur.getDay(), h, 30, 0);
+                            if (test.getLunar().getEightChar().getTime() === hGZ) results.push(test);
+                        }
+                        cur = cur.next(1);
+                    }
+                }
+            }
+            return results;
+        }
+
+        function generateLunarPromptData(profile) {
+            let res = { gender: profile.gender === 'M' ? '男' : '女', birthStr: "", baziStr: "", daYunStr: "" };
+            if (profile.birth_date) {
+                const p = profile.birth_date.match(/\d+/g);
+                res.birthStr = `${p[0]}年${p[1]}月${p[2]}日 ${p[3]}:${p[4]}`;
+                const b = window.Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(p[3]), parseInt(p[4]), 0).getLunar().getEightChar();
+                res.baziStr = `${b.getYear()} ${b.getMonth()} ${b.getDay()} ${b.getTime()}`;
+            } else if (profile.bazi_str) {
+                res.baziStr = profile.bazi_str;
+                const bz = profile.bazi_str.split(' ');
+                const matches = findDatesByBazi(bz[0], bz[1], bz[2], bz[3]);
+                if (matches.length > 0) {
+                    const s = matches[matches.length - 1];
+                    res.birthStr = `${s.getYear()}年${s.getMonth()}月${s.getDay()}日 ${s.getHour()}:00`;
+                }
+            }
+            return res;
+        }
+
+        // --- 渲染逻辑 ---
         function renderDashboard() {
-            const pid = document.getElementById('profileSelect').value;
-            const profile = baziProfiles.find(p => p.id === pid);
-            if (!profile || !profile.birth_date) return;
+            const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
+            if (!profile) return;
 
             document.getElementById('dashboardPanel').style.display = 'block';
+            
+            // 解决切换失效的核心：每次渲染都根据当前 profile 重新生成历法对象
+            const formatted = generateLunarPromptData(profile);
+            const p = formatted.birthStr.match(/\d+/g);
+            if (!p) return;
 
-            // 1. 解析日期
-            const parts = profile.birth_date.match(/\d+/g);
-            if(parts.length < 5) return;
-            const solar = window.Solar.fromYmdHms(parseInt(parts[0]), parseInt(parts[1]), parseInt(parts[2]), parseInt(parts[3]), parseInt(parts[4]), 0);
+            const solar = window.Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(p[3]||0), parseInt(p[4]||0), 0);
             const lunar = solar.getLunar();
-            const baZi = lunar.getEightChar();
+            const bazi = lunar.getEightChar();
             const genderCode = profile.gender === 'M' ? 1 : 0;
-            const yun = baZi.getYun(genderCode);
+            const yun = bazi.getYun(genderCode);
 
-            // 2. 渲染头部
             document.getElementById('bName').innerText = profile.name;
             document.getElementById('bSolarDate').innerText = `阳历：${solar.toYmdHms()}`;
-            document.getElementById('bLunarDate').innerText = `农历：${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} ${lunar.getTimeZhi()}时 ${profile.gender==='M'?'乾造':'坤造'}`;
+            document.getElementById('bLunarDate').innerText = `农历：${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} ${lunar.getTimeZhi()}时`;
 
-            // 3. 提取四柱数据
             const pillars = [
-                { name: '年柱', gan: baZi.getYearGan(), zhi: baZi.getYearZhi(), star: baZi.getYearShiShenGan(), hide: baZi.getYearHideGan(), hideStar: baZi.getYearShiShenZhi(), shi: baZi.getYearDiShi(), xun: baZi.getDayXunKong().includes(baZi.getYearZhi())?'空':'', nayin: baZi.getYearNaYin() },
-                { name: '月柱', gan: baZi.getMonthGan(), zhi: baZi.getMonthZhi(), star: baZi.getMonthShiShenGan(), hide: baZi.getMonthHideGan(), hideStar: baZi.getMonthShiShenZhi(), shi: baZi.getMonthDiShi(), xun: baZi.getDayXunKong().includes(baZi.getMonthZhi())?'空':'', nayin: baZi.getMonthNaYin() },
-                { name: '日柱', gan: baZi.getDayGan(), zhi: baZi.getDayZhi(), star: profile.gender==='M'?'元男':'元女', hide: baZi.getDayHideGan(), hideStar: baZi.getDayShiShenZhi(), shi: baZi.getDayDiShi(), xun: '', nayin: baZi.getDayNaYin() },
-                { name: '时柱', gan: baZi.getTimeGan(), zhi: baZi.getTimeZhi(), star: baZi.getTimeShiShenGan(), hide: baZi.getTimeHideGan(), hideStar: baZi.getTimeShiShenZhi(), shi: baZi.getTimeDiShi(), xun: baZi.getDayXunKong().includes(baZi.getTimeZhi())?'空':'', nayin: baZi.getTimeNaYin() }
+                { k: '年', g: bazi.getYearGan(), z: bazi.getYearZhi(), s: bazi.getYearShiShenGan(), h: bazi.getYearHideGan(), hs: bazi.getYearShiShenZhi(), shi: bazi.getYearDiShi(), n: bazi.getYearNaYin() },
+                { k: '月', g: bazi.getMonthGan(), z: bazi.getMonthZhi(), s: bazi.getMonthShiShenGan(), h: bazi.getMonthHideGan(), hs: bazi.getMonthShiShenZhi(), shi: bazi.getMonthDiShi(), n: bazi.getMonthNaYin() },
+                { k: '日', g: bazi.getDayGan(), z: bazi.getDayZhi(), s: profile.gender==='M'?'元男':'元女', h: bazi.getDayHideGan(), hs: bazi.getDayShiShenZhi(), shi: bazi.getDayDiShi(), n: bazi.getDayNaYin() },
+                { k: '时', g: bazi.getTimeGan(), z: bazi.getTimeZhi(), s: bazi.getTimeShiShenGan(), h: bazi.getTimeHideGan(), hs: bazi.getTimeShiShenZhi(), shi: bazi.getTimeDiShi(), n: bazi.getTimeNaYin() }
             ];
 
-            const table = document.getElementById('baziTable');
-            let thead = '', tbody = '';
-
+            let html = '';
             if (currentTab === 'basic') {
-                // 基本排盘 (四柱)
                 document.getElementById('timelineSection').style.display = 'none';
-                thead = `<tr><th>日期</th>${pillars.map(p => `<th>${p.name}</th>`).join('')}</tr>`;
-                
-                tbody += `<tr><td class="bz-label">主星</td>${pillars.map(p => `<td class="bz-star ${p.name==='日柱'?'wx-jin':''}">${p.star}</td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">天干</td>${pillars.map(p => `<td class="bz-char ${WX_MAP[p.gan]}">${p.gan}</td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">地支</td>${pillars.map(p => `<td class="bz-char ${WX_MAP[p.zhi]}">${p.zhi}</td>`).join('')}</tr>`;
-                
-                tbody += `<tr><td class="bz-label">藏干</td>${pillars.map(p => `<td><div class="bz-sub">${p.hide.map(g => `<span class="${WX_MAP[g]}">${g}</span>`).join('<br>')}</div></td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">副星</td>${pillars.map(p => `<td><div class="bz-sub">${p.hideStar.join('<br>')}</div></td>`).join('')}</tr>`;
-                
-                tbody += `<tr><td class="bz-label">星运</td>${pillars.map(p => `<td class="bz-sub">${p.shi}</td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">纳音</td>${pillars.map(p => `<td class="bz-sub">${p.nayin}</td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">空亡</td>${pillars.map(p => `<td class="bz-sub" style="color:var(--crimson)">${p.xun}</td>`).join('')}</tr>`;
-
+                html = `<thead><tr><th>柱位</th>${pillars.map(x=>`<th>${x.k}柱</th>`).join('')}</tr></thead><tbody>
+                <tr><td>主星</td>${pillars.map(x=>`<td class="bz-star">${x.s}</td>`).join('')}</tr>
+                <tr><td>天干</td>${pillars.map(x=>`<td class="bz-char ${WX_MAP[x.g]}">${x.g}</td>`).join('')}</tr>
+                <tr><td>地支</td>${pillars.map(x=>`<td class="bz-char ${WX_MAP[x.z]}">${x.z}</td>`).join('')}</tr>
+                <tr><td>藏干</td>${pillars.map(x=>`<td class="bz-sub">${x.h.join('<br>')}</td>`).join('')}</tr>
+                <tr><td>副星</td>${pillars.map(x=>`<td class="bz-sub">${x.hs.join('<br>')}</td>`).join('')}</tr>
+                <tr><td>星运</td>${pillars.map(x=>`<td class="bz-sub">${x.shi}</td>`).join('')}</tr>
+                <tr><td>纳音</td>${pillars.map(x=>`<td class="bz-sub">${x.n}</td>`).join('')}</tr></tbody>`;
             } else {
-                // 专业细盘 (大运 + 流年 + 四柱)
                 document.getElementById('timelineSection').style.display = 'block';
+                const curYear = new Date().getFullYear();
+                const dy = yun.getDaYun().find(d => curYear >= d.getStartYear() && curYear <= d.getEndYear()) || yun.getDaYun()[0];
+                const ln = dy.getLiuNian().find(l => l.getYear() === curYear);
+                const proCols = [{k:'流年', g:ln.getGanZhi()[0], z:ln.getGanZhi()[1], s:'流年'}, {k:'大运', g:dy.getGanZhi()[0], z:dy.getGanZhi()[1], s:'大运'}, ...pillars];
+                html = `<thead><tr><th>专业</th>${proCols.map(x=>`<th>${x.k}</th>`).join('')}</tr></thead><tbody>
+                <tr><td>主星</td>${proCols.map(x=>`<td class="bz-star">${x.s}</td>`).join('')}</tr>
+                <tr><td>天干</td>${proCols.map(x=>`<td class="bz-char ${WX_MAP[x.g]}">${x.g}</td>`).join('')}</tr>
+                <tr><td>地支</td>${proCols.map(x=>`<td class="bz-char ${WX_MAP[x.z]}">${x.z}</td>`).join('')}</tr></tbody>`;
                 
-                // 获取当前大运与流年
-                const currentYear = new Date().getFullYear();
-                const daYuns = yun.getDaYun();
-                const currentDaYun = daYuns.find(d => currentYear >= d.getStartYear() && currentYear <= d.getEndYear()) || daYuns[0];
-                
-                let currentLiuNianStr = '';
-                if(currentDaYun) {
-                    const lns = currentDaYun.getLiuNian();
-                    const ln = lns.find(l => l.getYear() === currentYear);
-                    if(ln) currentLiuNianStr = ln.getGanZhi();
-                }
-
-                const proColumns = [
-                    { name: '流年', gan: currentLiuNianStr[0]||'-', zhi: currentLiuNianStr[1]||'-', star: '流年' },
-                    { name: '大运', gan: currentDaYun.getGanZhi()[0]||'-', zhi: currentDaYun.getGanZhi()[1]||'-', star: '大运' },
-                    ...pillars
-                ];
-
-                thead = `<tr><th>排盘</th>${proColumns.map(p => `<th>${p.name}</th>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">主星</td>${proColumns.map(p => `<td class="bz-star">${p.star}</td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">天干</td>${proColumns.map(p => `<td class="bz-char ${WX_MAP[p.gan]||''}">${p.gan}</td>`).join('')}</tr>`;
-                tbody += `<tr><td class="bz-label">地支</td>${proColumns.map(p => `<td class="bz-char ${WX_MAP[p.zhi]||''}">${p.zhi}</td>`).join('')}</tr>`;
-
-                // 渲染大运 Timeline
-                renderDaYunTimeline(daYuns, currentDaYun);
+                document.getElementById('dayunGrid').innerHTML = yun.getDaYun().slice(0,10).map(d => `
+                <div class="dayun-item ${d.getGanZhi()===dy.getGanZhi()?'active':''}">
+                    <div class="dy-age">${d.getStartYear()}年<br>${d.getStartAge()}岁</div>
+                    <div class="dy-char ${WX_MAP[d.getGanZhi()[0]]}">${d.getGanZhi()[0]}</div>
+                    <div class="dy-char ${WX_MAP[d.getGanZhi()[1]]}">${d.getGanZhi()[1]}</div>
+                </div>`).join('');
             }
-
-            table.innerHTML = `<thead>${thead}</thead><tbody>${tbody}</tbody>`;
-
-            // 渲染断语
-            const summarySec = document.getElementById('summarySection');
+            document.getElementById('baziTable').innerHTML = html;
+            
+            const sumBox = document.getElementById('summarySection');
             if (profile.bazi_summary) {
-                summarySec.style.display = 'block';
+                sumBox.style.display = 'block';
                 document.getElementById('summaryContent').innerText = profile.bazi_summary;
             } else {
-                summarySec.style.display = 'none';
+                sumBox.style.display = 'none';
             }
         }
 
-        function renderDaYunTimeline(daYuns, currentDaYun) {
-            const grid = document.getElementById('dayunGrid');
-            grid.innerHTML = daYuns.slice(0, 10).map(dy => {
-                const isActive = dy.getStartYear() === currentDaYun.getStartYear() ? 'active' : '';
-                return `
-                <div class="dayun-item ${isActive}">
-                    <div class="dy-age">${dy.getStartYear()}年<br>${dy.getStartAge()}岁</div>
-                    <div class="dy-char ${WX_MAP[dy.getGanZhi()[0]]}">${dy.getGanZhi()[0]}</div>
-                    <div class="dy-char ${WX_MAP[dy.getGanZhi()[1]]}">${dy.getGanZhi()[1]}</div>
-                </div>`;
-            }).join('');
-        }
-
-        // ==========================================
-        // 5. 触发 AI 重新解读 (调用 api/bazi)
-        // ==========================================
         async function requestAiSummary() {
-            const pid = document.getElementById('profileSelect').value;
-            const profile = baziProfiles.find(p => p.id === pid);
+            const select = document.getElementById('profileSelect');
+            const profile = baziProfiles.find(p => p.id === select.value);
             if (!profile) return;
 
             const btn = event.target;
-            const originalText = btn.innerText;
-            btn.innerText = "解读中..."; btn.disabled = true;
+            btn.innerText = "推演中..."; btn.disabled = true;
 
             try {
-                // 构建简易 payload 传给后端
-                const promptData = {
-                    profileId: profile.id,
-                    gender: profile.gender === 'M' ? '男' : '女',
-                    birthStr: profile.birth_date
-                };
+                // 解决 TypeError 的关键：构建符合 api/bazi.js 要求的格式化数据
+                const formatted = generateLunarPromptData(profile);
+                const { data: { session } } = await _supabase.auth.getSession();
 
                 const response = await fetch('/api/bazi', {
                     method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${(await _supabase.auth.getSession()).data.session.access_token}`
-                    },
-                    body: JSON.stringify({ promptData })
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+                    body: JSON.stringify({ 
+                        promptData: {
+                            profileId: profile.id,
+                            gender: formatted.gender,
+                            birthStr: formatted.birthStr, // 此处格式为 "YYYY年MM月DD日 HH:mm"
+                            baziStr: formatted.baziStr,
+                            daYunStr: "当前大运" 
+                        }
+                    })
                 });
 
                 const data = await response.json();
                 if (data.error) throw new Error(data.error);
-
-                // 更新本地数据并重绘
                 profile.bazi_summary = data.result;
                 renderDashboard();
-                alert("解读完成！");
-
             } catch (err) {
-                alert("请求失败: " + err.message);
+                alert("解读失败: " + err.message);
             } finally {
-                btn.innerText = originalText; btn.disabled = false;
+                btn.innerText = "解读天机"; btn.disabled = false;
             }
         }
 
-        // ==========================================
-        // 6. 星空背景动画
-        // ==========================================
+        function showAddForm() { document.getElementById('profileForm').style.display = 'block'; }
+        function hideAddForm() { document.getElementById('profileForm').style.display = 'none'; }
+        async function saveProfile() {
+            const name = document.getElementById('pName').value, gender = document.getElementById('pGender').value, birth = document.getElementById('pBirth').value;
+            if(!name || !birth) return alert("信息不全");
+            const { error } = await _supabase.from('bazi_profiles').insert([{ user_id: currentUser.id, name, gender, birth_date: birth.replace('T',' ')+':00' }]);
+            if (error) alert(error.message); else { hideAddForm(); await fetchProfiles(); }
+        }
+        async function deleteProfile() {
+            const id = document.getElementById('profileSelect').value;
+            if (id && confirm("删除档案？")) { await _supabase.from('bazi_profiles').delete().eq('id', id); await fetchProfiles(); }
+        }
+
         function initVisuals() {
-            const canvas = document.getElementById('cosmosCanvas');
-            if (!canvas) return;
-            const ctx = canvas.getContext('2d');
+            const canvas = document.getElementById('cosmosCanvas'), ctx = canvas.getContext('2d');
             let W, H, stars = [];
             function resize(){ W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
-            function initStars(){
-                stars = []; const count = Math.floor((W*H)/5000);
-                for(let i=0; i<count; i++) stars.push({x:Math.random()*W, y:Math.random()*H, r:Math.random()*0.9+0.2, a:Math.random(), speed:(Math.random()*0.3+0.05)*(Math.random()>.5?1:-1), drift:(Math.random()-.5)*0.1});
-            }
             function draw(){
                 ctx.clearRect(0,0,W,H);
                 stars.forEach(s=>{
-                    s.a += s.speed*0.008; s.x += s.drift;
-                    if(s.x < 0) s.x = W; if(s.x > W) s.x = 0;
+                    s.a += s.speed*0.008; s.x += s.drift; if(s.x < 0) s.x = W; if(s.x > W) s.x = 0;
                     ctx.save(); ctx.globalAlpha = ((Math.sin(s.a)+1)/2)*0.5+0.05;
                     ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); ctx.restore();
                 });
                 requestAnimationFrame(draw);
             }
-            resize(); initStars(); draw();
-            window.addEventListener('resize', ()=>{ resize(); initStars(); });
+            resize(); 
+            stars = Array.from({length: 100}, () => ({x:Math.random()*W, y:Math.random()*H, r:Math.random()*0.8+0.2, a:Math.random(), speed:Math.random()*0.3, drift:Math.random()-0.5}));
+            draw(); window.addEventListener('resize', resize);
         }
     </script>
 </body>
