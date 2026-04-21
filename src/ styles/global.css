@@ -1,0 +1,23 @@
+/* src/styles/global.css */
+:root {
+    --gold:          #D4AF37;
+    --gold-light:    #E8CC80;
+    --gold-dim:      rgba(212,175,55,0.15);
+    --gold-border:   rgba(212,175,55,0.22);
+    --bg-deep:       #05050A;
+    --bg-card:       rgba(255,255,255,0.03);
+    --glass-border:  rgba(255,255,255,0.07);
+    --text-primary:  rgba(240,237,230,0.95);
+    --text-muted:    #8E8E93;
+    --text-dim:      rgba(255,255,255,0.14);
+    --radius-card:   22px;
+    --radius-item:   12px;
+    --font-serif:    'ZCOOL XiaoWei','Noto Serif SC',serif;
+    --font-body:     'PingFang SC',-apple-system,sans-serif;
+    --spring:        cubic-bezier(0.34,1.56,0.64,1);
+    --ease:          cubic-bezier(0.4,0,0.2,1);
+    --teal:          #4ECDC4;
+    --crimson:       #FF5E57;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;background:var(--bg-deep);color:#fff;overflow-x:hidden;}
