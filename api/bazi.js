@@ -1,17 +1,14 @@
 const { Solar, Lunar } = require('lunar-javascript');
 const { createClient } = require('@supabase/supabase-js');
 
-// 内存缓存
 const memoryCache = {};
-
-// 初始化管理员权限的 supabase 客户端 (绕过前端 RLS)
 const supabase = createClient(
   process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_KEY // 务必使用具有最高权限的 Service Role Key
+  process.env.SUPABASE_SERVICE_KEY
 );
 
 // ============================================================================
-// 🌟 东方玄学 OS - 八字核心推算引擎 (本地精准计算，防大模型幻觉)
+// 🌟 东方玄学 OS - 全能后端排盘引擎 (接管所有前端计算逻辑)
 // ============================================================================
 const BaziEngine = {
     Rules: {
@@ -28,29 +25,47 @@ const BaziEngine = {
         yueDe:    { 寅:'丙', 午:'丙', 戌:'丙', 申:'壬', 子:'壬', 辰:'壬', 亥:'甲', 卯:'甲', 未:'甲', 巳:'庚', 酉:'庚', 丑:'庚' },
         tianDe:   { 寅:'丁', 卯:'申', 辰:'壬', 巳:'辛', 午:'亥', 未:'甲', 申:'癸', 酉:'寅', 戌:'丙', 亥:'乙', 子:'巳', 丑:'庚' }
     },
+    // 前端迁移过来的数据常量
+    NAYIN: {"甲子":"海中金","乙丑":"海中金","丙寅":"炉中火","丁卯":"炉中火","戊辰":"大林木","己巳":"大林木","庚午":"路旁土","辛未":"路旁土","壬申":"剑锋金","癸酉":"剑锋金","甲戌":"山头火","乙亥":"山头火","丙子":"涧下水","丁丑":"涧下水","戊寅":"城头土","己卯":"城头土","庚辰":"白蜡金","辛巳":"白蜡金","壬午":"杨柳木","癸未":"杨柳木","甲申":"泉中水","乙酉":"泉中水","丙戌":"屋上土","丁亥":"屋上土","戊子":"霹雳火","己丑":"霹雳火","庚寅":"松柏木","辛卯":"松柏木","壬辰":"长流水","癸巳":"长流水","甲午":"沙中金","乙未":"沙中金","丙申":"山下火","丁酉":"山下火","戊戌":"平地木","己亥":"平地木","庚子":"壁上土","辛丑":"壁上土","壬寅":"金箔金","癸卯":"金箔金","甲辰":"覆灯火","乙巳":"覆灯火","丙午":"天河水","丁未":"天河水","戊申":"大驿土","己酉":"大驿土","庚戌":"钗钏金","辛亥":"钗钏金","壬子":"桑柘木","癸丑":"桑柘木","甲寅":"大溪水","乙卯":"大溪水","丙辰":"沙中土","丁巳":"沙中土","戊午":"天上火","己未":"天上火","庚申":"石榴木","辛酉":"石榴木","壬戌":"大海水","癸亥":"大海水"},
+    ZHI_HIDE: {"子":["癸"],"丑":["己","癸","辛"],"寅":["甲","丙","戊"],"卯":["乙"],"辰":["戊","乙","癸"],"巳":["丙","庚","戊"],"午":["丁","己"],"未":["己","丁","乙"],"申":["庚","壬","戊"],"酉":["辛"],"戌":["戊","辛","丁"],"亥":["壬","甲"]},
+    SHI_ER: ["长生","沐浴","冠带","临官","帝旺","衰","病","死","墓","绝","胎","养"],
+    CHANG_SHENG_START: { "甲":11, "丙":2, "戊":2, "庚":5, "壬":8, "乙":6, "丁":9, "己":9, "辛":0, "癸":3 },
+    ZHI_INDEX: {"子":0,"丑":1,"寅":2,"卯":3,"辰":4,"巳":5,"午":6,"未":7,"申":8,"酉":9,"戌":10,"亥":11},
+
+    // 独立神煞数组获取（供前端直接遍历渲染）
+    getShenShaArray: function(targetZhi, dayGan, yearZhi, dayZhi) {
+        if(!targetZhi) return [];
+        let res = [];
+        if (this.Rules.tianYi[dayGan]?.includes(targetZhi)) res.push("天乙");
+        if (this.Rules.wenChang[dayGan] === targetZhi) res.push("文昌");
+        if (this.Rules.yangRen[dayGan] === targetZhi) res.push("羊刃");
+        if (this.Rules.luShen[dayGan] === targetZhi) res.push("禄神");
+        if (this.Rules.yiMa[yearZhi] === targetZhi || this.Rules.yiMa[dayZhi] === targetZhi) res.push("驿马");
+        if (this.Rules.taoHua[yearZhi] === targetZhi || this.Rules.taoHua[dayZhi] === targetZhi) res.push("桃花");
+        if (this.Rules.huaGai[yearZhi] === targetZhi || this.Rules.huaGai[dayZhi] === targetZhi) res.push("华盖");
+        if (this.Rules.jiangXing[yearZhi] === targetZhi || this.Rules.jiangXing[dayZhi] === targetZhi) res.push("将星");
+        return res;
+    },
+    // 十二长生计算
+    getDiShi: function(gan, zhi) {
+        if(!gan || !zhi || this.CHANG_SHENG_START[gan] === undefined || this.ZHI_INDEX[zhi] === undefined) return '-';
+        let start = this.CHANG_SHENG_START[gan], zIndex = this.ZHI_INDEX[zhi], isYang = ["甲","丙","戊","庚","壬"].includes(gan);
+        return this.SHI_ER[isYang ? (zIndex - start + 12) % 12 : (start - zIndex + 12) % 12];
+    },
     calculateShenSha: function(bazi) {
+        // 保留给 LLM 的字符串格式
         const { year, month, day, time } = bazi;
-        const pillars = { year, month, day, time };
         const result = { year: [], month: [], day: [], time: [] };
         const dayGan = day[0], monthZhi = month[1], yearZhi = year[1], dayZhi = day[1];
 
-        for (const [key, pillar] of Object.entries(pillars)) {
-            const zhi = pillar[1], gan = pillar[0];
-            if (this.Rules.tianYi[dayGan]?.includes(zhi)) result[key].push("天乙贵人");
-            if (this.Rules.wenChang[dayGan] === zhi) result[key].push("文昌贵人");
-            if (this.Rules.yangRen[dayGan] === zhi) result[key].push("羊刃");
-            if (this.Rules.luShen[dayGan] === zhi) result[key].push("禄神");
-
-            const zhiRules = ['yiMa', 'taoHua', 'huaGai', 'jiangXing', 'guChen', 'guaSu'];
-            const zhiNames = ['驿马', '桃花', '华盖', '将星', '孤辰', '寡宿'];
-            for (let i = 0; i < zhiRules.length; i++) {
-                if (this.Rules[zhiRules[i]][yearZhi] === zhi || this.Rules[zhiRules[i]][dayZhi] === zhi) {
-                    if (!result[key].includes(zhiNames[i])) result[key].push(zhiNames[i]);
-                }
-            }
+        const pushShen = (key, zhi, gan) => {
+            result[key] = this.getShenShaArray(zhi, dayGan, yearZhi, dayZhi);
             if (this.Rules.yueDe[monthZhi] === gan) result[key].push("月德贵人");
             if (this.Rules.tianDe[monthZhi] === gan || this.Rules.tianDe[monthZhi] === zhi) result[key].push("天德贵人");
-        }
+        };
+        pushShen('year', yearZhi, year[0]); pushShen('month', monthZhi, month[0]);
+        pushShen('day', dayZhi, dayGan); pushShen('time', time[1], time[0]);
+
         return {
             year: result.year.length > 0 ? result.year.join(" ") : "-",
             month: result.month.length > 0 ? result.month.join(" ") : "-",
@@ -63,13 +78,10 @@ const BaziEngine = {
         const dayPillar = bazi.day.join('');
         const timePillar = bazi.time.join('');
         const allZhis = [bazi.year[1], bazi.month[1], bazi.day[1], bazi.time[1]];
-
         if (['庚辰', '庚戌', '壬辰', '戊戌'].includes(dayPillar)) patterns.push("【魁罡】重叠逢之主大贵。");
         if (['乙丑', '己巳', '癸酉'].includes(timePillar)) patterns.push("【金神】威猛刚烈，逢火乡发富贵。");
-        
         if (allZhis.includes('辰') && allZhis.includes('巳')) patterns.push("【地网】宜遵纪守法。");
         if (allZhis.includes('戌') && allZhis.includes('亥')) patterns.push("【天罗】易怀才不遇。");
-
         const sheng = allZhis.filter(z => ['寅','申','巳','亥'].includes(z));
         const bai = allZhis.filter(z => ['子','午','卯','酉'].includes(z));
         const ku = allZhis.filter(z => ['辰','戌','丑','未'].includes(z));
@@ -105,9 +117,6 @@ const BaziEngine = {
 };
 
 module.exports = async function handler(req, res) {
-    // ============================================================================
-    // 🛡️ 防线 1：CORS 跨域限制 (防浏览器盗站调用)
-    // ============================================================================
     const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
     res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -115,104 +124,111 @@ module.exports = async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
-        // ============================================================================
-        // 🛡️ 防线 2：JWT 鉴权拦截 (防 Postman 和 Python 脚本刷接口)
-        // ============================================================================
         const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: "Unauthorized: 缺少身份令牌" });
+        if (!authHeader || !authHeader.startsWith('Bearer ')) return res.status(401).json({ error: "Unauthorized" });
         const token = authHeader.split(' ')[1];
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-        if (authError || !user) return res.status(401).json({ error: "Unauthorized: 令牌无效或已过期" });
+        if (authError || !user) return res.status(401).json({ error: "Unauthorized" });
 
         const { promptData } = req.body;
-        if (!promptData || !promptData.profileId) return res.status(400).json({ error: "缺少八字数据或档案 ID" });
+        if (!promptData || !promptData.profileId) return res.status(400).json({ error: "缺少档案 ID" });
 
-        // ============================================================================
-        // 🛡️ 防线 3：3 次免费额度限制 + 👑 VIP 白名单特权
-        // ============================================================================
-        const whitelistStr = process.env.WHITELIST_EMAILS || "";
-        const whitelist = whitelistStr.split(',').map(email => email.trim().toLowerCase());
-        const currentUserEmail = user.email ? user.email.toLowerCase() : "";
-        const isVIP = whitelist.includes(currentUserEmail);
+        const whitelist = (process.env.WHITELIST_EMAILS || "").split(',').map(e => e.trim().toLowerCase());
+        const isVIP = whitelist.includes(user.email?.toLowerCase() || "");
 
         if (!isVIP) {
-            const { count, error: countError } = await supabase.from('bazi_profiles').select('*', { count: 'exact', head: true })
-                .eq('user_id', user.id).not('bazi_summary', 'is', null);
-            if (countError) throw new Error("无法验证用户额度状态");
+            const { count } = await supabase.from('bazi_profiles').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('bazi_summary', 'is', null);
             if (count >= 3) {
                 const { data: existingProfile } = await supabase.from('bazi_profiles').select('bazi_summary').eq('id', promptData.profileId).single();
-                if (!existingProfile || !existingProfile.bazi_summary) return res.status(403).json({ error: "您的 3 次免费天机推演额度已用尽" });
+                if (!existingProfile || !existingProfile.bazi_summary) return res.status(403).json({ error: "免费额度已用尽" });
             }
         }
 
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
         if (memoryCache[cacheKey]) return res.status(200).json(memoryCache[cacheKey]);
 
-      // ============================================================================
-        // 🌟 核心一：历法与 BaziEngine 本地计算 (神煞、格局直接算出，杜绝大模型幻觉)
-        // ============================================================================
-        
-        // 🚀 修复：改用全局数字提取，完美兼容 YYYY-MM-DD 和 YYYY年MM月DD日 等一切格式
+        // ==================== 1. 核心排盘计算 ====================
         const dateParts = promptData.birthStr ? promptData.birthStr.match(/\d+/g) : null;
-        if (!dateParts || dateParts.length < 3) {
-            // 返回 400 状态码告知前端数据问题，而不是 throw Error 让后端服务崩溃
-            return res.status(400).json({ 
-                error: "由于该档案为早期仅有八字干支的记录，缺少确切的出生时间，无法进行岁运推演。\n请新建一个带有具体出生时间的档案。" 
-            });
-        }
+        if (!dateParts || dateParts.length < 3) return res.status(400).json({ error: "缺少确切的出生时间" });
         
-        const y = parseInt(dateParts[0]);
-        const m = parseInt(dateParts[1]);
-        const d = parseInt(dateParts[2]);
-        const h = dateParts[3] ? parseInt(dateParts[3]) : 12; // 缺失小时默认中午 12 点
-        const min = dateParts[4] ? parseInt(dateParts[4]) : 0; // 缺失分钟默认 0 分
+        const y = parseInt(dateParts[0]), m = parseInt(dateParts[1]), d = parseInt(dateParts[2]);
+        const h = dateParts[3] ? parseInt(dateParts[3]) : 12, min = dateParts[4] ? parseInt(dateParts[4]) : 0;
         
         const solarObj = Solar.fromYmdHms(y, m, d, h, min, 0);
         const baZi = solarObj.getLunar().getEightChar();
-        const genderCode = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造') ? 1 : 0;
-        const yun = baZi.getYun(genderCode);
+        const isMale = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造');
+        const yun = baZi.getYun(isMale ? 1 : 0);
 
-        // 构建格式化八字供 BaziEngine 调用
         const baziObj = {
-            year: baZi.getYear().split(''),
-            month: baZi.getMonth().split(''),
-            day: baZi.getDay().split(''),
-            time: baZi.getTime().split('')
+            year: baZi.getYear().split(''), month: baZi.getMonth().split(''),
+            day: baZi.getDay().split(''), time: baZi.getTime().split('')
         };
         
-        // 🚀 调用本地引擎算出客观玄学数据
         const shenshaResult = BaziEngine.calculateShenSha(baziObj);
         const geJu = BaziEngine.getGeJu(baziObj);
         const specialPatterns = BaziEngine.extractSpecialPatterns(baziObj);
 
+        // ==================== 2. 为前端构建 JSON 渲染矩阵 (Matrix) ====================
+        const dayGan = baZi.getDayGan(), yearZhi = baZi.getYearZhi(), dayZhi = baZi.getDayZhi();
+        const xunKong = baZi.getDayXunKong() || "";
+
+        // 辅助函数：构建单柱结构体
+        const buildPillar = (name, gan, zhi, star) => ({
+            name, gan, zhi, star,
+            hidden_stems: BaziEngine.ZHI_HIDE[zhi] || [],
+            shi: BaziEngine.getDiShi(dayGan, zhi), // 查日干得星运
+            zizuo: BaziEngine.getDiShi(gan, zhi),  // 查本柱得自座
+            nayin: BaziEngine.NAYIN[gan+zhi] || '-',
+            is_kong: xunKong.includes(zhi),
+            shensha: BaziEngine.getShenShaArray(zhi, dayGan, yearZhi, dayZhi)
+        });
+
+        const pillarsData = [
+            buildPillar('年', baZi.getYearGan(), baZi.getYearZhi(), baZi.getYearShiShenGan()),
+            buildPillar('月', baZi.getMonthGan(), baZi.getMonthZhi(), baZi.getMonthShiShenGan()),
+            buildPillar('日', baZi.getDayGan(), baZi.getDayZhi(), isMale ? '元男' : '元女'),
+            buildPillar('时', baZi.getTimeGan(), baZi.getTimeZhi(), baZi.getTimeShiShenGan())
+        ];
+
+        // 大运流年时间线
+        const daYunList = yun.getDaYun().slice(0, 10).map(dy => ({
+            start_year: dy.getStartYear(),
+            start_age: dy.getStartAge(),
+            gan: dy.getGanZhi().charAt(0),
+            zhi: dy.getGanZhi().charAt(1)
+        }));
+
         const currentYear = new Date().getFullYear();
-        let currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
+        const currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
+        let currentDaYunData = null;
         let currentLiuNianGan = "未知", currentLiuNianZhi = "未知";
+
         if (currentDaYunObj) {
-             currentDaYunObj.getLiuNian().forEach(ln => {
-                 if (ln.getYear() === currentYear) {
-                     currentLiuNianGan = ln.getGanZhi().charAt(0);
-                     currentLiuNianZhi = ln.getGanZhi().charAt(1);
-                 }
-             });
+            currentDaYunData = buildPillar('大运', currentDaYunObj.getGanZhi().charAt(0), currentDaYunObj.getGanZhi().charAt(1), '大运');
+            currentDaYunObj.getLiuNian().forEach(ln => {
+                if (ln.getYear() === currentYear) { currentLiuNianGan = ln.getGanZhi().charAt(0); currentLiuNianZhi = ln.getGanZhi().charAt(1); }
+            });
         }
 
+        const lnLunar = Solar.fromYmd(currentYear, 6, 1).getLunar();
+        const currentLiuNianData = buildPillar('流年', lnLunar.getYearGan(), lnLunar.getYearZhi(), '流年');
+
         const objectiveBaziData = {
-            base_info: {
-                qi_yun: `出生后${yun.getStartYear()}年起运`,
-                ge_ju: geJu, // 写入格局
-                special_patterns: specialPatterns // 写入特殊命局
+            base_info: { qi_yun: `出生后${yun.getStartYear()}年起运`, ge_ju: geJu, special_patterns: specialPatterns },
+            matrix: {
+                pillars: pillarsData,
+                dayun_list: daYunList,
+                current_dayun: currentDaYunData,
+                current_liunian: currentLiuNianData
             },
             pillars: {
                 ganzhi: { year: baZi.getYear(), month: baZi.getMonth(), day: baZi.getDay(), time: baZi.getTime() },
                 main_stars: { year: baZi.getYearShiShenGan(), month: baZi.getMonthShiShenGan(), day: "日主", time: baZi.getTimeShiShenGan() },
-                shensha: shenshaResult // 完美结构化的神煞对象，供前端直接读取
+                shensha: shenshaResult
             }
         };
 
-        // ============================================================================
-        // 🌟 核心二：LLM 仅负责定性分析与断语文案 (不负责算神煞)
-        // ============================================================================
+        // ==================== 3. 请求 LLM 进行断语生成 ====================
         const llmPrompt = `你是一位精通子平八字的命理大师。
 下面是命主的客观基础数据（由专业排盘系统严谨推演，请直接使用，切勿自行更改或捏造神煞）：
 • 性别：${promptData.gender}
@@ -239,12 +255,10 @@ module.exports = async function handler(req, res) {
   "current_liunian": "当前流年简评文案..."
 }`;
 
-        const API_KEY = process.env.GEMINI_API_KEY; 
         const API_URL = 'https://yinli.one/v1/chat/completions'; 
-        
         const llmResponse = await fetch(API_URL, {
             method: 'POST',
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${API_KEY}` },
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GEMINI_API_KEY}` },
             body: JSON.stringify({
                 model: 'gemini-3.1-pro-preview', 
                 messages: [{ role: 'user', content: llmPrompt }],
@@ -256,12 +270,8 @@ module.exports = async function handler(req, res) {
         const apiData = await llmResponse.json();
         if (apiData.error) throw new Error(apiData.error.message || "请求大模型失败");
 
-        let rawResult = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
+        const rawResult = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
         const llmQualitativeData = JSON.parse(rawResult);
-
-        // ============================================================================
-        // 🌟 核心三：合并数据、后端安全写库并返回
-        // ============================================================================
         const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
         
         const finalBaziDetail = {
@@ -274,37 +284,26 @@ module.exports = async function handler(req, res) {
             current_liunian: llmQualitativeData.current_liunian         
         };
 
-        // 极其安全的后端写库操作，直接将神煞以 JSON 格式独立写入字段
-        const { error: dbError } = await supabase
-            .from('bazi_profiles')
-            .update({
-                bazi_summary: combinedResultText,
-                strong_weak: finalBaziDetail.strong_weak,
-                favorable_elements: finalBaziDetail.favorable_gods.join(", "),
-                unfavorable_elements: finalBaziDetail.unfavorable_gods.join(", "),
-                yuanju_core: finalBaziDetail.yuanju_core,
-                current_dayun: finalBaziDetail.current_dayun,
-                current_liunian: finalBaziDetail.current_liunian,
-                bazi_detail: finalBaziDetail,
-                shensha: JSON.stringify(shenshaResult), 
-                geju: geJu              // ⚠️ 重要：将格局存入专属字段
-            })
-            .eq('id', promptData.profileId);
-
-        if (dbError) console.error("后端数据库写入失败:", dbError);
-
-        const outputPayload = { 
-            result: combinedResultText,
+        const { error: dbError } = await supabase.from('bazi_profiles').update({
+            bazi_summary: combinedResultText,
+            strong_weak: finalBaziDetail.strong_weak,
+            favorable_elements: finalBaziDetail.favorable_gods.join(", "),
+            unfavorable_elements: finalBaziDetail.unfavorable_gods.join(", "),
+            yuanju_core: finalBaziDetail.yuanju_core,
+            current_dayun: finalBaziDetail.current_dayun,
+            current_liunian: finalBaziDetail.current_liunian,
             bazi_detail: finalBaziDetail,
-            shensha: shenshaResult,
+            shensha: JSON.stringify(shenshaResult), 
             geju: geJu
-        };
+        }).eq('id', promptData.profileId);
 
+        if (dbError) console.error("数据库写入失败:", dbError);
+
+        const outputPayload = { result: combinedResultText, bazi_detail: finalBaziDetail };
         memoryCache[cacheKey] = outputPayload;
         return res.status(200).json(outputPayload);
 
     } catch (error) {
-        console.error(error);
         return res.status(error.message.includes("额度") ? 403 : 500).json({ error: error.message });
     }
 }
