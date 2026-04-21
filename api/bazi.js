@@ -148,12 +148,17 @@ module.exports = async function handler(req, res) {
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
         if (memoryCache[cacheKey]) return res.status(200).json(memoryCache[cacheKey]);
 
+      // ============================================================================
         // 🌟 核心一：历法与 BaziEngine 本地计算 (神煞、格局直接算出，杜绝大模型幻觉)
         // ============================================================================
-        // 🚀 修复：改用全局数字提取，完美兼容 YYYY-MM-DD 和 YYYY年MM月DD日 各种格式
+        
+        // 🚀 修复：改用全局数字提取，完美兼容 YYYY-MM-DD 和 YYYY年MM月DD日 等一切格式
         const dateParts = promptData.birthStr ? promptData.birthStr.match(/\d+/g) : null;
         if (!dateParts || dateParts.length < 3) {
-            throw new Error(`出生日期解析失败，收到的异常数据为: ${promptData.birthStr || '空'}`);
+            // 返回 400 状态码告知前端数据问题，而不是 throw Error 让后端服务崩溃
+            return res.status(400).json({ 
+                error: "由于该档案为早期仅有八字干支的记录，缺少确切的出生时间，无法进行岁运推演。\n请新建一个带有具体出生时间的档案。" 
+            });
         }
         
         const y = parseInt(dateParts[0]);
