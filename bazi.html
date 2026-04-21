@@ -233,42 +233,6 @@
         const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'};
         const GAN_WUXING = { '甲':'甲木', '乙':'乙木', '丙':'丙火', '丁':'丁火', '戊':'戊土', '己':'己土', '庚':'庚金', '辛':'辛金', '壬':'壬水', '癸':'癸水' };
 
-        const NAYIN = {"甲子":"海中金","乙丑":"海中金","丙寅":"炉中火","丁卯":"炉中火","戊辰":"大林木","己巳":"大林木","庚午":"路旁土","辛未":"路旁土","壬申":"剑锋金","癸酉":"剑锋金","甲戌":"山头火","乙亥":"山头火","丙子":"涧下水","丁丑":"涧下水","戊寅":"城头土","己卯":"城头土","庚辰":"白蜡金","辛巳":"白蜡金","壬午":"杨柳木","癸未":"杨柳木","甲申":"泉中水","乙酉":"泉中水","丙戌":"屋上土","丁亥":"屋上土","戊子":"霹雳火","己丑":"霹雳火","庚寅":"松柏木","辛卯":"松柏木","壬辰":"长流水","癸巳":"长流水","甲午":"沙中金","乙未":"沙中金","丙申":"山下火","丁酉":"山下火","戊戌":"平地木","己亥":"平地木","庚子":"壁上土","辛丑":"壁上土","壬寅":"金箔金","癸卯":"金箔金","甲辰":"覆灯火","乙巳":"覆灯火","丙午":"天河水","丁未":"天河水","戊申":"大驿土","己酉":"大驿土","庚戌":"钗钏金","辛亥":"钗钏金","壬子":"桑柘木","癸丑":"桑柘木","甲寅":"大溪水","乙卯":"大溪水","丙辰":"沙中土","丁巳":"沙中土","戊午":"天上火","己未":"天上火","庚申":"石榴木","辛酉":"石榴木","壬戌":"大海水","癸亥":"大海水"};
-        const ZHI_HIDE = {"子":["癸"],"丑":["己","癸","辛"],"寅":["甲","丙","戊"],"卯":["乙"],"辰":["戊","乙","癸"],"巳":["丙","庚","戊"],"午":["丁","己"],"未":["己","丁","乙"],"申":["庚","壬","戊"],"酉":["辛"],"戌":["戊","辛","丁"],"亥":["壬","甲"]};
-        const SHI_ER = ["长生","沐浴","冠带","临官","帝旺","衰","病","死","墓","绝","胎","养"];
-        const CHANG_SHENG_START = { "甲":11, "丙":2, "戊":2, "庚":5, "壬":8, "乙":6, "丁":9, "己":9, "辛":0, "癸":3 };
-        const ZHI_INDEX = {"子":0,"丑":1,"寅":2,"卯":3,"辰":4,"巳":5,"午":6,"未":7,"申":8,"酉":9,"戌":10,"亥":11};
-        
-        function getDiShi(gan, zhi) {
-            if(!gan || !zhi || CHANG_SHENG_START[gan] === undefined || ZHI_INDEX[zhi] === undefined) return '-';
-            let start = CHANG_SHENG_START[gan], zIndex = ZHI_INDEX[zhi], isYang = ["甲","丙","戊","庚","壬"].includes(gan);
-            return SHI_ER[isYang ? (zIndex - start + 12) % 12 : (start - zIndex + 12) % 12];
-        }
-
-        // 🚀 神煞引擎：前端同步秒算，抛弃后端等待，永远不会不显示！
-        const ShenShaUtil = {
-            tianYi:   { 甲:'丑未', 乙:'子申', 丙:'亥酉', 丁:'亥酉', 戊:'丑未', 己:'子申', 庚:'寅午', 辛:'寅午', 壬:'卯巳', 癸:'卯巳' },
-            wenChang: { 甲:'巳', 乙:'午', 丙:'申', 丁:'酉', 戊:'申', 己:'酉', 庚:'亥', 辛:'子', 壬:'寅', 癸:'卯' },
-            yangRen:  { 甲:'卯', 丙:'午', 戊:'午', 庚:'酉', 壬:'子' },
-            luShen:   { 甲:'寅', 乙:'卯', 丙:'巳', 丁:'午', 戊:'巳', 己:'午', 庚:'申', 辛:'酉', 壬:'亥', 癸:'子' },
-            yiMa:     { 申:'寅', 子:'寅', 辰:'寅', 寅:'申', 午:'申', 戌:'申', 亥:'巳', 卯:'巳', 未:'巳', 巳:'亥', 酉:'亥', 丑:'亥' },
-            taoHua:   { 申:'酉', 子:'酉', 辰:'酉', 寅:'卯', 午:'卯', 戌:'卯', 亥:'子', 卯:'子', 未:'子', 巳:'午', 酉:'午', 丑:'午' },
-            huaGai:   { 申:'辰', 子:'辰', 辰:'辰', 寅:'戌', 午:'戌', 戌:'戌', 亥:'未', 卯:'未', 未:'未', 巳:'丑', 酉:'丑', 丑:'丑' },
-            jiangXing:{ 申:'子', 子:'子', 辰:'子', 寅:'午', 午:'午', 戌:'午', 亥:'卯', 卯:'卯', 未:'卯', 巳:'酉', 酉:'酉', 丑:'酉' },
-            getShenSha: function(targetZhi, dayGan, yearZhi, dayZhi) {
-                if(!targetZhi) return '-';
-                let res = [];
-                if (this.tianYi[dayGan]?.includes(targetZhi)) res.push("天乙");
-                if (this.wenChang[dayGan] === targetZhi) res.push("文昌");
-                if (this.yangRen[dayGan] === targetZhi) res.push("羊刃");
-                if (this.luShen[dayGan] === targetZhi) res.push("禄神");
-                if (this.yiMa[yearZhi] === targetZhi || this.yiMa[dayZhi] === targetZhi) res.push("驿马");
-                if (this.taoHua[yearZhi] === targetZhi || this.taoHua[dayZhi] === targetZhi) res.push("桃花");
-                if (this.huaGai[yearZhi] === targetZhi || this.huaGai[dayZhi] === targetZhi) res.push("华盖");
-                if (this.jiangXing[yearZhi] === targetZhi || this.jiangXing[dayZhi] === targetZhi) res.push("将星");
-                return res.length > 0 ? res.join('<br>') : '-';
-            }
-        };
 
         window.onload = async () => {
             initVisuals();
@@ -349,36 +313,25 @@
             return res;
         }
 
-        // ==========================================
-        // 看板渲染核心
-        // ==========================================
-        function renderDashboard() {
+function renderDashboard() {
             try {
                 const profile = baziProfiles.find(p => p.id === document.getElementById('profileSelect').value);
                 if (!profile) return;
 
                 document.getElementById('dashboardPanel').style.display = 'block';
                 
+                // 1. 顶部基础信息 (保留基础的农历转换用于头部的出生时间展示)
                 const formatted = generateLunarPromptData(profile);
                 const p = formatted.birthStr ? formatted.birthStr.match(/\d+/g) : null;
                 if (!p || p.length < 3) return;
-
-                const birthYear = parseInt(p[0]);
-                const solar = window.Solar.fromYmdHms(birthYear, parseInt(p[1]), parseInt(p[2]), parseInt(p[3]||12), parseInt(p[4]||0), 0);
+                const solar = window.Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(p[3]||12), parseInt(p[4]||0), 0);
                 const lunar = solar.getLunar();
-                const bazi = lunar.getEightChar();
-                const genderCode = profile.gender === 'M' ? 1 : 0;
-                const yun = bazi.getYun(genderCode);
-                
-                const dayGan = bazi.getDayGan(), yearZhi = bazi.getYearZhi(), dayZhi = bazi.getDayZhi();
-                const xunKong = bazi.getDayXunKong() || "";
 
-                // 1. 头部基础信息
                 document.getElementById('bName').innerText = profile.name;
                 document.getElementById('bSolarDate').innerText = `阳历：${solar.toYmdHms()}`;
                 document.getElementById('bLunarDate').innerText = `农历：${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} ${lunar.getTimeZhi()}时 ${profile.gender==='M'?'乾造':'坤造'}`;
 
-                // 2. 高级徽标与特殊命局
+                // 2. 徽标渲染
                 const badgeGeju = document.getElementById('badgeGeju'), badgeStrongWeak = document.getElementById('badgeStrongWeak'), specialBox = document.getElementById('specialPatternsBox');
                 if (profile.geju) { badgeGeju.innerText = profile.geju; badgeGeju.style.display = 'inline-block'; } else { badgeGeju.style.display = 'none'; }
                 if (profile.strong_weak) { badgeStrongWeak.innerText = profile.strong_weak; badgeStrongWeak.style.display = 'inline-block'; } else { badgeStrongWeak.style.display = 'none'; }
@@ -389,64 +342,60 @@
                 }
                 if(patternsHtml) { specialBox.innerHTML = patternsHtml; specialBox.style.display = 'block'; } else { specialBox.style.display = 'none'; }
 
-                // 🛠️ 独立空亡与藏干格式化函数
-                const formatKW = (z) => xunKong.includes(z) ? `<span style="color:var(--crimson)">空亡</span>` : `<span style="color:#555">-</span>`;
-                const formatCG = (z) => (ZHI_HIDE[z]||[]).map(g => `<span class="${WX_MAP[g]}">${GAN_WUXING[g]}</span>`).join('<br>');
+                // 🚀 核心架构升级检测：如果该档案没有云端 Matrix 矩阵数据，提示用户升级
+                const detail = profile.bazi_detail;
+                const tableWrap = document.querySelector('.bazi-table-wrap');
+                const timelineSec = document.getElementById('timelineSection');
+                
+                if (!detail || !detail.matrix) {
+                    tableWrap.innerHTML = `<div style="text-align:center; padding: 30px 10px; color: var(--gold-light); font-size: 13px; line-height: 1.8;">🚀 架构已升级，数据已迁移至云端引擎计算。<br>请点击右上角 <strong style="color:var(--gold);">「推演天机」</strong> 升级该档案排盘数据。</div>`;
+                    timelineSec.style.display = 'none';
+                    document.getElementById('aiAnalysisSection').style.display = 'none';
+                    return;
+                }
 
-                // 3. 构建排盘列 (四柱)
-                const pillars = [
-                    { k: '年', g: bazi.getYearGan(), z: bazi.getYearZhi(), s: bazi.getYearShiShenGan(), h: formatCG(bazi.getYearZhi()), shi: bazi.getYearDiShi(), zizuo: getDiShi(bazi.getYearGan(), bazi.getYearZhi()), n: NAYIN[bazi.getYearGan()+bazi.getYearZhi()]||'-', x: formatKW(bazi.getYearZhi()), shen: ShenShaUtil.getShenSha(bazi.getYearZhi(), dayGan, yearZhi, dayZhi) },
-                    { k: '月', g: bazi.getMonthGan(), z: bazi.getMonthZhi(), s: bazi.getMonthShiShenGan(), h: formatCG(bazi.getMonthZhi()), shi: bazi.getMonthDiShi(), zizuo: getDiShi(bazi.getMonthGan(), bazi.getMonthZhi()), n: NAYIN[bazi.getMonthGan()+bazi.getMonthZhi()]||'-', x: formatKW(bazi.getMonthZhi()), shen: ShenShaUtil.getShenSha(bazi.getMonthZhi(), dayGan, yearZhi, dayZhi) },
-                    { k: '日', g: bazi.getDayGan(), z: bazi.getDayZhi(), s: profile.gender==='M'?'元男':'元女', h: formatCG(bazi.getDayZhi()), shi: bazi.getDayDiShi(), zizuo: getDiShi(bazi.getDayGan(), bazi.getDayZhi()), n: NAYIN[bazi.getDayGan()+bazi.getDayZhi()]||'-', x: formatKW(bazi.getDayZhi()), shen: ShenShaUtil.getShenSha(bazi.getDayZhi(), dayGan, yearZhi, dayZhi) },
-                    { k: '时', g: bazi.getTimeGan(), z: bazi.getTimeZhi(), s: bazi.getTimeShiShenGan(), h: formatCG(bazi.getTimeZhi()), shi: bazi.getTimeDiShi(), zizuo: getDiShi(bazi.getTimeGan(), bazi.getTimeZhi()), n: NAYIN[bazi.getTimeGan()+bazi.getTimeZhi()]||'-', x: formatKW(bazi.getTimeZhi()), shen: ShenShaUtil.getShenSha(bazi.getTimeZhi(), dayGan, yearZhi, dayZhi) }
-                ];
-
+                // 3. 从后端数据流中提取列 (直接读取，0 计算)
+                const matrix = detail.matrix;
                 let columns = [];
+                
                 if (currentTab === 'basic') {
-                    document.getElementById('timelineSection').style.display = 'none';
-                    columns = pillars;
+                    timelineSec.style.display = 'none';
+                    columns = matrix.pillars;
                 } else {
-                    document.getElementById('timelineSection').style.display = 'block';
-                    const curYear = new Date().getFullYear();
-                    
-                    // 🚀 修复：流年完全独立计算，不再挂载于大运对象，避免起运前崩溃
-                    const lnLunar = window.Solar.fromYmd(curYear, 6, 1).getLunar();
-                    const lnG = lnLunar.getYearGan(), lnZ = lnLunar.getYearZhi();
-                    
-                    // 🚀 修复：大运防崩溃。如果当前年纪 < 起运年纪，安全降级为“小运”
-                    const dyObj = yun.getDaYun().find(d => curYear >= d.getStartYear() && curYear <= d.getEndYear());
-                    const dyG = dyObj ? dyObj.getGanZhi()[0] : '小';
-                    const dyZ = dyObj ? dyObj.getGanZhi()[1] : '运';
+                    timelineSec.style.display = 'block';
+                    if (matrix.current_liunian) columns.push(matrix.current_liunian);
+                    if (matrix.current_dayun) columns.push(matrix.current_dayun);
+                    columns.push(...matrix.pillars);
 
-                    columns = [
-                        { k: '流年', g: lnG, z: lnZ, s: '流年', h: formatCG(lnZ), shi: getDiShi(dayGan, lnZ), zizuo: getDiShi(lnG, lnZ), n: NAYIN[lnG+lnZ]||'-', x: formatKW(lnZ), shen: ShenShaUtil.getShenSha(lnZ, dayGan, yearZhi, dayZhi) },
-                        { k: '大运', g: dyG, z: dyZ, s: '大运', h: dyObj ? formatCG(dyZ) : '-', shi: dyObj ? getDiShi(dayGan, dyZ) : '-', zizuo: dyObj ? getDiShi(dyG, dyZ) : '-', n: dyObj ? NAYIN[dyG+dyZ]||'-' : '-', x: dyObj ? formatKW(dyZ) : '-', shen: dyObj ? ShenShaUtil.getShenSha(dyZ, dayGan, yearZhi, dayZhi) : '-' },
-                        ...pillars
-                    ];
-
-                    document.getElementById('dayunGrid').innerHTML = yun.getDaYun().slice(0,10).map(d => {
-                        const startAge = d.getStartYear() - birthYear + 1; // 准确的虚岁
-                        return `
-                        <div class="dayun-item ${d.getGanZhi()===(dyObj?dyObj.getGanZhi():'')?'active':''}">
-                            <div class="dy-age">${d.getStartYear()}年<br>${startAge}岁</div>
-                            <div class="dy-char ${WX_MAP[d.getGanZhi()[0]]}">${d.getGanZhi()[0]}</div>
-                            <div class="dy-char ${WX_MAP[d.getGanZhi()[1]]}">${d.getGanZhi()[1]}</div>
+                    // 渲染大运时间轴
+                    const currentDyObj = matrix.current_dayun;
+                    document.getElementById('dayunGrid').innerHTML = matrix.dayun_list.map(d => {
+                        const isActive = (currentDyObj && d.gan === currentDyObj.gan && d.zhi === currentDyObj.zhi) ? 'active' : '';
+                        return `<div class="dayun-item ${isActive}">
+                            <div class="dy-age">${d.start_year}年<br>${d.start_age}岁</div>
+                            <div class="dy-char ${WX_MAP[d.gan]||''}">${d.gan}</div>
+                            <div class="dy-char ${WX_MAP[d.zhi]||''}">${d.zhi}</div>
                         </div>`;
                     }).join('');
                 }
 
+                // UI 格式化小工具
+                const formatKW = (is_kong) => is_kong ? `<span style="color:var(--crimson)">空亡</span>` : `<span style="color:#555">-</span>`;
+                const formatCG = (stems) => stems.map(g => `<span class="${WX_MAP[g]||''}">${GAN_WUXING[g]}</span>`).join('<br>');
+                const formatShen = (shenArr) => shenArr.length > 0 ? shenArr.join('<br>') : '-';
+
                 // 绘制极简强制一屏表格
-                document.getElementById('baziTable').innerHTML = `<thead><tr><th class="bz-label">柱位</th>${columns.map(x=>`<th class="bz-label">${x.k}${currentTab==='basic'?'柱':''}</th>`).join('')}</tr></thead><tbody>
-                    <tr><td class="bz-label">主星</td>${columns.map(x=>`<td class="bz-star">${x.s}</td>`).join('')}</tr>
-                    <tr><td class="bz-label">天干</td>${columns.map(x=>`<td class="bz-char ${WX_MAP[x.g]||'wx-none'}">${x.g}</td>`).join('')}</tr>
-                    <tr><td class="bz-label">地支</td>${columns.map(x=>`<td class="bz-char ${WX_MAP[x.z]||'wx-none'}">${x.z}</td>`).join('')}</tr>
-                    <tr><td class="bz-label">藏干</td>${columns.map(x=>`<td class="bz-sub">${x.h}</td>`).join('')}</tr>
+                tableWrap.innerHTML = `<table class="bazi-table" id="baziTable"><thead><tr><th class="bz-label">柱位</th>${columns.map(x=>`<th class="bz-label">${x.name}${currentTab==='basic'?'柱':''}</th>`).join('')}</tr></thead><tbody>
+                    <tr><td class="bz-label">主星</td>${columns.map(x=>`<td class="bz-star">${x.star}</td>`).join('')}</tr>
+                    <tr><td class="bz-label">天干</td>${columns.map(x=>`<td class="bz-char ${WX_MAP[x.gan]||'wx-none'}">${x.gan}</td>`).join('')}</tr>
+                    <tr><td class="bz-label">地支</td>${columns.map(x=>`<td class="bz-char ${WX_MAP[x.zhi]||'wx-none'}">${x.zhi}</td>`).join('')}</tr>
+                    <tr><td class="bz-label">藏干</td>${columns.map(x=>`<td class="bz-sub">${formatCG(x.hidden_stems)}</td>`).join('')}</tr>
                     <tr><td class="bz-label">星运</td>${columns.map(x=>`<td class="bz-sub">${x.shi}</td>`).join('')}</tr>
                     <tr><td class="bz-label">自座</td>${columns.map(x=>`<td class="bz-sub">${x.zizuo}</td>`).join('')}</tr>
-                    <tr><td class="bz-label">空亡</td>${columns.map(x=>`<td class="bz-sub">${x.x}</td>`).join('')}</tr>
-                    <tr><td class="bz-label">纳音</td>${columns.map(x=>`<td class="bz-sub">${x.n}</td>`).join('')}</tr>
-                    <tr><td class="bz-label">神煞</td>${columns.map(x=>`<td class="bz-shensha">${x.shen}</td>`).join('')}</tr>
-                </tbody>`;
+                    <tr><td class="bz-label">空亡</td>${columns.map(x=>`<td class="bz-sub">${formatKW(x.is_kong)}</td>`).join('')}</tr>
+                    <tr><td class="bz-label">纳音</td>${columns.map(x=>`<td class="bz-sub">${x.nayin}</td>`).join('')}</tr>
+                    <tr><td class="bz-label">神煞</td>${columns.map(x=>`<td class="bz-shensha">${formatShen(x.shensha)}</td>`).join('')}</tr>
+                </tbody></table>`;
                 
                 // 4. 渲染 AI 断语
                 const aiSec = document.getElementById('aiAnalysisSection');
