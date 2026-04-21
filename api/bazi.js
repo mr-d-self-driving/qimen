@@ -229,31 +229,57 @@ module.exports = async function handler(req, res) {
         };
 
         // ==================== 3. 请求 LLM 进行断语生成 ====================
-        const llmPrompt = `你是一位精通子平八字的命理大师。
-下面是命主的客观基础数据（由专业排盘系统严谨推演，请直接使用，切勿自行更改或捏造神煞）：
-• 性别：${promptData.gender}
-• 八字原局：${objectiveBaziData.pillars.ganzhi.year} ${objectiveBaziData.pillars.ganzhi.month} ${objectiveBaziData.pillars.ganzhi.day} ${objectiveBaziData.pillars.ganzhi.time}
-• 命主格局：${geJu}
-• 核心神煞：年[${shenshaResult.year}] 月[${shenshaResult.month}] 日[${shenshaResult.day}] 时[${shenshaResult.time}]
-• 特殊命局：${specialPatterns.length > 0 ? specialPatterns.join(' | ') : '无'}
-• 当前大运：${promptData.daYunStr}
-• 当前流年：${currentLiuNianGan}${currentLiuNianZhi}年
+const llmPrompt = `
+你是一位精通子平八字命理的专业分析模型，遵循传统命理体系进行推演。
 
-请基于以上八字，执行以下分析：
-1. 【身强/身弱定性】：判断日主强弱。
-2. 【提取十神喜忌】：提取喜用神与忌仇神。
-3. 【八字断语】：结合给定的格局、神煞与大运流年生克，分别撰写原局核心、当前大运和当前流年简评。
+## 命主基础数据（由排盘系统严谨生成，禁止更改或捏造）
 
-【输出格式要求】
-必须且仅输出纯 JSON 字符串（不要 Markdown 标记），模型中【不需要】再输出神煞数据，结构严格如下：
+| 项目 | 数据 |
+|------|------|
+| 性别 | ${promptData.gender} |
+| 八字原局 | ${objectiveBaziData.pillars.ganzhi.year} ${objectiveBaziData.pillars.ganzhi.month} ${objectiveBaziData.pillars.ganzhi.day} ${objectiveBaziData.pillars.ganzhi.time} |
+| 命局格局 | ${geJu} |
+| 核心神煞 | 年[${shenshaResult.year}] 月[${shenshaResult.month}] 日[${shenshaResult.day}] 时[${shenshaResult.time}] |
+| 特殊命局 | ${specialPatterns.length > 0 ? specialPatterns.join(' | ') : '无'} |
+| 当前大运 | ${promptData.daYunStr} |
+| 当前流年 | ${currentLiuNianGan}${currentLiuNianZhi}年 |
+
+---
+
+## 分析任务
+
+请严格按照以下步骤推演，步骤之间存在逻辑依赖，不得跳步：
+
+**Step 1【身强/身弱定性】**
+综合月令得令、得地、得势、天干透出等因素，判断日主旺衰，得出「身强」或「身弱」结论。
+
+**Step 2【喜忌神提取】**
+在 Step 1 定性基础上，结合格局类型，提取喜用神（有利五行/十神）与忌仇神（不利五行/十神），以十神名称表达（如：印星、比劫、食伤、财星、官杀）。
+
+**Step 3【原局核心断语】**
+基于格局、神煞配置与五行生克，概括命主一生的核心命运走向、性格底色与主要人生课题。字数 80～120 字，语言专业简洁。
+
+**Step 4【当前大运简评】**
+结合 Step 2 喜忌，分析当前大运的五行/十神与日主、格局的生克关系，判断此运整体吉凶走势及影响方向（事业/财运/婚姻等主要领域）。字数 60～100 字。
+
+**Step 5【当前流年简评】**
+分析流年干支与大运、命局的会合刑冲，聚焦本年度最突出的变动与机遇风险提示。字数 50～80 字。
+
+---
+
+## 输出格式
+
+仅输出合法 JSON 字符串，禁止包含任何 Markdown 标记、代码块符号或注释，字段说明如下：
+
 {
-  "strong_weak": "身强 或 身弱",
-  "favorable_gods": ["印星", "比劫"],
-  "unfavorable_gods": ["官杀", "财星"],
-  "yuanju_core": "原局核心分析文案...",
-  "current_dayun": "当前大运分析文案...",
-  "current_liunian": "当前流年简评文案..."
-}`;
+  "strong_weak": "身强 或 身弱（二选一）",
+  "favorable_gods": ["十神名称1", "十神名称2"],
+  "unfavorable_gods": ["十神名称1", "十神名称2"],
+  "yuanju_core": "原局核心断语（80～120 字）",
+  "current_dayun": "当前大运简评（60～100 字）",
+  "current_liunian": "当前流年简评（50～80 字）"
+}
+`.trim();
 
         const API_URL = 'https://yinli.one/v1/chat/completions'; 
         const llmResponse = await fetch(API_URL, {
