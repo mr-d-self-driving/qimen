@@ -1162,5 +1162,42 @@ function closeAvatarMenu(){document.getElementById('avatarMenu').classList.remov
     resize();initStars();draw();window.addEventListener('resize',()=>{resize();initStars();});
 })();
 </script>
+<style>
+    /* 1. 给页面底部留出空间，防止内容被导航栏挡住 */
+    body { padding-bottom: 90px !important; }
+
+    /* 2. 底部导航栏独立样式 */
+    #globalBottomNav {
+        position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
+        height: calc(65px + env(safe-area-inset-bottom));
+        background: rgba(14, 14, 31, 0.88);
+        backdrop-filter: blur(40px) saturate(1.6); -webkit-backdrop-filter: blur(40px);
+        border-top: 1px solid rgba(212,175,55,0.22);
+        display: flex; justify-content: space-around; align-items: center;
+        padding-bottom: env(safe-area-inset-bottom);
+    }
+    .nav-item {
+        flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+        color: #8E8E93; cursor: pointer; transition: all 0.3s; text-decoration: none;
+    }
+    .nav-item.active { color: #D4AF37; }
+    .nav-icon { font-size: 22px; }
+    .nav-label { font-size: 10px; font-weight: 600; letter-spacing: 1px; }
+</style>
+
+<nav id="globalBottomNav">
+    <a href="index.html" class="nav-item active">
+        <div class="nav-icon">🧭</div>
+        <div class="nav-label">奇门</div>
+    </a>
+    <a href="bazi.html" class="nav-item">
+        <div class="nav-icon">🧬</div>
+        <div class="nav-label">八字</div>
+    </a>
+    <a href="me.html" class="nav-item">
+        <div class="nav-icon">👤</div>
+        <div class="nav-label">我的</div>
+    </a>
+</nav>
 </body>
 </html>

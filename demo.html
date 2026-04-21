@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>天机枢纽 - 东方玄学 OS</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;700&family=ZCOOL+XiaoWei&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <style>
+        /* 继承原有设计系统的 CSS 变量 */
+        :root {
+            --gold: #D4AF37;
+            --gold-light: #E8CC80;
+            --bg-deep: #05050A;
+            --glass: rgba(255, 255, 255, 0.03);
+            --glass-border: rgba(255, 255, 255, 0.07);
+            --text-primary: rgba(240, 237, 230, 0.95);
+            --text-muted: #8E8E93;
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+        html, body { min-height: 100%; background: var(--bg-deep); color: var(--text-primary); font-family: 'PingFang SC', sans-serif; overflow-x: hidden; }
+
+        /* 背景装饰 */
+        #cosmosCanvas { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
+        .bg-gradient { position: fixed; inset: 0; z-index: 0; background: radial-gradient(circle at 50% 50%, #0E0E1F 0%, #05050A 100%); }
+
+        /* 顶部标题栏 */
+        #header {
+            position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+            height: 60px; display: flex; align-items: center; justify-content: center;
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            background: rgba(5, 5, 10, 0.6); border-bottom: 1px solid var(--glass-border);
+        }
+        .header-title { font-family: 'ZCOOL XiaoWei', serif; font-size: 20px; letter-spacing: 4px; color: var(--gold); }
+
+        /* 视图容器 */
+        .view-section {
+            position: relative; z-index: 1;
+            padding: 80px 20px 100px;
+            max-width: 520px; margin: 0 auto;
+            display: none; animation: fadeIn 0.4s ease;
+        }
+        .view-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 底部导航栏 */
+        #bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000;
+            height: calc(65px + var(--safe-bottom));
+            background: rgba(14, 14, 31, 0.85);
+            backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+            border-top: 1px solid var(--glass-border);
+            display: flex; justify-content: space-around; align-items: center;
+            padding-bottom: var(--safe-bottom);
+        }
+        .nav-item {
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px;
+            color: var(--text-muted); cursor: pointer; transition: all 0.3s;
+        }
+        .nav-item.active { color: var(--gold); }
+        .nav-icon { font-size: 20px; }
+        .nav-label { font-size: 11px; font-weight: 500; }
+
+        /* 模拟 FAB 悬浮按钮效果（如果中间有奇门） */
+        .nav-item.center-btn {
+            position: relative; top: -15px;
+            width: 56px; height: 56px; flex: none;
+            background: linear-gradient(135deg, #B38B36, #E8CC80);
+            border-radius: 50%; border: 4px solid var(--bg-deep);
+            color: #1a1000; box-shadow: 0 4px 20px rgba(212,175,55,0.3);
+        }
+        .nav-item.center-btn .nav-icon { font-size: 24px; margin-top: 12px; }
+
+        /* 通用玻璃卡片样式 */
+        .glass-card {
+            background: var(--glass); border: 1px solid var(--glass-border);
+            border-radius: 22px; padding: 20px; margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-gradient"></div>
+    <canvas id="cosmosCanvas"></canvas>
+
+    <header id="header">
+        <div class="header-title" id="view-title">奇门决策</div>
+    </header>
+
+    <section id="view-qimen" class="view-section active">
+        <div class="glass-card">
+            <div style="color: var(--text-muted); text-align:center; padding: 40px 0;">
+                <p>在此输入您的问题...</p>
+                </div>
+        </div>
+        <button class="glass-card" style="width:100%; color:var(--gold); border-color:var(--gold); cursor:pointer;">洞察天机</button>
+    </section>
+
+    <section id="view-bazi" class="view-section">
+        <div class="glass-card">
+            <h3 style="color: var(--gold); margin-bottom:15px;">全息八字档案</h3>
+            <div style="height: 200px; border: 1px dashed var(--glass-border); border-radius: 12px; display: flex; align-items:center; justify-content:center; color:var(--text-muted);">
+                命盘加载中...
+            </div>
+        </div>
+    </section>
+
+    <section id="view-me" class="view-section">
+        <div class="glass-card" style="display: flex; align-items: center; gap: 15px;">
+            <div style="width: 50px; height: 50px; border-radius: 50%; background: var(--gold-dim); border: 1px solid var(--gold);"></div>
+            <div>
+                <div style="font-weight: 600;">林俊彦</div>
+                <div style="font-size: 12px; color: var(--text-muted);">VIP 永久成员</div>
+            </div>
+        </div>
+        <div class="glass-card">
+            <div style="margin-bottom:15px; font-size:14px; color:var(--text-muted);">通用设置</div>
+            <div style="display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--glass-border);">
+                <span>深色模式</span>
+                <span style="color:var(--gold);">已开启</span>
+            </div>
+            <div style="padding:10px 0; color: #FF5E57; cursor:pointer;" onclick="handleSignOut()">退出登录</div>
+        </div>
+    </section>
+
+    <nav id="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('qimen')">
+            <div class="nav-icon">🧭</div>
+            <div class="nav-label">奇门</div>
+        </div>
+        <div class="nav-item" onclick="switchTab('bazi')">
+            <div class="nav-icon">🧬</div>
+            <div class="nav-label">八字</div>
+        </div>
+        <div class="nav-item" onclick="switchTab('me')">
+            <div class="nav-icon">👤</div>
+            <div class="nav-label">我的</div>
+        </div>
+    </nav>
+
+    <script>
+        // 视图切换核心逻辑
+        function switchTab(tabId) {
+            // 1. 更新容器显示
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById(`view-${tabId}`).classList.add('active');
+
+            // 2. 更新 Tab 状态
+            document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+
+            // 3. 更新标题
+            const titles = { qimen: '奇门决策', bazi: '全息八字', me: '账户中心' };
+            document.getElementById('view-title').innerText = titles[tabId];
+
+            // 4. 触感反馈（如果支持）
+            if (window.navigator.vibrate) window.navigator.vibrate(10);
+        }
+
+        // 初始化星空背景 (复用原有脚本)
+        (function initVisuals(){
+            const canvas=document.getElementById('cosmosCanvas'),ctx=canvas.getContext('2d');
+            let W,H;
+            function resize(){ W=canvas.width=window.innerWidth; H=canvas.height=window.innerHeight; }
+            window.addEventListener('resize', resize);
+            resize();
+            // ... (此处省略原有 canvas 粒子绘制代码以节省篇幅) ...
+        })();
+    </script>
+</body>
+</html>
