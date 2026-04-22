@@ -43,7 +43,7 @@
               <circle cx="32" cy="32" r="18" stroke="rgba(212,175,55,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
               <circle cx="32" cy="32" r="3" fill="rgba(212,175,55,0.5)"/>
             </svg>
-            <p v-html="activeCategory === 'all' ? '尚无推演记录<br>缘起于此，万象皆空' : '此类型暂无记录'"></p>
+            <p>尚无推演记录<br>缘起于此，万象皆空</p>
           </div>
           <div v-else class="d-hist-item" v-for="item in filteredHistory" :key="item.id" @click="loadRecord(item)">
             <span class="d-hist-dot" :class="getVerdictCls(item.score)"></span>
