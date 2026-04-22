@@ -1,4 +1,7 @@
 <template>
+  <canvas ref="cosmosCanvas" id="cosmosCanvas"></canvas>
+  <div class="bg-radial"></div>
+
   <router-view v-slot="{ Component }">
     <transition name="fade" mode="out-in">
       <component :is="Component" />
@@ -20,6 +23,55 @@
     </router-link>
   </nav>
 </template>
+
+<script setup>
+import { ref, onMounted, onUnmounted } from 'vue'
+
+const cosmosCanvas = ref(null)
+let animationId = null
+
+const initVisuals = () => {
+    if(!cosmosCanvas.value) return
+    const canvas = cosmosCanvas.value
+    const ctx = canvas.getContext('2d')
+    let W, H, stars = []
+    
+    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
+    const draw = () => {
+        ctx.clearRect(0,0,W,H)
+        stars.forEach(s => {
+            s.a += s.speed*0.008; s.x += s.drift; 
+            if(s.x < 0) s.x = W; if(s.x > W) s.x = 0;
+            ctx.save(); ctx.globalAlpha = ((Math.sin(s.a)+1)/2)*0.5+0.05
+            ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); ctx.restore()
+        })
+        
+        // Connect nearby stars with lines (optional aesthetic from old index)
+        for(let i=0; i<stars.length; i++){
+            for(let j=i+1; j<stars.length; j++){
+                const dx = stars[i].x - stars[j].x, dy = stars[i].y - stars[j].y, dist = Math.sqrt(dx*dx+dy*dy)
+                if(dist < 90){
+                    ctx.save(); ctx.globalAlpha = (1-dist/90)*0.035; ctx.strokeStyle = '#B38B36'; ctx.lineWidth = .5;
+                    ctx.beginPath(); ctx.moveTo(stars[i].x, stars[i].y); ctx.lineTo(stars[j].x, stars[j].y); ctx.stroke(); ctx.restore()
+                }
+            }
+        }
+        animationId = requestAnimationFrame(draw)
+    }
+    resize()
+    stars = Array.from({length: 100}, () => ({x:Math.random()*W, y:Math.random()*H, r:Math.random()*0.9+0.2, a:Math.random(), speed:(Math.random()*0.3+0.05)*(Math.random()>.5?1:-1), drift:(Math.random()-.5)*0.1}))
+    draw()
+    window.addEventListener('resize', resize)
+}
+
+onMounted(() => {
+    initVisuals()
+})
+
+onUnmounted(() => {
+    if (animationId) cancelAnimationFrame(animationId)
+})
+</script>
 
 <style scoped>
 /* 这里放底部导航的 CSS */

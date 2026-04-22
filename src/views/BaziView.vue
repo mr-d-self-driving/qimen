@@ -1,7 +1,5 @@
 <template>
   <div class="bazi-view">
-    <canvas ref="cosmosCanvas" class="cosmos-canvas"></canvas>
-    <div class="bg-radial"></div>
 
     <header id="siteHeader">
         <div class="site-logo">全息八字</div>
@@ -205,9 +203,6 @@ const form = reactive({
     birth: ''
 })
 
-const cosmosCanvas = ref(null)
-let animationId = null
-
 // 计算属性 (Vue 魔法：数据变化自动更新 UI)
 const activeProfile = computed(() => {
     return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
@@ -275,7 +270,6 @@ const lunarDateStr = computed(() => {
 
 // 生命周期
 onMounted(async () => {
-    initVisuals()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return // 可以在此触发全局路由跳转回登录页
     currentUser.value = session.user
@@ -283,7 +277,6 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-    if (animationId) cancelAnimationFrame(animationId)
 })
 
 // 业务方法
@@ -401,37 +394,11 @@ const generateLunarPromptData = (profile) => {
     }
     return res
 }
-
-// 动态背景动画
-const initVisuals = () => {
-    if(!cosmosCanvas.value) return
-    const canvas = cosmosCanvas.value
-    const ctx = canvas.getContext('2d')
-    let W, H, stars = []
-    
-    const resize = () => { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight }
-    const draw = () => {
-        ctx.clearRect(0,0,W,H)
-        stars.forEach(s => {
-            s.a += s.speed*0.008; s.x += s.drift; 
-            if(s.x < 0) s.x = W; if(s.x > W) s.x = 0;
-            ctx.save(); ctx.globalAlpha = ((Math.sin(s.a)+1)/2)*0.5+0.05
-            ctx.fillStyle = '#E8CC80'; ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, Math.PI*2); ctx.fill(); ctx.restore()
-        })
-        animationId = requestAnimationFrame(draw)
-    }
-    resize()
-    stars = Array.from({length: 100}, () => ({x:Math.random()*W, y:Math.random()*H, r:Math.random()*0.8+0.2, a:Math.random(), speed:Math.random()*0.3, drift:Math.random()-0.5}))
-    draw()
-    window.addEventListener('resize', resize)
-}
 </script>
 
 <style scoped>
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
 .bazi-view { width: 100%; min-height: 100vh; position: relative;}
-.cosmos-canvas { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
-.bg-radial { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(ellipse 55% 45% at 15% 15%,rgba(107,140,255,0.06) 0%,transparent 60%), radial-gradient(ellipse 50% 55% at 85% 85%,rgba(212,175,55,0.05) 0%,transparent 60%), linear-gradient(155deg,#05050A 0%,#0E0E1F 55%,#1A1A2E 100%); }
 
 #siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }

@@ -20,4 +20,12 @@
     --crimson:       #FF5E57;
 }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html,body{min-height:100%;background:var(--bg-deep);color:#fff;overflow-x:hidden;}
+html,body{min-height:100%;background:var(--bg-deep);color:var(--text-primary);font-family:var(--font-body);overflow-x:hidden;-webkit-font-smoothing:antialiased}
+
+/* ── 背景 ── */
+#cosmosCanvas{position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:0}
+.bg-radial{position:fixed;inset:0;z-index:0;pointer-events:none;
+    background:
+        radial-gradient(ellipse 55% 45% at 15% 15%,rgba(107,140,255,0.06) 0%,transparent 60%),
+        radial-gradient(ellipse 50% 55% at 85% 85%,rgba(212,175,55,0.05) 0%,transparent 60%),
+        linear-gradient(155deg,#05050A 0%,#0E0E1F 55%,#1A1A2E 100%)}
