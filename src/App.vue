@@ -1,6 +1,9 @@
 <template>
-  <canvas ref="cosmosCanvas" id="cosmosCanvas"></canvas>
-  <div class="bg-radial"></div>
+  <div id="drawer-host" class="drawer-host"></div>
+
+  <div class="main-viewport" :class="{ 'drawer-open': globalState.isDrawerOpen }">
+    <canvas ref="cosmosCanvas" id="cosmosCanvas"></canvas>
+    <div class="bg-radial"></div>
 
   <router-view v-slot="{ Component }">
     <transition name="fade" mode="out-in">
@@ -8,24 +11,28 @@
     </transition>
   </router-view>
 
-  <nav id="globalBottomNav">
-    <router-link to="/" class="nav-item" active-class="active">
-      <div class="nav-icon">🧭</div>
-      <div class="nav-label">奇门</div>
-    </router-link>
-    <router-link to="/bazi" class="nav-item" active-class="active">
-      <div class="nav-icon">🧬</div>
-      <div class="nav-label">八字</div>
-    </router-link>
-    <router-link to="/me" class="nav-item" active-class="active">
-      <div class="nav-icon">👤</div>
-      <div class="nav-label">我的</div>
-    </router-link>
-  </nav>
+    <nav id="globalBottomNav">
+      <router-link to="/" class="nav-item" active-class="active">
+        <div class="nav-icon">🧭</div>
+        <div class="nav-label">奇门</div>
+      </router-link>
+      <router-link to="/bazi" class="nav-item" active-class="active">
+        <div class="nav-icon">🧬</div>
+        <div class="nav-label">八字</div>
+      </router-link>
+      <router-link to="/me" class="nav-item" active-class="active">
+        <div class="nav-icon">👤</div>
+        <div class="nav-label">我的</div>
+      </router-link>
+    </nav>
+    
+    <div class="viewport-overlay" :class="{ open: globalState.isDrawerOpen }" @click="globalState.isDrawerOpen = false"></div>
+  </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import { globalState } from './store.js'
 
 const cosmosCanvas = ref(null)
 let animationId = null
@@ -74,6 +81,46 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
+.drawer-host {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: min(82vw, 310px);
+  z-index: 1;
+}
+
+.main-viewport {
+  position: relative;
+  z-index: 10;
+  min-height: 100vh;
+  background: var(--bg-deep);
+  transform: translateX(0);
+  transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), border-radius 0.5s ease, box-shadow 0.5s ease;
+}
+
+.main-viewport.drawer-open {
+  transform: translateX(min(82vw, 310px));
+  border-radius: 24px;
+  box-shadow: -10px 0 40px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+
+.viewport-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 99999;
+  background: rgba(0,0,0,0.3);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.5s ease;
+}
+.viewport-overlay.open {
+  opacity: 1;
+  pointer-events: all;
+  cursor: pointer;
+}
+
 /* 这里放底部导航的 CSS */
 #globalBottomNav {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
