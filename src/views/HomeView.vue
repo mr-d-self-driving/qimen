@@ -859,7 +859,13 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 :deep(.reveal.visible) { opacity:1; transform:none; }
 @keyframes glowPulse { 0%,100% { box-shadow:0 0 16px var(--theme-color-dim,rgba(179,139,54,0.12)); } 50% { box-shadow:0 0 28px var(--theme-color-dim,rgba(179,139,54,0.25)); } }
 @keyframes floatIcon { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
-@media(max-width:400px) { :deep(.conclusion) { font-size:18px; } :deep(.score-badge .score) { width:48px; height:48px; font-size:18px; } }
+@media(max-width:400px) { 
+  :deep(.conclusion) { font-size:18px; } 
+  :deep(.score-badge .score) { 
+    font-size:18px; 
+    white-space: nowrap; /* 强制不换行，让背景随文字宽度自然撑开 */
+  } 
+}
 
 
 </style>
