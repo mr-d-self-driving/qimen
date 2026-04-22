@@ -1,7 +1,7 @@
 // src/router/index.js
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
-//import BaziView from '../views/BaziView.vue'
+import BaziView from '../views/BaziView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
