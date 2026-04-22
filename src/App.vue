@@ -1,15 +1,20 @@
 <template>
   <div id="drawer-host" class="drawer-host"></div>
 
-  <div class="main-viewport" :class="{ 'drawer-open': globalState.isDrawerOpen }">
-    <canvas ref="cosmosCanvas" id="cosmosCanvas"></canvas>
-    <div class="bg-radial"></div>
+  <div class="app-container" :class="{ 'drawer-open': globalState.isDrawerOpen }">
+    <div class="main-viewport">
+      <canvas ref="cosmosCanvas" id="cosmosCanvas"></canvas>
+      <div class="bg-radial"></div>
 
-  <router-view v-slot="{ Component }">
-    <transition name="fade" mode="out-in">
-      <component :is="Component" />
-    </transition>
-  </router-view>
+      <router-view v-slot="{ Component }">
+        <transition name="fade" mode="out-in">
+          <component :is="Component" />
+        </transition>
+      </router-view>
+      
+      <!-- Padding block to ensure content is not hidden behind the fixed bottom nav -->
+      <div class="nav-padding"></div>
+    </div>
 
     <nav id="globalBottomNav">
       <router-link to="/" class="nav-item" active-class="active">
@@ -90,20 +95,32 @@ onUnmounted(() => {
   z-index: 1;
 }
 
-.main-viewport {
-  position: relative;
+.app-container {
+  position: fixed;
+  inset: 0;
   z-index: 10;
-  min-height: 100vh;
   background: var(--bg-deep);
   transform: translateX(0);
   transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), border-radius 0.5s ease, box-shadow 0.5s ease;
+  overflow: hidden; /* Hide anything outside the translated bounds */
 }
 
-.main-viewport.drawer-open {
+.app-container.drawer-open {
   transform: translateX(min(82vw, 310px));
   border-radius: 24px;
   box-shadow: -10px 0 40px rgba(0,0,0,0.6);
-  overflow: hidden;
+}
+
+.main-viewport {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nav-padding {
+  height: calc(85px + env(safe-area-inset-bottom));
 }
 
 .viewport-overlay {
