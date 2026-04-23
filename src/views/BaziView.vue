@@ -219,24 +219,26 @@
                 </div>
 
                 <!-- 神煞解释弹窗 -->
-                <div v-if="selectedShensha" class="modal-overlay" @click="selectedShensha = null">
-                    <div class="shensha-modal" @click.stop>
-                        <h4>{{ selectedShensha }}</h4>
-                        <p>{{ getShenshaDesc(selectedShensha) }}</p>
-                        <button class="btn-primary" style="width:100%; margin-top:14px;" @click="selectedShensha = null">明白</button>
+                <Teleport to="body">
+                    <div v-if="selectedShensha" class="modal-overlay" @click="selectedShensha = null">
+                        <div class="shensha-modal" @click.stop>
+                            <h4>{{ selectedShensha }}</h4>
+                            <p>{{ getShenshaDesc(selectedShensha) }}</p>
+                            <button class="btn-primary" style="width:100%; margin-top:14px;" @click="selectedShensha = null">明白</button>
+                        </div>
                     </div>
-                </div>
+                </Teleport>
 
                 <div v-if="activeProfile.yuanju_core" class="ai-section" style="display: block;">
                     <div class="ai-header-title">天机锦囊</div>
                     <div class="xiji-box">
                         <div class="xiji-item">
                             <div class="xiji-label">喜用神</div>
-                            <div class="xiji-val favorable">{{ activeProfile.favorable_elements || '-' }}</div>
+                            <div class="xiji-val favorable">{{ formatXiJi(activeProfile.favorable_elements) }}</div>
                         </div>
                         <div class="xiji-item">
                             <div class="xiji-label">忌仇神</div>
-                            <div class="xiji-val unfavorable">{{ activeProfile.unfavorable_elements || '-' }}</div>
+                            <div class="xiji-val unfavorable">{{ formatXiJi(activeProfile.unfavorable_elements) }}</div>
                         </div>
                     </div>
                     <div class="insight-card">
@@ -541,6 +543,12 @@ const requestAiSummary = async () => {
 // 辅助方法
 const formatShen = (shenArr) => {
     return shenArr && shenArr.length > 0 ? shenArr.join('<br>') : '-'
+}
+
+const formatXiJi = (val) => {
+    if (!val) return '-';
+    if (Array.isArray(val)) return val.length ? val.join('、') : '-';
+    return val;
 }
 
 const selectedShensha = ref(null);
