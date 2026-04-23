@@ -25,11 +25,11 @@
         <div class="nav-icon">🧬</div>
         <div class="nav-label">八字</div>
       </router-link>
-      <router-link to="/me" class="nav-item" active-class="active">
-        <div class="nav-icon">👤</div>
-        <div class="nav-label">我的</div>
+      <router-link to="/fortune" class="nav-item" active-class="active">
+        <div class="nav-icon">🗓️</div> <div class="nav-label">运势</div>
       </router-link>
     </nav>
+
     
     <div class="viewport-overlay" :class="{ open: globalState.isDrawerOpen }" @click="globalState.isDrawerOpen = false"></div>
   </div>
