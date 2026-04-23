@@ -235,6 +235,90 @@
                     </div>
                 </Teleport>
 
+                <!-- 命局天机分析引擎版块 -->
+                <div v-if="activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section" style="display: block; margin-bottom: 16px;">
+                    <div class="ai-header-title">命局天机 <span style="font-size: 12px; color: var(--gold); font-weight: 300;">(Antigravity Engine)</span></div>
+                    
+                    <!-- 1. 格局特性卡片 -->
+                    <div class="insight-card geju-card">
+                        <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                            <span class="tag-gold">{{ activeProfile.strong_weak }}</span>
+                            <span class="tag-gold">{{ activeProfile.geju }}</span>
+                        </div>
+                        <p style="color: #ccc; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">
+                            {{ getGejuDesc(activeProfile.geju) }}
+                        </p>
+                        <div style="padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1);">
+                            <p style="color: #fff; font-size: 14px; font-weight: 500;">
+                                💡 天机断语：{{ activeProfile.bazi_detail.favorable_verdict }}
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 2. 五行能量占比条 -->
+                    <div class="insight-card wuxing-pool-card" v-if="activeProfile.bazi_detail.wuxing_ratio">
+                        <h4 style="margin-bottom: 12px; display: flex; justify-content: space-between;">
+                            <span>五行能量池</span>
+                            <span v-if="Object.values(activeProfile.bazi_detail.wuxing_ratio).some(r => r > 45)" style="color: #FF5E57; font-size: 12px; animation: pulse 1.5s infinite;">🔥 能量过载 (病)</span>
+                        </h4>
+                        <div class="wuxing-bar-container">
+                            <div v-for="(ratio, wx) in activeProfile.bazi_detail.wuxing_ratio" :key="wx" 
+                                 class="wuxing-bar-segment" 
+                                 :class="'bg-' + getWuxingClass(wx)"
+                                 :style="{ width: ratio + '%' }"
+                                 :title="wx + ' ' + Math.round(ratio) + '%'">
+                                <span v-if="ratio > 10" class="wuxing-bar-label">{{ wx }} {{ Math.round(ratio) }}%</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 喜忌神四维打分剖析 -->
+                    <div class="insight-card scoring-breakdown-card">
+                        <h4 style="margin-bottom: 12px;">核心用神四维剖析</h4>
+                        
+                        <div class="scoring-list">
+                            <!-- 喜神 -->
+                            <div v-for="shen in activeProfile.favorable_elements" :key="'fav'+shen" class="scoring-item fav-item">
+                                <div class="scoring-item-header">
+                                    <span class="shen-badge favorable">{{ shen }}</span>
+                                    <span class="total-score">总分: {{ formatScore(activeProfile.bazi_detail.scoring_details[shen]) }}</span>
+                                </div>
+                                <div class="scoring-bars" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
+                                    <div class="s-bar-row" title="调候：气候冷暖平衡">
+                                        <span class="s-label">🌡️ 调候</span>
+                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou) }}</span>
+                                    </div>
+                                    <div class="s-bar-row" title="病药：五行偏枯制衡">
+                                        <span class="s-label">💊 病药</span>
+                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao) }}</span>
+                                    </div>
+                                    <div class="s-bar-row" title="通关：两行克战化解">
+                                        <span class="s-label">🌉 通关</span>
+                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan) }}</span>
+                                    </div>
+                                    <div class="s-bar-row" title="扶抑：日主强弱生克">
+                                        <span class="s-label">⚖️ 扶抑</span>
+                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- 忌神 -->
+                            <div v-for="shen in activeProfile.unfavorable_elements" :key="'unfav'+shen" class="scoring-item unfav-item">
+                                <div class="scoring-item-header">
+                                    <span class="shen-badge unfavorable">{{ shen }}</span>
+                                    <span class="total-score">总分: {{ formatScore(activeProfile.bazi_detail.scoring_details[shen]) }}</span>
+                                </div>
+                                <div class="scoring-bars" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
+                                    <div class="s-bar-row"><span class="s-label">🌡️ 调候</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou) }}</span></div>
+                                    <div class="s-bar-row"><span class="s-label">💊 病药</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao) }}</span></div>
+                                    <div class="s-bar-row"><span class="s-label">🌉 通关</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan) }}</span></div>
+                                    <div class="s-bar-row"><span class="s-label">⚖️ 扶抑</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi) }}</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div v-if="activeProfile.yuanju_core" class="ai-section" style="display: block;">
                     <div class="ai-header-title">天机锦囊</div>
                     <div class="xiji-box">
@@ -284,6 +368,40 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
 const GAN_WUXING = { '甲':'甲木', '乙':'乙木', '丙':'丙火', '丁':'丁火', '戊':'戊土', '己':'己土', '庚':'庚金', '辛':'辛金', '壬':'壬水', '癸':'癸水' }
+
+const GEJU_DESCRIPTIONS = {
+    '正财格': '为人踏实守信，重现实轻虚浮，最利于实业与财务运作，宜稳扎稳打。',
+    '偏财格': '性格慷慨豪爽，有敏锐的商业嗅觉和投资眼光，一生多有机遇，适合经商理财。',
+    '正官格': '光明磊落，重信守诺，具备良好的管理能力与责任心，利于公职或大企业发展。',
+    '七杀格': '果断坚毅，具备开创性与领导力，面对困难敢于迎难而上，宜在动荡或竞争中求胜。',
+    '正印格': '仁慈宽厚，注重内涵与学识，一生多得长辈贵人相助，适宜从事文教、科研等行业。',
+    '偏印格': '领悟力极强，心思细腻，对偏门学问（如宗教、玄学、艺术）有独特见解，性格较为内向孤高。',
+    '食神格': '温文尔雅，懂得享受生活，有艺术才华与语言表达能力，一生衣禄丰厚。',
+    '伤官格': '才华横溢，思维敏捷，好胜心强，不喜受约束，适合从事技术、演艺、创意类工作。',
+    '建禄格': '独立自主，有骨气，早年多依靠自己打拼，为人讲义气。',
+    '羊刃格': '个性刚强，不轻易妥协，爆发力极强，若有官杀制衡可成大业。',
+    '月刃格': '同羊刃格，性格刚烈，执行力强。'
+};
+
+const getGejuDesc = (geju) => {
+    return GEJU_DESCRIPTIONS[geju] || '此格局具有独特的五行气势，需结合大运流年综合分析。';
+};
+
+const getScoreColor = (score) => {
+    if (score > 0) return 'positive';
+    if (score < 0) return 'negative';
+    return 'neutral';
+};
+
+const formatScore = (score) => {
+    if (score > 0) return '+' + score + ' 分';
+    return score + ' 分';
+};
+
+const getWuxingClass = (wx) => {
+    const map = { '金': 'gold', '木': 'wood', '水': 'water', '火': 'fire', '土': 'earth' };
+    return map[wx] || 'gold';
+};
 
 // 状态定义
 const currentUser = ref(null)
@@ -768,7 +886,100 @@ const generateLunarPromptData = (profile) => {
 
 .insight-card { background: linear-gradient(180deg, rgba(212,175,55,0.05) 0%, rgba(0,0,0,0) 100%); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-serif); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
-.insight-card p { font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; }
+.insight-card p { line-height: 1.6; font-size: 13px; color: #ccc; }
 
 .legacy-summary { background: rgba(212,175,55,0.05); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
+
+/* 命局天机 UI */
+.tag-gold {
+    background: rgba(212, 175, 55, 0.15);
+    color: #d4af37;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid rgba(212, 175, 55, 0.3);
+}
+
+.wuxing-bar-container {
+    display: flex;
+    height: 28px;
+    border-radius: 6px;
+    overflow: hidden;
+    background: #2a2a2a;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+}
+.wuxing-bar-segment {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: width 0.5s ease;
+}
+.wuxing-bar-label {
+    font-size: 10px;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.bg-gold { background: linear-gradient(135deg, #FFDF73, #D4AF37); }
+.bg-wood { background: linear-gradient(135deg, #81C784, #388E3C); }
+.bg-water { background: linear-gradient(135deg, #4FC3F7, #0288D1); }
+.bg-fire { background: linear-gradient(135deg, #E57373, #D32F2F); }
+.bg-earth { background: linear-gradient(135deg, #DCE775, #AFB42B); }
+
+.scoring-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.scoring-item {
+    background: rgba(0,0,0,0.2);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 3px solid transparent;
+}
+.scoring-item.fav-item { border-left-color: #81C784; }
+.scoring-item.unfav-item { border-left-color: #E57373; }
+
+.scoring-item-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.shen-badge {
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: bold;
+}
+.shen-badge.favorable { background: rgba(129,199,132,0.1); color: #81C784; }
+.shen-badge.unfavorable { background: rgba(229,115,115,0.1); color: #E57373; }
+.total-score { font-size: 14px; font-weight: bold; color: #fff; }
+
+.scoring-bars {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 16px;
+}
+.s-bar-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: #aaa;
+}
+.s-val.positive { color: #81C784; }
+.s-val.negative { color: #E57373; }
+.s-val.neutral { color: #888; }
+
+@keyframes pulse {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
+}
 </style>

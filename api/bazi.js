@@ -365,9 +365,14 @@ module.exports = async function handler(req, res) {
 
         const finalBaziDetail = {
             ...objectiveBaziData,
+            geju: geJu,
             strong_weak: strengthResult.strongWeak,
             favorable_gods: favorableResult.core_shens.favorable,
             unfavorable_gods: favorableResult.core_shens.unfavorable,
+            favorable_verdict: favorableResult.verdict,
+            scoring_details: favorableResult.scoring_details,
+            dimension_breakdown: favorableResult.dimension_breakdown,
+            wuxing_ratio: favorableResult.wuxing_ratio,
             // LLM 版放在第一层，供旧代码读取
             yuanju_core: llmQualitativeData.yuanju_core,
             current_dayun: llmQualitativeData.current_dayun,
