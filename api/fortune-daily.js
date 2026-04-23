@@ -138,26 +138,40 @@ export default async function handler(req, res) {
       console.warn(`⚠️ 命理字段不完整，算分降级为 LLM 模式 [${userId}]`);
     }
 
-    // ── 6. 组装 Prompt ──
-    // 📌 算分已由纯 JS 引擎完成（scoreResult），
-    //    此处 LLM 仅负责生成文案（day_insight / day_guide / day_warning / lucky 等），
-    //    不再要求模型计算分数，避免结果随机漂移。
-    const scoreForPrompt = scoreResult
-      ? `【已由系统算法确定，禁止修改】
-今日综合得分：${scoreResult.final_score}
-空亡触发：${scoreResult.is_kongwang ? '是' : '否'}
-三刑触发：${scoreResult.has_sanxing ? '是' : '否'}
-维度分解：天干十神(${scoreResult.breakdown.dim1_score}) + 地支刑冲合(${scoreResult.breakdown.dim2_score}) + 建除(${scoreResult.breakdown.dim3_score})`
-      : `请自行根据命主档案计算（基础水位线70分，区间45-98）`;
+    // ── 6. 组装 Prompt 与字段适配 ──
+    
+    // 根据算分引擎判定等级档位
+    const finalScore = scoreResult ? scoreResult.final_score : 70;
+    let score_level = "平";
+    if (finalScore >= 85) score_level = "优";
+    else if (finalScore >= 70) score_level = "良";
+    else if (finalScore >= 60) score_level = "平";
+    else if (finalScore >= 50) score_level = "注意";
+    else score_level = "慎行";
+
+    // 适配布尔值状态
+    const is_kongwang = scoreResult ? !!scoreResult.is_kongwang : false;
+    const has_sanxing = scoreResult ? !!scoreResult.has_sanxing : false;
+
+    // 适配喜用五行：优先从 profile.favorable_elements 读取
+    const lucky_element = (profile.favorable_elements && profile.favorable_elements.length > 0)
+        ? profile.favorable_elements.join('、')
+        : "无明显偏好";
+
+    // 适配宫位与十神：如果上游未提供这俩字段，则使用合理的占位保底
+    const day_zhi_palace = scoreResult?.day_zhi_palace || `${day_zhi}地支关联宫位`;
+    const core_shen_today = scoreResult?.core_shen_today || "流日主导星曜";
 
     const prompt = `
-你是一位精通《渊海子平》与紫微斗数的命理顾问。
-请基于【命主档案】与【今日历法数据】，生成今日日运的文案解读。
+你是一位精通《渊海子平》盲派断语风格的命理文案师。
+上游系统已完成全部算分与命理推导，你的唯一职责是：
+将结构化的命理数据转化为有温度、有画面感、可执行的白话文案。
 
-⚠️ 铁律：
-1. 历法数据完全信任，禁止自行推算干支。
-2. 仅输出纯净 JSON，严禁包含 \`\`\`json 等 Markdown 标记。
-3. 【算分结果】已由系统确定，你只需填入 day_score 字段，禁止修改该数值。
+⚠️ 铁律（违反即视为输出无效）：
+1. 禁止输出任何评分数字、维度分值、算分说明。
+2. 禁止自行推算或修改任何干支、评分、宫位数据。
+3. 仅输出纯净 JSON，严禁包含 \`\`\`json 等任何 Markdown 标记。
+4. 所有文案字段均基于下方【命理解读上下文】生成，不得凭空发挥。
 
 ━━━━━━━━━━━━━━━━━━━━━━
 【命主档案】
@@ -165,70 +179,87 @@ export default async function handler(req, res) {
 ${profile.bazi_summary}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-【今日历法数据】
+【命理解读上下文】（由系统预算完成，直接信任）
 ━━━━━━━━━━━━━━━━━━━━━━
 公历日期：${solar_date}
 流年干支：${year_gz}
 流月干支：${month_gz}
 流日干支：${day_gz}（天干：${day_gan}，地支：${day_zhi}）
+
 建除十二神：${day_officer}
-旬空亡：${day_void}
-冲煞提示：${day_clash}
+旬空亡地支：${day_void}
+今日地支宫位：${day_zhi_palace}  ← 系统已计算，直接引用，禁止改动
+今日冲煞状态：${day_clash}
 纳音五行：${day_nayin}
 
-━━━━━━━━━━━━━━━━━━━━━━
-【算分结果】
-━━━━━━━━━━━━━━━━━━━━━━
-${scoreForPrompt}
+今日运势等级：${score_level}       ← 由系统判定（优/良/平/注意/慎行），禁止改动
+是否触发空亡：${is_kongwang}
+是否触发三刑：${has_sanxing}
+今日喜用五行：${lucky_element}     ← 由上游 getFavorableUnfavorable 结果推导，直接引用
+今日核心用神十神：${core_shen_today}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-【你的任务：仅生成以下文案字段】
+【文案生成任务】
 ━━━━━━━━━━━━━━━━━━━━━━
 
-▌day_warning（若今日有三刑或空亡则输出警示语，否则输出空字符串）
-▌day_zhi_palace（今日流日地支「${day_zhi}」叠入命盘哪个宫位及核心星曜，10字以内）
+▌ day_warning（字符串）
+  • 触发条件：is_kongwang 为 true 或 has_sanxing 为 true
+  • 若两者均为 false → 输出空字符串 ""
+  • 若触发 → 15字以内，点明风险性质（空亡/三刑），
+    不得出现"小心""注意"等空泛词，需说明具体影响方向
+  • 示例（空亡）："今日旬空，谋事不实，签约宜缓"
+  • 示例（三刑）："三刑拱照，人事暗动，慎防口舌引发连锁"
 
-▌day_insight（≤30字）：
-• 盲派断语风格，一针见血，带点江湖气
-• ≥80分 → 正面星曜意象，点明今日核心机遇
-• 60–79分 → 平稳意象，点出一个关键注意项
-• <60分 → 凶星/化忌意象，明确今日最大风险
+▌ day_insight（≤30字）
+  • 盲派断语风格：一针见血，带江湖气，有画面感
+  • 必须呼应 core_shen_today（今日核心十神）与 day_officer（建除神）
+  • 按 score_level 档位区分基调：
+    ── 优（≥85分档）：正面星曜意象，点明今日核心机遇，可用进取语气
+    ── 良（70–84分档）：稳中有进，点出一个值得把握的方向
+    ── 平（60–69分档）：平稳为主，点出一个需要留意的变量
+    ── 注意（50–59分档）：偏守势，明确今日最大风险点
+    ── 慎行（<50分档）：凶星/化忌意象，语气克制但信息量足
+  • 禁止出现分数数字、维度名称、"喜用神""忌神"等技术术语
 
-▌day_guide（格式：宜xx、xx；忌xx、xx）：
-• 贴合现代打工人/创业者视角，具体可执行
-• 必须命中以下维度之一：
-  ① 事业决策（签约/谈判/汇报/推进）
-  ② 财务投资（收款/支出/理财/合同）
-  ③ 人际关系（社交/合作/表达/求人）
-• 禁止"宜静思""忌冲动"等空洞词语
+▌ day_guide（格式严格：宜[动词+名词]、[动词+名词]；忌[动词+名词]、[动词+名词]）
+  • 贴合现代打工人/创业者视角，每项必须可执行、有具体场景
+  • 宜/忌各写 2 项，必须命中以下维度之一：
+    ① 事业决策：签约 / 谈判 / 汇报 / 项目推进 / 公开表达
+    ② 财务投资：收款 / 支出 / 理财操作 / 合同确认
+    ③ 人际关系：社交拓展 / 合作推进 / 求人办事 / 化解矛盾
+  • 宜与忌必须呼应 lucky_element 与 day_clash 信息
+  • 禁止输出以下空洞词语：
+    "宜静思"、"忌冲动"、"宜休息"、"忌争执"、"宜谨慎"
 
-▌lucky_element（今日最需要的五行，如：水、木）
-▌lucky_color（与 lucky_element 对应的幸运色名称）
-▌lucky_color_hex（对应的十六进制颜色代码）
+▌ lucky_color（字符串）
+  • 根据 lucky_element 输出对应的中文色名
+  • 要求有具体画面感，禁止输出"红色""蓝色"等基础色名
+  • 示例映射（可在此基础上细化）：
+    火 → "绛红"或"珊瑚橙"
+    水 → "靛青"或"霁蓝"
+    木 → "松绿"或"竹青"
+    金 → "月白"或"香槟金"
+    土 → "赭石"或"琥珀棕"
+
+▌ lucky_color_hex（字符串）
+  • 与 lucky_color 严格对应的十六进制颜色码
+  • 须为视觉上可用于 UI 展示的非极端色（非纯黑/纯白）
 
 ━━━━━━━━━━━━━━━━━━━━━━
-【输出格式】仅输出纯 JSON，无任何其他文字
+【输出格式】仅输出以下纯 JSON，无任何其他文字
 ━━━━━━━━━━━━━━━━━━━━━━
 {
   "solar_date": "${solar_date}",
   "day_gz": "${day_gz}",
   "month_gz": "${month_gz}",
   "year_gz": "${year_gz}",
-  "day_score": ${scoreResult ? scoreResult.final_score : 70},
-  "score_breakdown": {
-    "dim1_score": ${scoreResult ? scoreResult.breakdown.dim1_score : 0},
-    "dim2_score": ${scoreResult ? scoreResult.breakdown.dim2_score : 0},
-    "dim3_score": ${scoreResult ? scoreResult.breakdown.dim3_score : 0},
-    "kong_wang_triggered": ${scoreResult ? scoreResult.is_kongwang : false},
-    "sanjing_triggered": ${scoreResult ? scoreResult.has_sanxing : false}
-  },
   "day_warning": "",
-  "day_zhi_palace": "宫位与星曜",
+  "day_zhi_palace": "${day_zhi_palace}",
   "day_insight": "盲派断语不超过30字",
   "day_guide": "宜[xx]、[xx]；忌[xx]、[xx]",
-  "lucky_element": "五行",
+  "lucky_element": "${lucky_element}",
   "lucky_color": "幸运色名称",
-  "lucky_color_hex": "#1A237E"
+  "lucky_color_hex": "#000000"
 }
 `;
 
@@ -260,13 +291,13 @@ ${scoreForPrompt}
     raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
     const finalJson = JSON.parse(raw);
 
-    // ── 7b. 用纯 JS 引擎结果强制覆盖 LLM 的 day_score ──
-    // ⚠️ 防止 LLM 无视 prompt 中的铁律，擅自修改分值。
-    //    JS 引擎结果是唯一权威，LLM 负责文案，不负责算分。
+    // ── 7b. 用纯 JS 引擎结果强制写入 JSON 以供前端读取 ──
+    // ⚠️ 我们在 prompt 中去掉了强制要求输出 day_score 的部分，
+    //    因此在这里，直接将上游算分的权威数据挂载进 finalJson，从而返回给前端图表使用。
     if (scoreResult) {
       finalJson.day_score = scoreResult.final_score;
       finalJson.score_breakdown = {
-        ...(finalJson.score_breakdown || {}),    // 保留 LLM 生成的其他字段（如 profile_extract）
+        ...(finalJson.score_breakdown || {}),
         dim1_score:          scoreResult.breakdown.dim1_score,
         dim2_score:          scoreResult.breakdown.dim2_score,
         dim3_score:          scoreResult.breakdown.dim3_score,
