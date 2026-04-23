@@ -1,5 +1,6 @@
 const { Solar } = require('lunar-javascript');
 const { createClient } = require('@supabase/supabase-js');
+const { calculateDailyScore } = require('../lib/calculateDailyScore');
 
 // ==========================================
 // Supabase 服务端客户端（Service Key 绕过 RLS）
@@ -89,9 +90,11 @@ export default async function handler(req, res) {
 
     // ── 4. 读取用户八字档案 ──
     // 优先 is_default=true，无则取最新一条
+    // 新增命理字段：favorable_elements / unfavorable_elements / day_zhi / year_zhi / month_zhi / ri_zhu
+    // 这些字段由八字排盘时写入 bazi_profiles，供纯 JS 算分引擎使用
     const { data: profile, error: profileError } = await supabase
       .from('bazi_profiles')
-      .select('name, gender, bazi_summary, bazi_str, birth_date')
+      .select('name, gender, bazi_summary, bazi_str, birth_date, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
       .eq('user_id', userId)
       .order('is_default', { ascending: false })
       .order('created_at',  { ascending: false })
@@ -121,32 +124,48 @@ export default async function handler(req, res) {
     const day_clash   = lunar.getDayChongDesc();
     const day_nayin   = lunar.getDayNaYin();
 
-    // ── 6. 组装 Prompt (完全保留原版) ──
+    // ── 5b. 纯 JS 算分（不依赖 LLM）──
+    // 检查 profile 是否包含必要的命理字段
+    const hasScoreFields = profile.ri_zhu && profile.day_zhi && profile.year_zhi
+      && Array.isArray(profile.favorable_elements)
+      && Array.isArray(profile.unfavorable_elements);
+
+    let scoreResult = null;
+    if (hasScoreFields) {
+      scoreResult = calculateDailyScore(profile, lunar);
+      console.log(`🧮 纯 JS 算分完成 [${userId}] 得分=${scoreResult.final_score}`);
+    } else {
+      console.warn(`⚠️ 命理字段不完整，算分降级为 LLM 模式 [${userId}]`);
+    }
+
+    // ── 6. 组装 Prompt ──
+    // 📌 算分已由纯 JS 引擎完成（scoreResult），
+    //    此处 LLM 仅负责生成文案（day_insight / day_guide / day_warning / lucky 等），
+    //    不再要求模型计算分数，避免结果随机漂移。
+    const scoreForPrompt = scoreResult
+      ? `【已由系统算法确定，禁止修改】
+今日综合得分：${scoreResult.final_score}
+空亡触发：${scoreResult.is_kongwang ? '是' : '否'}
+三刑触发：${scoreResult.has_sanxing ? '是' : '否'}
+维度分解：天干十神(${scoreResult.breakdown.dim1_score}) + 地支刑冲合(${scoreResult.breakdown.dim2_score}) + 建除(${scoreResult.breakdown.dim3_score})`
+      : `请自行根据命主档案计算（基础水位线70分，区间45-98）`;
+
     const prompt = `
-你是一位精通《渊海子平》与紫微斗数的命理顾问，同时熟悉现代命理App的日运算法架构。
-请基于【命主档案】与【今日精准历法数据】，严格执行下方推演逻辑，输出今日日运。
+你是一位精通《渊海子平》与紫微斗数的命理顾问。
+请基于【命主档案】与【今日历法数据】，生成今日日运的文案解读。
 
 ⚠️ 铁律：
 1. 历法数据完全信任，禁止自行推算干支。
-2. 喜忌判断必须严格从命主档案中提取，禁止套用通用模板。
-3. 仅输出纯净 JSON，严禁包含 \`\`\`json 等 Markdown 标记。
-4. 评分必须逐维度显式列出得分，不得跳过计算过程。
+2. 仅输出纯净 JSON，严禁包含 \`\`\`json 等 Markdown 标记。
+3. 【算分结果】已由系统确定，你只需填入 day_score 字段，禁止修改该数值。
 
 ━━━━━━━━━━━━━━━━━━━━━━
 【命主档案】
 ━━━━━━━━━━━━━━━━━━━━━━
-以下是由专业排盘系统生成的命主完整命理基底，请完全信任并作为推演核心依据：
-
 ${profile.bazi_summary}
 
-请从上述档案中自行提取以下关键信息：
-① 日主天干（用于推算十神）
-② 当前大运干支及其对喜忌的影响
-③ 原局十神喜忌体系（印星/比劫/财星/食伤/官杀各自的吉凶定性）
-④ 紫微命盘核心宫位（命宫/财帛/官禄/迁移的星曜组合，用于模块二）
-
 ━━━━━━━━━━━━━━━━━━━━━━
-【今日精准历法数据】
+【今日历法数据】
 ━━━━━━━━━━━━━━━━━━━━━━
 公历日期：${solar_date}
 流年干支：${year_gz}
@@ -158,92 +177,34 @@ ${profile.bazi_summary}
 纳音五行：${day_nayin}
 
 ━━━━━━━━━━━━━━━━━━━━━━
-【模块一：日运综合计分】
-基础水位线：70分 | 输出区间：45–98
+【算分结果】
+━━━━━━━━━━━━━━━━━━━━━━
+${scoreForPrompt}
+
+━━━━━━━━━━━━━━━━━━━━━━
+【你的任务：仅生成以下文案字段】
 ━━━━━━━━━━━━━━━━━━━━━━
 
-▌前置步骤：从命主档案提取喜忌体系（必须先完成，后续计分依赖此结果）
-请仔细阅读【命主档案】，提取以下信息并输出至 score_breakdown.profile_extract：
-- 日主天干：___
-- 身强 / 身弱定性：___
-- 喜用神十神列表：___（示例：印星、比劫）
-- 忌仇神十神列表：___（示例：官杀、食伤）
-- 闲神十神列表及当前大运对其影响：___（示例：财星，壬戌大运水制土，当前偏可用）
-- 命主日支：___（用于维度2冲克判断）
-- 命主年支：___（用于维度2冲克判断）
+▌day_warning（若今日有三刑或空亡则输出警示语，否则输出空字符串）
+▌day_zhi_palace（今日流日地支「${day_zhi}」叠入命盘哪个宫位及核心星曜，10字以内）
 
-⚠️ 此步骤提取的结果是后续所有计分的唯一依据，禁止使用通用模板替代。
-
-▌维度1：流日天干十神（±15分）
-依据流日天干「${day_gan}」对命主日主的十神属性，结合前置步骤提取的喜忌体系打分：
-- 属喜用神 → +8 至 +10
-  - 印星（生扶日主）→ +8；若当前大运同为印星则力量叠加可给 +10
-  - 比劫（助身）→ +5 至 +8，身弱命局取高值
-- 属闲神 → -3 至 +3
-  - 视大运对该十神的压制或助力判断正负，并在 reason 中说明
-- 属忌仇神 → -6 至 -10
-  - 官杀（克日主）→ -8 至 -10，七杀取高值
-  - 食伤（泄气生忌）→ -6
-
-▌维度2：地支刑冲合（±15分）
-依据流日地支「${day_zhi}」，结合命主日支「前置步骤提取」与年支「前置步骤提取」判断：
-- 地支五行属喜用神之地（如身弱喜水木，逢亥/子/寅/卯）→ +5 至 +8
-- 地支与命主喜用五行形成三合/六合喜用局 → +4 至 +6
-- 地支伏吟命主日支（流日地支 = 命主日支）→ -2
-- 地支冲命主日支 → -10（冲根最忌）
-- 地支冲命主年支 → -6
-- 地支五行属忌神之地 → -3 至 -6（视忌神轻重判断）
-- 地支引动三刑（见熔断规则）→ 特殊处理
-
-【三刑熔断】最高优先级——
-判断流日地支「${day_zhi}」是否能与命主原局地支、流月地支共同构成三刑组合：
-- 若三刑齐发 → 维度2强制 -15，day_warning 输出：
-  "⚠️ 三刑警示：三刑引动，谨防冲突、争执与意外损失"
-- 若仅两支相刑，三刑未齐全 → 额外 -5，轻度预警
-
-▌维度3：神煞建除（±10分）
-依据建除「${day_officer}」（此维度与命主八字无关，所有人规则相同）：
-- 成 / 开 / 满         → +10
-- 平 / 定 / 除 / 执    → +4
-- 建 / 破 / 危 / 收 / 闭 → -10
-
-【空亡降维】最高优先级——
-判断流日地支「${day_zhi}」是否落在旬空亡「${day_void}」内：
-- 若是 → 前三维度所有加减分 × 0.5，总分强制压制在 60–65 之间
-  day_warning 补充："今日逢空亡，能量虚耗，努力折半，重要决策宜延后"
-
-▌校验
-- 最终得分 > 98 → 强制输出 98
-- 最终得分 < 45 → 强制输出 45
-━━━━━━━━━━━━━━━━━━━━━━
-【模块二：紫微意象赋能】
-仅用于生成 day_insight 与 day_guide，不参与算分
-━━━━━━━━━━━━━━━━━━━━━━
-
-▌流日地支叠宫法
-取流日地支「${day_zhi}」，对照命主紫微命盘，找到对应宫位与星曜：
-• 戌 → 命宫（天同化禄 + 火星庙旺）
-• 午 → 财帛宫（天梁庙旺 + 擎羊陷落）
-• 寅 → 官禄宫（天机化忌 + 太阴化权）
-• 辰 → 迁移宫（巨门陷落）
-• 其余地支 → 对照命盘其他宫位取象，若宫位无主星则取对宫借星
-
-▌断语生成规则
-结合叠加宫位星曜意象 + 今日八字十神：
-
-day_insight（≤30字）：
+▌day_insight（≤30字）：
 • 盲派断语风格，一针见血，带点江湖气
 • ≥80分 → 正面星曜意象，点明今日核心机遇
 • 60–79分 → 平稳意象，点出一个关键注意项
 • <60分 → 凶星/化忌意象，明确今日最大风险
 
-day_guide（格式：宜xx、xx；忌xx、xx）：
+▌day_guide（格式：宜xx、xx；忌xx、xx）：
 • 贴合现代打工人/创业者视角，具体可执行
 • 必须命中以下维度之一：
   ① 事业决策（签约/谈判/汇报/推进）
   ② 财务投资（收款/支出/理财/合同）
   ③ 人际关系（社交/合作/表达/求人）
 • 禁止"宜静思""忌冲动"等空洞词语
+
+▌lucky_element（今日最需要的五行，如：水、木）
+▌lucky_color（与 lucky_element 对应的幸运色名称）
+▌lucky_color_hex（对应的十六进制颜色代码）
 
 ━━━━━━━━━━━━━━━━━━━━━━
 【输出格式】仅输出纯 JSON，无任何其他文字
@@ -253,41 +214,19 @@ day_guide（格式：宜xx、xx；忌xx、xx）：
   "day_gz": "${day_gz}",
   "month_gz": "${month_gz}",
   "year_gz": "${year_gz}",
-  "day_score": 85,
+  "day_score": ${scoreResult ? scoreResult.final_score : 70},
   "score_breakdown": {
-    "profile_extract": {
-    "ri_zhu": "日主天干",
-    "shen_qiang_ruo": "身强/身弱",
-    "xi_yong_shen": ["印星", "比劫"],
-    "ji_chou_shen": ["官杀", "食伤"],
-    "xian_shen": "财星，壬戌大运水制土当前偏可用(+3)",
-    "ri_zhi": "命主日支",
-    "nian_zhi": "命主年支"
-    },
-    "dim1_shishen": {
-      "shishen": "十神名称",
-      "score": 8,
-      "reason": "一句话理由"
-    },
-    "dim2_zhi": {
-      "relation": "地支关系描述",
-      "score": 5,
-      "reason": "一句话理由"
-    },
-    "dim3_officer": {
-      "officer": "${day_officer}",
-      "score": 4,
-      "reason": "一句话理由"
-    },
-    "kong_wang_triggered": false,
-    "sanjing_triggered": false,
-    "final_score_logic": "70 + 8 + 5 + 4 = 87，未触发熔断，校验后输出85"
+    "dim1_score": ${scoreResult ? scoreResult.breakdown.dim1_score : 0},
+    "dim2_score": ${scoreResult ? scoreResult.breakdown.dim2_score : 0},
+    "dim3_score": ${scoreResult ? scoreResult.breakdown.dim3_score : 0},
+    "kong_wang_triggered": ${scoreResult ? scoreResult.is_kongwang : false},
+    "sanjing_triggered": ${scoreResult ? scoreResult.has_sanxing : false}
   },
   "day_warning": "",
-  "day_zhi_palace": "今日流日地支叠入的宫位与核心星曜",
+  "day_zhi_palace": "宫位与星曜",
   "day_insight": "盲派断语不超过30字",
   "day_guide": "宜[xx]、[xx]；忌[xx]、[xx]",
-  "lucky_element": "今日最需要的五行",
+  "lucky_element": "五行",
   "lucky_color": "幸运色名称",
   "lucky_color_hex": "#1A237E"
 }
@@ -320,6 +259,21 @@ day_guide（格式：宜xx、xx；忌xx、xx）：
     let raw = llmData.choices[0].message.content;
     raw = raw.replace(/```json/g, '').replace(/```/g, '').trim();
     const finalJson = JSON.parse(raw);
+
+    // ── 7b. 用纯 JS 引擎结果强制覆盖 LLM 的 day_score ──
+    // ⚠️ 防止 LLM 无视 prompt 中的铁律，擅自修改分值。
+    //    JS 引擎结果是唯一权威，LLM 负责文案，不负责算分。
+    if (scoreResult) {
+      finalJson.day_score = scoreResult.final_score;
+      finalJson.score_breakdown = {
+        ...(finalJson.score_breakdown || {}),    // 保留 LLM 生成的其他字段（如 profile_extract）
+        dim1_score:          scoreResult.breakdown.dim1_score,
+        dim2_score:          scoreResult.breakdown.dim2_score,
+        dim3_score:          scoreResult.breakdown.dim3_score,
+        kong_wang_triggered: scoreResult.is_kongwang,
+        sanjing_triggered:   scoreResult.has_sanxing,
+      };
+    }
 
     // ── 8. 写入数据库缓存 ──
     const expiresAt = new Date(bjTime);

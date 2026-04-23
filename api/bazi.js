@@ -295,17 +295,33 @@ module.exports = async function handler(req, res) {
             current_liunian: llmQualitativeData.current_liunian         
         };
 
+        // ── 新增命理基底字段（供 calculateDailyScore 纯 JS 算分引擎使用）──
+        // ri_zhu   : 日柱干支（如 "甲子"），用于截取日干
+        // day_zhi  : 命主原局日支（如 "子"）
+        // year_zhi : 命主原局年支（如 "寅"）
+        // month_zhi: 命主原局月支（如 "卯"）
+        const riZhu    = baZi.getDay();          // 完整日柱，如 "甲子"
+        const dayZhiVal  = baZi.getDayZhi();     // 日支
+        const yearZhiVal = baZi.getYearZhi();    // 年支
+        const monthZhiVal = baZi.getMonthZhi();  // 月支
+
         const { error: dbError } = await supabase.from('bazi_profiles').update({
             bazi_summary: combinedResultText,
             strong_weak: finalBaziDetail.strong_weak,
-            favorable_elements: finalBaziDetail.favorable_gods.join(", "),
-            unfavorable_elements: finalBaziDetail.unfavorable_gods.join(", "),
+            // ⚠️ 存为数组（jsonb/text[]）而非逗号字符串，使 calculateDailyScore 可直接 Array.includes()
+            favorable_elements: finalBaziDetail.favorable_gods,
+            unfavorable_elements: finalBaziDetail.unfavorable_gods,
             yuanju_core: finalBaziDetail.yuanju_core,
             current_dayun: finalBaziDetail.current_dayun,
             current_liunian: finalBaziDetail.current_liunian,
             bazi_detail: finalBaziDetail,
-            shensha: JSON.stringify(shenshaResult), 
-            geju: geJu
+            shensha: JSON.stringify(shenshaResult),
+            geju: geJu,
+            // ── 新增字段 ──
+            ri_zhu:    riZhu,
+            day_zhi:   dayZhiVal,
+            year_zhi:  yearZhiVal,
+            month_zhi: monthZhiVal,
         }).eq('id', promptData.profileId);
 
         if (dbError) console.error("数据库写入失败:", dbError);
