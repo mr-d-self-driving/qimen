@@ -1,5 +1,6 @@
 const { Solar, Lunar } = require('lunar-javascript');
 const { createClient } = require('@supabase/supabase-js');
+const { BaziRuleEngine, getDiShi, getShen } = require('../lib/BaziRuleEngine');
 
 const memoryCache = {};
 const supabase = createClient(
@@ -199,25 +200,70 @@ module.exports = async function handler(req, res) {
         }));
 
         const currentYear = new Date().getFullYear();
-        const currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
-        let currentDaYunData = null;
-        let currentLiuNianGan = "未知", currentLiuNianZhi = "未知";
+        const currentMonth = new Date().getMonth() + 1;
 
-        if (currentDaYunObj) {
-            currentDaYunData = buildPillar('大运', currentDaYunObj.getGanZhi().charAt(0), currentDaYunObj.getGanZhi().charAt(1), '大运');
-            currentDaYunObj.getLiuNian().forEach(ln => {
-                if (ln.getYear() === currentYear) { currentLiuNianGan = ln.getGanZhi().charAt(0); currentLiuNianZhi = ln.getGanZhi().charAt(1); }
-            });
+        // ── 1. 大运列表 (10柱) ──
+        const daYunList = yun.getDaYun().slice(0, 10).map(dy => {
+            const gan = dy.getGanZhi().charAt(0);
+            const zhi = dy.getGanZhi().charAt(1);
+            return {
+                start_year: dy.getStartYear(),
+                start_age: dy.getStartAge(),
+                gan: gan,
+                zhi: zhi,
+                shi_shen: getShen(dayGanVal, gan)
+            };
+        });
+
+        // ── 2. 流年列表 (取当前所在大运的 10 年) ──
+        const currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear()) || yun.getDaYun()[0];
+        const liuNianList = currentDaYunObj.getLiuNian().map(ln => {
+            const gan = ln.getGanZhi().charAt(0);
+            const zhi = ln.getGanZhi().charAt(1);
+            return {
+                year: ln.getYear(),
+                gan: gan,
+                zhi: zhi,
+                shi_shen: getShen(dayGanVal, gan)
+            };
+        });
+
+        // ── 3. 流月列表 (取当前年份的 12 个月) ──
+        let currentLiuNianObj = currentDaYunObj.getLiuNian().find(ln => ln.getYear() === currentYear);
+        if (!currentLiuNianObj) {
+            // 如果不在当前大运，尝试从整个运势找流年
+            const allDaYuns = yun.getDaYun();
+            for (const dy of allDaYuns) {
+                const ln = dy.getLiuNian().find(l => l.getYear() === currentYear);
+                if (ln) { currentLiuNianObj = ln; break; }
+            }
         }
 
-        const lnLunar = Solar.fromYmd(currentYear, 6, 1).getLunar();
-        const currentLiuNianData = buildPillar('流年', lnLunar.getYearGan(), lnLunar.getYearZhi(), '流年');
+        const liuYueList = currentLiuNianObj ? currentLiuNianObj.getLiuYue().map(ly => {
+            const gan = ly.getGanZhi().charAt(0);
+            const zhi = ly.getGanZhi().charAt(1);
+            return {
+                month_name: ly.getMonthInChinese() + '月',
+                gan: gan,
+                zhi: zhi,
+                shi_shen: getShen(dayGanVal, gan)
+            };
+        }) : [];
+
+        // ── 4. 当前状态柱 (供 UI 高亮) ──
+        const currentLiuNianGan = currentLiuNianObj ? currentLiuNianObj.getGanZhi().charAt(0) : "未知";
+        const currentLiuNianZhi = currentLiuNianObj ? currentLiuNianObj.getGanZhi().charAt(1) : "未知";
+
+        const currentDaYunData = buildPillar('大运', currentDaYunObj.getGanZhi().charAt(0), currentDaYunObj.getGanZhi().charAt(1), '大运');
+        const currentLiuNianData = buildPillar('流年', currentLiuNianGan, currentLiuNianZhi, '流年');
 
         const objectiveBaziData = {
-            base_info: { qi_yun: `出生后${yun.getStartYear()}年起运`, ge_ju: geJu, special_patterns: specialPatterns },
+            base_info: { qi_yun: `出生后${yun.getStartYear()}年${yun.getStartMonth()}月${yun.getStartDay()}天起运`, ge_ju: geJu, special_patterns: specialPatterns },
             matrix: {
                 pillars: pillarsData,
                 dayun_list: daYunList,
+                liunian_list: liuNianList,
+                liuyue_list: liuYueList,
                 current_dayun: currentDaYunData,
                 current_liunian: currentLiuNianData
             },
@@ -228,39 +274,67 @@ module.exports = async function handler(req, res) {
             }
         };
 
-// ==================== 3. 请求 LLM 进行断语生成 ====================
-        const llmPrompt = `你是一位精通子平八字与传统命理学（《渊海子平》、《滴天髓》、《三命通会》）的现代高级命理大师。
+// ==================== 3. 本地规则引擎推演（无 LLM）====================
+        // ── 提取四柱数组（供规则引擎使用）──
+        const gansArr = [baZi.getYearGan(), baZi.getMonthGan(), baZi.getDayGan(), baZi.getTimeGan()];
+        const zhisArr = [baZi.getYearZhi(), baZi.getMonthZhi(), baZi.getDayZhi(), baZi.getTimeZhi()];
+        const dayGanVal = gansArr[2], monthZhiVal2 = zhisArr[1];
+
+        // ── 日主强弱 ──
+        const strengthResult = BaziRuleEngine.calculateStrength(dayGanVal, gansArr, zhisArr);
+
+        // ── 喜忌神 ──
+        const favorableResult = BaziRuleEngine.getFavorableUnfavorable(
+            dayGanVal, monthZhiVal2, geJu, strengthResult
+        );
+
+        // ── 格局断语 ──
+        const rulePatterns = BaziRuleEngine.extractAdvancedPatterns(
+            dayGanVal, gansArr, zhisArr, strengthResult.allShens, geJu, strengthResult
+        );
+
+        // ── 扩展神煞（覆盖原有简版）──
+        const shenshaFull = BaziRuleEngine.calculateShenShaFull(baziObj);
+
+        // ── 大运流年文案 (规则引擎硬核版) ──
+        const currentDayunGan = currentDaYunObj ? currentDaYunObj.getGanZhi().charAt(0) : '';
+        const currentDayunZhi = currentDaYunObj ? currentDaYunObj.getGanZhi().charAt(1) : '';
+
+        // ── 结构化合克关系 (用于 UI 连线图) ──
+        const relationGans = [...gansArr, currentDayunGan, currentLiuNianGan];
+        const relationZhis = [...zhisArr, currentDayunZhi, currentLiuNianZhi];
+        const interactions = BaziRuleEngine.calculateInteractions(relationZhis, relationGans);
+        const engineYuanjuCore   = BaziRuleEngine.buildYuanjuCore(
+            dayGanVal, monthZhiVal2, gansArr, zhisArr, geJu,
+            strengthResult, favorableResult, rulePatterns
+        );
+        const engineCurrentDayun = BaziRuleEngine.buildCurrentDayun(
+            currentDayunGan, currentDayunZhi, dayGanVal, zhisArr, gansArr
+        );
+        const engineCurrentLiunian = BaziRuleEngine.buildCurrentLiunian(
+            currentLiuNianGan, currentLiuNianZhi, currentDayunGan, currentDayunZhi, dayGanVal, zhisArr
+        );
+
+        // ==================== 4. 请求 LLM 进行断语生成 (前端展示版) ====================
+        const llmPrompt = `你是一位精通子平八字与传统命理学的现代高级命理大师。
 请基于下方提供的精确命理数据，为用户进行详尽、专业、且符合现代人语境的八字推演。
 
-【命理基础理论预设（请在分析时严格遵循）】
-1. 论身强身弱：须综合考察日干在月令的得令状态、地支是否有强根、天干印比帮扶之多寡，以及是否有食伤泄气、财星耗力、官杀克身。必须给出明确结论（如身强、身弱、从格、极弱等）。
-2. 取用神忌神法则：身强喜克泄耗（官杀、食伤、财星），忌生扶（印星、比劫）；身弱喜生扶（印星、比劫），忌克泄耗（官杀、食伤、财星）。特殊格局（如专旺、从格）需按特殊法则取用神。
-3. 神煞与格局：神煞仅为锦上添花的参考，不可喧宾夺主，核心仍需以五行生克制化、格局喜忌为准。例如：天乙贵人主逢凶化吉，驿马主变动奔波，华盖主孤高艺术，桃花主异性缘与人缘。
-4. 大运流年作用机制：大运重地支，流年重天干。流年干支与原局、大运发生刑冲合害（如子午冲、寅申巳亥三刑、辰戌丑未四库冲等）时，需重点分析其引发的具体吉凶事件倾向。
-
-【命主客观基础数据】（由严谨的天文历法引擎推演生成，请直接作为事实使用，切勿自行捏造或篡改神煞数据）：
+【命理客观数据】
 • 性别：${promptData.gender}
-• 八字原局：${objectiveBaziData.pillars.ganzhi.year} ${objectiveBaziData.pillars.ganzhi.month} ${objectiveBaziData.pillars.ganzhi.day} ${objectiveBaziData.pillars.ganzhi.time}
+• 八字原局：${baZi.getYear()} ${baZi.getMonth()} ${baZi.getDay()} ${baZi.getTime()}
 • 命主格局：${geJu}
-• 核心神煞：年柱[${shenshaResult.year}] 月柱[${shenshaResult.month}] 日柱[${shenshaResult.day}] 时柱[${shenshaResult.time}]
-• 特殊命局：${specialPatterns.length > 0 ? specialPatterns.join(' | ') : '无'}
-• 当前大运：${promptData.daYunStr}
+• 核心神煞：年柱[${shenshaFull.year}] 月柱[${shenshaFull.month}] 日柱[${shenshaFull.day}] 时柱[${shenshaFull.time}]
+• 命局特征（本地规则推演引擎结果，供参考）：${rulePatterns.length > 0 ? rulePatterns.join(' | ') : '无'}
+• 当前大运：${currentDaYunObj ? currentDaYunObj.getGanZhi() : ''}
 • 当前流年：${currentLiuNianGan}${currentLiuNianZhi}年
 
-【推演任务执行清单】
-请结合上述详尽数据与经典命理法则，执行以下深度分析：
-1. 【定性分析】：判断日主强弱，并简述核心判断依据。
-2. 【喜忌提取】：明确提取喜用神与忌仇神（请输出为精简的数组格式）。
-3. 【原局深度评析】：结合格局、神煞、五行流通，评价命主的性格特质、事业财运潜力、六亲关系倾向等核心特质。要求语言专业且有实际指导意义。
-4. 【当前大运解析】：分析当前十步大运对原局的整体影响，是吉是凶，侧重点在何处（如：利求财、宜深造、防破财、注意健康等）。
-5. 【当前流年简评】：结合流年干支与原局大运的生克冲合关系，给出今年的具体运势研判和切实可行的行动建议。
+【推演任务】
+1. 【原局深度评析】：结合格局、神煞、五行流通，评价命主的性格特质、事业财运潜力等。
+2. 【当前大运解析】：分析当前十步大运对原局的影响，侧重点在何处（如：利求财、防破财等）。
+3. 【当前流年简评】：结合流年干支给出今年的具体运势研判。
 
-【输出格式要求】
-必须且仅输出纯 JSON 字符串对象（绝对不要附带任何 Markdown 标记，如 \`\`\`json，也不要包含任何多余的解释说明文字），JSON 的结构必须严格如下：
+必须且仅输出纯 JSON 字符串对象，格式严格如下：
 {
-  "strong_weak": "身强 或 身弱",
-  "favorable_gods": ["印星", "比劫"],
-  "unfavorable_gods": ["官杀", "财星"],
   "yuanju_core": "原局核心深度分析文案...",
   "current_dayun": "当前大运分析文案...",
   "current_liunian": "当前流年简评文案..."
@@ -278,50 +352,62 @@ module.exports = async function handler(req, res) {
             })
         });
 
-        const apiData = await llmResponse.json();
-        if (apiData.error) throw new Error(apiData.error.message || "请求大模型失败");
+        let llmQualitativeData = { yuanju_core: engineYuanjuCore, current_dayun: engineCurrentDayun, current_liunian: engineCurrentLiunian };
+        try {
+            const rawText = await llmResponse.text();
+            if (!llmResponse.ok) {
+                console.error("LLM API Error Status:", llmResponse.status, rawText);
+            } else {
+                const apiData = JSON.parse(rawText);
+                if (apiData.error) throw new Error(apiData.error.message);
+                if (apiData.choices && apiData.choices[0] && apiData.choices[0].message) {
+                    const rawResult = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
+                    llmQualitativeData = JSON.parse(rawResult);
+                }
+            }
+        } catch (e) {
+            console.error("LLM API 解析失败，降级使用本地规则引擎结果:", e);
+        }
 
-        const rawResult = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
-        const llmQualitativeData = JSON.parse(rawResult);
         const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
-        
+
         const finalBaziDetail = {
-            ...objectiveBaziData, 
-            strong_weak: llmQualitativeData.strong_weak,                
-            favorable_gods: llmQualitativeData.favorable_gods,          
-            unfavorable_gods: llmQualitativeData.unfavorable_gods,      
-            yuanju_core: llmQualitativeData.yuanju_core,                
-            current_dayun: llmQualitativeData.current_dayun,            
-            current_liunian: llmQualitativeData.current_liunian         
+            ...objectiveBaziData,
+            strong_weak:      strengthResult.strongWeak,
+            favorable_gods:   favorableResult.favorableElements,
+            unfavorable_gods: favorableResult.unfavorableElements,
+            // LLM 版放在第一层，供旧代码读取
+            yuanju_core:      llmQualitativeData.yuanju_core,
+            current_dayun:    llmQualitativeData.current_dayun,
+            current_liunian:  llmQualitativeData.current_liunian,
+            interactions:     interactions,
+            // Rule Engine 版放在这里供后端使用
+            engine_yuanju:    engineYuanjuCore,
+            engine_dayun:     engineCurrentDayun,
+            engine_liunian:   engineCurrentLiunian
         };
 
-        // ── 新增命理基底字段（供 calculateDailyScore 纯 JS 算分引擎使用）──
-        // ri_zhu   : 日柱干支（如 "甲子"），用于截取日干
-        // day_zhi  : 命主原局日支（如 "子"）
-        // year_zhi : 命主原局年支（如 "寅"）
-        // month_zhi: 命主原局月支（如 "卯"）
-        const riZhu    = baZi.getDay();          // 完整日柱，如 "甲子"
-        const dayZhiVal  = baZi.getDayZhi();     // 日支
-        const yearZhiVal = baZi.getYearZhi();    // 年支
-        const monthZhiVal = baZi.getMonthZhi();  // 月支
+        // ── 命理基底字段（供 calculateDailyScore 纯 JS 算分引擎使用）──
+        const riZhu      = baZi.getDay();         // 完整日柱，如 "甲子"
+        const dayZhiVal  = baZi.getDayZhi();      // 日支
+        const yearZhiVal = baZi.getYearZhi();     // 年支
+        const monthZhiVal = baZi.getMonthZhi();   // 月支
 
         const { error: dbError } = await supabase.from('bazi_profiles').update({
-            bazi_summary: combinedResultText,
-            strong_weak: finalBaziDetail.strong_weak,
-            // ⚠️ 存为数组（jsonb/text[]）而非逗号字符串，使 calculateDailyScore 可直接 Array.includes()
-            favorable_elements: finalBaziDetail.favorable_gods,
-            unfavorable_elements: finalBaziDetail.unfavorable_gods,
-            yuanju_core: finalBaziDetail.yuanju_core,
-            current_dayun: finalBaziDetail.current_dayun,
-            current_liunian: finalBaziDetail.current_liunian,
-            bazi_detail: finalBaziDetail,
-            shensha: JSON.stringify(shenshaResult),
-            geju: geJu,
-            // ── 新增字段 ──
-            ri_zhu:    riZhu,
-            day_zhi:   dayZhiVal,
-            year_zhi:  yearZhiVal,
-            month_zhi: monthZhiVal,
+            bazi_summary:        combinedResultText,
+            strong_weak:         finalBaziDetail.strong_weak,
+            favorable_elements:  finalBaziDetail.favorable_gods,
+            unfavorable_elements:finalBaziDetail.unfavorable_gods,
+            yuanju_core:         finalBaziDetail.yuanju_core,
+            current_dayun:       finalBaziDetail.current_dayun,
+            current_liunian:     finalBaziDetail.current_liunian,
+            bazi_detail:         finalBaziDetail,
+            shensha:             JSON.stringify(shenshaFull),
+            geju:                geJu,
+            ri_zhu:              riZhu,
+            day_zhi:             dayZhiVal,
+            year_zhi:            yearZhiVal,
+            month_zhi:           monthZhiVal,
         }).eq('id', promptData.profileId);
 
         if (dbError) console.error("数据库写入失败:", dbError);

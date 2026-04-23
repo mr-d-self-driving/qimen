@@ -119,23 +119,111 @@
                                 <td v-for="(col, i) in displayColumns" :key="'nayin'+i" class="bz-sub">{{ col.nayin }}</td>
                             </tr>
                             <tr>
-                                <td class="bz-label">神煞</td>
-                                <td v-for="(col, i) in displayColumns" :key="'shen'+i" class="bz-shensha" v-html="formatShen(col.shensha)"></td>
+                                <td class="bz-label">神煞<br><span style="font-size:8px;color:#666">(点击查看)</span></td>
+                                <td v-for="(col, i) in displayColumns" :key="'shen'+i" class="bz-shensha">
+                                    <div v-for="s in col.shensha" :key="s" class="clickable-shensha" @click="showShensha(s)">{{ s }}</div>
+                                </td>
                             </tr>
                         </tbody>
                     </table>
                 </div>
 
                 <div v-show="currentTab === 'pro' && !needsUpgrade" class="timeline-section">
-                    <div class="timeline-title">大运排盘</div>
-                    <div class="dayun-grid">
-                        <div v-for="(d, idx) in dayunList" :key="idx" 
-                             class="dayun-item" 
-                             :class="{ active: currentDayun && d.gan === currentDayun.gan && d.zhi === currentDayun.zhi }">
-                            <div class="dy-age">{{ d.start_year }}年<br>{{ d.start_age }}岁</div>
-                            <div class="dy-char" :class="WX_MAP[d.gan] || ''">{{ d.gan }}</div>
-                            <div class="dy-char" :class="WX_MAP[d.zhi] || ''">{{ d.zhi }}</div>
+                    <div class="timeline-title">专业四柱大运流年流月联动</div>
+                    
+                    <!-- 1. 大运 -->
+                    <div class="linkage-row">
+                        <div class="row-label">大<br>运</div>
+                        <div class="row-content">
+                            <div v-for="d in fullDayunList" :key="'dy'+d.id" 
+                                 class="link-item dy-item"
+                                 :class="{ active: selectedDayunIdx === d.id }"
+                                 @click="selectDayun(d.id)">
+                                 <div class="item-header">{{ d.start_year }}<br>{{ d.start_age }}~{{ d.start_age + 9 }}岁</div>
+                                 <div v-if="d.isXiaoyun" class="item-body xiaoyun-body">小运</div>
+                                 <div v-else class="item-body">
+                                     <div class="char-wrap">
+                                         <span class="char-gan" :class="WX_MAP[d.gan]">{{ d.gan }}</span>
+                                         <span class="shi-shen" :class="getShenColor(d.shi_shen)">{{ d.shi_shen }}</span>
+                                     </div>
+                                     <div class="char-wrap">
+                                         <span class="char-zhi" :class="WX_MAP[d.zhi]">{{ d.zhi }}</span>
+                                         <span v-if="d.zhi_shi_shen" class="shi-shen" :class="getShenColor(d.zhi_shi_shen)">{{ d.zhi_shi_shen }}</span>
+                                     </div>
+                                 </div>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- 2. 流年 -->
+                    <div class="linkage-row">
+                        <div class="row-label">流<br>年</div>
+                        <div class="row-content">
+                            <div v-for="ln in linkedLiunianList" :key="'ln'+ln.year" 
+                                 class="link-item ln-item"
+                                 :class="{ active: selectedLiunianYear === ln.year }"
+                                 @click="selectedLiunianYear = ln.year">
+                                 <div class="item-header">{{ ln.year }}</div>
+                                 <div class="item-body">
+                                     <div class="char-wrap">
+                                         <span class="char-gan" :class="WX_MAP[ln.gan]">{{ ln.gan }}</span>
+                                         <span class="shi-shen" :class="getShenColor(ln.shi_shen)">{{ ln.shi_shen }}</span>
+                                     </div>
+                                     <div class="char-wrap">
+                                         <span class="char-zhi" :class="WX_MAP[ln.zhi]">{{ ln.zhi }}</span>
+                                         <span class="shi-shen" :class="getShenColor(ln.zhi_shi_shen)">{{ ln.zhi_shi_shen }}</span>
+                                     </div>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 流月 -->
+                    <div class="linkage-row">
+                        <div class="row-label">流<br>月</div>
+                        <div class="row-content">
+                            <div v-for="(ly, i) in linkedLiuyueList" :key="'ly'+i" 
+                                 class="link-item ly-item">
+                                 <div class="item-header">{{ ly.monthName }}</div>
+                                 <div class="item-body">
+                                     <div class="char-wrap">
+                                         <span class="char-gan" :class="WX_MAP[ly.gan]">{{ ly.gan }}</span>
+                                         <span class="shi-shen" :class="getShenColor(ly.shi_shen)">{{ ly.shi_shen }}</span>
+                                     </div>
+                                     <div class="char-wrap">
+                                         <span class="char-zhi" :class="WX_MAP[ly.zhi]">{{ ly.zhi }}</span>
+                                         <span class="shi-shen" :class="getShenColor(ly.zhi_shi_shen)">{{ ly.zhi_shi_shen }}</span>
+                                     </div>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 4. 生克合化可视化 -->
+                    <div v-if="interactions" class="interactions-panel timeline-section">
+                        <div class="timeline-title">生克合化关系可视化</div>
+                        <div class="int-grid">
+                            <div v-for="(g, idx) in interactions.gans" :key="'g'+idx" class="int-item">
+                                <span class="int-tag" :class="g.type === '合' ? 'tag-he' : 'tag-ke'">{{ g.type }}</span>
+                                <span class="int-pillars">[{{ g.pillars.map(p => PILLAR_NAMES[p]).join(' 与 ') }}]</span>
+                                <span class="int-desc">{{ g.name }}</span>
+                            </div>
+                            <div v-for="(z, idx) in interactions.zhis" :key="'z'+idx" class="int-item">
+                                <span class="int-tag tag-zhi">{{ z.type }}</span>
+                                <span class="int-pillars">[{{ z.pillars.map(p => PILLAR_NAMES[p]).join(' 与 ') }}]</span>
+                                <span class="int-desc">{{ z.name }}</span>
+                            </div>
+                        </div>
+                        <div v-if="!interactions.gans.length && !interactions.zhis.length" style="text-align:center;color:#666;font-size:12px;">暂无明显的合冲破害关系</div>
+                    </div>
+                </div>
+
+                <!-- 神煞解释弹窗 -->
+                <div v-if="selectedShensha" class="modal-overlay" @click="selectedShensha = null">
+                    <div class="shensha-modal" @click.stop>
+                        <h4>{{ selectedShensha }}</h4>
+                        <p>{{ getShenshaDesc(selectedShensha) }}</p>
+                        <button class="btn-primary" style="width:100%; margin-top:14px;" @click="selectedShensha = null">明白</button>
                     </div>
                 </div>
 
@@ -177,7 +265,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript' // 使用你 package.json 中安装的库
 
@@ -233,10 +321,116 @@ const dayunList = computed(() => {
     return activeProfile.value.bazi_detail.matrix.dayun_list || []
 })
 
-const currentDayun = computed(() => {
-    if (needsUpgrade.value || !activeProfile.value) return null
-    return activeProfile.value.bazi_detail.matrix.current_dayun || null
-})
+const ZHI_MAIN_GAN = {
+    '子': '癸', '丑': '己', '寅': '甲', '卯': '乙', '辰': '戊', '巳': '丙',
+    '午': '丁', '未': '己', '申': '庚', '酉': '辛', '戌': '戊', '亥': '壬'
+};
+
+const PILLAR_NAMES = { 'year': '年柱', 'month': '月柱', 'day': '日柱', 'time': '时柱', 'dayun': '大运', 'liunian': '流年' };
+
+const interactions = computed(() => {
+    return activeProfile.value?.bazi_detail?.interactions || null;
+});
+
+// 联动计算逻辑
+const baziEngine = computed(() => {
+    if (!activeProfile.value) return null;
+    const pd = promptDataObj.value;
+    if (!pd || !pd.birthStr) return null;
+    const p = pd.birthStr.match(/\d+/g);
+    if (!p || p.length < 3) return null;
+    const s = Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(p[3]||12), parseInt(p[4]||0), 0);
+    const baZi = s.getLunar().getEightChar();
+    const gender = activeProfile.value.gender === 'M' ? 1 : 0;
+    const yun = baZi.getYun(gender);
+    return { baZi, yun, dayGan: baZi.getDayGan() };
+});
+
+const selectedDayunIdx = ref(0);
+const selectedLiunianYear = ref(new Date().getFullYear());
+
+watch(baziEngine, (newVal) => {
+    if (newVal) {
+        const currentYear = new Date().getFullYear();
+        const dys = newVal.yun.getDaYun();
+        let foundIdx = dys.findIndex(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
+        if (foundIdx === -1) foundIdx = 0;
+        selectedDayunIdx.value = foundIdx;
+        selectedLiunianYear.value = currentYear;
+    }
+}, { immediate: true });
+
+const selectDayun = (idx) => {
+    selectedDayunIdx.value = idx;
+    const dy = fullDayunList.value[idx]?.originalDy;
+    if (dy) {
+        // 默认选中该大运的第一年
+        selectedLiunianYear.value = dy.getStartYear();
+    }
+};
+
+const fullDayunList = computed(() => {
+    if (!baziEngine.value) return [];
+    const { yun, dayGan } = baziEngine.value;
+    const list = [];
+    yun.getDaYun().forEach((dy, idx) => {
+        const ganZhi = dy.getGanZhi();
+        const gan = ganZhi ? ganZhi.charAt(0) : '';
+        const zhi = ganZhi ? ganZhi.charAt(1) : '';
+        list.push({
+            id: idx,
+            start_year: dy.getStartYear(),
+            start_age: dy.getStartAge(),
+            gan: gan,
+            zhi: zhi,
+            shi_shen: gan ? getShiShen(dayGan, gan) : '小运',
+            zhi_shi_shen: zhi ? getShiShen(dayGan, ZHI_MAIN_GAN[zhi]) : '',
+            isXiaoyun: idx === 0 && !gan,
+            originalDy: dy
+        });
+    });
+    return list;
+});
+
+const linkedLiunianList = computed(() => {
+    if (!baziEngine.value || fullDayunList.value.length === 0) return [];
+    const idx = selectedDayunIdx.value;
+    const targetDy = fullDayunList.value[idx]?.originalDy;
+    if (!targetDy) return [];
+    
+    return targetDy.getLiuNian().map(ln => {
+        const ganZhi = ln.getGanZhi();
+        const gan = ganZhi.charAt(0);
+        return {
+            year: ln.getYear(),
+            age: ln.getAge(),
+            gan: gan,
+            zhi: ganZhi.charAt(1),
+            shi_shen: getShiShen(baziEngine.value.dayGan, gan),
+            zhi_shi_shen: getShiShen(baziEngine.value.dayGan, ZHI_MAIN_GAN[ganZhi.charAt(1)]),
+            originalLn: ln
+        };
+    });
+});
+
+const linkedLiuyueList = computed(() => {
+    if (!baziEngine.value || linkedLiunianList.value.length === 0) return [];
+    const lnYear = selectedLiunianYear.value;
+    const targetLn = linkedLiunianList.value.find(ln => ln.year === lnYear)?.originalLn;
+    if (!targetLn) return [];
+    
+    return targetLn.getLiuYue().map(ly => {
+        const ganZhi = ly.getGanZhi();
+        const gan = ganZhi.charAt(0);
+        return {
+            monthName: ly.getMonthInChinese() + '月',
+            gan: gan,
+            zhi: ganZhi.charAt(1),
+            shi_shen: getShiShen(baziEngine.value.dayGan, gan),
+            zhi_shi_shen: getShiShen(baziEngine.value.dayGan, ZHI_MAIN_GAN[ganZhi.charAt(1)])
+        };
+    });
+});
 
 const specialPatterns = computed(() => {
     if (!activeProfile.value || !activeProfile.value.bazi_detail?.base_info?.special_patterns) return []
@@ -349,6 +543,59 @@ const formatShen = (shenArr) => {
     return shenArr && shenArr.length > 0 ? shenArr.join('<br>') : '-'
 }
 
+const selectedShensha = ref(null);
+const showShensha = (shensha) => {
+    selectedShensha.value = shensha;
+};
+
+const SHENSHA_DESC = {
+    '天乙贵人': '至尊之神，逢凶化吉，主一生多有贵人相助，遇难呈祥。',
+    '太极贵人': '主聪明好学，喜神秘文化，有逢凶化吉之功。',
+    '文昌贵人': '主聪明过人，利读书升学、文艺才华。',
+    '天德贵人': '福佑之神，主一生安泰，心地善良。',
+    '月德贵人': '福祥之神，解灾化煞，女命尤佳。',
+    '将星': '主权威、组织领导能力，有掌权之机，临官煞尤显。',
+    '华盖': '主孤高、聪明、艺术才华，多喜宗教玄学。',
+    '驿马': '主变动、奔波、走动、出国或异地发展。',
+    '桃花': '主风流、异性缘佳、艺术才情，易有感情纠葛。',
+    '红艳': '主多情多欲，浪漫不羁，异性缘极强。',
+    '孤辰': '男命忌，主孤独、不利婚姻、刑克六亲。',
+    '寡宿': '女命忌，主孤寡、婚姻不顺。',
+    '劫煞': '主是非、破财、突发灾祸，宜防之。',
+    '亡神': '主心机、城府、失脱、官司纠纷。',
+    '魁罡': '主性格刚烈，果断，有领导力，但不喜受制于人。',
+    '禄神': '代表福气、财富、安稳，是日主的根基。',
+    '羊刃': '刚强险恶之神，主性急刚暴，是极强的帮身力量，利武职。'
+};
+
+const getShenshaDesc = (shensha) => {
+    return SHENSHA_DESC[shensha] || '传统经典神煞，具体吉凶需结合全局五行生克综合判断。';
+};
+
+const SHI_SHEN = {
+    "甲": { "甲": "比", "乙": "劫", "丙": "食", "丁": "伤", "戊": "才", "己": "财", "庚": "杀", "辛": "官", "壬": "枭", "癸": "印" },
+    "乙": { "甲": "劫", "乙": "比", "丙": "伤", "丁": "食", "戊": "财", "己": "才", "庚": "官", "辛": "杀", "壬": "印", "癸": "枭" },
+    "丙": { "甲": "枭", "乙": "印", "丙": "比", "丁": "劫", "戊": "食", "己": "伤", "庚": "才", "辛": "财", "壬": "杀", "癸": "官" },
+    "丁": { "甲": "印", "乙": "枭", "丙": "劫", "丁": "比", "戊": "伤", "己": "食", "庚": "财", "辛": "才", "壬": "官", "癸": "杀" },
+    "戊": { "甲": "杀", "乙": "官", "丙": "枭", "丁": "印", "戊": "比", "己": "劫", "庚": "食", "辛": "伤", "壬": "才", "癸": "财" },
+    "己": { "甲": "官", "乙": "杀", "丙": "印", "丁": "枭", "戊": "劫", "己": "比", "庚": "伤", "辛": "食", "壬": "财", "癸": "才" },
+    "庚": { "甲": "才", "乙": "财", "丙": "杀", "丁": "官", "戊": "枭", "己": "印", "庚": "比", "辛": "劫", "壬": "食", "癸": "伤" },
+    "辛": { "甲": "财", "乙": "才", "丙": "官", "丁": "杀", "戊": "印", "己": "枭", "庚": "劫", "辛": "比", "壬": "伤", "癸": "食" },
+    "壬": { "甲": "食", "乙": "伤", "丙": "才", "丁": "财", "戊": "杀", "己": "官", "庚": "枭", "辛": "印", "壬": "比", "癸": "劫" },
+    "癸": { "甲": "伤", "乙": "食", "丙": "财", "丁": "才", "戊": "官", "己": "杀", "庚": "印", "辛": "枭", "壬": "劫", "癸": "比" }
+};
+
+const getShiShen = (dayGan, targetGan) => {
+    if(!dayGan || !targetGan || !SHI_SHEN[dayGan]) return "";
+    return SHI_SHEN[dayGan][targetGan] || "";
+}
+
+const getShenColor = (shen) => {
+    if (['杀', '枭', '伤', '劫'].includes(shen)) return 'shen-red'; 
+    if (['官', '印', '食', '财', '才', '比'].includes(shen)) return 'shen-green'; 
+    return 'shen-gray';
+}
+
 const findDatesByBazi = (yGZ, mGZ, dGZ, hGZ) => {
     const results = []
     const today = Solar.fromDate(new Date())
@@ -449,12 +696,46 @@ const generateLunarPromptData = (profile) => {
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
 
 .timeline-section { margin-top: 16px; border-top: 1px dashed var(--glass-border); padding-top: 16px; }
-.timeline-title { font-size: 12px; color: var(--gold); margin-bottom: 12px; font-family: var(--font-serif); }
-.dayun-grid { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; scrollbar-width: none; }
-.dayun-item { background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; padding: 8px; min-width: 54px; text-align: center; flex-shrink: 0; }
-.dayun-item.active { border-color: var(--gold); background: rgba(212,175,55,0.1); }
-.dy-age { font-size: 9px; color: var(--text-muted); margin-bottom: 4px; }
-.dy-char { font-size: 14px; font-family: 'Noto Serif SC', serif; font-weight: 600; }
+.timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 12px; font-family: var(--font-serif); text-align: center; font-weight: 500; }
+
+.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
+.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
+.row-content { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 6px; flex: 1; }
+.row-content::-webkit-scrollbar { display: none; }
+
+.link-item { display: flex; flex-direction: column; align-items: center; min-width: 52px; padding: 8px 4px; border-radius: 6px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; }
+.link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
+
+.item-header { font-size: 10px; color: #aaa; margin-bottom: 6px; text-align: center; line-height: 1.4; }
+.item-body { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
+
+.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 20px;}
+.char-gan, .char-zhi { font-size: 16px; font-family: 'Noto Serif SC', serif; font-weight: 600; line-height: 1;}
+
+.shi-shen { position: absolute; right: -16px; top: 0px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
+.shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
+.shen-green { color: #81C784; background: rgba(129,199,132,0.15); }
+.shen-gold { color: #E8CC80; background: rgba(232,204,128,0.15); }
+
+/* 神煞与弹窗 */
+.clickable-shensha { display: inline-block; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.2s; margin: 1px 0; }
+.clickable-shensha:hover { background: rgba(212,175,55,0.2); color: var(--gold-light); }
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: riseIn 0.3s ease; }
+.shensha-modal h4 { color: var(--gold-light); font-size: 16px; margin-bottom: 10px; font-family: var(--font-serif); border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 8px;}
+.shensha-modal p { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+
+/* 关系可视化面板 */
+.interactions-panel { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 14px; margin-top: 16px; border: 1px solid rgba(255,255,255,0.04); }
+.int-grid { display: flex; flex-direction: column; gap: 8px; }
+.int-item { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px; }
+.int-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
+.tag-he { color: #81C784; background: rgba(129,199,132,0.15); }
+.tag-ke { color: #FF5E57; background: rgba(255,94,87,0.15); }
+.tag-zhi { color: #B39DDB; background: rgba(179,157,219,0.15); }
+.int-pillars { color: #888; font-family: var(--font-body); font-size: 11px; }
+.int-desc { color: #E8CC80; font-family: 'Noto Serif SC', serif; letter-spacing: 1px;}
 
 .ai-section { margin-top: 16px; animation: riseIn 0.5s ease both; }
 .ai-header-title { font-family: var(--font-serif); color: var(--gold); font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
