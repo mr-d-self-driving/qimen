@@ -277,7 +277,7 @@ module.exports = async function handler(req, res) {
 
         // ── 喜忌神 ──
         const favorableResult = BaziRuleEngine.getFavorableUnfavorable(
-            dayGanVal, monthZhiVal2, geJu, strengthResult
+            dayGanVal, monthZhiVal2, geJu, strengthResult, zhisArr, gansArr
         );
 
         // ── 格局断语 ──
@@ -366,8 +366,8 @@ module.exports = async function handler(req, res) {
         const finalBaziDetail = {
             ...objectiveBaziData,
             strong_weak: strengthResult.strongWeak,
-            favorable_gods: favorableResult.favorableElements,
-            unfavorable_gods: favorableResult.unfavorableElements,
+            favorable_gods: favorableResult.core_shens.favorable,
+            unfavorable_gods: favorableResult.core_shens.unfavorable,
             // LLM 版放在第一层，供旧代码读取
             yuanju_core: llmQualitativeData.yuanju_core,
             current_dayun: llmQualitativeData.current_dayun,

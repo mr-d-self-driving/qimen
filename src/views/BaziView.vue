@@ -199,22 +199,28 @@
                         </div>
                     </div>
 
-                    <!-- 4. 生克合化可视化 -->
-                    <div v-if="interactions" class="interactions-panel timeline-section">
-                        <div class="timeline-title">生克合化关系可视化</div>
-                        <div class="int-grid">
-                            <div v-for="(g, idx) in interactions.gans" :key="'g'+idx" class="int-item">
-                                <span class="int-tag" :class="g.type === '合' ? 'tag-he' : 'tag-ke'">{{ g.type }}</span>
-                                <span class="int-pillars">[{{ g.pillars.map(p => PILLAR_NAMES[p]).join(' 与 ') }}]</span>
-                                <span class="int-desc">{{ g.name }}</span>
-                            </div>
-                            <div v-for="(z, idx) in interactions.zhis" :key="'z'+idx" class="int-item">
-                                <span class="int-tag tag-zhi">{{ z.type }}</span>
-                                <span class="int-pillars">[{{ z.pillars.map(p => PILLAR_NAMES[p]).join(' 与 ') }}]</span>
-                                <span class="int-desc">{{ z.name }}</span>
-                            </div>
+                    <!-- 4. 生克合化关系 -->
+                    <div v-if="interactions" class="ai-section" style="margin-top:20px;">
+                        <div class="timeline-title">生克合化注意</div>
+                        
+                        <div class="insight-card" v-if="intGroups.ganYuanju">
+                            <h4 style="color:var(--gold)">天干本命</h4>
+                            <p>{{ intGroups.ganYuanju }}</p>
                         </div>
-                        <div v-if="!interactions.gans.length && !interactions.zhis.length" style="text-align:center;color:#666;font-size:12px;">暂无明显的合冲破害关系</div>
+                        <div class="insight-card" v-if="intGroups.zhiYuanju">
+                            <h4 style="color:var(--gold)">地支本命</h4>
+                            <p>{{ intGroups.zhiYuanju }}</p>
+                        </div>
+                        <div class="insight-card" v-if="intGroups.ganYun">
+                            <h4 style="color:#FF5E57">天干运势</h4>
+                            <p>{{ intGroups.ganYun }}</p>
+                        </div>
+                        <div class="insight-card" v-if="intGroups.zhiYun">
+                            <h4 style="color:#FF5E57">地支运势</h4>
+                            <p>{{ intGroups.zhiYun }}</p>
+                        </div>
+                        
+                        <div v-if="!intGroups.ganYuanju && !intGroups.zhiYuanju && !intGroups.ganYun && !intGroups.zhiYun" style="text-align:center;color:#666;font-size:12px;">暂无明显的合冲破害关系</div>
                     </div>
                 </div>
 
@@ -332,6 +338,19 @@ const PILLAR_NAMES = { 'year': '年柱', 'month': '月柱', 'day': '日柱', 'ti
 
 const interactions = computed(() => {
     return activeProfile.value?.bazi_detail?.interactions || null;
+});
+
+const intGroups = computed(() => {
+    if (!interactions.value) return {};
+    const isYuanju = (item) => item.pillars.every(p => ['year', 'month', 'day', 'time'].includes(p));
+    const isYun = (item) => !isYuanju(item);
+
+    return {
+        ganYuanju: interactions.value.gans.filter(isYuanju).map(i => i.name).join('；'),
+        zhiYuanju: interactions.value.zhis.filter(isYuanju).map(i => i.name).join('；'),
+        ganYun: interactions.value.gans.filter(isYun).map(i => i.name).join('；'),
+        zhiYun: interactions.value.zhis.filter(isYun).map(i => i.name).join('；')
+    }
 });
 
 // 联动计算逻辑
@@ -734,16 +753,7 @@ const generateLunarPromptData = (profile) => {
 .shensha-modal h4 { color: var(--gold-light); font-size: 16px; margin-bottom: 10px; font-family: var(--font-serif); border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 8px;}
 .shensha-modal p { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
 
-/* 关系可视化面板 */
-.interactions-panel { background: rgba(0,0,0,0.2); border-radius: 10px; padding: 14px; margin-top: 16px; border: 1px solid rgba(255,255,255,0.04); }
-.int-grid { display: flex; flex-direction: column; gap: 8px; }
-.int-item { display: flex; align-items: center; gap: 8px; font-size: 12px; background: rgba(255,255,255,0.03); padding: 8px 10px; border-radius: 6px; }
-.int-tag { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-.tag-he { color: #81C784; background: rgba(129,199,132,0.15); }
-.tag-ke { color: #FF5E57; background: rgba(255,94,87,0.15); }
-.tag-zhi { color: #B39DDB; background: rgba(179,157,219,0.15); }
-.int-pillars { color: #888; font-family: var(--font-body); font-size: 11px; }
-.int-desc { color: #E8CC80; font-family: 'Noto Serif SC', serif; letter-spacing: 1px;}
+/* 关系可视化面板已经移除旧版CSS */
 
 .ai-section { margin-top: 16px; animation: riseIn 0.5s ease both; }
 .ai-header-title { font-family: var(--font-serif); color: var(--gold); font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
