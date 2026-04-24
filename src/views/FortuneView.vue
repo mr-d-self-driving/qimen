@@ -2,11 +2,33 @@
   <div class="fortune-view">
     <header class="page-header">
       <div class="header-title">天机日运</div>
-      <div class="header-subtitle">观星象 · 知进退</div>
     </header>
 
     <div class="page-wrap">
       <div class="container">
+        <div v-if="showProfileSwitcher" class="glass-card profile-switch-card">
+          <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
+            <button class="profile-switch-trigger" @click="toggleProfileMenu">
+              <span class="profile-switch-name">{{ activeProfileName }}</span>
+              <span class="profile-switch-icon">⇆</span>
+            </button>
+            <div v-if="isProfileMenuOpen" class="profile-flyout">
+              <button
+                v-for="profile in baziProfiles"
+                :key="profile.id"
+                class="profile-flyout-item"
+                :class="{ active: profile.id === selectedProfileId }"
+                @click="selectProfile(profile.id)"
+              >
+                <span class="profile-item-main">{{ profile.name }}</span>
+                <span class="profile-item-meta">
+                  {{ profile.gender === 'M' ? '乾造' : '坤造' }}
+                  <span v-if="profile.is_default">· 默认</span>
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
 
         <div class="dimension-tabs glass-card">
           <button
@@ -44,26 +66,32 @@
 
               <!-- ═══ 1. Score Dashboard ═══ -->
               <div class="glass-card score-dashboard">
-                <div class="score-ring" :style="scoreRingStyle">
-                  <div class="score-inner">
-                    <span class="score-value">{{ fortuneData.day_score || 0 }}</span>
-                    <span class="score-unit">分</span>
+                <div class="score-main">
+                  <div class="score-ring" :style="scoreRingStyle">
+                    <div class="score-inner">
+                      <span class="score-value">{{ fortuneData.day_score || 0 }}</span>
+                      <span class="score-unit">分</span>
+                    </div>
+                  </div>
+                  <div class="score-side">
+                    <div class="score-ganzhi">{{ fortuneGanzhiText }}</div>
+                    <p :class="['score-insight', { muted: isInterpretationLoading && !hasInterpretationContent }]">
+                      {{ hasInterpretationContent ? (fortuneData.day_insight || '平稳度日，顺势而为') : interpretationPlaceholder }}
+                    </p>
+                    <div v-if="fortuneData.day_warning" class="warning-tag inline-warning">⚠️ {{ fortuneData.day_warning }}</div>
+                    <div v-else-if="interpretationError" class="hint-text error inline-hint">{{ interpretationError }}</div>
                   </div>
                 </div>
-                <div class="score-meta">
-                  <div class="meta-row">
+                <div class="score-meta-strip">
+                  <div class="meta-pill">
                     <span class="label">公历</span>
                     <span class="value">{{ fortuneData.solar_date }}</span>
                   </div>
-                  <div class="meta-row">
-                    <span class="label">干支</span>
-                    <span class="value">{{ fortuneData.day_gz }}</span>
-                  </div>
-                  <div class="meta-row">
+                  <div class="meta-pill">
                     <span class="label">评级</span>
                     <span class="value">{{ fortuneData.score_level || '-' }}</span>
                   </div>
-                  <div class="meta-row">
+                  <div class="meta-pill">
                     <span class="label">宫位</span>
                     <span class="value">{{ fortuneData.day_zhi_palace || '-' }}</span>
                   </div>
@@ -75,16 +103,7 @@
               </div>
 
               <template v-if="!isGuest">
-              <!-- ═══ 2. Insight Quote ═══ -->
-              <div class="glass-card insight-quote-card">
-                <p :class="['insight-text', { muted: isInterpretationLoading && !hasInterpretationContent }]">
-                  {{ hasInterpretationContent ? (fortuneData.day_insight || '平稳度日，顺势而为') : interpretationPlaceholder }}
-                </p>
-                <div v-if="fortuneData.day_warning" class="warning-tag">⚠️ {{ fortuneData.day_warning }}</div>
-                <div v-else-if="interpretationError" class="hint-text error">{{ interpretationError }}</div>
-              </div>
-
-              <!-- ═══ 3. Four Fortune Grid ═══ -->
+              <!-- ═══ 2. Four Fortune Grid ═══ -->
               <div class="fortune-grid">
                 <div v-for="item in fortuneGridItems" :key="item.key" class="fortune-grid-card">
                   <div class="grid-card-header">
@@ -97,7 +116,7 @@
                 </div>
               </div>
 
-              <!-- ═══ 4. Guide + Timeline ═══ -->
+              <!-- ═══ 3. Guide + Timeline ═══ -->
               <div class="glass-card info-card">
                 <h3 class="card-title"><span>🧭</span> 行事指南</h3>
                 <div class="guide-row">
@@ -125,7 +144,7 @@
                 <div v-else class="timeline-tip" style="padding-left:4px;">吉时信息生成中...</div>
               </div>
 
-              <!-- ═══ 5. Lucky Grid ═══ -->
+              <!-- ═══ 4. Lucky Grid ═══ -->
               <div class="glass-card info-card">
                 <h3 class="card-title"><span>💡</span> 开运密码</h3>
                 <div class="lucky-grid">
@@ -151,13 +170,13 @@
                 </div>
               </div>
 
-              <!-- ═══ 6. Resolve Tip ═══ -->
+              <!-- ═══ 5. Resolve Tip ═══ -->
               <div v-if="hasInterpretationContent && fortuneData.resolve_tip" class="glass-card resolve-card">
                 <div class="resolve-title"><span class="resolve-icon">🌿</span> 旺运秘诀</div>
                 <p class="resolve-text">{{ fortuneData.resolve_tip }}</p>
               </div>
 
-              <!-- ═══ 7. Hook Teaser ═══ -->
+              <!-- ═══ 6. Hook Teaser ═══ -->
               <div v-if="hasInterpretationContent && fortuneData.hook_teaser" class="glass-card hook-card">
                 <div class="hook-title"><span class="hook-icon">🔮</span> 明日预告</div>
                 <p class="hook-text">{{ fortuneData.hook_teaser }}</p>
@@ -179,10 +198,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
-import { recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
+import { getGuestState, recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
 import {
   clearPendingInterpretation,
   getPendingInterpretation,
@@ -210,6 +229,9 @@ const isLoading = ref(false)
 const isInterpretationLoading = ref(false)
 const interpretationError = ref('')
 const requestSerial = ref(0)
+const baziProfiles = ref([])
+const selectedProfileId = ref('')
+const isProfileMenuOpen = ref(false)
 const isGuest = computed(() => globalState.isGuest)
 
 const fortuneGridItems = [
@@ -227,6 +249,16 @@ const hasInterpretationFields = (data) => {
 }
 
 const hasInterpretationContent = computed(() => hasInterpretationFields(fortuneData.value))
+const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
+const activeProfile = computed(() => baziProfiles.value.find(profile => profile.id === selectedProfileId.value) || null)
+const activeProfileName = computed(() => activeProfile.value?.name || '命主未设')
+const currentProfileCacheKey = computed(() => selectedProfileId.value || '')
+const fortuneGanzhiText = computed(() => {
+  if (!fortuneData.value) return '-'
+  const month = fortuneData.value.month_gz ? `${fortuneData.value.month_gz}月` : ''
+  const day = fortuneData.value.day_gz ? `${fortuneData.value.day_gz}日` : ''
+  return `${month} ${day}`.trim() || '-'
+})
 
 const interpretationPlaceholder = computed(() => (
   isInterpretationLoading.value ? '断语生成中，分数已先行呈现' : '断语稍后呈现'
@@ -286,20 +318,67 @@ const formatGuide = (guideStr, type) => {
 
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
-const rememberFortuneCache = (userId, dateStr, data) => {
-  rememberSharedFortuneCache(getFortuneStorage(), userId, dateStr, data)
+const rememberFortuneCache = (userId, dateStr, data, profileId = '') => {
+  rememberSharedFortuneCache(getFortuneStorage(), userId, dateStr, data, new Date(), profileId)
 }
 
-const loadCachedFortune = (userId, dateStr) => loadSharedCachedFortune(getFortuneStorage(), userId, dateStr)
+const loadCachedFortune = (userId, dateStr, profileId = '') => loadSharedCachedFortune(getFortuneStorage(), userId, dateStr, new Date(), profileId)
 
-const fetchFortuneBaseFromApi = async (dateStr, accessToken) => {
+const buildGuestFortuneData = (dateStr) => ({
+  ...guestFortuneData,
+  solar_date: dateStr,
+  profile_name: activeProfileName.value,
+})
+
+const loadGuestProfile = () => {
+  const profile = getGuestState().baziProfile
+  baziProfiles.value = profile ? [profile] : []
+  selectedProfileId.value = profile?.id || ''
+}
+
+const fetchProfiles = async () => {
+  if (isGuest.value) {
+    loadGuestProfile()
+    return
+  }
+
+  const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
+  baziProfiles.value = data || []
+  if (!selectedProfileId.value && baziProfiles.value.length > 0) {
+    const defaultProfile = baziProfiles.value.find(profile => profile.is_default) || baziProfiles.value[0]
+    selectedProfileId.value = defaultProfile.id
+  }
+}
+
+const toggleProfileMenu = () => {
+  if (!showProfileSwitcher.value) return
+  isProfileMenuOpen.value = !isProfileMenuOpen.value
+}
+
+const selectProfile = (profileId) => {
+  if (!profileId || profileId === selectedProfileId.value) {
+    isProfileMenuOpen.value = false
+    return
+  }
+  selectedProfileId.value = profileId
+  isProfileMenuOpen.value = false
+  fetchFortuneData(selectedDate.value)
+}
+
+const handleDocumentClick = (event) => {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (!target.closest('.profile-switcher')) isProfileMenuOpen.value = false
+}
+
+const fetchFortuneBaseFromApi = async (dateStr, accessToken, profileId) => {
   const response = await fetch('/api/fortune-daily', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`
     },
-    body: JSON.stringify({ target_date: dateStr })
+    body: JSON.stringify({ target_date: dateStr, profile_id: profileId || undefined })
   })
   if (!response.ok) {
     const err = await response.json()
@@ -308,8 +387,8 @@ const fetchFortuneBaseFromApi = async (dateStr, accessToken) => {
   return response.json()
 }
 
-const requestFortuneInterpretation = async (userId, dateStr, accessToken) => {
-  const existingPending = getPendingInterpretation(userId, dateStr)
+const requestFortuneInterpretation = async (userId, dateStr, accessToken, profileId) => {
+  const existingPending = getPendingInterpretation(userId, dateStr, profileId)
   if (!existingPending) {
     const pendingRequest = fetch('/api/fortune-daily-interpretation', {
       method: 'POST',
@@ -317,7 +396,7 @@ const requestFortuneInterpretation = async (userId, dateStr, accessToken) => {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${accessToken}`
       },
-      body: JSON.stringify({ target_date: dateStr })
+      body: JSON.stringify({ target_date: dateStr, profile_id: profileId || undefined })
     })
       .then(async (response) => {
         if (!response.ok) {
@@ -326,12 +405,12 @@ const requestFortuneInterpretation = async (userId, dateStr, accessToken) => {
         }
         return response.json()
       })
-      .finally(() => clearPendingInterpretation(userId, dateStr))
+      .finally(() => clearPendingInterpretation(userId, dateStr, profileId))
 
-    rememberPendingInterpretation(userId, dateStr, pendingRequest)
+    rememberPendingInterpretation(userId, dateStr, pendingRequest, profileId)
   }
 
-  return getPendingInterpretation(userId, dateStr)
+  return getPendingInterpretation(userId, dateStr, profileId)
 }
 
 const fetchFortuneData = async (dateStr) => {
@@ -342,8 +421,9 @@ const fetchFortuneData = async (dateStr) => {
   interpretationError.value = ''
 
   const optimisticUserId = globalState.currentUser?.id
+  const profileId = currentProfileCacheKey.value
   if (optimisticUserId) {
-    const optimisticCached = loadCachedFortune(optimisticUserId, dateStr)
+    const optimisticCached = loadCachedFortune(optimisticUserId, dateStr, profileId)
     if (optimisticCached) {
       fortuneData.value = optimisticCached
       isLoading.value = false
@@ -361,33 +441,32 @@ const fetchFortuneData = async (dateStr) => {
       isLoading.value = false
       isInterpretationLoading.value = false
       interpretationError.value = ''
-      fortuneData.value = { ...guestFortuneData, solar_date: dateStr }
+      loadGuestProfile()
+      fortuneData.value = buildGuestFortuneData(dateStr)
       recordGuestFortuneViewed(undefined, dateStr)
       await trackGuestEvent(supabase, 'guest_fortune_viewed', 'fortune', { date: dateStr })
       return
     }
     if (!session) { alert('请先前往首页登录'); return }
 
-    let cachedData = optimisticUserId === session.user.id
-      ? fortuneData.value
-      : loadCachedFortune(session.user.id, dateStr)
+    let cachedData = loadCachedFortune(session.user.id, dateStr, profileId)
     if (currentRequest !== requestSerial.value) return
 
     if (cachedData) {
       fortuneData.value = cachedData
       isLoading.value = false
       if (hasInterpretationFields(cachedData)) return
-      fetchFortuneInterpretation(session.user.id, dateStr, session.access_token, currentRequest)
+      fetchFortuneInterpretation(session.user.id, dateStr, session.access_token, profileId, currentRequest)
       return
     }
 
-    const baseData = await fetchFortuneBaseFromApi(dateStr, session.access_token)
+    const baseData = await fetchFortuneBaseFromApi(dateStr, session.access_token, profileId)
     if (currentRequest !== requestSerial.value) return
-    rememberFortuneCache(session.user.id, dateStr, baseData)
+    rememberFortuneCache(session.user.id, dateStr, baseData, profileId)
     fortuneData.value = baseData
     isLoading.value = false
     if (hasInterpretationFields(baseData)) return
-    fetchFortuneInterpretation(session.user.id, dateStr, session.access_token, currentRequest)
+    fetchFortuneInterpretation(session.user.id, dateStr, session.access_token, profileId, currentRequest)
   } catch (error) {
     if (currentRequest !== requestSerial.value) return
     console.error(error)
@@ -397,14 +476,14 @@ const fetchFortuneData = async (dateStr) => {
   }
 }
 
-const fetchFortuneInterpretation = async (userId, dateStr, accessToken, requestId) => {
+const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileId, requestId) => {
   isInterpretationLoading.value = true
   interpretationError.value = ''
   try {
-    const interpretationData = await requestFortuneInterpretation(userId, dateStr, accessToken)
+    const interpretationData = await requestFortuneInterpretation(userId, dateStr, accessToken, profileId)
     if (requestId !== requestSerial.value || !fortuneData.value) return
     const mergedData = { ...fortuneData.value, ...interpretationData }
-    rememberFortuneCache(userId, dateStr, mergedData)
+    rememberFortuneCache(userId, dateStr, mergedData, profileId)
     fortuneData.value = mergedData
   } catch (error) {
     if (requestId !== requestSerial.value) return
@@ -421,9 +500,15 @@ const selectDate = (dateStr) => {
   fetchFortuneData(dateStr)
 }
 
-onMounted(() => {
+onMounted(async () => {
+  document.addEventListener('click', handleDocumentClick)
+  await fetchProfiles()
   generateDays()
   fetchFortuneData(selectedDate.value)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
 })
 </script>
 

@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const {
   getBeijingDayInfo,
+  buildFortunePeriodKey,
   buildFortuneContext,
   buildBaseFortunePayload,
   buildInterpretationPrompt,
@@ -72,15 +73,23 @@ async function getCachedFortune(userId, periodKey) {
   return data?.data_json || null;
 }
 
-async function getDefaultProfile(userId) {
-  const { data: profile, error } = await supabase
+function getRequestedProfileId(req) {
+  return req.body?.profile_id || req.query?.profile_id || '';
+}
+
+async function getProfileForFortune(userId, profileId) {
+  let query = supabase
     .from('bazi_profiles')
-    .select('name, gender, bazi_summary, bazi_str, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
-    .eq('user_id', userId)
-    .order('is_default', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .select('id, name, gender, bazi_summary, bazi_str, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
+    .eq('user_id', userId);
+
+  if (profileId) {
+    query = query.eq('id', profileId);
+  } else {
+    query = query.order('is_default', { ascending: false }).order('created_at', { ascending: false }).limit(1);
+  }
+
+  const { data: profile, error } = await query.single();
 
   if (error || !profile) {
     const notFound = new Error('未找到八字档案，请先创建命主档案');
@@ -189,15 +198,17 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const { bjTime, todayKey, expiresAt } = getBeijingDayInfo(getTargetDate(req));
-    const cached = await getCachedFortune(user.id, todayKey);
+    const requestedProfileId = getRequestedProfileId(req);
+    const periodKey = buildFortunePeriodKey(todayKey, requestedProfileId);
+    const cached = await getCachedFortune(user.id, periodKey);
     if (hasReadyInterpretation(cached)) {
-      console.log(`⚡️ 命中日运断语缓存 [${user.id}] ${todayKey}`);
+      console.log(`⚡️ 命中日运断语缓存 [${user.id}] ${periodKey}`);
       return res.status(200).json(pickInterpretationFields(cached));
     }
 
     if (!cached) await enforceQuota(user);
 
-    const profile = await getDefaultProfile(user.id);
+    const profile = await getProfileForFortune(user.id, requestedProfileId);
     const context = buildFortuneContext(profile, bjTime, todayKey);
     const latestBaseJson = buildBaseFortunePayload(context);
     const baseJson = cached ? { ...cached, ...latestBaseJson } : latestBaseJson;
@@ -205,7 +216,7 @@ export default async function handler(req, res) {
     const llmJson = await requestInterpretation(prompt);
     const mergedJson = mergeInterpretation(baseJson, llmJson);
 
-    await upsertFortuneCache(user.id, todayKey, mergedJson, expiresAt);
+    await upsertFortuneCache(user.id, periodKey, mergedJson, expiresAt);
     return res.status(200).json(pickInterpretationFields(mergedJson));
   } catch (error) {
     console.error('日运断语生成异常:', error);

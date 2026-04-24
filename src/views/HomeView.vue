@@ -247,6 +247,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../store.js'
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
+import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -303,6 +304,7 @@ const currentLoaderMessage = ref(LOADER_MESSAGES[0])
 let loaderInterval = null
 
 let clockInterval = null
+const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
 onMounted(() => {
   updateClock()
@@ -342,6 +344,11 @@ const handleSessionUpdate = (session) => {
   if (session) {
     currentUser.value = session.user
     loadHistory()
+    warmFortuneCacheFromSupabase({
+      supabase,
+      storage: getFortuneStorage(),
+      userId: session.user.id
+    })
   } else {
     currentUser.value = null
     if (!isGuest.value) {

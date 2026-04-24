@@ -3,7 +3,9 @@ const STORAGE_KEY = 'qimen:fortune-cache:v1'
 const fortuneCacheByKey = new Map()
 const pendingInterpretationByKey = new Map()
 
-const buildCacheKey = (userId, dateStr) => `${userId}::${dateStr}`
+const normalizeProfileKey = (profileId) => profileId || 'default'
+
+const buildCacheKey = (userId, dateStr, profileId) => `${userId}::${dateStr}::${normalizeProfileKey(profileId)}`
 
 const getBeijingExpiry = (dateStr) => {
   if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return 0
@@ -42,10 +44,10 @@ const pruneExpiredEntries = (state, nowMs) => {
   return nextState
 }
 
-export const loadCachedFortune = (storage, userId, dateStr, now = new Date()) => {
+export const loadCachedFortune = (storage, userId, dateStr, now = new Date(), profileId = '') => {
   if (!userId || !dateStr) return null
 
-  const key = buildCacheKey(userId, dateStr)
+  const key = buildCacheKey(userId, dateStr, profileId)
   const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime()
   const memoryCached = fortuneCacheByKey.get(key)
   if (memoryCached) return memoryCached
@@ -62,10 +64,10 @@ export const loadCachedFortune = (storage, userId, dateStr, now = new Date()) =>
   return entry.data
 }
 
-export const rememberFortuneCache = (storage, userId, dateStr, data, now = new Date()) => {
+export const rememberFortuneCache = (storage, userId, dateStr, data, now = new Date(), profileId = '') => {
   if (!userId || !dateStr || !data) return
 
-  const key = buildCacheKey(userId, dateStr)
+  const key = buildCacheKey(userId, dateStr, profileId)
   const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime()
   const expiresAt = getBeijingExpiry(dateStr)
   if (expiresAt <= nowMs) return
@@ -77,19 +79,19 @@ export const rememberFortuneCache = (storage, userId, dateStr, data, now = new D
   writeStorageState(storage, storageState)
 }
 
-export const getPendingInterpretation = (userId, dateStr) => {
+export const getPendingInterpretation = (userId, dateStr, profileId = '') => {
   if (!userId || !dateStr) return null
-  return pendingInterpretationByKey.get(buildCacheKey(userId, dateStr)) || null
+  return pendingInterpretationByKey.get(buildCacheKey(userId, dateStr, profileId)) || null
 }
 
-export const rememberPendingInterpretation = (userId, dateStr, promise) => {
+export const rememberPendingInterpretation = (userId, dateStr, promise, profileId = '') => {
   if (!userId || !dateStr || !promise) return
-  pendingInterpretationByKey.set(buildCacheKey(userId, dateStr), promise)
+  pendingInterpretationByKey.set(buildCacheKey(userId, dateStr, profileId), promise)
 }
 
-export const clearPendingInterpretation = (userId, dateStr) => {
+export const clearPendingInterpretation = (userId, dateStr, profileId = '') => {
   if (!userId || !dateStr) return
-  pendingInterpretationByKey.delete(buildCacheKey(userId, dateStr))
+  pendingInterpretationByKey.delete(buildCacheKey(userId, dateStr, profileId))
 }
 
 export const __resetFortuneCacheForTests = () => {

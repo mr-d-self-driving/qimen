@@ -43,3 +43,22 @@ test('loadCachedFortune ignores expired Beijing-day cache entries', async () => 
     null
   )
 })
+
+test('fortune cache isolates entries for different profiles on the same day', async () => {
+  const storage = createMemoryStorage()
+  const cache = await import('./fortuneCache.mjs')
+
+  cache.__resetFortuneCacheForTests()
+  cache.rememberFortuneCache(storage, 'user-1', '2026-04-24', { day_score: 88 }, new Date('2026-04-24T09:00:00+08:00'), 'profile-a')
+  cache.rememberFortuneCache(storage, 'user-1', '2026-04-24', { day_score: 66 }, new Date('2026-04-24T09:00:00+08:00'), 'profile-b')
+  cache.__resetFortuneCacheForTests()
+
+  assert.deepEqual(
+    cache.loadCachedFortune(storage, 'user-1', '2026-04-24', new Date('2026-04-24T10:00:00+08:00'), 'profile-a'),
+    { day_score: 88 }
+  )
+  assert.deepEqual(
+    cache.loadCachedFortune(storage, 'user-1', '2026-04-24', new Date('2026-04-24T10:00:00+08:00'), 'profile-b'),
+    { day_score: 66 }
+  )
+})

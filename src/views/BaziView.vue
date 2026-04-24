@@ -36,23 +36,6 @@
                     <button class="mini-action danger" @click="deleteProfile">删除档案</button>
                 </div>
 
-                <div v-show="showAdd" class="profile-form">
-                    <div class="form-row">
-                        <input type="text" v-model="form.name" placeholder="命主姓名">
-                        <select v-model="form.gender">
-                            <option value="M">男 (乾造)</option>
-                            <option value="F">女 (坤造)</option>
-                        </select>
-                    </div>
-                    <div class="form-row">
-                        <input type="datetime-local" v-model="form.birth" style="color-scheme:dark;">
-                    </div>
-                    <div class="form-actions">
-                        <button class="btn-ghost" style="border:none;color:var(--text-muted)" @click="showAdd = false">取消</button>
-                        <button class="btn-ghost" @click="saveProfile">保存档案</button>
-                    </div>
-                </div>
-
                 <div v-show="showRename" class="profile-form rename-form">
                     <div class="form-row">
                         <input type="text" v-model="renameName" placeholder="新的昵称">
@@ -62,6 +45,175 @@
                         <button class="btn-ghost" @click="renameProfile">保存昵称</button>
                     </div>
                 </div>
+
+                <Teleport to="body">
+                    <div v-if="showAdd" class="modal-overlay picker-overlay" @click="showAdd = false">
+                        <div class="profile-picker-modal" @click.stop>
+                            <div class="picker-topbar">
+                                <div class="picker-topcopy">
+                                    <div class="section-kicker">命主档案</div>
+                                    <div class="picker-heading">新增排盘资料</div>
+                                </div>
+                                <div class="picker-mode-tabs">
+                                    <button
+                                        class="picker-mode-tab"
+                                        :class="{ active: entryMode === ENTRY_MODE.SOLAR }"
+                                        @click="entryMode = ENTRY_MODE.SOLAR"
+                                    >公历</button>
+                                    <button
+                                        class="picker-mode-tab"
+                                        :class="{ active: entryMode === ENTRY_MODE.PILLARS }"
+                                        @click="entryMode = ENTRY_MODE.PILLARS"
+                                    >四柱</button>
+                                </div>
+                                <button class="close-button picker-close dark" title="关闭" @click="showAdd = false">×</button>
+                            </div>
+
+                            <div class="picker-form-row">
+                                <input type="text" v-model.trim="form.name" placeholder="命主姓名">
+                                <select v-model="form.gender">
+                                    <option value="M">男 (乾造)</option>
+                                    <option value="F">女 (坤造)</option>
+                                </select>
+                            </div>
+
+                            <div v-if="entryMode === ENTRY_MODE.SOLAR" class="picker-panel">
+                                <div class="date-input-panel">
+                                    <div class="date-input-card">
+                                        <label class="date-input-label">出生时间</label>
+                                        <input
+                                            type="text"
+                                            inputmode="numeric"
+                                            pattern="[0-9]*"
+                                            maxlength="12"
+                                            autocomplete="off"
+                                            enterkeyhint="done"
+                                            :value="solarInputMasked"
+                                            @input="handleSolarInput"
+                                            placeholder="输入 199303270255"
+                                        >
+                                        <div class="date-input-hint">仅支持数字输入，格式为 YYYYMMDDHHmm，也可只输入到日期或小时。</div>
+                                    </div>
+                                    <div class="date-segment-row">
+                                        <div class="date-segment"><span>年</span><strong>{{ solarInputDigits.slice(0, 4) || '----' }}</strong></div>
+                                        <div class="date-segment"><span>月</span><strong>{{ solarInputDigits.slice(4, 6) || '--' }}</strong></div>
+                                        <div class="date-segment"><span>日</span><strong>{{ solarInputDigits.slice(6, 8) || '--' }}</strong></div>
+                                        <div class="date-segment"><span>时</span><strong>{{ solarInputDigits.slice(8, 10) || '--' }}</strong></div>
+                                        <div class="date-segment"><span>分</span><strong>{{ solarInputDigits.slice(10, 12) || '--' }}</strong></div>
+                                    </div>
+                                </div>
+                                <div v-if="solarPreview" class="picker-preview-card">
+                                    <div>阳历：{{ solarPreview.solarText }}</div>
+                                    <div>农历：{{ solarPreview.lunarText }}</div>
+                                    <div>四柱：{{ solarPreview.baziStr }}</div>
+                                </div>
+                                <div v-else class="picker-preview-card muted">
+                                    <div>{{ solarInputError }}</div>
+                                </div>
+                            </div>
+
+                            <div v-else class="picker-panel">
+                                <div class="pillar-slot-grid">
+                                    <button
+                                        class="pillar-slot"
+                                        :class="{ active: activePillarSlot === 'yearGan' }"
+                                        @click="setActivePillarSlot('yearGan')"
+                                    >
+                                        <span class="slot-label">年干</span>
+                                        <strong class="slot-value">{{ pillarInput.yearPillar.charAt(0) || '年干' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot derived"
+                                        :class="{ active: activePillarSlot === 'monthGan' }"
+                                        @click="setActivePillarSlot('monthGan')"
+                                    >
+                                        <span class="slot-label">月干</span>
+                                        <strong class="slot-value">{{ pillarInput.monthPillar.charAt(0) || '月干' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot"
+                                        :class="{ active: activePillarSlot === 'dayGan' }"
+                                        @click="setActivePillarSlot('dayGan')"
+                                    >
+                                        <span class="slot-label">日干</span>
+                                        <strong class="slot-value">{{ pillarInput.dayPillar.charAt(0) || '日干' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot derived"
+                                        :class="{ active: activePillarSlot === 'timeGan' }"
+                                        @click="setActivePillarSlot('timeGan')"
+                                    >
+                                        <span class="slot-label">时干</span>
+                                        <strong class="slot-value">{{ pillarInput.timePillar.charAt(0) || '时干' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot"
+                                        :class="{ active: activePillarSlot === 'yearZhi' }"
+                                        @click="setActivePillarSlot('yearZhi')"
+                                    >
+                                        <span class="slot-label">年支</span>
+                                        <strong class="slot-value">{{ pillarInput.yearPillar.charAt(1) || '年支' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot"
+                                        :class="{ active: activePillarSlot === 'monthZhi' }"
+                                        @click="setActivePillarSlot('monthZhi')"
+                                    >
+                                        <span class="slot-label">月支</span>
+                                        <strong class="slot-value">{{ pillarInput.monthPillar.charAt(1) || '月支' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot"
+                                        :class="{ active: activePillarSlot === 'dayZhi' }"
+                                        @click="setActivePillarSlot('dayZhi')"
+                                    >
+                                        <span class="slot-label">日支</span>
+                                        <strong class="slot-value">{{ pillarInput.dayPillar.charAt(1) || '日支' }}</strong>
+                                    </button>
+                                    <button
+                                        class="pillar-slot"
+                                        :class="{ active: activePillarSlot === 'timeZhi' }"
+                                        @click="setActivePillarSlot('timeZhi')"
+                                    >
+                                        <span class="slot-label">时支</span>
+                                        <strong class="slot-value">{{ pillarInput.timePillar.charAt(1) || '时支' }}</strong>
+                                    </button>
+                                </div>
+                                <div class="pillar-choice-panel">
+                                    <div class="pillar-choice-head">
+                                        <div class="picker-column-label">当前选择：{{ activeSlotLabel }}</div>
+                                        <div class="pillar-orb-current">{{ activeSlotValue || activeSlotLabel }}</div>
+                                    </div>
+                                    <div v-if="activeSlotHint" class="pillar-rule-tip">
+                                        {{ activeSlotHint }}
+                                    </div>
+                                    <div class="orb-section">
+                                        <div class="orb-title">{{ activeSlotType === 'gan' ? '天干' : '地支' }}</div>
+                                        <div class="choice-chip-grid" :class="{ 'choice-chip-grid-gz': activeSlotType === 'gan', 'choice-chip-grid-zhi': activeSlotType === 'zhi' }">
+                                            <button
+                                                v-for="item in activeCandidateOptions"
+                                                :key="'candidate'+item"
+                                                class="choice-chip"
+                                                :class="{ active: activeSlotValue === item, [WX_MAP[item] || 'wx-none']: true }"
+                                                @click="updateActivePillar(item)"
+                                            >{{ item }}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-if="pillarPreview" class="picker-preview-card">
+                                    <div>匹配结果：{{ pillarPreview.solarText }}</div>
+                                    <div>农历：{{ pillarPreview.lunarText }}</div>
+                                    <div>候选数量：{{ pillarMatches.length }} 个，默认采用最近日期</div>
+                                </div>
+                                <div v-else class="picker-preview-card muted">
+                                    <div>{{ pillarPreviewError }}</div>
+                                </div>
+                            </div>
+
+                            <button class="picker-save-btn" @click="saveProfile">确定</button>
+                        </div>
+                    </div>
+                </Teleport>
             </div>
 
             <div v-if="activeProfile" class="glass-card dashboard-panel">
@@ -427,9 +579,21 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { createClient } from '@supabase/supabase-js'
-import { Solar } from 'lunar-javascript' // 使用你 package.json 中安装的库
+import { Solar } from 'lunar-javascript'
 import { globalState } from '../store.js'
 import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
+import {
+    buildPillarsProfilePayload,
+    buildSolarProfilePayload,
+    ENTRY_MODE,
+    GAN,
+    findDatesByBazi,
+    getAllowedMonthBranchesByStem,
+    getAllowedTimeBranchesByStem,
+    getSolarLunarSnapshot,
+    parseCompactSolarInput,
+    ZHI
+} from '../utils/baziProfileInput.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -497,8 +661,70 @@ let analysisTimer = null
 
 const form = reactive({
     name: '',
-    gender: 'M',
-    birth: ''
+    gender: 'M'
+})
+
+const entryMode = ref(ENTRY_MODE.SOLAR)
+const solarInput = reactive({
+    text: '199001010000'
+})
+const pillarInput = reactive({
+    yearPillar: '庚午',
+    monthPillar: '戊寅',
+    dayPillar: '乙丑',
+    timePillar: '丙子'
+})
+const activePillarSlot = ref('yearGan')
+const PILLAR_SLOT_FLOW = ['yearGan', 'yearZhi', 'monthGan', 'monthZhi', 'dayGan', 'dayZhi', 'timeGan', 'timeZhi']
+
+const ganOptions = GAN
+const zhiOptions = ZHI
+const activeSlotType = computed(() => activePillarSlot.value.endsWith('Gan') ? 'gan' : 'zhi')
+const activeSlotLabel = computed(() => ({
+    yearGan: '年干',
+    monthGan: '月干',
+    dayGan: '日干',
+    timeGan: '时干',
+    yearZhi: '年支',
+    monthZhi: '月支',
+    dayZhi: '日支',
+    timeZhi: '时支'
+}[activePillarSlot.value] || '年干'))
+const monthBranchOptions = computed(() => getAllowedMonthBranchesByStem(pillarInput.monthPillar.charAt(0)))
+const timeBranchOptions = computed(() => getAllowedTimeBranchesByStem(pillarInput.timePillar.charAt(0)))
+const activeCandidateOptions = computed(() => {
+    if (activeSlotType.value === 'gan') return ganOptions
+    if (activePillarSlot.value === 'monthZhi') return monthBranchOptions.value
+    if (activePillarSlot.value === 'timeZhi') return timeBranchOptions.value
+    return zhiOptions
+})
+const activeSlotValue = computed(() => {
+    switch (activePillarSlot.value) {
+        case 'yearGan': return pillarInput.yearPillar.charAt(0)
+        case 'monthGan': return pillarInput.monthPillar.charAt(0)
+        case 'dayGan': return pillarInput.dayPillar.charAt(0)
+        case 'timeGan': return pillarInput.timePillar.charAt(0)
+        case 'yearZhi': return pillarInput.yearPillar.charAt(1)
+        case 'monthZhi': return pillarInput.monthPillar.charAt(1)
+        case 'dayZhi': return pillarInput.dayPillar.charAt(1)
+        case 'timeZhi': return pillarInput.timePillar.charAt(1)
+        default: return ''
+    }
+})
+const activeSlotHint = computed(() => {
+    if (activePillarSlot.value === 'monthZhi') {
+        return `已按月干 ${pillarInput.monthPillar.charAt(0)} 限定月支，可选六支：${monthBranchOptions.value.join('、')}`
+    }
+    if (activePillarSlot.value === 'timeZhi') {
+        return `已按时干 ${pillarInput.timePillar.charAt(0)} 限定时支，可选六支：${timeBranchOptions.value.join('、')}`
+    }
+    if (activePillarSlot.value === 'monthGan') return '先定月干，再进入月支选择。'
+    if (activePillarSlot.value === 'timeGan') return '先定时干，再进入时支选择。'
+    return ''
+})
+const pillarPreviewError = computed(() => {
+    if (pillarMatches.value.length) return ''
+    return '当前四柱暂无匹配日期，请调整后再试。'
 })
 
 // 计算属性 (Vue 魔法：数据变化自动更新 UI)
@@ -596,6 +822,28 @@ watch(baziEngine, (newVal) => {
     }
 }, { immediate: true });
 
+watch(
+    () => pillarInput.monthPillar.charAt(0),
+    () => {
+        const allowed = monthBranchOptions.value
+        if (!allowed.includes(pillarInput.monthPillar.charAt(1))) {
+            pillarInput.monthPillar = `${pillarInput.monthPillar.charAt(0)}${allowed[0]}`
+        }
+    },
+    { immediate: true }
+)
+
+watch(
+    () => pillarInput.timePillar.charAt(0),
+    () => {
+        const allowed = timeBranchOptions.value
+        if (!allowed.includes(pillarInput.timePillar.charAt(1))) {
+            pillarInput.timePillar = `${pillarInput.timePillar.charAt(0)}${allowed[0]}`
+        }
+    },
+    { immediate: true }
+)
+
 const selectDayun = (idx) => {
     selectedDayunIdx.value = idx;
     const dy = fullDayunList.value[idx]?.originalDy;
@@ -691,6 +939,53 @@ const promptDataObj = computed(() => {
     return generateLunarPromptData(activeProfile.value)
 })
 
+const solarParsedInput = computed(() => parseCompactSolarInput(solarInput.text))
+const solarInputDigits = computed(() => String(solarInput.text || '').replace(/\D/g, '').slice(0, 12))
+const solarInputError = computed(() => {
+    const digits = solarInputDigits.value
+    if (!digits.length) return '请输入出生年月日时分'
+    if (![8, 10, 12].includes(digits.length)) return '请输入 8 位、10 位或 12 位数字，例如 199303270255'
+    const parsed = solarParsedInput.value
+    if (!parsed) return '日期格式不正确'
+    if (parsed.month < 1 || parsed.month > 12 || parsed.day < 1 || parsed.day > 31 || parsed.hour > 23 || parsed.minute > 59) {
+        return '日期格式不正确，请检查月份、日期、小时和分钟'
+    }
+    return ''
+})
+const solarPreview = computed(() => {
+    if (solarInputError.value || !solarParsedInput.value) return null
+    const { year, month, day, hour, minute } = solarParsedInput.value
+    return getSolarLunarSnapshot(year, month, day, hour, minute)
+})
+const solarInputMasked = computed(() => {
+    const digits = solarInputDigits.value
+    const y = digits.slice(0, 4)
+    const m = digits.slice(4, 6)
+    const d = digits.slice(6, 8)
+    const h = digits.slice(8, 10)
+    const min = digits.slice(10, 12)
+    return [y, m, d, h, min].filter(Boolean).join(' ')
+})
+
+const pillarMatches = computed(() => findDatesByBazi(
+    pillarInput.yearPillar,
+    pillarInput.monthPillar,
+    pillarInput.dayPillar,
+    pillarInput.timePillar
+))
+
+const pillarPreview = computed(() => {
+    if (!pillarMatches.value.length) return null
+    const latest = pillarMatches.value[pillarMatches.value.length - 1]
+    return getSolarLunarSnapshot(
+        latest.getYear(),
+        latest.getMonth(),
+        latest.getDay(),
+        latest.getHour(),
+        latest.getMinute()
+    )
+})
+
 const solarDateStr = computed(() => {
     const data = promptDataObj.value
     if (!data || !data.birthStr) return '阳历加载中...'
@@ -752,6 +1047,7 @@ const openAddProfile = () => {
         alert('访客模式仅可添加 1 个本地八字档案')
         return
     }
+    resetProfileEntry()
     showAdd.value = true
     showRename.value = false
 }
@@ -763,30 +1059,131 @@ const openRenameProfile = () => {
     showAdd.value = false
 }
 
+const resetProfileEntry = () => {
+    form.name = ''
+    form.gender = 'M'
+    entryMode.value = ENTRY_MODE.SOLAR
+    solarInput.text = '199001010000'
+    pillarInput.yearPillar = '庚午'
+    pillarInput.monthPillar = '戊寅'
+    pillarInput.dayPillar = '乙丑'
+    pillarInput.timePillar = '丙子'
+    activePillarSlot.value = 'yearGan'
+}
+
+const handleSolarInput = (event) => {
+    const digits = String(event?.target?.value || '').replace(/\D/g, '').slice(0, 12)
+    solarInput.text = digits
+}
+
+const setActivePillarSlot = (slot) => {
+    activePillarSlot.value = slot
+}
+
+const moveToNextPillarSlot = () => {
+    const currentIndex = PILLAR_SLOT_FLOW.indexOf(activePillarSlot.value)
+    if (currentIndex === -1 || currentIndex >= PILLAR_SLOT_FLOW.length - 1) return
+    activePillarSlot.value = PILLAR_SLOT_FLOW[currentIndex + 1]
+}
+
+const updateActivePillar = (value) => {
+    if (activePillarSlot.value === 'monthZhi' && !monthBranchOptions.value.includes(value)) {
+        return
+    }
+    if (activePillarSlot.value === 'timeZhi' && !timeBranchOptions.value.includes(value)) {
+        return
+    }
+    switch (activePillarSlot.value) {
+        case 'yearGan':
+            pillarInput.yearPillar = `${value}${pillarInput.yearPillar.charAt(1) || '子'}`
+            break
+        case 'yearZhi':
+            pillarInput.yearPillar = `${pillarInput.yearPillar.charAt(0) || '甲'}${value}`
+            break
+        case 'monthGan':
+            pillarInput.monthPillar = `${value}${pillarInput.monthPillar.charAt(1) || getAllowedMonthBranchesByStem(value)[0]}`
+            break
+        case 'monthZhi':
+            pillarInput.monthPillar = `${pillarInput.monthPillar.charAt(0) || '甲'}${value}`
+            break
+        case 'dayGan':
+            pillarInput.dayPillar = `${value}${pillarInput.dayPillar.charAt(1) || '子'}`
+            break
+        case 'dayZhi':
+            pillarInput.dayPillar = `${pillarInput.dayPillar.charAt(0) || '甲'}${value}`
+            break
+        case 'timeGan':
+            pillarInput.timePillar = `${value}${pillarInput.timePillar.charAt(1) || getAllowedTimeBranchesByStem(value)[0]}`
+            break
+        case 'timeZhi':
+            pillarInput.timePillar = `${pillarInput.timePillar.charAt(0) || '甲'}${value}`
+            break
+        default:
+            break
+    }
+    moveToNextPillarSlot()
+}
+
+const buildProfilePayloadFromEntry = () => {
+    const name = form.name.trim()
+    if (!name) {
+        throw new Error('请先填写命主姓名')
+    }
+
+    if (entryMode.value === ENTRY_MODE.SOLAR) {
+        if (solarInputError.value || !solarParsedInput.value) {
+            throw new Error(solarInputError.value || '请输入正确的出生年月日时分')
+        }
+        return buildSolarProfilePayload({
+            name,
+            gender: form.gender,
+            year: solarParsedInput.value.year,
+            month: solarParsedInput.value.month,
+            day: solarParsedInput.value.day,
+            hour: solarParsedInput.value.hour,
+            minute: solarParsedInput.value.minute
+        })
+    }
+
+    return buildPillarsProfilePayload({
+        name,
+        gender: form.gender,
+        yearPillar: pillarInput.yearPillar,
+        monthPillar: pillarInput.monthPillar,
+        dayPillar: pillarInput.dayPillar,
+        timePillar: pillarInput.timePillar
+    })
+}
+
 const saveProfile = async () => {
-    if(!form.name || !form.birth) return alert("信息不全")
+    let payload
+    try {
+        payload = buildProfilePayloadFromEntry()
+    } catch (error) {
+        alert(error.message)
+        return
+    }
     if (isGuest.value) {
-        const profile = buildGuestProfile()
+        const profile = buildGuestProfile(payload)
         saveGuestBaziProfile(undefined, profile)
         baziProfiles.value = [profile]
         selectedProfileId.value = profile.id
         showAdd.value = false
-        form.name = ''
-        form.birth = ''
+        resetProfileEntry()
         await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
         return
     }
     const { data, error } = await supabase.from('bazi_profiles').insert([{ 
         user_id: currentUser.value.id, 
-        name: form.name, 
-        gender: form.gender, 
-        birth_date: form.birth.replace('T',' ')+':00' 
+        name: payload.name,
+        gender: payload.gender,
+        birth_date: payload.birth_date,
+        bazi_str: payload.bazi_str
     }]).select('id').single()
     if (error) alert(error.message) 
     else { 
         showAdd.value = false
-        form.name = ''
-        form.birth = ''
+        resetProfileEntry()
         if (data?.id) selectedProfileId.value = data.id
         await fetchProfiles() 
     }
@@ -798,22 +1195,13 @@ const loadGuestProfile = () => {
     selectedProfileId.value = profile?.id || ''
 }
 
-const buildGuestProfile = () => {
-    const p = form.birth.match(/\d+/g)
-    const year = parseInt(p[0])
-    const month = parseInt(p[1])
-    const day = parseInt(p[2])
-    const hour = parseInt(p[3] || '12')
-    const minute = parseInt(p[4] || '0')
-    const eightChar = Solar.fromYmdHms(year, month, day, hour, minute, 0).getLunar().getEightChar()
-    const baziStr = `${eightChar.getYear()} ${eightChar.getMonth()} ${eightChar.getDay()} ${eightChar.getTime()}`
-
+const buildGuestProfile = (payload) => {
     return {
         id: 'guest_bazi_profile',
-        name: form.name,
-        gender: form.gender,
-        birth_date: form.birth.replace('T',' ')+':00',
-        bazi_str: baziStr,
+        name: payload.name,
+        gender: payload.gender,
+        birth_date: payload.birth_date,
+        bazi_str: payload.bazi_str,
         bazi_summary: '访客本地档案已保存。登录后可生成完整云端命理解读与日运联动。',
         is_default: true
     }
@@ -963,28 +1351,6 @@ const getShenColor = (shen) => {
     return 'shen-gray';
 }
 
-const findDatesByBazi = (yGZ, mGZ, dGZ, hGZ) => {
-    const results = []
-    const today = Solar.fromDate(new Date())
-    const zhiHours = {"子":0,"丑":2,"寅":4,"卯":6,"辰":8,"巳":10,"午":12,"未":14,"申":16,"酉":18,"戌":20,"亥":22}
-    for (let y = 1900; y <= today.getYear(); y++) {
-        const s = Solar.fromYmd(y, 7, 1)
-        if (s.getLunar().getYearInGanZhi() === yGZ) {
-            let cur = Solar.fromYmd(y - 1, 11, 1), end = Solar.fromYmd(y + 1, 3, 1)
-            while (cur.toYmd() <= end.toYmd()) {
-                const bazi = cur.getLunar().getEightChar()
-                if (bazi.getYear() === yGZ && bazi.getMonth() === mGZ && bazi.getDay() === dGZ) {
-                    let h = zhiHours[hGZ.charAt(1)] || 12
-                    const test = Solar.fromYmdHms(cur.getYear(), cur.getMonth(), cur.getDay(), h, 30, 0)
-                    if (test.getLunar().getEightChar().getTime() === hGZ) results.push(test)
-                }
-                cur = cur.next(1)
-            }
-        }
-    }
-    return results
-}
-
 const generateLunarPromptData = (profile) => {
     let res = { gender: profile.gender === 'M' ? '男' : '女', birthStr: "", baziStr: "", daYunStr: "当前大运" }
     if (profile.birth_date) {
@@ -1049,6 +1415,287 @@ const generateLunarPromptData = (profile) => {
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
 .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; outline: none; font-family: var(--font-body); }
 .form-actions { display:flex; justify-content:flex-end; gap:8px; }
+
+.picker-overlay { padding: 14px; align-items: flex-end; }
+.profile-picker-modal {
+    width: min(100%, 620px);
+    max-height: min(92vh, 760px);
+    overflow: auto;
+    border-radius: 24px;
+    border: 1px solid rgba(232,204,128,0.16);
+    background:
+        radial-gradient(circle at top left, rgba(232,204,128,0.06), transparent 28%),
+        linear-gradient(180deg, rgba(18,18,30,0.98), rgba(10,10,18,0.98));
+    box-shadow: 0 24px 72px rgba(0,0,0,0.45);
+    padding: 18px;
+    color: var(--text-primary);
+}
+.picker-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.picker-topcopy { min-width: 0; }
+.picker-heading { color: #F4EBDD; font-size: 16px; font-weight: 700; }
+.picker-mode-tabs {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(232,204,128,0.16);
+}
+.picker-mode-tab {
+    min-height: 40px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: #AFA79A;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.picker-mode-tab.active {
+    background: linear-gradient(135deg, rgba(232,204,128,0.94), rgba(212,175,55,0.94));
+    color: #111114;
+    box-shadow: 0 6px 18px rgba(212,175,55,0.18);
+}
+.picker-close.dark {
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.04);
+    color: #B8AF9B;
+    border-color: rgba(232,204,128,0.16);
+}
+.picker-form-row {
+    display: grid;
+    grid-template-columns: 1.5fr 1fr;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+.picker-form-row input,
+.picker-form-row select {
+    width: 100%;
+    min-height: 44px;
+    border-radius: 14px;
+    border: 1px solid rgba(232,204,128,0.12);
+    background: rgba(255,255,255,0.05);
+    color: #F4EBDD;
+    padding: 0 14px;
+    font-size: 14px;
+    outline: none;
+}
+.picker-panel {
+    border-top: 1px solid rgba(232,204,128,0.1);
+    padding-top: 14px;
+}
+.picker-column { display: flex; flex-direction: column; gap: 8px; }
+.picker-column-label {
+    text-align: left;
+    color: #E5D5AF;
+    font-size: 14px;
+    font-weight: 700;
+}
+.picker-preview-card {
+    border-radius: 16px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(232,204,128,0.1);
+    padding: 12px 14px;
+    color: #D8D2BF;
+    line-height: 1.7;
+    font-size: 13px;
+}
+.picker-preview-card.muted { color: #8D9098; }
+.date-input-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.date-input-card {
+    border-radius: 18px;
+    border: 1px solid rgba(232,204,128,0.14);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+        rgba(0,0,0,0.16);
+    padding: 14px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+.date-input-label {
+    display: block;
+    margin-bottom: 10px;
+    color: #F4EBDD;
+    font-size: 15px;
+    font-weight: 700;
+}
+.date-input-card input {
+    width: 100%;
+    min-height: 54px;
+    border-radius: 16px;
+    border: 1px solid rgba(232,204,128,0.18);
+    background: rgba(6,6,14,0.72);
+    color: #F7F0E2;
+    padding: 0 16px;
+    font-size: 21px;
+    letter-spacing: 0.14em;
+    outline: none;
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.24);
+}
+.date-input-card input::placeholder {
+    color: rgba(212,204,190,0.34);
+    letter-spacing: normal;
+    font-size: 15px;
+}
+.date-input-card input:focus {
+    border-color: rgba(232,204,128,0.38);
+    box-shadow: 0 0 0 1px rgba(232,204,128,0.16), inset 0 0 18px rgba(0,0,0,0.24);
+}
+.date-input-hint {
+    margin-top: 10px;
+    color: #9E988B;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.date-segment-row {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 8px;
+}
+.date-segment {
+    min-width: 0;
+    border-radius: 16px;
+    border: 1px solid rgba(232,204,128,0.1);
+    background: rgba(255,255,255,0.03);
+    padding: 12px 6px;
+    text-align: center;
+}
+.date-segment span {
+    display: block;
+    margin-bottom: 6px;
+    color: #928A7C;
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+.date-segment strong {
+    display: block;
+    color: #F4EBDD;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+}
+.pillar-slot-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.pillar-slot {
+    min-height: 112px;
+    border: 1px solid rgba(232,204,128,0.14);
+    border-radius: 24px;
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01)),
+        rgba(7,7,16,0.72);
+    color: #D8D2BF;
+    padding: 12px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+.pillar-slot.derived {
+    background: rgba(255,255,255,0.018);
+}
+.pillar-slot.active {
+    border-color: rgba(232,204,128,0.46);
+    background:
+        linear-gradient(180deg, rgba(232,204,128,0.12), rgba(232,204,128,0.04)),
+        rgba(18,12,6,0.64);
+    box-shadow: inset 0 0 18px rgba(212,175,55,0.08);
+}
+.slot-label {
+    font-size: 14px;
+    color: #AFA79A;
+    font-weight: 700;
+}
+.slot-value {
+    font-size: 26px;
+    color: #F4EBDD;
+    font-family: var(--font-serif);
+    font-weight: 600;
+}
+.pillar-choice-panel {
+    border-radius: 24px;
+    border: 1px solid rgba(232,204,128,0.12);
+    background:
+        radial-gradient(circle at top right, rgba(232,204,128,0.05), transparent 28%),
+        rgba(5,5,14,0.68);
+    padding: 14px;
+    margin-bottom: 14px;
+}
+.pillar-choice-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.pillar-orb-current {
+    color: var(--gold-light);
+    font-size: 20px;
+    font-family: var(--font-serif);
+    letter-spacing: 2px;
+}
+.pillar-rule-tip {
+    margin-bottom: 12px;
+    color: #AFA79A;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.orb-title {
+    color: #BBAF94;
+    font-size: 12px;
+    letter-spacing: 1px;
+    margin-bottom: 10px;
+}
+.choice-chip-grid {
+    display: grid;
+    gap: 12px;
+}
+.choice-chip-grid-gz { grid-template-columns: repeat(5, 1fr); }
+.choice-chip-grid-zhi { grid-template-columns: repeat(6, 1fr); }
+.choice-chip {
+    min-height: 58px;
+    border-radius: 18px;
+    border: 1px solid rgba(232,204,128,0.14);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012)),
+        rgba(10,10,20,0.78);
+    font-size: 24px;
+    font-weight: 700;
+    font-family: var(--font-serif);
+    cursor: pointer;
+}
+.choice-chip.active {
+    border-color: rgba(232,204,128,0.46);
+    background: rgba(212,175,55,0.12);
+    box-shadow: inset 0 0 16px rgba(212,175,55,0.08);
+}
+.choice-chip.disabled {
+    opacity: .36;
+}
+.picker-save-btn {
+    width: 100%;
+    min-height: 64px;
+    margin-top: 18px;
+    border: none;
+    border-radius: 999px;
+    background: linear-gradient(135deg, rgba(232,204,128,0.95), rgba(212,175,55,0.95));
+    color: #111114;
+    font-size: 18px;
+    font-weight: 800;
+    cursor: pointer;
+}
 
 .bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -1331,6 +1978,23 @@ const generateLunarPromptData = (profile) => {
     .bazi-header { flex-direction: column; }
     .btn-primary { width: 100%; }
     .scoring-bars { grid-template-columns: 1fr; }
+    .picker-topbar { gap: 8px; }
+    .picker-form-row,
+    .pillar-slot-grid { grid-template-columns: 1fr 1fr; }
+    .picker-save-btn { min-height: 56px; }
+    .picker-topbar { flex-direction: column; align-items: stretch; }
+    .date-segment-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+    .date-input-card input { min-height: 50px; font-size: 18px; padding: 0 14px; }
+    .date-segment { padding: 10px 4px; border-radius: 14px; }
+    .date-segment strong { font-size: 14px; }
+    .pillar-slot { min-height: 96px; border-radius: 20px; }
+    .slot-value { font-size: 22px; }
+    .choice-chip-grid-gz { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+    .choice-chip-grid-zhi { grid-template-columns: repeat(4, 1fr); }
+    .choice-chip { min-height: 52px; border-radius: 16px; font-size: 21px; }
+    .pillar-choice-panel { padding: 12px; border-radius: 20px; }
+    .pillar-choice-head { align-items: flex-start; }
+    .pillar-orb-current { font-size: 18px; }
 }
 
 @keyframes pulse {

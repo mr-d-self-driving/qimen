@@ -1,6 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const {
   getBeijingDayInfo,
+  buildFortunePeriodKey,
   buildFortuneContext,
   buildBaseFortunePayload,
 } = require('../lib/fortuneDailyCore');
@@ -70,15 +71,23 @@ async function getCachedFortune(userId, periodKey) {
   return data?.data_json || null;
 }
 
-async function getDefaultProfile(userId) {
-  const { data: profile, error } = await supabase
+function getRequestedProfileId(req) {
+  return req.body?.profile_id || req.query?.profile_id || '';
+}
+
+async function getProfileForFortune(userId, profileId) {
+  let query = supabase
     .from('bazi_profiles')
-    .select('name, gender, bazi_summary, bazi_str, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
-    .eq('user_id', userId)
-    .order('is_default', { ascending: false })
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .single();
+    .select('id, name, gender, bazi_summary, bazi_str, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
+    .eq('user_id', userId);
+
+  if (profileId) {
+    query = query.eq('id', profileId);
+  } else {
+    query = query.order('is_default', { ascending: false }).order('created_at', { ascending: false }).limit(1);
+  }
+
+  const { data: profile, error } = await query.single();
 
   if (error || !profile) {
     const notFound = new Error('未找到八字档案，请先创建命主档案');
@@ -125,17 +134,19 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const { bjTime, todayKey, secondsUntilMidnight, expiresAt } = getBeijingDayInfo(getTargetDate(req));
-    const cached = await getCachedFortune(user.id, todayKey);
+    const requestedProfileId = getRequestedProfileId(req);
+    const periodKey = buildFortunePeriodKey(todayKey, requestedProfileId);
+    const cached = await getCachedFortune(user.id, periodKey);
     if (cached?.core_shen_today && Array.isArray(cached.lucky_hour_zhis) && cached.wealth_officer_state) {
-      console.log(`⚡️ 命中日运基础缓存 [${user.id}] ${todayKey}`);
+      console.log(`⚡️ 命中日运基础缓存 [${user.id}] ${periodKey}`);
       res.setHeader('Cache-Control', `s-maxage=${secondsUntilMidnight}, stale-while-revalidate`);
       return res.status(200).json(cached);
     }
 
     if (!cached) await enforceQuota(user);
-    console.log(`☁️ ${cached ? '旧版缓存待补齐' : '缓存未命中'}，启动日运基础推演 [${user.id}] ${todayKey}`);
+    console.log(`☁️ ${cached ? '旧版缓存待补齐' : '缓存未命中'}，启动日运基础推演 [${user.id}] ${periodKey}`);
 
-    const profile = await getDefaultProfile(user.id);
+    const profile = await getProfileForFortune(user.id, requestedProfileId);
     const context = buildFortuneContext(profile, bjTime, todayKey);
     if (!context.scoreResult) {
       console.warn(`⚠️ 命理字段不完整，日运算分使用保底分 [${user.id}]`);
@@ -144,7 +155,7 @@ export default async function handler(req, res) {
     }
 
     const baseJson = buildBaseFortunePayload(context);
-    await upsertFortuneCache(user.id, todayKey, baseJson, expiresAt);
+    await upsertFortuneCache(user.id, periodKey, baseJson, expiresAt);
 
     res.setHeader('Cache-Control', `s-maxage=${secondsUntilMidnight}, stale-while-revalidate`);
     return res.status(200).json(baseJson);
