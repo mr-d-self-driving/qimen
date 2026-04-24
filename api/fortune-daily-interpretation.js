@@ -115,19 +115,47 @@ async function upsertFortuneCache(userId, periodKey, dataJson, expiresAt) {
   }
 }
 
+function describeSecret(value) {
+  if (!value) return { configured: false };
+
+  return {
+    configured: true,
+    length: value.length,
+    prefix: value.slice(0, 4),
+    suffix: value.slice(-4),
+  };
+}
+
 async function requestInterpretation(prompt) {
-  const llmResponse = await fetch('https://yinli.one/v1/chat/completions', {
+  const endpoint = 'https://yinli.one/v1/chat/completions';
+  const model = 'gemini-3.1-pro-preview';
+  const keyInfo = describeSecret(process.env.LLM_API_KEY);
+
+  console.log('🔎 LLM 请求前诊断:', {
+    endpoint,
+    model,
+    prompt_length: prompt.length,
+    llm_api_key: keyInfo,
+  });
+
+  const llmResponse = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${process.env.LLM_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'gemini-3.1-pro-preview',
+      model,
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.5,
       response_format: { type: 'json_object' },
     }),
+  });
+
+  console.log('🔎 LLM 响应状态:', {
+    status: llmResponse.status,
+    ok: llmResponse.ok,
+    content_type: llmResponse.headers.get('content-type'),
   });
 
   if (!llmResponse.ok) {
