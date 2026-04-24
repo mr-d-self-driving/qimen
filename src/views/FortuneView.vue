@@ -183,6 +183,13 @@ import { ref, computed, onMounted } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
 import { recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
+import {
+  clearPendingInterpretation,
+  getPendingInterpretation,
+  loadCachedFortune as loadSharedCachedFortune,
+  rememberFortuneCache as rememberSharedFortuneCache,
+  rememberPendingInterpretation
+} from '../fortuneCache.mjs'
 import guestFortuneData from '../../mock/fortune-daily.json'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
@@ -203,8 +210,6 @@ const isLoading = ref(false)
 const isInterpretationLoading = ref(false)
 const interpretationError = ref('')
 const requestSerial = ref(0)
-const fortuneCacheByDate = new Map()
-const pendingInterpretationByDate = new Map()
 const isGuest = computed(() => globalState.isGuest)
 
 const fortuneGridItems = [
@@ -279,32 +284,13 @@ const formatGuide = (guideStr, type) => {
   return guideStr
 }
 
-const rememberFortuneCache = (dateStr, data) => {
-  if (data) fortuneCacheByDate.set(dateStr, data)
+const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
+
+const rememberFortuneCache = (userId, dateStr, data) => {
+  rememberSharedFortuneCache(getFortuneStorage(), userId, dateStr, data)
 }
 
-const loadCachedFortune = async (userId, dateStr) => {
-  const localCached = fortuneCacheByDate.get(dateStr)
-  if (localCached) return localCached
-
-  const { data, error } = await supabase
-    .from('fortune_cache')
-    .select('data_json')
-    .eq('user_id', userId)
-    .eq('dimension', 'day')
-    .eq('period_key', dateStr)
-    .gt('expires_at', new Date().toISOString())
-    .maybeSingle()
-
-  if (error) {
-    console.warn('日运缓存查询失败，回退后端接口:', error.message)
-    return null
-  }
-
-  const cached = data?.data_json || null
-  rememberFortuneCache(dateStr, cached)
-  return cached
-}
+const loadCachedFortune = (userId, dateStr) => loadSharedCachedFortune(getFortuneStorage(), userId, dateStr)
 
 const fetchFortuneBaseFromApi = async (dateStr, accessToken) => {
   const response = await fetch('/api/fortune-daily', {
@@ -322,8 +308,9 @@ const fetchFortuneBaseFromApi = async (dateStr, accessToken) => {
   return response.json()
 }
 
-const requestFortuneInterpretation = async (dateStr, accessToken) => {
-  if (!pendingInterpretationByDate.has(dateStr)) {
+const requestFortuneInterpretation = async (userId, dateStr, accessToken) => {
+  const existingPending = getPendingInterpretation(userId, dateStr)
+  if (!existingPending) {
     const pendingRequest = fetch('/api/fortune-daily-interpretation', {
       method: 'POST',
       headers: {
@@ -339,53 +326,68 @@ const requestFortuneInterpretation = async (dateStr, accessToken) => {
         }
         return response.json()
       })
-      .finally(() => pendingInterpretationByDate.delete(dateStr))
+      .finally(() => clearPendingInterpretation(userId, dateStr))
 
-    pendingInterpretationByDate.set(dateStr, pendingRequest)
+    rememberPendingInterpretation(userId, dateStr, pendingRequest)
   }
 
-  return pendingInterpretationByDate.get(dateStr)
+  return getPendingInterpretation(userId, dateStr)
 }
 
 const fetchFortuneData = async (dateStr) => {
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session && isGuest.value) {
-    isLoading.value = false
-    isInterpretationLoading.value = false
-    interpretationError.value = ''
-    fortuneData.value = { ...guestFortuneData, solar_date: dateStr }
-    recordGuestFortuneViewed(undefined, dateStr)
-    await trackGuestEvent(supabase, 'guest_fortune_viewed', 'fortune', { date: dateStr })
-    return
-  }
-  if (!session) { alert('请先前往首页登录'); return }
-
   const currentRequest = requestSerial.value + 1
   requestSerial.value = currentRequest
   isLoading.value = true
   isInterpretationLoading.value = false
   interpretationError.value = ''
-  fortuneData.value = null
+
+  const optimisticUserId = globalState.currentUser?.id
+  if (optimisticUserId) {
+    const optimisticCached = loadCachedFortune(optimisticUserId, dateStr)
+    if (optimisticCached) {
+      fortuneData.value = optimisticCached
+      isLoading.value = false
+      if (hasInterpretationFields(optimisticCached)) return
+    } else {
+      fortuneData.value = null
+    }
+  } else {
+    fortuneData.value = null
+  }
 
   try {
-    const cachedData = await loadCachedFortune(session.user.id, dateStr)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session && isGuest.value) {
+      isLoading.value = false
+      isInterpretationLoading.value = false
+      interpretationError.value = ''
+      fortuneData.value = { ...guestFortuneData, solar_date: dateStr }
+      recordGuestFortuneViewed(undefined, dateStr)
+      await trackGuestEvent(supabase, 'guest_fortune_viewed', 'fortune', { date: dateStr })
+      return
+    }
+    if (!session) { alert('请先前往首页登录'); return }
+
+    let cachedData = optimisticUserId === session.user.id
+      ? fortuneData.value
+      : loadCachedFortune(session.user.id, dateStr)
     if (currentRequest !== requestSerial.value) return
 
     if (cachedData) {
       fortuneData.value = cachedData
       isLoading.value = false
       if (hasInterpretationFields(cachedData)) return
-      fetchFortuneInterpretation(dateStr, session.access_token, currentRequest)
+      fetchFortuneInterpretation(session.user.id, dateStr, session.access_token, currentRequest)
       return
     }
 
     const baseData = await fetchFortuneBaseFromApi(dateStr, session.access_token)
     if (currentRequest !== requestSerial.value) return
-    rememberFortuneCache(dateStr, baseData)
+    rememberFortuneCache(session.user.id, dateStr, baseData)
     fortuneData.value = baseData
     isLoading.value = false
     if (hasInterpretationFields(baseData)) return
-    fetchFortuneInterpretation(dateStr, session.access_token, currentRequest)
+    fetchFortuneInterpretation(session.user.id, dateStr, session.access_token, currentRequest)
   } catch (error) {
     if (currentRequest !== requestSerial.value) return
     console.error(error)
@@ -395,14 +397,14 @@ const fetchFortuneData = async (dateStr) => {
   }
 }
 
-const fetchFortuneInterpretation = async (dateStr, accessToken, requestId) => {
+const fetchFortuneInterpretation = async (userId, dateStr, accessToken, requestId) => {
   isInterpretationLoading.value = true
   interpretationError.value = ''
   try {
-    const interpretationData = await requestFortuneInterpretation(dateStr, accessToken)
+    const interpretationData = await requestFortuneInterpretation(userId, dateStr, accessToken)
     if (requestId !== requestSerial.value || !fortuneData.value) return
     const mergedData = { ...fortuneData.value, ...interpretationData }
-    rememberFortuneCache(dateStr, mergedData)
+    rememberFortuneCache(userId, dateStr, mergedData)
     fortuneData.value = mergedData
   } catch (error) {
     if (requestId !== requestSerial.value) return

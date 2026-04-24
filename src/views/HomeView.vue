@@ -506,7 +506,7 @@ const animateScore = (targetScore) => {
   scoreTimer = setInterval(() => {
     current = Math.min(current + (targetScore/60), targetScore)
     const el = document.getElementById('vueScoreValue')
-    if (el) el.textContent = Math.round(current) + ' 分'
+    if (el) el.textContent = String(Math.round(current))
     if (current >= targetScore) clearInterval(scoreTimer)
   }, 16)
 }
@@ -581,21 +581,25 @@ const buildCardHTML = (data) => {
 
   const strategyItems = advice.strategy || []
   const primaryStrategies = strategyItems.slice(0, 3)
+  const detailInsights = [
+    { label: '时空能量', value: analysis.tensor, cls: 'accent-indigo' },
+    { label: '用神分析', value: analysis.yong_shen, cls: 'accent-gold' },
+    { label: '特殊格局', value: analysis.pattern, cls: 'accent-violet' },
+    { label: '神助指引', value: analysis.god_help, cls: 'accent-teal' },
+    { label: '动态应期', value: analysis.dynamic_timing, cls: 'accent-amber' }
+  ].filter(item => item.value?.trim())
 
   const actionHTML = primaryStrategies.length
     ? primaryStrategies.map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${s}</div></div>`).join('')
     : `<div class="action-step reveal"><div class="action-index">01</div><div class="action-copy">${summary.conclusion}</div></div>`
 
-  // 策略列表
-  const strategies = strategyItems.map((s, i) => `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`).join('')
-
   // 风险预警
   let riskHTML = ''
-  if (advice.risk?.trim()) riskHTML = `<div class="risk-alert reveal"><div class="risk-alert-title"><span>⚠️</span>避坑指南</div><div class="risk-alert-content">${advice.risk}</div></div>`
+  if (advice.risk?.trim()) riskHTML = `<div class="risk-alert reveal"><div class="risk-alert-content">${advice.risk}</div></div>`
 
   // 八字命理
   let baziHTML = ''
-  if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes('未提供八字信息')) baziHTML = `<div class="insight-strip accent-theme reveal"><div class="insight-strip-label">命理 / 年命参考</div><div class="insight-strip-body">${analysis.bazi_insight}</div></div>`
+  if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes('未提供八字信息')) baziHTML = `<div class="insight-strip accent-theme reveal"><div class="insight-strip-label">命理参考</div><div class="insight-strip-body">${analysis.bazi_insight}</div></div>`
 
   // 评分依据
   let scoreBasisHTML = ''
@@ -603,12 +607,8 @@ const buildCardHTML = (data) => {
     const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s => `<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : ''
     const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s => `<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : ''
     const logic = scoreBasis.score_logic ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : ''
-    if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">评分依据</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
+    if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">评分拆解</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
   }
-
-  // 动态应期
-  let timingHTML = ''
-  if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="insight-strip accent-amber reveal"><div class="insight-strip-label">动态应期（转机推演）</div><div class="insight-strip-body">${analysis.dynamic_timing}</div></div>`
 
   // 九宫格排盘
   let chartHTML = ''
@@ -624,58 +624,55 @@ const buildCardHTML = (data) => {
       if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`
       return `<div class="pan-cell"><div class="pan-god">${p.god || ''}</div><div class="pan-stem stem-sky">${p.sky || ''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star || ''}</div><div class="pan-door ${doorCls}">${p.door || ''}</div><div class="pan-stem stem-earth">${p.earth || ''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`
     }).join('')
-    chartHTML = `<div class="section-title reveal"><span class="icon">盘</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
+    chartHTML = `<section class="result-module reveal"><div class="ai-header-title">时局排盘</div><div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div></section>`
   }
 
-  return `<div class="card" style="display:block;--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
-    <div class="result-hero reveal">
-      <div class="result-copy">
-        <div class="title">${summary.title || '本局断语'}</div>
-        <div class="verdict-badge verdict-${vd.cls}">${vd.label}</div>
-        <div class="conclusion">${summary.conclusion}</div>
-        ${summary.keyword ? `<div class="keyword">关键判断：${summary.keyword}</div>` : ''}
-      </div>
-      <div class="score-badge">
-        <div class="score-line"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span></div>
-        <div class="score-label">综合评分</div>
-      </div>
-    </div>
+  const detailInsightHTML = detailInsights.map(item => (
+    `<div class="insight-strip ${item.cls} reveal"><div class="insight-strip-label">${item.label}</div><div class="insight-strip-body">${item.value}</div></div>`
+  )).join('')
 
-    ${question ? `<div class="user-question reveal"><div class="question-label">所问之事</div><div class="question-text">${question}</div></div>` : ''}
-
-    <div class="section-title reveal"><span class="icon">先</span>先看怎么做</div>
-    <div class="action-grid">${actionHTML}</div>
-    ${riskHTML}
-
-    <div class="reader-guide reveal">
-      <div class="reader-card beginner">
-        <div class="reader-eyebrow">给想快速判断的人</div>
-        <div class="reader-title">看结论和行动</div>
-        <div class="reader-text">${summary.conclusion}</div>
+  return `<div class="result-stack" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
+    <section class="result-module summary-module reveal">
+      <div class="summary-top">
+        <div class="summary-main">
+          <div class="summary-title">${summary.title || '本局断语'}</div>
+          <div class="summary-judgement">
+            <span class="verdict-badge verdict-${vd.cls}">${vd.label}</span>
+            <span class="conclusion">${summary.conclusion}</span>
+          </div>
+        </div>
+        <div class="summary-score-bubble"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span></div>
       </div>
-      <div class="reader-card advanced">
-        <div class="reader-eyebrow">给熟悉奇门的人</div>
-        <div class="reader-title">看局象和依据</div>
-        <div class="reader-text">下方展开排盘、用神、格局、应期与评分依据，方便复盘判断链路。</div>
-      </div>
-    </div>
+      ${summary.keyword ? `<div class="keyword-highlight"><span class="keyword-label">关键判断</span><span class="keyword-text">${summary.keyword}</span></div>` : ''}
+      ${question ? `<div class="question-bubble"><div class="question-text">“${question}”</div></div>` : ''}
+    </section>
 
-    <details class="depth-panel reveal" open>
-      <summary><span>深度局象</span><small>排盘 / 用神 / 格局 / 应期</small></summary>
-      ${chartHTML}
+    <section class="result-module reveal">
+      <div class="ai-header-title">行动建议</div>
+      <div class="action-grid">${actionHTML}</div>
+    </section>
+
+    ${chartHTML}
+
+    <section class="result-module reveal">
+      <div class="ai-header-title">局势拆解</div>
       <div class="insight-flow">
         ${baziHTML}
         ${scoreBasisHTML}
-        ${timingHTML}
-        <div class="insight-strip accent-indigo reveal"><div class="insight-strip-label">时空能量</div><div class="insight-strip-body">${analysis.tensor || '-'}</div></div>
-        <div class="insight-strip accent-gold reveal"><div class="insight-strip-label">用神分析</div><div class="insight-strip-body">${analysis.yong_shen || '-'}</div></div>
-        <div class="insight-strip accent-violet reveal"><div class="insight-strip-label">特殊格局</div><div class="insight-strip-body">${analysis.pattern || '-'}</div></div>
-        <div class="insight-strip accent-teal reveal"><div class="insight-strip-label">神助指引</div><div class="insight-strip-body">${analysis.god_help || '-'}</div></div>
+        ${detailInsightHTML}
       </div>
-    </details>
+    </section>
 
-    ${strategies ? `<div class="section-title reveal"><span class="icon">行</span>完整决策指引</div><ul class="strategy-list">${strategies}</ul>` : ''}
-    <div class="footer reveal"><div class="f-item"><span class="f-label">有利方位</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div><div class="f-item"><span class="f-label">吉时窗口</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div><div class="f-item"><span class="f-label">助运行为</span><span class="f-text">${advice.lucky_tips.action || '-'}</span></div></div>
+    ${riskHTML ? `<section class="result-module reveal"><div class="ai-header-title">风险提醒</div>${riskHTML}</section>` : ''}
+
+    <section class="result-module reveal">
+      <div class="ai-header-title">时位助力</div>
+      <div class="footer">
+        <div class="f-item"><span class="f-label">方位</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div>
+        <div class="f-item"><span class="f-label">时机</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div>
+        <div class="f-item"><span class="f-label">动作</span><span class="f-text">${advice.lucky_tips.action || '-'}</span></div>
+      </div>
+    </section>
   </div>`
 }
 </script>
@@ -831,72 +828,89 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 @keyframes rotateBagua { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 @keyframes shimmer { 0% { background-position: 100% 50%; } 50% { background-position: 0% 50%; } 100% { background-position: 100% 50%; } }
 
-/* ══ v-html 卡片样式 — 单列卷轴流重设计 ══ */
-:deep(.card) {
-  background: linear-gradient(180deg, rgba(12,12,24,0.92) 0%, rgba(8,8,18,0.96) 100%);
-  border-radius: var(--radius-card); border: 1px solid rgba(212,175,55,0.12);
-  padding: 28px 22px 24px; margin-bottom: 16px; position: relative; overflow: hidden;
-  box-shadow: 0 32px 80px rgba(0,0,0,0.7), 0 0 0 1px rgba(212,175,55,0.05), inset 0 1px 0 rgba(255,255,255,0.03);
-  animation: riseIn .7s cubic-bezier(.22,1,.36,1) both;
-  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+/* ══ v-html 结果区样式 — 独立模块、手机端优先 ══ */
+:deep(.result-stack) { display:flex; flex-direction:column; gap:14px; margin-bottom:16px; }
+:deep(.result-module) {
+  background: var(--bg-card);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+  backdrop-filter: blur(18px) saturate(1.15);
+  -webkit-backdrop-filter: blur(18px) saturate(1.15);
 }
-:deep(.card)::before { content:''; position:absolute; top:0; left:8%; right:8%; height:1px; background:linear-gradient(90deg,transparent,var(--theme-color,#B38B36),transparent); opacity:.4; }
-:deep(.result-hero) { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:start; margin-bottom:18px; }
-:deep(.result-copy) { min-width:0; }
-:deep(.title) { font-size:10px; color:var(--text-muted); letter-spacing:2.5px; text-transform:uppercase; margin-bottom:10px; }
-:deep(.score-badge) {
-  min-width:112px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; flex-shrink:0;
-  padding:14px 12px 12px; border-radius:18px; background:linear-gradient(180deg,var(--theme-color-dim,rgba(179,139,54,0.15)),rgba(255,255,255,0.015));
+:deep(.summary-module) { display:flex; flex-direction:column; gap:12px; }
+:deep(.summary-top) { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:14px; align-items:start; }
+:deep(.summary-main) { min-width:0; display:flex; flex-direction:column; gap:10px; }
+:deep(.summary-title) { font-size:12px; color:var(--text-muted); letter-spacing:2px; }
+:deep(.summary-score-bubble) {
+  min-width:84px;
+  display:flex; align-items:flex-end; justify-content:center; gap:3px;
+  padding:12px 12px 10px; line-height:1;
+  background:linear-gradient(180deg,var(--theme-color-dim,rgba(179,139,54,0.15)),rgba(255,255,255,0.03));
   border:1px solid color-mix(in srgb,var(--theme-color,#B38B36) 24%,transparent);
+  border-radius:18px;
   box-shadow:0 0 24px var(--theme-color-dim,rgba(179,139,54,0.15));
 }
-:deep(.score-line) { display:flex; align-items:flex-end; justify-content:center; gap:3px; line-height:1; white-space:nowrap; }
-:deep(.score-badge .score) {
-  color:var(--theme-color,#B38B36); font-family:var(--font-serif); font-weight:700; font-size:44px; letter-spacing:0;
+:deep(.score) {
+  color:var(--theme-color,#B38B36); font-family:var(--font-serif); font-weight:700; font-size:42px; letter-spacing:0;
   text-shadow:0 0 18px var(--theme-color-dim,rgba(179,139,54,0.15));
 }
-:deep(.score-unit) { color:var(--gold-light); font-family:var(--font-serif); font-size:18px; line-height:1.28; }
-:deep(.score-label) { font-size:9px; color:var(--text-muted); letter-spacing:1.2px; text-transform:uppercase; }
-:deep(.verdict-badge) { display:inline-flex; font-family:var(--font-serif); font-size:14px; padding:4px 13px; border-radius:999px; letter-spacing:.08em; border:1px solid; margin-bottom:12px; }
+:deep(.score-unit) { color:var(--gold-light); font-family:var(--font-serif); font-size:18px; line-height:1.2; }
+:deep(.summary-judgement) { display:flex; flex-direction:column; align-items:flex-start; gap:10px; min-width:0; }
+:deep(.verdict-badge) { display:inline-flex; font-family:var(--font-serif); font-size:14px; padding:4px 13px; border-radius:999px; letter-spacing:.08em; border:1px solid; }
 :deep(.verdict-da-ji) { color:#00D26A; background:rgba(0,210,106,0.06); border-color:rgba(0,210,106,0.2); text-shadow:0 0 14px rgba(0,210,106,0.35); }
 :deep(.verdict-xiao-ji) { color:var(--teal); background:rgba(78,205,196,0.06); border-color:rgba(78,205,196,0.2); }
 :deep(.verdict-ping) { color:var(--gold-light); background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.2); }
 :deep(.verdict-da-xiong) { color:var(--crimson); background:rgba(255,94,87,0.06); border-color:rgba(255,94,87,0.2); }
-:deep(.conclusion) { font-family:var(--font-serif); font-size:26px; color:var(--theme-color,#E8CC80); margin-bottom:12px; line-height:1.45; letter-spacing:0; text-shadow:0 0 24px color-mix(in srgb,var(--theme-color,#B38B36) 26%,transparent); }
-:deep(.keyword) { display:inline-flex; max-width:100%; font-size:12px; color:#CFC7B4; background:rgba(255,255,255,0.028); border:1px solid rgba(255,255,255,0.065); padding:6px 12px; border-radius:10px; line-height:1.55; }
-:deep(.user-question) {
-  color:rgba(240,237,230,0.72); padding:13px 15px 14px 17px; background:rgba(255,255,255,0.018);
-  border-radius:14px; border:1px solid rgba(255,255,255,0.055); border-left:3px solid var(--theme-color,#B38B36);
-  margin:0 0 22px; line-height:1.7; position:relative;
+:deep(.conclusion) { font-family:var(--font-serif); font-size:23px; color:var(--theme-color,#E8CC80); line-height:1.5; letter-spacing:0; text-shadow:0 0 24px color-mix(in srgb,var(--theme-color,#B38B36) 26%,transparent); }
+:deep(.keyword-highlight) {
+  display:flex;
+  align-items:center;
+  gap:10px;
+  width:fit-content;
+  max-width:100%;
+  padding:8px 12px;
+  border-radius:12px;
+  background:linear-gradient(90deg,var(--theme-color-dim,rgba(179,139,54,0.15)),rgba(255,255,255,0.02));
+  border:1px solid color-mix(in srgb,var(--theme-color,#B38B36) 18%,rgba(255,255,255,0.06));
+  box-shadow:0 0 18px var(--theme-color-dim,rgba(179,139,54,0.12));
+  line-height:1.55;
 }
-:deep(.question-label) { font-size:10px; color:var(--text-muted); letter-spacing:2px; margin-bottom:5px; }
-:deep(.question-text) { font-size:14px; color:rgba(240,237,230,0.76); font-style:normal; overflow-wrap:anywhere; }
-:deep(.ornament-divider) { display:flex; align-items:center; gap:12px; margin:6px 0; opacity:.2; }
-:deep(.ornament-divider)::before, :deep(.ornament-divider)::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(212,175,55,0.6),transparent); }
-:deep(.ornament-divider span) { font-size:10px; color:var(--gold); }
-:deep(.section-title) { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:10px; font-weight:600; letter-spacing:2.5px; text-transform:uppercase; margin:24px 0 14px; }
-:deep(.section-title)::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.06),transparent); }
-:deep(.section-title .icon) { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%; color:#141006; background:var(--theme-color,#B38B36); font-family:var(--font-serif); font-size:12px; letter-spacing:0; }
+:deep(.keyword-label) {
+  flex-shrink:0;
+  font-size:10px;
+  color:var(--gold-light);
+  letter-spacing:1.4px;
+}
+:deep(.keyword-text) {
+  font-size:13px;
+  color:#F1E6C4;
+  overflow-wrap:anywhere;
+}
+:deep(.question-bubble) {
+  width:100%;
+  padding:12px 14px;
+  background:rgba(255,255,255,0.025);
+  border:1px solid rgba(255,255,255,0.06);
+  border-radius:14px;
+  box-sizing:border-box;
+}
+:deep(.question-text) { font-size:14px; color:rgba(240,237,230,0.76); font-style:normal; line-height:1.7; overflow-wrap:anywhere; }
+:deep(.ai-header-title) {
+  font-family: var(--font-serif);
+  color: var(--gold);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+:deep(.ai-header-title)::before { content: '✧'; font-size: 12px; }
 :deep(.action-grid) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
 :deep(.action-step) { min-width:0; padding:13px 13px 14px; border-radius:14px; background:linear-gradient(180deg,rgba(232,204,128,0.055),rgba(255,255,255,0.018)); border:1px solid rgba(232,204,128,0.12); }
 :deep(.action-index) { font-family:var(--font-serif); font-size:20px; color:var(--theme-color,#B38B36); margin-bottom:8px; }
 :deep(.action-copy) { font-size:13px; color:#D7D1C4; line-height:1.65; overflow-wrap:anywhere; }
-:deep(.reader-guide) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:22px 0 8px; }
-:deep(.reader-card) { min-width:0; padding:15px 15px 16px; border-radius:15px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.18); }
-:deep(.reader-card.beginner) { border-color:rgba(232,204,128,0.14); background:linear-gradient(135deg,rgba(232,204,128,0.055),rgba(0,0,0,0.16)); }
-:deep(.reader-card.advanced) { border-color:rgba(123,140,255,0.14); background:linear-gradient(135deg,rgba(123,140,255,0.05),rgba(0,0,0,0.16)); }
-:deep(.reader-eyebrow) { font-size:10px; color:var(--text-muted); letter-spacing:1.7px; margin-bottom:8px; }
-:deep(.reader-title) { font-family:var(--font-serif); color:#F0E4B4; font-size:20px; margin-bottom:7px; }
-:deep(.reader-text) { font-size:13px; color:#C9C3B8; line-height:1.65; overflow-wrap:anywhere; }
-:deep(.depth-panel) { margin-top:18px; border:1px solid rgba(232,204,128,0.1); border-radius:16px; background:rgba(255,255,255,0.016); overflow:hidden; }
-:deep(.depth-panel summary) { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; padding:15px 16px; color:#E8CC80; font-family:var(--font-serif); font-size:18px; list-style:none; }
-:deep(.depth-panel summary::-webkit-details-marker) { display:none; }
-:deep(.depth-panel summary::after) { content:'+'; display:grid; place-items:center; width:24px; height:24px; border-radius:50%; color:#15110A; background:var(--theme-color,#B38B36); font-family:var(--font-body); font-size:16px; line-height:1; flex-shrink:0; }
-:deep(.depth-panel[open] summary::after) { content:'-'; }
-:deep(.depth-panel summary small) { margin-left:auto; color:var(--text-muted); font-family:var(--font-body); font-size:10px; letter-spacing:1.2px; text-transform:uppercase; }
-:deep(.depth-panel .section-title) { margin:6px 16px 12px; }
-:deep(.depth-panel .pan-wrapper) { margin:0 16px 16px; }
-:deep(.depth-panel .insight-flow) { padding:0 16px 16px; }
 /* 九宫格 */
 :deep(.pan-wrapper) { background:rgba(0,0,0,0.25); border:1px solid var(--gold-border); border-radius:16px; padding:14px; position:relative; overflow:hidden; }
 :deep(.pan-wrapper)::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 50%,rgba(212,175,55,0.03) 0%,transparent 70%); pointer-events:none; }
@@ -955,35 +969,24 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 :deep(.strategy-list li) { position:relative; padding:12px 14px 12px 36px; background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:#C8C8D4; font-size:13px; line-height:1.7; transition:border-color .25s,background .25s; }
 :deep(.strategy-list li:hover) { border-color:rgba(212,175,55,0.18); background:rgba(212,175,55,0.02); }
 :deep(.strategy-list li)::before { content:"\2726"; position:absolute; left:14px; top:13px; color:var(--theme-color,#B38B36); font-size:10px; }
-:deep(.risk-alert) { background:rgba(255,94,87,0.04); border:1px solid rgba(255,94,87,0.12); border-left:3px solid #FF5E57; border-radius:10px; padding:14px 16px; margin-top:12px; }
-:deep(.risk-alert-title) { color:#FF5E57; font-size:10px; font-weight:600; letter-spacing:2px; margin-bottom:6px; display:flex; align-items:center; gap:6px; }
+:deep(.risk-alert) { background:rgba(255,94,87,0.04); border:1px solid rgba(255,94,87,0.12); border-left:3px solid #FF5E57; border-radius:10px; padding:14px 16px; }
 :deep(.risk-alert-content) { color:#D0D0D8; font-size:13px; line-height:1.7; }
 /* 底部吉运 */
-:deep(.footer) { display:flex; gap:6px; background:linear-gradient(135deg,rgba(212,175,55,0.06),rgba(212,175,55,0.02)); border:1px solid rgba(212,175,55,0.1); padding:16px 8px; border-radius:14px; margin-top:24px; }
-:deep(.f-item) { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; padding:4px 0; border-right:1px solid rgba(255,255,255,0.04); }
-:deep(.f-item:last-child) { border-right:none; }
-:deep(.f-icon) { font-size:20px; animation:floatIcon 3s ease-in-out infinite; }
-:deep(.f-item:nth-child(2) .f-icon) { animation-delay:.5s; }
-:deep(.f-item:nth-child(3) .f-icon) { animation-delay:1s; }
-:deep(.f-label) { font-size:8px; color:var(--text-muted); letter-spacing:1px; }
-:deep(.f-text) { font-size:11px; font-weight:600; color:var(--theme-color,#E8CC80); text-align:center; line-height:1.4; }
+:deep(.footer) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+:deep(.f-item) { min-width:0; display:flex; flex-direction:column; gap:6px; padding:12px; border-radius:12px; background:rgba(255,255,255,0.02); border:1px solid rgba(212,175,55,0.08); }
+:deep(.f-label) { font-size:10px; color:var(--text-muted); letter-spacing:1px; }
+:deep(.f-text) { font-size:12px; font-weight:600; color:var(--theme-color,#E8CC80); line-height:1.5; overflow-wrap:anywhere; }
 /* 渐显 */
 :deep(.reveal) { opacity:0; transform:translateY(14px); transition:opacity .6s ease,transform .6s ease; }
 :deep(.reveal.visible) { opacity:1; transform:none; }
 @keyframes glowPulse { 0%,100% { box-shadow:0 0 16px var(--theme-color-dim,rgba(179,139,54,0.12)); } 50% { box-shadow:0 0 28px var(--theme-color-dim,rgba(179,139,54,0.25)); } }
 @keyframes floatIcon { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 @media(max-width:400px) { 
-  :deep(.result-hero) { grid-template-columns:1fr; }
-  :deep(.score-badge) { width:100%; min-width:0; align-items:flex-start; padding:13px 14px; }
-  :deep(.score-line) { justify-content:flex-start; }
+  :deep(.summary-top) { grid-template-columns:1fr; }
+  :deep(.summary-score-bubble) { min-width:96px; justify-self:start; }
   :deep(.conclusion) { font-size:21px; } 
-  :deep(.action-grid), :deep(.reader-guide) { grid-template-columns:1fr; }
-  :deep(.depth-panel summary) { align-items:flex-start; flex-wrap:wrap; }
-  :deep(.depth-panel summary small) { width:100%; margin-left:0; }
-  :deep(.score-badge .score) { 
-    font-size:38px; 
-    white-space: nowrap; /* 强制不换行，让背景随文字宽度自然撑开 */
-  } 
+  :deep(.action-grid), :deep(.footer) { grid-template-columns:1fr; }
+  :deep(.score) { font-size:38px; }
 }
 
 
