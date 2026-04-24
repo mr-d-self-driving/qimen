@@ -520,10 +520,7 @@
 
                 <!-- 命局天机分析版块 -->
                 <div v-if="activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
-                    <div class="ai-header-row">
-                        <div class="ai-header-title">命局天机</div>
-                        <button class="info-button" title="查看核心用神四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
-                    </div>
+                    <div class="ai-header-title">命局天机</div>
                     
                     <!-- 1. 格局特性卡片 -->
                     <div class="insight-card geju-card">
@@ -568,7 +565,10 @@
                 </div>
 
                 <div v-if="activeProfile.yuanju_core" class="ai-section" style="display: block;">
-                    <div class="ai-header-title">天机锦囊</div>
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">天机锦囊</div>
+                        <button class="info-button" title="查看核心用神四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
+                    </div>
                     <div class="xiji-box">
                         <div class="xiji-item">
                             <div class="xiji-label">喜用神</div>
