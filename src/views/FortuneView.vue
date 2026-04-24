@@ -194,6 +194,8 @@ const isLoading = ref(false)
 const isInterpretationLoading = ref(false)
 const interpretationError = ref('')
 const requestSerial = ref(0)
+const fortuneCacheByDate = new Map()
+const pendingInterpretationByDate = new Map()
 
 const fortuneGridItems = [
   { key: 'career_insight', icon: '💼', label: '事业运' },
@@ -266,6 +268,74 @@ const formatGuide = (guideStr, type) => {
   return guideStr
 }
 
+const rememberFortuneCache = (dateStr, data) => {
+  if (data) fortuneCacheByDate.set(dateStr, data)
+}
+
+const loadCachedFortune = async (userId, dateStr) => {
+  const localCached = fortuneCacheByDate.get(dateStr)
+  if (localCached) return localCached
+
+  const { data, error } = await supabase
+    .from('fortune_cache')
+    .select('data_json')
+    .eq('user_id', userId)
+    .eq('dimension', 'day')
+    .eq('period_key', dateStr)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle()
+
+  if (error) {
+    console.warn('日运缓存查询失败，回退后端接口:', error.message)
+    return null
+  }
+
+  const cached = data?.data_json || null
+  rememberFortuneCache(dateStr, cached)
+  return cached
+}
+
+const fetchFortuneBaseFromApi = async (dateStr, accessToken) => {
+  const response = await fetch('/api/fortune-daily', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ target_date: dateStr })
+  })
+  if (!response.ok) {
+    const err = await response.json()
+    throw new Error(err.error || '推演失败')
+  }
+  return response.json()
+}
+
+const requestFortuneInterpretation = async (dateStr, accessToken) => {
+  if (!pendingInterpretationByDate.has(dateStr)) {
+    const pendingRequest = fetch('/api/fortune-daily-interpretation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ target_date: dateStr })
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const err = await response.json()
+          throw new Error(err.error || '断语生成失败')
+        }
+        return response.json()
+      })
+      .finally(() => pendingInterpretationByDate.delete(dateStr))
+
+    pendingInterpretationByDate.set(dateStr, pendingRequest)
+  }
+
+  return pendingInterpretationByDate.get(dateStr)
+}
+
 const fetchFortuneData = async (dateStr) => {
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) { alert('请先前往首页登录'); return }
@@ -278,20 +348,20 @@ const fetchFortuneData = async (dateStr) => {
   fortuneData.value = null
 
   try {
-    const response = await fetch('/api/fortune-daily', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${session.access_token}`
-      },
-      body: JSON.stringify({ target_date: dateStr })
-    })
-    if (!response.ok) {
-      const err = await response.json()
-      throw new Error(err.error || '推演失败')
-    }
-    const baseData = await response.json()
+    const cachedData = await loadCachedFortune(session.user.id, dateStr)
     if (currentRequest !== requestSerial.value) return
+
+    if (cachedData) {
+      fortuneData.value = cachedData
+      isLoading.value = false
+      if (hasInterpretationFields(cachedData)) return
+      fetchFortuneInterpretation(dateStr, session.access_token, currentRequest)
+      return
+    }
+
+    const baseData = await fetchFortuneBaseFromApi(dateStr, session.access_token)
+    if (currentRequest !== requestSerial.value) return
+    rememberFortuneCache(dateStr, baseData)
     fortuneData.value = baseData
     isLoading.value = false
     if (hasInterpretationFields(baseData)) return
@@ -309,21 +379,11 @@ const fetchFortuneInterpretation = async (dateStr, accessToken, requestId) => {
   isInterpretationLoading.value = true
   interpretationError.value = ''
   try {
-    const response = await fetch('/api/fortune-daily-interpretation', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`
-      },
-      body: JSON.stringify({ target_date: dateStr })
-    })
-    if (!response.ok) {
-      const err = await response.json()
-      throw new Error(err.error || '断语生成失败')
-    }
-    const interpretationData = await response.json()
+    const interpretationData = await requestFortuneInterpretation(dateStr, accessToken)
     if (requestId !== requestSerial.value || !fortuneData.value) return
-    fortuneData.value = { ...fortuneData.value, ...interpretationData }
+    const mergedData = { ...fortuneData.value, ...interpretationData }
+    rememberFortuneCache(dateStr, mergedData)
+    fortuneData.value = mergedData
   } catch (error) {
     if (requestId !== requestSerial.value) return
     console.error(error)
