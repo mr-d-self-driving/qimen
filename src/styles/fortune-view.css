@@ -2,7 +2,7 @@
 .fortune-view { width:100%; min-height:100vh; padding-bottom:80px; }
 
 /* Header */
-.page-header { position:sticky; top:0; z-index:100; padding:14px 20px; text-align:center; background:rgba(5,5,10,0.65); backdrop-filter:blur(24px) saturate(1.5); border-bottom:1px solid rgba(255,255,255,0.04); }
+.page-header { position:sticky; top:0; z-index:100; padding:14px 20px; text-align:center; background:rgba(5,5,10,0.65); backdrop-filter:blur(24px) saturate(1.5); border-bottom:1px solid rgba(255,255,255,0.04); overflow:visible; }
 .header-title { font-family:'Noto Serif SC',serif; font-size:17px; font-weight:500; color:var(--gold-light); letter-spacing:2px; }
 
 /* Layout */
@@ -13,13 +13,13 @@
 .glass-card { background:var(--bg-card); border:1px solid var(--glass-border); border-radius:var(--radius-card); backdrop-filter:blur(20px) saturate(1.2); box-shadow:0 4px 32px rgba(0,0,0,0.35); margin-bottom:14px; padding:16px; }
 
 /* Profile Switch */
-.profile-switch-card { padding:14px 16px; overflow:visible; }
-.profile-switcher { position:relative; }
+.profile-switch-card { position:relative; z-index:40; padding:14px 16px; overflow:visible; }
+.profile-switcher { position:relative; z-index:60; }
 .profile-switch-trigger { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; border:none; border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color:var(--gold-light); cursor:pointer; box-shadow:inset 0 0 0 1px rgba(212,175,55,0.14); }
 .profile-switch-name { font-family:var(--font-serif); font-size:22px; letter-spacing:1px; line-height:1; }
 .profile-switch-icon { font-size:24px; line-height:1; color:rgba(255,255,255,0.8); transform:translateY(-1px); }
 .profile-switcher.open .profile-switch-trigger { box-shadow:inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
-.profile-flyout { position:absolute; top:calc(100% + 10px); left:0; right:0; z-index:30; padding:8px; border-radius:16px; background:rgba(12,12,22,0.96); border:1px solid rgba(212,175,55,0.2); box-shadow:0 16px 40px rgba(0,0,0,0.45); backdrop-filter:blur(24px); }
+.profile-flyout { position:absolute; top:calc(100% + 10px); left:0; right:0; z-index:120; padding:8px; border-radius:16px; background:rgba(12,12,22,0.98); border:1px solid rgba(212,175,55,0.2); box-shadow:0 16px 40px rgba(0,0,0,0.45); backdrop-filter:blur(24px); }
 .profile-flyout-item { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:none; border-radius:12px; background:transparent; color:var(--text-primary); cursor:pointer; text-align:left; }
 .profile-flyout-item + .profile-flyout-item { margin-top:4px; }
 .profile-flyout-item.active { background:rgba(212,175,55,0.1); box-shadow:inset 0 0 0 1px rgba(212,175,55,0.18); }
@@ -58,11 +58,6 @@
 .score-ganzhi { font-size:23px; color:#E8CC80; font-family:var(--font-serif); line-height:1.4; letter-spacing:1px; }
 .score-insight { margin:0; font-size:15px; line-height:1.75; color:#E8CC80; font-family:var(--font-serif); text-shadow:0 0 12px rgba(232,204,128,0.15); }
 .score-insight.muted { color:var(--text-muted); opacity:0.78; text-shadow:none; }
-.score-meta-strip { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px; margin-top:14px; }
-.meta-pill { display:flex; flex-direction:column; gap:4px; padding:10px 12px; border-radius:12px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.05); }
-.meta-pill .label { color:var(--text-muted); font-size:11px; }
-.meta-pill .value { color:#fff; font-size:13px; font-weight:500; }
-
 .warning-tag { margin-top:14px; padding:8px 12px; background:rgba(255,94,87,0.1); color:#FF5E57; border-radius:8px; font-size:12px; border:1px solid rgba(255,94,87,0.2); display:inline-block; }
 .hint-text { margin-top:10px; font-size:12px; color:var(--text-muted); }
 .hint-text.error { color:#FF8A80; }
@@ -140,5 +135,4 @@
   .score-ring { width:108px; height:108px; }
   .score-side { text-align:center; align-items:center; }
   .inline-warning, .inline-hint { align-self:center; }
-  .score-meta-strip { grid-template-columns:1fr; }
 }

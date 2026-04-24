@@ -82,20 +82,6 @@
                     <div v-else-if="interpretationError" class="hint-text error inline-hint">{{ interpretationError }}</div>
                   </div>
                 </div>
-                <div class="score-meta-strip">
-                  <div class="meta-pill">
-                    <span class="label">公历</span>
-                    <span class="value">{{ fortuneData.solar_date }}</span>
-                  </div>
-                  <div class="meta-pill">
-                    <span class="label">评级</span>
-                    <span class="value">{{ fortuneData.score_level || '-' }}</span>
-                  </div>
-                  <div class="meta-pill">
-                    <span class="label">宫位</span>
-                    <span class="value">{{ fortuneData.day_zhi_palace || '-' }}</span>
-                  </div>
-                </div>
               </div>
 
               <div v-if="isGuest" class="glass-card guest-score-note">
