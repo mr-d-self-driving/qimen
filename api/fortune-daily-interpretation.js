@@ -3,6 +3,11 @@ const {
   getBeijingDayInfo,
   buildFortuneContext,
   buildBaseFortunePayload,
+  buildInterpretationPrompt,
+  parseModelJson,
+  pickInterpretationFields,
+  mergeInterpretation,
+  hasReadyInterpretation,
 } = require('../lib/fortuneDailyCore');
 
 const supabase = createClient(
@@ -42,10 +47,7 @@ async function enforceQuota(user) {
     .map(email => email.trim().toLowerCase());
   const currentUserEmail = user.email ? user.email.toLowerCase() : '';
 
-  if (whitelist.includes(currentUserEmail)) {
-    console.log(`👑 白名单特权账户 [${currentUserEmail}] 发起推演，免除额度限制`);
-    return;
-  }
+  if (whitelist.includes(currentUserEmail)) return;
 
   const { count, error } = await supabase
     .from('fortune_cache')
@@ -109,8 +111,42 @@ async function upsertFortuneCache(userId, periodKey, dataJson, expiresAt) {
     });
 
   if (error) {
-    console.warn('⚠️ 日运基础缓存写入失败:', error.message);
+    console.warn('⚠️ 日运断语缓存写入失败:', error.message);
   }
+}
+
+async function requestInterpretation(prompt) {
+  const llmResponse = await fetch('https://yinli.one/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.LLM_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gemini-3.1-pro-preview',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.5,
+      response_format: { type: 'json_object' },
+    }),
+  });
+
+  if (!llmResponse.ok) {
+    const errText = await llmResponse.text();
+    console.error('⚠️ 大模型 API 异常:', llmResponse.status, errText.substring(0, 200));
+    const upstreamError = new Error('上游大模型接口故障');
+    upstreamError.statusCode = 502;
+    upstreamError.details = `HTTP ${llmResponse.status}`;
+    throw upstreamError;
+  }
+
+  const llmData = await llmResponse.json();
+  if (llmData.error) {
+    const modelError = new Error('模型接口返回错误');
+    modelError.details = llmData.error;
+    throw modelError;
+  }
+
+  return parseModelJson(llmData.choices[0].message.content);
 }
 
 function getTargetDate(req) {
@@ -124,35 +160,29 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req, res);
     if (!user) return;
 
-    const { bjTime, todayKey, secondsUntilMidnight, expiresAt } = getBeijingDayInfo(getTargetDate(req));
+    const { bjTime, todayKey, expiresAt } = getBeijingDayInfo(getTargetDate(req));
     const cached = await getCachedFortune(user.id, todayKey);
-    if (cached) {
-      console.log(`⚡️ 命中日运基础缓存 [${user.id}] ${todayKey}`);
-      res.setHeader('Cache-Control', `s-maxage=${secondsUntilMidnight}, stale-while-revalidate`);
-      return res.status(200).json(cached);
+    if (hasReadyInterpretation(cached)) {
+      console.log(`⚡️ 命中日运断语缓存 [${user.id}] ${todayKey}`);
+      return res.status(200).json(pickInterpretationFields(cached));
     }
 
-    await enforceQuota(user);
-    console.log(`☁️ 缓存未命中，启动日运基础推演 [${user.id}] ${todayKey}`);
+    if (!cached) await enforceQuota(user);
 
     const profile = await getDefaultProfile(user.id);
     const context = buildFortuneContext(profile, bjTime, todayKey);
-    if (!context.scoreResult) {
-      console.warn(`⚠️ 命理字段不完整，日运算分使用保底分 [${user.id}]`);
-    } else {
-      console.log(`🧮 纯 JS 算分完成 [${user.id}] 得分=${context.scoreResult.final_score}`);
-    }
+    const baseJson = cached || buildBaseFortunePayload(context);
+    const prompt = buildInterpretationPrompt(context);
+    const llmJson = await requestInterpretation(prompt);
+    const mergedJson = mergeInterpretation(baseJson, llmJson);
 
-    const baseJson = buildBaseFortunePayload(context);
-    await upsertFortuneCache(user.id, todayKey, baseJson, expiresAt);
-
-    res.setHeader('Cache-Control', `s-maxage=${secondsUntilMidnight}, stale-while-revalidate`);
-    return res.status(200).json(baseJson);
+    await upsertFortuneCache(user.id, todayKey, mergedJson, expiresAt);
+    return res.status(200).json(pickInterpretationFields(mergedJson));
   } catch (error) {
-    console.error('日运基础推演异常:', error);
+    console.error('日运断语生成异常:', error);
     return res.status(error.statusCode || (error.message.includes('额度') ? 403 : 500)).json({
-      error: error.message.includes('额度') ? error.message : '云端日运推演失败',
-      details: error.message,
+      error: error.message.includes('额度') ? error.message : '云端日运断语生成失败',
+      details: error.details || error.message,
     });
   }
 }

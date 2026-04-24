@@ -67,21 +67,28 @@
 
               <div class="glass-card info-card">
                 <h3 class="card-title"><span>✨</span> 今日断语</h3>
-                <p class="insight-text">{{ fortuneData.day_insight || '平稳度日，顺势而为' }}</p>
+                <p :class="['insight-text', { muted: isInterpretationLoading && !hasInterpretationContent }]">
+                  {{ hasInterpretationContent ? (fortuneData.day_insight || '平稳度日，顺势而为') : interpretationPlaceholder }}
+                </p>
                 <div v-if="fortuneData.day_warning" class="warning-tag">
                   ⚠️ {{ fortuneData.day_warning }}
                 </div>
+                <div v-else-if="interpretationError" class="hint-text error">{{ interpretationError }}</div>
               </div>
 
               <div class="glass-card info-card">
                  <h3 class="card-title"><span>🧭</span> 行事指南</h3>
                 <div class="guide-row">
                   <span class="guide-label good">宜</span>
-                  <span class="guide-content">{{ formatGuide(fortuneData.day_guide, '宜') }}</span>
+                  <span :class="['guide-content', { muted: !hasInterpretationContent }]">
+                    {{ hasInterpretationContent ? formatGuide(fortuneData.day_guide, '宜') : '断语生成中...' }}
+                  </span>
                 </div>
                 <div class="guide-row mt-2">
                   <span class="guide-label bad">忌</span>
-                  <span class="guide-content">{{ formatGuide(fortuneData.day_guide, '忌') }}</span>
+                  <span :class="['guide-content', { muted: !hasInterpretationContent }]">
+                    {{ hasInterpretationContent ? formatGuide(fortuneData.day_guide, '忌') : '稍后呈现' }}
+                  </span>
                 </div>
               </div>
 
@@ -93,9 +100,9 @@
                 </div>
                 <div class="lucky-item mt-2">
                   <span class="label">幸运色彩</span>
-                  <div class="color-display">
+                  <div :class="['color-display', { muted: !hasInterpretationContent }]">
                     <span class="color-dot" :style="{ backgroundColor: fortuneData.lucky_color_hex || '#CCC' }"></span>
-                    {{ fortuneData.lucky_color || '-' }}
+                    {{ hasInterpretationContent ? (fortuneData.lucky_color || '-') : '生成中' }}
                   </div>
                 </div>
               </div>
@@ -115,7 +122,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 
 // 使用你现有的 Supabase 配置
@@ -134,6 +141,19 @@ const availableDays = ref([])
 const selectedDate = ref('')
 const fortuneData = ref(null)
 const isLoading = ref(false)
+const isInterpretationLoading = ref(false)
+const interpretationError = ref('')
+const requestSerial = ref(0)
+
+const hasInterpretationFields = (data) => {
+  return Boolean(data?.day_insight || data?.day_guide || data?.lucky_color || data?.interpretation_status === 'ready')
+}
+
+const hasInterpretationContent = computed(() => hasInterpretationFields(fortuneData.value))
+
+const interpretationPlaceholder = computed(() => (
+  isInterpretationLoading.value ? '断语生成中，分数已先行呈现' : '断语稍后呈现'
+))
 
 const generateDays = () => {
   const days = []
@@ -174,7 +194,11 @@ const fetchFortuneData = async (dateStr) => {
     return
   }
 
+  const currentRequest = requestSerial.value + 1
+  requestSerial.value = currentRequest
   isLoading.value = true
+  isInterpretationLoading.value = false
+  interpretationError.value = ''
   fortuneData.value = null
   
   try {
@@ -192,12 +216,57 @@ const fetchFortuneData = async (dateStr) => {
       throw new Error(err.error || '推演失败')
     }
 
-    fortuneData.value = await response.json()
+    const baseData = await response.json()
+    if (currentRequest !== requestSerial.value) return
+
+    fortuneData.value = baseData
+    isLoading.value = false
+    if (hasInterpretationFields(baseData)) return
+
+    fetchFortuneInterpretation(dateStr, session.access_token, currentRequest)
   } catch (error) {
+    if (currentRequest !== requestSerial.value) return
     console.error(error)
     alert(error.message)
   } finally {
-    isLoading.value = false
+    if (currentRequest === requestSerial.value) isLoading.value = false
+  }
+}
+
+const fetchFortuneInterpretation = async (dateStr, accessToken, requestId) => {
+  isInterpretationLoading.value = true
+  interpretationError.value = ''
+
+  try {
+    const response = await fetch('/api/fortune-daily-interpretation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`
+      },
+      body: JSON.stringify({ target_date: dateStr })
+    })
+
+    if (!response.ok) {
+      const err = await response.json()
+      throw new Error(err.error || '断语生成失败')
+    }
+
+    const interpretationData = await response.json()
+    if (requestId !== requestSerial.value || !fortuneData.value) return
+
+    fortuneData.value = {
+      ...fortuneData.value,
+      ...interpretationData
+    }
+  } catch (error) {
+    if (requestId !== requestSerial.value) return
+    console.error(error)
+    interpretationError.value = '断语暂未生成，请稍后重试'
+  } finally {
+    if (requestId === requestSerial.value) {
+      isInterpretationLoading.value = false
+    }
   }
 }
 
@@ -290,6 +359,9 @@ onMounted(() => {
 .info-card { padding: 20px; }
 .card-title { font-size: 14px; color: var(--text-muted); margin: 0 0 16px 0; display: flex; align-items: center; gap: 8px; font-weight: normal; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 10px;}
 .insight-text { font-size: 15px; line-height: 1.6; color: #E8CC80; font-family: var(--font-serif); text-shadow: 0 0 10px rgba(232, 204, 128, 0.2); }
+.insight-text.muted, .guide-content.muted, .color-display.muted { color: var(--text-muted); opacity: 0.78; text-shadow: none; }
+.hint-text { margin-top: 10px; font-size: 12px; color: var(--text-muted); }
+.hint-text.error { color: #FF8A80; }
 .warning-tag { margin-top: 12px; padding: 8px 12px; background: rgba(255, 94, 87, 0.1); color: #FF5E57; border-radius: 8px; font-size: 12px; border: 1px solid rgba(255, 94, 87, 0.2); }
 
 /* 宜忌 */
