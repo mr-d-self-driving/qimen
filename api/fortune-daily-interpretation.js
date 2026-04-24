@@ -129,20 +129,20 @@ function describeSecret(value) {
 async function requestInterpretation(prompt) {
   const endpoint = 'https://yinli.one/v1/chat/completions';
   const model = 'gemini-3.1-pro-preview';
-  const keyInfo = describeSecret(process.env.LLM_API_KEY);
+  const keyInfo = describeSecret(process.env.GEMINI_API_KEY);
 
   console.log('🔎 LLM 请求前诊断:', {
     endpoint,
     model,
     prompt_length: prompt.length,
-    llm_api_key: keyInfo,
+    gemini_api_key: keyInfo,
   });
 
   const llmResponse = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${process.env.LLM_API_KEY}`,
+      'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`,
     },
     body: JSON.stringify({
       model,
