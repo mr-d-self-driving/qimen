@@ -226,16 +226,25 @@
       <div class="bazi-info-card" @click.stop>
         <div class="bazi-info-title"><span>何时需要注入八字？</span><span class="bazi-info-close" @click="showBaziModal = false">&times;</span></div>
         <div class="bazi-info-text">
-          <h4>一、标准解卦：无需八字 ❌</h4>
-          <p>单纯预测<strong>具体事件走向</strong>（如今日出行、近期合同、求财结果等），奇门局本身已足够。</p>
-          <h4>二、深度解卦：需要八字 ✅</h4>
-          <ul>
-            <li><strong>判断个人旺衰：</strong>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
-            <li><strong>流年大运配合：</strong>结合八字大运判断具体年份变化。</li>
-            <li><strong>六亲宫位对应：</strong>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
-            <li><strong>精准应期定位：</strong>两套体系交接点吻合，应验概率更高。</li>
-          </ul>
-          <div class="bazi-summary-box">💡 <strong>一句话总结：</strong><br>凡涉及<strong>"这个人能不能成事"</strong>，引入八字让两套体系互为印证，准确率大幅提升！</div>
+          <div class="info-block">
+            <div class="info-block-title">标准解卦 <span>(无需八字)</span></div>
+            <p>单纯预测<span class="highlight">具体事件走向</span>（如今日出行、近期合同、求财结果等），奇门局本身能量已足够推演。</p>
+          </div>
+          
+          <div class="info-block">
+            <div class="info-block-title">深度解卦 <span>(需要八字)</span></div>
+            <ul class="info-list">
+              <li><span class="list-label">判断个人旺衰</span>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
+              <li><span class="list-label">流年大运配合</span>结合八字大运判断具体年份变化。</li>
+              <li><span class="list-label">六亲宫位对应</span>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
+              <li><span class="list-label">精准应期定位</span>两套体系交接点吻合，应验概率更高。</li>
+            </ul>
+          </div>
+          
+          <div class="bazi-summary-box">
+            <div class="summary-box-label">✧ 一句话总结</div>
+            <div class="summary-box-content">凡涉及<span class="highlight">"这个人能不能成事"</span>，引入八字让两套体系互为印证，准确率大幅提升！</div>
+          </div>
         </div>
       </div>
     </div>
@@ -825,8 +834,23 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 
 .bazi-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .3s; }
 .bazi-info-overlay.show { display: flex; opacity: 1; }
-.bazi-info-card { background: rgba(14,14,31,0.95); border: 1px solid var(--gold-border); border-radius: var(--radius-card); padding: 24px; max-width: 400px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); }
-.bazi-info-title { font-size: 15px; color: var(--gold-light); margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; }
+.bazi-info-card { background: rgba(14,14,31,0.95); border: 1px solid var(--gold-border); border-radius: var(--radius-card); padding: 26px 24px; max-width: 400px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); }
+.bazi-info-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; color: var(--gold-light); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(212,175,55,0.15); padding-bottom: 14px; }
+.bazi-info-close { cursor: pointer; color: var(--text-muted); font-size: 22px; font-weight: 300; transition: color .2s; line-height: 1; display: flex; align-items: center; }
+.bazi-info-close:hover { color: var(--gold); }
+.bazi-info-text { display: flex; flex-direction: column; gap: 16px; }
+.info-block { background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; }
+.info-block-title { font-size: 14px; color: var(--gold); margin-bottom: 10px; font-family: var(--font-serif); display: flex; align-items: center; gap: 6px; }
+.info-block-title span { font-size: 11px; color: var(--text-muted); font-family: sans-serif; font-weight: normal; }
+.info-block p { font-size: 13px; color: #D0D0D8; line-height: 1.65; margin: 0; }
+.highlight { color: var(--gold-light); font-weight: 500; }
+.info-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
+.info-list li { position: relative; padding-left: 14px; font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+.info-list li::before { content: "•"; position: absolute; left: 0; top: 0; color: var(--gold); font-size: 14px; line-height: 1.6; }
+.list-label { color: #FFF; font-weight: 500; margin-right: 6px; }
+.bazi-summary-box { margin-top: 4px; padding: 14px 16px; background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02)); border: 1px solid rgba(212,175,55,0.2); border-radius: 12px; border-left: 3px solid var(--gold); }
+.summary-box-label { font-size: 11px; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; font-weight: 500; }
+.summary-box-content { font-size: 13px; color: #F1E6C4; line-height: 1.6; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }

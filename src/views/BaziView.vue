@@ -446,13 +446,6 @@
                                 </div>
                                 <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                             </div>
-                            <div class="strength-summary-card">
-                                <div class="strength-summary-top">
-                                    <span class="strength-pill">{{ activeProfile?.strong_weak || '未判定' }}</span>
-                                    <span v-if="strengthPanelContent.summary" class="strength-summary-text">{{ strengthPanelContent.summary }}</span>
-                                </div>
-                                <p v-if="strengthPanelContent.rawBasis" class="strength-summary-basis">{{ strengthPanelContent.rawBasis }}</p>
-                            </div>
                             <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
                                 <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
                                     <div class="strength-section-head">
@@ -993,8 +986,6 @@ const strengthPanelContent = computed(() => {
 
     if (detail?.sections?.length) {
         return {
-            summary: detail.summary || '',
-            rawBasis,
             sections: detail.sections.map(section => ({
                 key: section.key,
                 title: section.title,
@@ -1007,8 +998,6 @@ const strengthPanelContent = computed(() => {
     if (!rawBasis) return null
 
     return {
-        summary: activeProfile.value.strong_weak ? `日主${activeProfile.value.strong_weak}` : '',
-        rawBasis,
         sections: rawBasis
             .split(/(?<=[。；])/)
             .map(part => part.trim())
@@ -2077,44 +2066,6 @@ const generateLunarPromptData = (profile) => {
     font-size: 17px;
     font-family: var(--font-serif);
     font-weight: 500;
-}
-.strength-summary-card {
-    margin-bottom: 14px;
-    padding: 14px;
-    border-radius: 14px;
-    background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02));
-    border: 1px solid rgba(232,204,128,0.14);
-}
-.strength-summary-top {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    margin-bottom: 10px;
-}
-.strength-pill {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 30px;
-    padding: 0 12px;
-    border-radius: 999px;
-    background: rgba(78,205,196,0.12);
-    border: 1px solid rgba(78,205,196,0.28);
-    color: #7FE2DB;
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: .08em;
-}
-.strength-summary-text {
-    color: #F4EBDD;
-    font-size: 14px;
-    font-weight: 600;
-}
-.strength-summary-basis {
-    color: #BFB8AA;
-    font-size: 12px;
-    line-height: 1.7;
 }
 .strength-section-list {
     display: flex;
