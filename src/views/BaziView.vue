@@ -85,7 +85,7 @@
                                             type="text"
                                             inputmode="numeric"
                                             pattern="[0-9]*"
-                                            maxlength="12"
+                                            maxlength="16"
                                             autocomplete="off"
                                             enterkeyhint="done"
                                             :value="solarInputMasked"
