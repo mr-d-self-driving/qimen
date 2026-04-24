@@ -223,7 +223,16 @@
                         <div class="name-row">
                             <span class="bazi-name">{{ activeProfile.name }}</span>
                             <span v-if="activeProfile.geju" class="badge badge-gold">{{ activeProfile.geju }}</span>
-                            <span v-if="activeProfile.strong_weak" class="badge badge-blue">{{ activeProfile.strong_weak }}</span>
+                            <span
+                                v-if="activeProfile.strong_weak"
+                                class="badge badge-blue badge-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看身强身弱依据"
+                                @click="openStrengthPanel"
+                                @keydown.enter.prevent="openStrengthPanel"
+                                @keydown.space.prevent="openStrengthPanel"
+                            >{{ activeProfile.strong_weak }}</span>
                         </div>
                         <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
                         <div class="bazi-meta">阳历：{{ solarDateStr }}</div>
@@ -428,6 +437,36 @@
                 </Teleport>
 
                 <Teleport to="body">
+                    <div v-if="activeInfoPanel === 'strength' && strengthPanelContent" class="modal-overlay" @click="activeInfoPanel = null">
+                        <div class="detail-drawer strength-drawer" @click.stop>
+                            <div class="drawer-head">
+                                <div>
+                                    <div class="section-kicker">强弱依据</div>
+                                    <h4>日主{{ activeProfile?.strong_weak || '强弱' }}判定</h4>
+                                </div>
+                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
+                            </div>
+                            <div class="strength-summary-card">
+                                <div class="strength-summary-top">
+                                    <span class="strength-pill">{{ activeProfile?.strong_weak || '未判定' }}</span>
+                                    <span v-if="strengthPanelContent.summary" class="strength-summary-text">{{ strengthPanelContent.summary }}</span>
+                                </div>
+                                <p v-if="strengthPanelContent.rawBasis" class="strength-summary-basis">{{ strengthPanelContent.rawBasis }}</p>
+                            </div>
+                            <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
+                                <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
+                                    <div class="strength-section-head">
+                                        <h5>{{ section.title }}</h5>
+                                        <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
+                                    </div>
+                                    <p>{{ section.text }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Teleport>
+
+                <Teleport to="body">
                     <div v-if="activeInfoPanel === 'scoring' && activeProfile.bazi_detail?.scoring_details" class="modal-overlay" @click="activeInfoPanel = null">
                         <div class="detail-drawer" @click.stop>
                             <div class="drawer-head">
@@ -489,7 +528,15 @@
                     <!-- 1. 格局特性卡片 -->
                     <div class="insight-card geju-card">
                         <div class="tag-row">
-                            <span class="tag-gold">{{ activeProfile.strong_weak }}</span>
+                            <span
+                                class="tag-gold tag-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看身强身弱依据"
+                                @click="openStrengthPanel"
+                                @keydown.enter.prevent="openStrengthPanel"
+                                @keydown.space.prevent="openStrengthPanel"
+                            >{{ activeProfile.strong_weak }}</span>
                             <span class="tag-gold">{{ activeProfile.geju }}</span>
                         </div>
                         <p>
@@ -631,6 +678,12 @@ const formatScore = (score) => {
     if (score > 0) return '+' + score + ' 分';
     return score + ' 分';
 };
+
+const formatStrengthPanelScore = (score) => {
+    if (score === null || score === undefined || Number.isNaN(Number(score))) return ''
+    const num = Number(score)
+    return Number.isInteger(num) ? `${num} 分` : `${num.toFixed(1).replace(/\.0$/, '')} 分`
+}
 
 const getWuxingClass = (wx) => {
     const map = { '金': 'gold', '木': 'wood', '水': 'water', '火': 'fire', '土': 'earth' };
@@ -932,6 +985,47 @@ const classicVerdictText = computed(() => {
 const classicVerdictLines = computed(() => {
     return classicVerdictText.value.split('\n').map(line => line.trim()).filter(Boolean)
 })
+
+const strengthPanelContent = computed(() => {
+    if (!activeProfile.value) return null
+    const detail = activeProfile.value.strength_detail || activeProfile.value.bazi_detail?.strength_detail || null
+    const rawBasis = activeProfile.value.strength_basis || activeProfile.value.bazi_detail?.strength_basis || ''
+
+    if (detail?.sections?.length) {
+        return {
+            summary: detail.summary || '',
+            rawBasis,
+            sections: detail.sections.map(section => ({
+                key: section.key,
+                title: section.title,
+                text: section.text,
+                scoreLabel: formatStrengthPanelScore(section.score),
+            })),
+        }
+    }
+
+    if (!rawBasis) return null
+
+    return {
+        summary: activeProfile.value.strong_weak ? `日主${activeProfile.value.strong_weak}` : '',
+        rawBasis,
+        sections: rawBasis
+            .split(/(?<=[。；])/)
+            .map(part => part.trim())
+            .filter(Boolean)
+            .map((text, index) => ({
+                key: `fallback-${index}`,
+                title: `依据 ${index + 1}`,
+                text,
+                scoreLabel: '',
+            })),
+    }
+})
+
+const openStrengthPanel = () => {
+    if (!strengthPanelContent.value) return
+    activeInfoPanel.value = 'strength'
+}
 
 // 时间解析逻辑
 const promptDataObj = computed(() => {
@@ -1583,11 +1677,11 @@ const generateLunarPromptData = (profile) => {
 .pillar-slot-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: 8px;
     margin-bottom: 14px;
 }
 .pillar-slot {
-    min-height: 112px;
+    min-height: 104px;
     border: 1px solid rgba(232,204,128,0.14);
     border-radius: 24px;
     background:
@@ -1705,6 +1799,8 @@ const generateLunarPromptData = (profile) => {
 .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: var(--font-body); letter-spacing: 1px; font-weight: 500; }
 .badge-gold { background: rgba(212,175,55,0.15); color: var(--gold-light); border: 1px solid rgba(212,175,55,0.3); }
 .badge-blue { background: rgba(78, 205, 196, 0.15); color: #4ECDC4; border: 1px solid rgba(78, 205, 196, 0.3); }
+.badge-action { cursor: pointer; transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+.badge-action:hover, .badge-action:focus-visible { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(78,205,196,0.12); outline: none; }
 .pattern-tag { font-size: 10px; color: #E8CC80; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.2); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 4px; margin-top: 4px; }
 
 .analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid rgba(232,204,128,0.16); border-radius: 12px; background: rgba(232,204,128,0.055); }
@@ -1867,6 +1963,15 @@ const generateLunarPromptData = (profile) => {
     font-weight: 500;
     border: 1px solid rgba(212, 175, 55, 0.3);
 }
+.tag-action {
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.tag-action:hover, .tag-action:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(212,175,55,0.12);
+    outline: none;
+}
 
 .wuxing-bar-container {
     display: flex;
@@ -1955,6 +2060,9 @@ const generateLunarPromptData = (profile) => {
     box-shadow: 0 18px 60px rgba(0,0,0,0.58);
     animation: riseIn 0.25s ease;
 }
+.strength-drawer {
+    width: min(92vw, 520px);
+}
 .drawer-head {
     display: flex;
     align-items: flex-start;
@@ -1970,6 +2078,82 @@ const generateLunarPromptData = (profile) => {
     font-family: var(--font-serif);
     font-weight: 500;
 }
+.strength-summary-card {
+    margin-bottom: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02));
+    border: 1px solid rgba(232,204,128,0.14);
+}
+.strength-summary-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+}
+.strength-pill {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: rgba(78,205,196,0.12);
+    border: 1px solid rgba(78,205,196,0.28);
+    color: #7FE2DB;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: .08em;
+}
+.strength-summary-text {
+    color: #F4EBDD;
+    font-size: 14px;
+    font-weight: 600;
+}
+.strength-summary-basis {
+    color: #BFB8AA;
+    font-size: 12px;
+    line-height: 1.7;
+}
+.strength-section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.strength-section-card {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(232,204,128,0.1);
+}
+.strength-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+.strength-section-head h5 {
+    color: var(--gold-light);
+    font-size: 13px;
+    font-weight: 700;
+}
+.strength-score-chip {
+    flex-shrink: 0;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(232,204,128,0.08);
+    border: 1px solid rgba(232,204,128,0.16);
+    color: #EBD08E;
+    font-size: 11px;
+    font-weight: 600;
+}
+.strength-section-card p {
+    color: #D8D2BF;
+    font-size: 13px;
+    line-height: 1.7;
+}
 
 @media (max-width: 420px) {
     .profile-actions { grid-template-columns: 1fr 1fr; }
@@ -1979,16 +2163,17 @@ const generateLunarPromptData = (profile) => {
     .btn-primary { width: 100%; }
     .scoring-bars { grid-template-columns: 1fr; }
     .picker-topbar { gap: 8px; }
-    .picker-form-row,
-    .pillar-slot-grid { grid-template-columns: 1fr 1fr; }
+    .picker-form-row { grid-template-columns: 1fr 1fr; }
     .picker-save-btn { min-height: 56px; }
     .picker-topbar { flex-direction: column; align-items: stretch; }
     .date-segment-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
     .date-input-card input { min-height: 50px; font-size: 18px; padding: 0 14px; }
     .date-segment { padding: 10px 4px; border-radius: 14px; }
     .date-segment strong { font-size: 14px; }
-    .pillar-slot { min-height: 96px; border-radius: 20px; }
-    .slot-value { font-size: 22px; }
+    .pillar-slot-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .pillar-slot { min-height: 88px; border-radius: 18px; padding: 10px 4px; }
+    .slot-label { font-size: 12px; }
+    .slot-value { font-size: 20px; }
     .choice-chip-grid-gz { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
     .choice-chip-grid-zhi { grid-template-columns: repeat(4, 1fr); }
     .choice-chip { min-height: 52px; border-radius: 16px; font-size: 21px; }

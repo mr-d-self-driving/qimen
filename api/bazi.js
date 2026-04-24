@@ -370,6 +370,8 @@ module.exports = async function handler(req, res) {
             ...objectiveBaziData,
             geju: geJu,
             strong_weak: strengthResult.strongWeak,
+            strength_basis: strengthResult.strengthBasis,
+            strength_detail: strengthResult.strengthDetail,
             favorable_gods: favorableResult.core_shens.favorable,
             unfavorable_gods: favorableResult.core_shens.unfavorable,
             favorable_verdict: favorableResult.verdict,
