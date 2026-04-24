@@ -75,7 +75,7 @@ async function getCachedFortune(userId, periodKey) {
 async function getDefaultProfile(userId) {
   const { data: profile, error } = await supabase
     .from('bazi_profiles')
-    .select('name, gender, bazi_summary, bazi_str, birth_date, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
+    .select('name, gender, bazi_summary, bazi_str, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
     .eq('user_id', userId)
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: false })
@@ -171,7 +171,8 @@ export default async function handler(req, res) {
 
     const profile = await getDefaultProfile(user.id);
     const context = buildFortuneContext(profile, bjTime, todayKey);
-    const baseJson = cached || buildBaseFortunePayload(context);
+    const latestBaseJson = buildBaseFortunePayload(context);
+    const baseJson = cached ? { ...cached, ...latestBaseJson } : latestBaseJson;
     const prompt = buildInterpretationPrompt(context);
     const llmJson = await requestInterpretation(prompt);
     const mergedJson = mergeInterpretation(baseJson, llmJson);

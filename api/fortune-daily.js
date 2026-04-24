@@ -73,7 +73,7 @@ async function getCachedFortune(userId, periodKey) {
 async function getDefaultProfile(userId) {
   const { data: profile, error } = await supabase
     .from('bazi_profiles')
-    .select('name, gender, bazi_summary, bazi_str, birth_date, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
+    .select('name, gender, bazi_summary, bazi_str, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
     .eq('user_id', userId)
     .order('is_default', { ascending: false })
     .order('created_at', { ascending: false })
@@ -126,14 +126,14 @@ export default async function handler(req, res) {
 
     const { bjTime, todayKey, secondsUntilMidnight, expiresAt } = getBeijingDayInfo(getTargetDate(req));
     const cached = await getCachedFortune(user.id, todayKey);
-    if (cached) {
+    if (cached?.core_shen_today && Array.isArray(cached.lucky_hour_zhis) && cached.wealth_officer_state) {
       console.log(`⚡️ 命中日运基础缓存 [${user.id}] ${todayKey}`);
       res.setHeader('Cache-Control', `s-maxage=${secondsUntilMidnight}, stale-while-revalidate`);
       return res.status(200).json(cached);
     }
 
-    await enforceQuota(user);
-    console.log(`☁️ 缓存未命中，启动日运基础推演 [${user.id}] ${todayKey}`);
+    if (!cached) await enforceQuota(user);
+    console.log(`☁️ ${cached ? '旧版缓存待补齐' : '缓存未命中'}，启动日运基础推演 [${user.id}] ${todayKey}`);
 
     const profile = await getDefaultProfile(user.id);
     const context = buildFortuneContext(profile, bjTime, todayKey);

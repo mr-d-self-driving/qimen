@@ -1,0 +1,28 @@
+{
+  "solar_date": "2026-04-24",
+  "day_gz": "庚子",
+  "month_gz": "壬辰",
+  "year_gz": "丙午",
+  "day_zhi_palace": "坎宫",
+  "lucky_element": "木、火",
+  "day_officer": "开",
+  "day_void": "戌亥",
+  "day_clash": "子午相冲",
+  "day_nayin": "壁上土",
+  "score_level": "优",
+  "is_kongwang": false,
+  "has_sanxing": false,
+  "core_shen_today": "偏财",
+  "lucky_hour_zhis": ["卯", "午", "申"],
+  "lucky_direction": "东南",
+  "wealth_officer_state": "偏财临日，财务议题显性；运势等级优；冲煞见子午相冲",
+  "interpretation_status": "pending",
+  "day_score": 88,
+  "score_breakdown": {
+    "dim1_score": 30,
+    "dim2_score": 28,
+    "dim3_score": 30,
+    "kong_wang_triggered": false,
+    "sanjing_triggered": false
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "solar_date": "2026-04-24",
+  "day_gz": "庚子",
+  "month_gz": "壬辰",
+  "year_gz": "丙午",
+  "day_zhi_palace": "坎宫",
+  "score_level": "优",
+  "day_insight": "庚金坐子，伤官生财。今日如灵猫捕鼠，洞察力极强，宜果断出击。",
+  "day_warning": "",
+  "career_insight": "创意方案易获认可，宜在午后推进跨部门沟通。",
+  "wealth_insight": "偏财气旺，副业或报销款项有望落地，忌豪赌。",
+  "love_insight": "魅力值上升，单身者宜多出入社交场合主动交流。",
+  "health_insight": "精力充沛宜适量户外运动，注意腰椎防护。",
+  "day_guide": "宜商务洽谈、创意提案；忌高风险投机、重资产投入",
+  "lucky_hours": [
+    { "hour": "卯时（5–7点）", "tip": "晨会或发送关键邮件" },
+    { "hour": "午时（11–13点）", "tip": "推进商务谈判，胜算更高" },
+    { "hour": "申时（15–17点）", "tip": "财务决策窗口，思路清晰" }
+  ],
+  "lucky_direction": "东南——面谈时背朝东南，气场更稳",
+  "lucky_number": [3, 8],
+  "resolve_tip": "午间饮一杯温水，路过水景处稍作停留以固气场。",
+  "hook_teaser": "你身边的某位旧识，正带着一个改变你下半年职场格局的消息向你走来 →",
+  "lucky_element": "木、火",
+  "lucky_color": "松绿",
+  "lucky_color_hex": "#2E8B57",
+  "interpretation_status": "ready"
+}
