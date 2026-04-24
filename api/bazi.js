@@ -1,6 +1,7 @@
 const { Solar, Lunar } = require('lunar-javascript');
 const { createClient } = require('@supabase/supabase-js');
 const { BaziRuleEngine, getDiShi, getShen } = require('../lib/BaziRuleEngine');
+const { buildSiziSummaryKey, getSiziSummary } = require('../lib/siziSummary');
 
 const memoryCache = {};
 const supabase = createClient(
@@ -168,6 +169,8 @@ module.exports = async function handler(req, res) {
         const shenshaResult = BaziEngine.calculateShenSha(baziObj);
         const geJu = BaziEngine.getGeJu(baziObj);
         const specialPatterns = BaziEngine.extractSpecialPatterns(baziObj);
+        const siziSummaryKey = buildSiziSummaryKey(baZi.getDayGan(), baZi.getTime());
+        const siziSummaryText = getSiziSummary(siziSummaryKey);
 
         // ==================== 2. 为前端构建 JSON 渲染矩阵 (Matrix) ====================
         const dayGan = baZi.getDayGan(), yearZhi = baZi.getYearZhi(), dayZhi = baZi.getDayZhi();
@@ -378,6 +381,11 @@ module.exports = async function handler(req, res) {
             current_dayun: llmQualitativeData.current_dayun,
             current_liunian: llmQualitativeData.current_liunian,
             interactions: interactions,
+            classic_verdict: {
+                source: '三命通会',
+                key: siziSummaryKey,
+                text: siziSummaryText
+            },
             // Rule Engine 版放在这里供后端使用
             engine_yuanju: engineYuanjuCore,
             engine_dayun: engineCurrentDayun,

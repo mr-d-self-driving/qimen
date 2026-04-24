@@ -350,6 +350,25 @@
                     {{ activeProfile.bazi_summary }}
                 </div>
 
+                <div v-if="classicVerdictText" class="ai-section classic-verdict-section">
+                    <div class="classic-header">
+                        <div>
+                            <div class="classic-eyebrow">古籍断语</div>
+                            <div class="classic-title">{{ classicVerdict.source || '三命通会' }}</div>
+                        </div>
+                        <span class="classic-key">{{ classicVerdict.key }}</span>
+                    </div>
+                    <div class="classic-body">
+                        <p
+                            v-for="(line, idx) in classicVerdictLines"
+                            :key="'classic'+idx"
+                            :class="{ note: line.startsWith('#') }"
+                        >
+                            {{ line }}
+                        </p>
+                    </div>
+                </div>
+
             </div>
         </div>
     </div>
@@ -574,6 +593,18 @@ const linkedLiuyueList = computed(() => {
 const specialPatterns = computed(() => {
     if (!activeProfile.value || !activeProfile.value.bazi_detail?.base_info?.special_patterns) return []
     return activeProfile.value.bazi_detail.base_info.special_patterns
+})
+
+const classicVerdict = computed(() => {
+    return activeProfile.value?.bazi_detail?.classic_verdict || {}
+})
+
+const classicVerdictText = computed(() => {
+    return classicVerdict.value?.text || ''
+})
+
+const classicVerdictLines = computed(() => {
+    return classicVerdictText.value.split('\n').map(line => line.trim()).filter(Boolean)
 })
 
 // 时间解析逻辑
@@ -889,6 +920,64 @@ const generateLunarPromptData = (profile) => {
 .insight-card p { line-height: 1.6; font-size: 13px; color: #ccc; }
 
 .legacy-summary { background: rgba(212,175,55,0.05); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
+
+.classic-verdict-section {
+    border: 1px solid rgba(212,175,55,0.24);
+    border-radius: 12px;
+    padding: 14px;
+    background:
+        linear-gradient(180deg, rgba(232,204,128,0.08), rgba(0,0,0,0.08)),
+        rgba(255,255,255,0.02);
+}
+.classic-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+    padding-bottom: 10px;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed rgba(212,175,55,0.24);
+}
+.classic-eyebrow {
+    font-size: 10px;
+    color: var(--text-muted);
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+}
+.classic-title {
+    color: var(--gold-light);
+    font-size: 16px;
+    font-family: var(--font-serif);
+    letter-spacing: 2px;
+}
+.classic-key {
+    flex-shrink: 0;
+    color: #0B0B12;
+    background: linear-gradient(135deg, var(--gold-light), var(--gold));
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.classic-body {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+}
+.classic-body p {
+    margin: 0;
+    color: #D8D2BF;
+    font-size: 13px;
+    line-height: 1.75;
+    font-family: var(--font-serif);
+}
+.classic-body p.note {
+    color: var(--text-muted);
+    font-size: 12px;
+    font-family: var(--font-body);
+    padding-left: 10px;
+    border-left: 2px solid rgba(212,175,55,0.2);
+}
 
 /* 命局天机 UI */
 .tag-gold {
