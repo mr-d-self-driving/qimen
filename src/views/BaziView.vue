@@ -7,19 +7,36 @@
 
     <div class="page-wrap">
         <div class="container">
-            <div class="glass-card">
-                <div class="profile-selector">
-                    <select v-model="selectedProfileId" class="profile-select" @change="handleProfileSelect">
-                        <option value="">{{ baziProfiles.length ? '-- 请选择命主档案 --' : '正在加载档案或暂无档案...' }}</option>
-                        <option v-for="p in baziProfiles" :key="p.id" :value="p.id">
-                            {{ p.name }}
-                        </option>
-                    </select>
-                    <button class="btn-ghost" @click="showAdd = true">+ 新增</button>
-                    <button class="btn-danger" @click="deleteProfile">删除</button>
+            <div class="glass-card profile-card">
+                <div class="profile-card-head">
+                    <div>
+                        <div class="section-kicker">命主档案</div>
+                        <div class="section-title">选择或维护排盘资料</div>
+                    </div>
+                    <span v-if="activeProfile?.is_default" class="default-chip">默认</span>
                 </div>
 
-                <div v-show="showAdd" class="profile-form" style="display: block;">
+                <div class="profile-selector">
+                    <select v-model="selectedProfileId" class="profile-select" @change="handleProfileSelect">
+                        <option value="">{{ baziProfiles.length ? '请选择命主档案' : '正在加载档案或暂无档案' }}</option>
+                        <option v-for="p in baziProfiles" :key="p.id" :value="p.id">
+                            {{ formatProfileOption(p) }}
+                        </option>
+                    </select>
+                    <button class="icon-btn" title="新增档案" @click="openAddProfile">+</button>
+                </div>
+
+                <div v-if="isGuest" class="guest-limit-note">访客模式仅保存 1 个本地命主档案，登录后可维护多个云端档案。</div>
+
+                <div class="profile-actions" v-if="activeProfile && !isGuest">
+                    <button class="mini-action" :disabled="activeProfile.is_default" @click="setDefaultProfile">
+                        {{ activeProfile.is_default ? '已设为默认' : '设为默认' }}
+                    </button>
+                    <button class="mini-action" @click="openRenameProfile">修改昵称</button>
+                    <button class="mini-action danger" @click="deleteProfile">删除档案</button>
+                </div>
+
+                <div v-show="showAdd" class="profile-form">
                     <div class="form-row">
                         <input type="text" v-model="form.name" placeholder="命主姓名">
                         <select v-model="form.gender">
@@ -30,9 +47,19 @@
                     <div class="form-row">
                         <input type="datetime-local" v-model="form.birth" style="color-scheme:dark;">
                     </div>
-                    <div style="display:flex;justify-content:flex-end;gap:8px;">
+                    <div class="form-actions">
                         <button class="btn-ghost" style="border:none;color:var(--text-muted)" @click="showAdd = false">取消</button>
                         <button class="btn-ghost" @click="saveProfile">保存档案</button>
+                    </div>
+                </div>
+
+                <div v-show="showRename" class="profile-form rename-form">
+                    <div class="form-row">
+                        <input type="text" v-model="renameName" placeholder="新的昵称">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn-ghost" style="border:none;color:var(--text-muted)" @click="showRename = false">取消</button>
+                        <button class="btn-ghost" @click="renameProfile">保存昵称</button>
                     </div>
                 </div>
             </div>
@@ -54,9 +81,22 @@
                             </span>
                         </div>
                     </div>
-                    <button class="btn-primary" :disabled="isAnalyzing" @click="requestAiSummary">
-                        {{ isAnalyzing ? '推演中...' : '推演天机' }}
+                    <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary">
+                        {{ isGuest ? '访客本地档案' : (isAnalyzing ? '正在推演' : (needsUpgrade ? '生成排盘' : '重新推演')) }}
                     </button>
+                </div>
+
+                <div v-if="isAnalyzing || analysisNotice" class="analysis-status" :class="{ done: analysisNotice && !isAnalyzing }">
+                    <div class="loader-orbit" v-if="isAnalyzing">
+                        <span></span><span></span><span></span>
+                    </div>
+                    <div class="analysis-copy">
+                        <div class="analysis-title">{{ isAnalyzing ? analysisSteps[analysisStageIndex] : analysisNotice }}</div>
+                        <div class="analysis-subtitle">{{ isAnalyzing ? '排盘、格局、岁运与喜忌正在同步校验' : '最新结果已写入当前档案' }}</div>
+                    </div>
+                    <div v-if="isAnalyzing" class="analysis-progress">
+                        <i :style="{ width: analysisProgress + '%' }"></i>
+                    </div>
                 </div>
 
                 <div class="tabs">
@@ -235,31 +275,85 @@
                     </div>
                 </Teleport>
 
-                <!-- 命局天机分析引擎版块 -->
-                <div v-if="activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section" style="display: block; margin-bottom: 16px;">
-                    <div class="ai-header-title">命局天机 <span style="font-size: 12px; color: var(--gold); font-weight: 300;">(Antigravity Engine)</span></div>
+                <Teleport to="body">
+                    <div v-if="activeInfoPanel === 'scoring' && activeProfile.bazi_detail?.scoring_details" class="modal-overlay" @click="activeInfoPanel = null">
+                        <div class="detail-drawer" @click.stop>
+                            <div class="drawer-head">
+                                <div>
+                                    <div class="section-kicker">用神依据</div>
+                                    <h4>核心用神四维剖析</h4>
+                                </div>
+                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
+                            </div>
+                            <div class="scoring-list">
+                                <div v-for="shen in activeProfile.favorable_elements" :key="'fav'+shen" class="scoring-item fav-item">
+                                    <div class="scoring-item-header">
+                                        <span class="shen-badge favorable">{{ shen }}</span>
+                                        <span class="total-score">{{ formatScore(activeProfile.bazi_detail.scoring_details[shen]) }}</span>
+                                    </div>
+                                    <div class="scoring-bars" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
+                                        <div class="s-bar-row" title="气候冷暖平衡">
+                                            <span class="s-label">调候</span>
+                                            <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou) }}</span>
+                                        </div>
+                                        <div class="s-bar-row" title="五行偏枯制衡">
+                                            <span class="s-label">病药</span>
+                                            <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao) }}</span>
+                                        </div>
+                                        <div class="s-bar-row" title="两行克战化解">
+                                            <span class="s-label">通关</span>
+                                            <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan) }}</span>
+                                        </div>
+                                        <div class="s-bar-row" title="日主强弱生克">
+                                            <span class="s-label">扶抑</span>
+                                            <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div v-for="shen in activeProfile.unfavorable_elements" :key="'unfav'+shen" class="scoring-item unfav-item">
+                                    <div class="scoring-item-header">
+                                        <span class="shen-badge unfavorable">{{ shen }}</span>
+                                        <span class="total-score">{{ formatScore(activeProfile.bazi_detail.scoring_details[shen]) }}</span>
+                                    </div>
+                                    <div class="scoring-bars" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
+                                        <div class="s-bar-row"><span class="s-label">调候</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou) }}</span></div>
+                                        <div class="s-bar-row"><span class="s-label">病药</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao) }}</span></div>
+                                        <div class="s-bar-row"><span class="s-label">通关</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan) }}</span></div>
+                                        <div class="s-bar-row"><span class="s-label">扶抑</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi) }}</span></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Teleport>
+
+                <!-- 命局天机分析版块 -->
+                <div v-if="activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">命局天机</div>
+                        <button class="info-button" title="查看核心用神四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
+                    </div>
                     
                     <!-- 1. 格局特性卡片 -->
                     <div class="insight-card geju-card">
-                        <div style="display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+                        <div class="tag-row">
                             <span class="tag-gold">{{ activeProfile.strong_weak }}</span>
                             <span class="tag-gold">{{ activeProfile.geju }}</span>
                         </div>
-                        <p style="color: #ccc; font-size: 13px; line-height: 1.6; margin-bottom: 12px;">
+                        <p>
                             {{ getGejuDesc(activeProfile.geju) }}
                         </p>
-                        <div style="padding-top: 12px; border-top: 1px dashed rgba(255,255,255,0.1);">
-                            <p style="color: #fff; font-size: 14px; font-weight: 500;">
-                                💡 天机断语：{{ activeProfile.bazi_detail.favorable_verdict }}
-                            </p>
+                        <div class="verdict-line">
+                            <span>断语</span>
+                            <p>{{ activeProfile.bazi_detail.favorable_verdict }}</p>
                         </div>
                     </div>
 
                     <!-- 2. 五行能量占比条 -->
                     <div class="insight-card wuxing-pool-card" v-if="activeProfile.bazi_detail.wuxing_ratio">
-                        <h4 style="margin-bottom: 12px; display: flex; justify-content: space-between;">
+                        <h4 class="card-heading">
                             <span>五行能量池</span>
-                            <span v-if="Object.values(activeProfile.bazi_detail.wuxing_ratio).some(r => r > 45)" style="color: #FF5E57; font-size: 12px; animation: pulse 1.5s infinite;">🔥 能量过载 (病)</span>
+                            <span v-if="Object.values(activeProfile.bazi_detail.wuxing_ratio).some(r => r > 45)" class="overload-tag">能量偏盛</span>
                         </h4>
                         <div class="wuxing-bar-container">
                             <div v-for="(ratio, wx) in activeProfile.bazi_detail.wuxing_ratio" :key="wx" 
@@ -272,51 +366,6 @@
                         </div>
                     </div>
 
-                    <!-- 3. 喜忌神四维打分剖析 -->
-                    <div class="insight-card scoring-breakdown-card">
-                        <h4 style="margin-bottom: 12px;">核心用神四维剖析</h4>
-                        
-                        <div class="scoring-list">
-                            <!-- 喜神 -->
-                            <div v-for="shen in activeProfile.favorable_elements" :key="'fav'+shen" class="scoring-item fav-item">
-                                <div class="scoring-item-header">
-                                    <span class="shen-badge favorable">{{ shen }}</span>
-                                    <span class="total-score">总分: {{ formatScore(activeProfile.bazi_detail.scoring_details[shen]) }}</span>
-                                </div>
-                                <div class="scoring-bars" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                    <div class="s-bar-row" title="调候：气候冷暖平衡">
-                                        <span class="s-label">🌡️ 调候</span>
-                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou) }}</span>
-                                    </div>
-                                    <div class="s-bar-row" title="病药：五行偏枯制衡">
-                                        <span class="s-label">💊 病药</span>
-                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao) }}</span>
-                                    </div>
-                                    <div class="s-bar-row" title="通关：两行克战化解">
-                                        <span class="s-label">🌉 通关</span>
-                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan) }}</span>
-                                    </div>
-                                    <div class="s-bar-row" title="扶抑：日主强弱生克">
-                                        <span class="s-label">⚖️ 扶抑</span>
-                                        <span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi) }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <!-- 忌神 -->
-                            <div v-for="shen in activeProfile.unfavorable_elements" :key="'unfav'+shen" class="scoring-item unfav-item">
-                                <div class="scoring-item-header">
-                                    <span class="shen-badge unfavorable">{{ shen }}</span>
-                                    <span class="total-score">总分: {{ formatScore(activeProfile.bazi_detail.scoring_details[shen]) }}</span>
-                                </div>
-                                <div class="scoring-bars" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                    <div class="s-bar-row"><span class="s-label">🌡️ 调候</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou) }}</span></div>
-                                    <div class="s-bar-row"><span class="s-label">💊 病药</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].bingyao) }}</span></div>
-                                    <div class="s-bar-row"><span class="s-label">🌉 通关</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].tongguan) }}</span></div>
-                                    <div class="s-bar-row"><span class="s-label">⚖️ 扶抑</span><span class="s-val" :class="getScoreColor(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi)">{{ formatScore(activeProfile.bazi_detail.dimension_breakdown[shen].fuyi) }}</span></div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
 
                 <div v-if="activeProfile.yuanju_core" class="ai-section" style="display: block;">
@@ -353,8 +402,8 @@
                 <div v-if="classicVerdictText" class="ai-section classic-verdict-section">
                     <div class="classic-header">
                         <div>
-                            <div class="classic-eyebrow">古籍断语</div>
-                            <div class="classic-title">{{ classicVerdict.source || '三命通会' }}</div>
+                            <div class="ai-header-title classic-main-title">古籍断语</div>
+                            <div class="classic-subtitle">{{ classicVerdict.source || '三命通会' }}</div>
                         </div>
                         <span class="classic-key">{{ classicVerdict.key }}</span>
                     </div>
@@ -379,6 +428,8 @@
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript' // 使用你 package.json 中安装的库
+import { globalState } from '../store.js'
+import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -428,7 +479,21 @@ const baziProfiles = ref([])
 const selectedProfileId = ref('')
 const currentTab = ref('basic')
 const showAdd = ref(false)
+const showRename = ref(false)
 const isAnalyzing = ref(false)
+const activeInfoPanel = ref(null)
+const renameName = ref('')
+const analysisNotice = ref('')
+const analysisStageIndex = ref(0)
+const analysisProgress = ref(8)
+const analysisSteps = [
+    '校准出生时空',
+    '排布四柱格局',
+    '核对喜忌用神',
+    '联动大运流年',
+    '整理天机断语'
+]
+let analysisTimer = null
 
 const form = reactive({
     name: '',
@@ -440,6 +505,19 @@ const form = reactive({
 const activeProfile = computed(() => {
     return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
 })
+const isGuest = computed(() => globalState.isGuest && !currentUser.value)
+
+const formatSolarDate = (value) => {
+    if (!value) return '未录入阳历'
+    const p = String(value).match(/\d+/g)
+    if (!p || p.length < 3) return '阳历待确认'
+    const time = p.length >= 5 ? ` ${p[3].padStart(2, '0')}:${p[4].padStart(2, '0')}` : ''
+    return `${p[0]}.${p[1].padStart(2, '0')}.${p[2].padStart(2, '0')}${time}`
+}
+
+const formatProfileOption = (profile) => {
+    return `${profile.name}（${formatSolarDate(profile.birth_date)}）`
+}
 
 const needsUpgrade = computed(() => {
     if (!activeProfile.value) return false
@@ -635,42 +713,134 @@ const lunarDateStr = computed(() => {
 // 生命周期
 onMounted(async () => {
     const { data: { session } } = await supabase.auth.getSession()
+    if (!session && globalState.isGuest) {
+        loadGuestProfile()
+        await trackGuestEvent(supabase, 'guest_bazi_viewed', 'bazi')
+        return
+    }
     if (!session) return // 可以在此触发全局路由跳转回登录页
     currentUser.value = session.user
     await fetchProfiles()
 })
 
 onUnmounted(() => {
+    stopAnalysisMotion()
 })
 
 // 业务方法
 const fetchProfiles = async () => {
+    if (isGuest.value) {
+        loadGuestProfile()
+        return
+    }
     const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
     baziProfiles.value = data || []
     if (baziProfiles.value.length > 0 && !selectedProfileId.value) {
-        // 可选：默认选中第一个
-        // selectedProfileId.value = baziProfiles.value[0].id
+        const defaultProfile = baziProfiles.value.find(p => p.is_default) || baziProfiles.value[0]
+        selectedProfileId.value = defaultProfile.id
     }
 }
 
 const handleProfileSelect = () => {
     currentTab.value = 'basic'
+    showRename.value = false
+    analysisNotice.value = ''
+}
+
+const openAddProfile = () => {
+    if (isGuest.value && baziProfiles.value.length >= 1) {
+        alert('访客模式仅可添加 1 个本地八字档案')
+        return
+    }
+    showAdd.value = true
+    showRename.value = false
+}
+
+const openRenameProfile = () => {
+    if (!activeProfile.value) return
+    renameName.value = activeProfile.value.name
+    showRename.value = true
+    showAdd.value = false
 }
 
 const saveProfile = async () => {
     if(!form.name || !form.birth) return alert("信息不全")
-    const { error } = await supabase.from('bazi_profiles').insert([{ 
+    if (isGuest.value) {
+        const profile = buildGuestProfile()
+        saveGuestBaziProfile(undefined, profile)
+        baziProfiles.value = [profile]
+        selectedProfileId.value = profile.id
+        showAdd.value = false
+        form.name = ''
+        form.birth = ''
+        await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
+        return
+    }
+    const { data, error } = await supabase.from('bazi_profiles').insert([{ 
         user_id: currentUser.value.id, 
         name: form.name, 
         gender: form.gender, 
         birth_date: form.birth.replace('T',' ')+':00' 
-    }])
+    }]).select('id').single()
     if (error) alert(error.message) 
     else { 
         showAdd.value = false
         form.name = ''
         form.birth = ''
+        if (data?.id) selectedProfileId.value = data.id
         await fetchProfiles() 
+    }
+}
+
+const loadGuestProfile = () => {
+    const profile = getGuestState().baziProfile
+    baziProfiles.value = profile ? [profile] : []
+    selectedProfileId.value = profile?.id || ''
+}
+
+const buildGuestProfile = () => {
+    const p = form.birth.match(/\d+/g)
+    const year = parseInt(p[0])
+    const month = parseInt(p[1])
+    const day = parseInt(p[2])
+    const hour = parseInt(p[3] || '12')
+    const minute = parseInt(p[4] || '0')
+    const eightChar = Solar.fromYmdHms(year, month, day, hour, minute, 0).getLunar().getEightChar()
+    const baziStr = `${eightChar.getYear()} ${eightChar.getMonth()} ${eightChar.getDay()} ${eightChar.getTime()}`
+
+    return {
+        id: 'guest_bazi_profile',
+        name: form.name,
+        gender: form.gender,
+        birth_date: form.birth.replace('T',' ')+':00',
+        bazi_str: baziStr,
+        bazi_summary: '访客本地档案已保存。登录后可生成完整云端命理解读与日运联动。',
+        is_default: true
+    }
+}
+
+const renameProfile = async () => {
+    if (!activeProfile.value) return
+    const nextName = renameName.value.trim()
+    if (!nextName) return alert('昵称不能为空')
+    const { error } = await supabase.from('bazi_profiles').update({ name: nextName }).eq('id', activeProfile.value.id)
+    if (error) alert(error.message)
+    else {
+        showRename.value = false
+        await fetchProfiles()
+    }
+}
+
+const setDefaultProfile = async () => {
+    if (!activeProfile.value || activeProfile.value.is_default) return
+    const profileId = activeProfile.value.id
+    const { error: clearError } = await supabase.from('bazi_profiles').update({ is_default: false }).eq('user_id', currentUser.value.id)
+    if (clearError) return alert(clearError.message)
+    const { error } = await supabase.from('bazi_profiles').update({ is_default: true }).eq('id', profileId)
+    if (error) alert(error.message)
+    else {
+        selectedProfileId.value = profileId
+        await fetchProfiles()
     }
 }
 
@@ -682,9 +852,28 @@ const deleteProfile = async () => {
     }
 }
 
+const startAnalysisMotion = () => {
+    analysisNotice.value = ''
+    analysisStageIndex.value = 0
+    analysisProgress.value = 8
+    stopAnalysisMotion()
+    analysisTimer = window.setInterval(() => {
+        analysisProgress.value = Math.min(92, analysisProgress.value + 7)
+        analysisStageIndex.value = Math.min(analysisSteps.length - 1, Math.floor((analysisProgress.value / 100) * analysisSteps.length))
+    }, 900)
+}
+
+const stopAnalysisMotion = () => {
+    if (analysisTimer) {
+        window.clearInterval(analysisTimer)
+        analysisTimer = null
+    }
+}
+
 const requestAiSummary = async () => {
     if (!activeProfile.value) return
     isAnalyzing.value = true
+    startAnalysisMotion()
     try {
         const pd = promptDataObj.value
         const { data: { session } } = await supabase.auth.getSession()
@@ -699,11 +888,13 @@ const requestAiSummary = async () => {
 
         const data = await response.json()
         if (data.error) throw new Error(data.error)
+        analysisProgress.value = 100
         await fetchProfiles() // 刷新拿到最新数据
-        alert("天机推演完成！")
+        analysisNotice.value = '推演完成'
     } catch (err) {
         alert("推演失败: " + err.message)
     } finally {
+        stopAnalysisMotion()
         isAnalyzing.value = false
     }
 }
@@ -829,22 +1020,37 @@ const generateLunarPromptData = (profile) => {
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
 .container { width: 100%; max-width: 520px; }
 
-.glass-card { background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: var(--radius-card); padding: 18px 14px; margin-bottom: 16px; backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 4px 32px rgba(0,0,0,0.35); animation: riseIn 0.5s ease both; }
+.glass-card { background: rgba(14,14,24,0.72); border: 1px solid rgba(232,204,128,0.12); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 4px 32px rgba(0,0,0,0.35); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 
-.profile-selector { display: flex; gap: 10px; margin-bottom: 16px; }
-.profile-select { flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--gold); color: #fff; padding: 10px; border-radius: 8px; outline: none; font-size: 14px; }
-.btn-ghost { background: rgba(212,175,55,0.12); color: var(--gold-light); border: 1px solid var(--gold); padding: 0 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; white-space: nowrap; }
+.profile-card { padding: 16px; }
+.profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.section-kicker { color: rgba(232,204,128,0.72); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
+.section-title { color: var(--text-primary); font-size: 14px; font-weight: 600; }
+.default-chip { color: #101018; background: linear-gradient(135deg, var(--gold-light), var(--gold)); border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
+
+.profile-selector { display: flex; gap: 8px; margin-bottom: 10px; }
+.profile-select { flex: 1; min-width: 0; background: rgba(0,0,0,0.34); border: 1px solid rgba(232,204,128,0.32); color: #F4EBDD; padding: 11px 12px; border-radius: 10px; outline: none; font-size: 13px; }
+.icon-btn { width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
+.guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
+.profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.mini-action { min-height: 34px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; }
+.mini-action:disabled { cursor: default; color: var(--gold-light); border-color: rgba(232,204,128,0.25); background: rgba(232,204,128,0.08); }
+.mini-action.danger { color: #FF8F88; }
+.btn-ghost { min-height: 36px; background: rgba(212,175,55,0.12); color: var(--gold-light); border: 1px solid rgba(232,204,128,0.35); padding: 0 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; white-space: nowrap; }
 .btn-ghost:hover { background: var(--gold); color: #000; }
 .btn-danger { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.3); border-radius: 8px; padding: 0 10px; cursor: pointer; }
-.btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: #000; border: none; padding: 6px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; font-family: var(--font-serif); box-shadow: 0 2px 10px rgba(212,175,55,0.3); transition: transform 0.2s; white-space: nowrap; }
+.btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: #08080E; border: none; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-family: var(--font-body); box-shadow: 0 2px 10px rgba(212,175,55,0.26); transition: transform 0.2s; white-space: nowrap; }
 .btn-primary:active { transform: scale(0.95); }
+.btn-primary:disabled { opacity: .7; cursor: wait; }
 
-.profile-form { background: rgba(255,255,255,0.02); padding: 16px; border-radius: 12px; border: 1px dashed var(--glass-border); margin-bottom: 16px; }
+.profile-form { background: rgba(255,255,255,0.025); padding: 14px; border-radius: 12px; border: 1px dashed rgba(232,204,128,0.16); margin-top: 10px; }
+.rename-form { margin-bottom: 2px; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
 .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; outline: none; font-family: var(--font-body); }
+.form-actions { display:flex; justify-content:flex-end; gap:8px; }
 
-.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid var(--glass-border); padding-bottom: 14px; margin-bottom: 14px; }
+.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px; font-weight: bold; }
 .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 2px; }
@@ -853,6 +1059,20 @@ const generateLunarPromptData = (profile) => {
 .badge-gold { background: rgba(212,175,55,0.15); color: var(--gold-light); border: 1px solid rgba(212,175,55,0.3); }
 .badge-blue { background: rgba(78, 205, 196, 0.15); color: #4ECDC4; border: 1px solid rgba(78, 205, 196, 0.3); }
 .pattern-tag { font-size: 10px; color: #E8CC80; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.2); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 4px; margin-top: 4px; }
+
+.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid rgba(232,204,128,0.16); border-radius: 12px; background: rgba(232,204,128,0.055); }
+.analysis-status.done { border-color: rgba(129,199,132,0.22); background: rgba(129,199,132,0.07); }
+.loader-orbit { position: relative; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid rgba(232,204,128,0.25); border-radius: 50%; animation: spin 1.6s linear infinite; }
+.loader-orbit span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--gold-light); box-shadow: 0 0 10px rgba(232,204,128,.65); }
+.loader-orbit span:nth-child(1) { top: -3px; left: 12px; }
+.loader-orbit span:nth-child(2) { right: 0; bottom: 4px; opacity: .7; }
+.loader-orbit span:nth-child(3) { left: 1px; bottom: 5px; opacity: .45; }
+.analysis-copy { min-width: 0; flex: 1; }
+.analysis-title { color: #F5E9CE; font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.analysis-subtitle { color: var(--text-muted); font-size: 11px; }
+.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.06); }
+.analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 .tabs { display: flex; gap: 20px; margin-bottom: 12px; }
 .tab { font-size: 13px; color: var(--text-muted); cursor: pointer; padding-bottom: 6px; border-bottom: 2px solid transparent; transition: all 0.3s; }
@@ -905,8 +1125,14 @@ const generateLunarPromptData = (profile) => {
 /* 关系可视化面板已经移除旧版CSS */
 
 .ai-section { margin-top: 16px; animation: riseIn 0.5s ease both; }
-.ai-header-title { font-family: var(--font-serif); color: var(--gold); font-size: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.insight-summary { margin-bottom: 16px; }
+.ai-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.ai-header-title { font-family: var(--font-serif); color: var(--gold); font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.ai-section > .ai-header-title { margin-bottom: 12px; }
 .ai-header-title::before { content: '✧'; font-size: 12px; }
+.info-button, .close-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(232,204,128,0.28); background: rgba(232,204,128,0.08); color: var(--gold-light); cursor: pointer; }
+.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: Georgia, serif; font-style: italic; font-weight: 700; }
+.close-button { width: 32px; height: 32px; border-radius: 8px; font-size: 22px; line-height: 1; }
 
 .xiji-box { display: flex; gap: 8px; margin-bottom: 14px; }
 .xiji-item { flex: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 10px; padding: 10px; text-align: center; }
@@ -915,9 +1141,15 @@ const generateLunarPromptData = (profile) => {
 .xiji-val.favorable { color: #81C784; }
 .xiji-val.unfavorable { color: #E57373; }
 
-.insight-card { background: linear-gradient(180deg, rgba(212,175,55,0.05) 0%, rgba(0,0,0,0) 100%); border: 1px solid var(--glass-border); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-serif); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
-.insight-card p { line-height: 1.6; font-size: 13px; color: #ccc; }
+.insight-card { background: linear-gradient(180deg, rgba(232,204,128,0.06) 0%, rgba(255,255,255,0.015) 100%); border: 1px solid rgba(232,204,128,0.12); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
+.insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
+.tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
+.verdict-line { margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); }
+.verdict-line span { display: block; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 6px; }
+.verdict-line p { color: #F3EBDD; font-size: 14px; font-weight: 600; margin: 0; }
+.card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.overload-tag { color: #FF8F88; font-size: 12px; animation: pulse 1.5s infinite; }
 
 .legacy-summary { background: rgba(212,175,55,0.05); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
 
@@ -938,17 +1170,16 @@ const generateLunarPromptData = (profile) => {
     margin-bottom: 12px;
     border-bottom: 1px dashed rgba(212,175,55,0.24);
 }
-.classic-eyebrow {
-    font-size: 10px;
-    color: var(--text-muted);
-    letter-spacing: 2px;
-    margin-bottom: 4px;
+.classic-main-title {
+    margin-bottom: 6px;
 }
-.classic-title {
+.classic-subtitle {
     color: var(--gold-light);
-    font-size: 16px;
-    font-family: var(--font-serif);
-    letter-spacing: 2px;
+    font-size: 13px;
+    font-family: 'Noto Serif SC', var(--font-serif);
+    font-weight: 400;
+    letter-spacing: 1px;
+    opacity: .86;
 }
 .classic-key {
     flex-shrink: 0;
@@ -969,7 +1200,7 @@ const generateLunarPromptData = (profile) => {
     color: #D8D2BF;
     font-size: 13px;
     line-height: 1.75;
-    font-family: var(--font-serif);
+    font-family: var(--font-body);
 }
 .classic-body p.note {
     color: var(--text-muted);
@@ -1065,6 +1296,42 @@ const generateLunarPromptData = (profile) => {
 .s-val.positive { color: #81C784; }
 .s-val.negative { color: #E57373; }
 .s-val.neutral { color: #888; }
+
+.detail-drawer {
+    width: min(92vw, 460px);
+    max-height: 78vh;
+    overflow-y: auto;
+    background: rgba(13,13,22,0.96);
+    border: 1px solid rgba(232,204,128,0.24);
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 18px 60px rgba(0,0,0,0.58);
+    animation: riseIn 0.25s ease;
+}
+.drawer-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 12px;
+    border-bottom: 1px dashed rgba(232,204,128,0.18);
+}
+.drawer-head h4 {
+    color: var(--gold-light);
+    font-size: 17px;
+    font-family: var(--font-serif);
+    font-weight: 500;
+}
+
+@media (max-width: 420px) {
+    .profile-actions { grid-template-columns: 1fr 1fr; }
+    .mini-action.danger { grid-column: span 2; }
+    .form-row { flex-direction: column; gap: 10px; }
+    .bazi-header { flex-direction: column; }
+    .btn-primary { width: 100%; }
+    .scoring-bars { grid-template-columns: 1fr; }
+}
 
 @keyframes pulse {
     0% { opacity: 1; }

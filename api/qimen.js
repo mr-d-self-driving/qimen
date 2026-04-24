@@ -169,7 +169,7 @@ module.exports = async function handler(req, res) {
     const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
     res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization'); // 必须允许 Authorization
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Guest-Id'); // 必须允许 Authorization
     if (req.method === 'OPTIONS') return res.status(200).end();
 
     try {
@@ -177,13 +177,20 @@ module.exports = async function handler(req, res) {
         // 🛡️ 防线 2：JWT 鉴权拦截 (防 Postman 脚本刷接口)
         // ============================================================================
         const authHeader = req.headers.authorization;
-        if (!authHeader) return res.status(401).json({ error: '未登录，请先登录' });
+        const guestId = req.headers['x-guest-id'];
+        let user = null;
+        let userId = null;
+        const isGuestRequest = !authHeader && typeof guestId === 'string' && guestId.startsWith('guest_');
 
-        const token = authHeader.replace('Bearer ', '');
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-        if (authError || !user) return res.status(401).json({ error: '登录状态已过期，请重新登录' });
-
-        const userId = user.id;
+        if (authHeader) {
+            const token = authHeader.replace('Bearer ', '');
+            const { data: { user: authedUser }, error: authError } = await supabase.auth.getUser(token);
+            if (authError || !authedUser) return res.status(401).json({ error: '登录状态已过期，请重新登录' });
+            user = authedUser;
+            userId = authedUser.id;
+        } else if (!isGuestRequest) {
+            return res.status(401).json({ error: '未登录，请先登录' });
+        }
         
         // ============================================================================
         // 🛡️ 防线 3：3 次免费额度限制 + 👑 白名单特权
@@ -191,12 +198,14 @@ module.exports = async function handler(req, res) {
         // 1. 获取白名单列表并转为小写 (兼容未配置环境变量的情况)
         const whitelistStr = process.env.WHITELIST_EMAILS || "";
         const whitelist = whitelistStr.split(',').map(email => email.trim().toLowerCase());
-        const currentUserEmail = user.email ? user.email.toLowerCase() : "";
+        const currentUserEmail = user?.email ? user.email.toLowerCase() : "";
 
         // 2. 判断当前用户是否在白名单中
         const isVIP = whitelist.includes(currentUserEmail);
 
-        if (isVIP) {
+        if (isGuestRequest) {
+            console.log(`👤 访客账户 [${guestId}] 发起一次推演`);
+        } else if (isVIP) {
             console.log(`👑 白名单特权账户 [${currentUserEmail}] 发起推演，免除额度限制`);
         } else {
             // 如果不是 VIP，才去数据库查他算过几次

@@ -70,6 +70,11 @@
                 </div>
               </div>
 
+              <div v-if="isGuest" class="glass-card guest-score-note">
+                访客模式仅展示今日日运得分。登录后可查看完整断语、开运指南与多日趋势。
+              </div>
+
+              <template v-if="!isGuest">
               <!-- ═══ 2. Insight Quote ═══ -->
               <div class="glass-card insight-quote-card">
                 <p :class="['insight-text', { muted: isInterpretationLoading && !hasInterpretationContent }]">
@@ -157,6 +162,7 @@
                 <div class="hook-title"><span class="hook-icon">🔮</span> 明日预告</div>
                 <p class="hook-text">{{ fortuneData.hook_teaser }}</p>
               </div>
+              </template>
 
             </div>
           </transition>
@@ -175,6 +181,9 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { createClient } from '@supabase/supabase-js'
+import { globalState } from '../store.js'
+import { recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
+import guestFortuneData from '../../mock/fortune-daily.json'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -196,6 +205,7 @@ const interpretationError = ref('')
 const requestSerial = ref(0)
 const fortuneCacheByDate = new Map()
 const pendingInterpretationByDate = new Map()
+const isGuest = computed(() => globalState.isGuest)
 
 const fortuneGridItems = [
   { key: 'career_insight', icon: '💼', label: '事业运' },
@@ -242,7 +252,8 @@ const generateDays = () => {
   const days = []
   const weekMap = ['日', '一', '二', '三', '四', '五', '六']
   const today = new Date()
-  for (let i = 0; i < 7; i++) {
+  const dayCount = isGuest.value ? 1 : 7
+  for (let i = 0; i < dayCount; i++) {
     const target = new Date(today)
     target.setDate(today.getDate() + i)
     const year = target.getFullYear()
@@ -338,6 +349,15 @@ const requestFortuneInterpretation = async (dateStr, accessToken) => {
 
 const fetchFortuneData = async (dateStr) => {
   const { data: { session } } = await supabase.auth.getSession()
+  if (!session && isGuest.value) {
+    isLoading.value = false
+    isInterpretationLoading.value = false
+    interpretationError.value = ''
+    fortuneData.value = { ...guestFortuneData, solar_date: dateStr }
+    recordGuestFortuneViewed(undefined, dateStr)
+    await trackGuestEvent(supabase, 'guest_fortune_viewed', 'fortune', { date: dateStr })
+    return
+  }
   if (!session) { alert('请先前往首页登录'); return }
 
   const currentRequest = requestSerial.value + 1

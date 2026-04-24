@@ -64,13 +64,15 @@
     <div class="page-wrap">
       <div class="container">
 
-        <div v-if="!currentUser" class="glass-card auth-card">
+        <div v-if="!canUseApp" class="glass-card auth-card">
           <div class="field-label">{{ isLoginMode ? '身份认证 (登录)' : '创建账号 (注册)' }}</div>
           <input type="email" v-model="authForm.email" placeholder="请输入邮箱地址"/>
           <input type="password" v-model="authForm.password" placeholder="请输入密码 (至少6位)"/>
           <button class="auth-submit" :disabled="authLoading" @click="handleAuth">
             <span>{{ authLoading ? '验证中...' : (isLoginMode ? '登 录' : '注 册') }}</span>
           </button>
+          <button class="guest-submit" @click="handleGuestEntry">访客体验</button>
+          <div class="guest-note">访客可提问 1 次、添加 1 个本地八字档案、查看今日日运分数</div>
           <div class="auth-switch" @click="isLoginMode = !isLoginMode">
             {{ isLoginMode ? '没有账号？ ' : '已有账号？ ' }}<span>{{ isLoginMode ? '点击注册' : '点击登录' }}</span>
           </div>
@@ -243,7 +245,8 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { createClient } from '@supabase/supabase-js'
-import { globalState } from '../store.js'
+import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../store.js'
+import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -276,6 +279,8 @@ const selectedProfileId = ref('')
 const currentBaziSummary = ref('')
 const currentBaziString = ref('')
 const activeBaziProfile = computed(() => baziProfiles.value.find(p => p.id === selectedProfileId.value))
+const isGuest = computed(() => globalState.isGuest)
+const canUseApp = computed(() => Boolean(currentUser.value || isGuest.value))
 
 const historyRecords = ref([])
 const activeCategory = ref('all')
@@ -333,13 +338,16 @@ const toggleAvatarMenu = (e) => {
 }
 
 const handleSessionUpdate = (session) => {
+  setCurrentUser(session?.user || null)
   if (session) {
     currentUser.value = session.user
     loadHistory()
   } else {
     currentUser.value = null
-    historyRecords.value = []
-    resetToInput()
+    if (!isGuest.value) {
+      historyRecords.value = []
+      resetToInput()
+    }
   }
 }
 
@@ -363,8 +371,21 @@ const handleAuth = async () => {
 }
 
 const handleSignOut = async () => {
-  await supabase.auth.signOut()
+  if (isGuest.value && !currentUser.value) {
+    leaveGuestMode()
+    historyRecords.value = []
+    resetToInput()
+  } else {
+    await supabase.auth.signOut()
+  }
   isAvatarMenuOpen.value = false
+}
+
+const handleGuestEntry = async () => {
+  enterGuestMode()
+  currentUser.value = null
+  historyRecords.value = []
+  await trackGuestEvent(supabase, 'guest_started', 'auth')
 }
 
 const updateClock = () => {
@@ -390,6 +411,11 @@ const handleBaziToggle = async () => {
 }
 
 const fetchBaziProfiles = async () => {
+  if (isGuest.value && !currentUser.value) {
+    const profile = getGuestState().baziProfile
+    baziProfiles.value = profile ? [profile] : []
+    return
+  }
   if (!currentUser.value) return
   const { data, error } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
   if (!error && data) baziProfiles.value = data
@@ -436,7 +462,9 @@ const startDivination = async () => {
   if (!input) return alert("问题不能为空！")
 
   const { data: { session } } = await supabase.auth.getSession()
-  if (!session) return alert("请先登录")
+  const guestState = getGuestState()
+  if (!session && !isGuest.value) return alert("请先登录")
+  if (!session && isGuest.value && !guestState.canAskQuestion) return alert("访客模式仅可提问 1 次，请登录后继续推演")
 
   isSubmitting.value = true
   viewState.value = 'loading'
@@ -445,11 +473,18 @@ const startDivination = async () => {
   try {
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      headers: session
+        ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
+        : { 'Content-Type': 'application/json', 'X-Guest-Id': guestState.guestId },
       body: JSON.stringify({ question: input, baziInfo: baziEnabled.value ? currentBaziString.value : null })
     })
     const data = await response.json()
+    if (!response.ok || data.error) throw new Error(data.details || data.error || '推演失败')
     await saveRecordToDatabase(input, data)
+    if (!session && isGuest.value) {
+      recordGuestQuestion()
+      await trackGuestEvent(supabase, 'guest_qimen_asked', 'qimen', { limit_reached: true })
+    }
     resultHtml.value = buildCardHTML(data)
     viewState.value = 'result'
     nextTick(() => {
@@ -487,6 +522,18 @@ const loadHistory = async () => {
 }
 
 const saveRecordToDatabase = async (question, data) => {
+  if (isGuest.value && !currentUser.value) {
+    historyRecords.value = [{
+      id: 'guest_qimen_record',
+      question,
+      qimen_data: data,
+      category: data.category || 'general',
+      dateStr: new Date().toLocaleDateString(),
+      score: data.summary?.score || 0,
+      catLabel: categories.find(c => c.value === data.category)?.label || '杂事'
+    }]
+    return
+  }
   await supabase.from('qimen_records').insert([{ user_id: currentUser.value.id, question, qimen_data: data, category: data.category || 'general' }])
   await loadHistory()
 }
@@ -532,8 +579,15 @@ const buildCardHTML = (data) => {
   const THEME = score < 55 ? '#FF5E57' : score < 75 ? '#F5C518' : '#00D26A'
   const THEME_DIM = score < 55 ? 'rgba(255,94,87,0.15)' : score < 75 ? 'rgba(245,197,24,0.15)' : 'rgba(0,210,106,0.15)'
 
+  const strategyItems = advice.strategy || []
+  const primaryStrategies = strategyItems.slice(0, 3)
+
+  const actionHTML = primaryStrategies.length
+    ? primaryStrategies.map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${s}</div></div>`).join('')
+    : `<div class="action-step reveal"><div class="action-index">01</div><div class="action-copy">${summary.conclusion}</div></div>`
+
   // 策略列表
-  const strategies = (advice.strategy || []).map((s, i) => `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`).join('')
+  const strategies = strategyItems.map((s, i) => `<li class="reveal" style="transition-delay:${i * 60}ms">${s}</li>`).join('')
 
   // 风险预警
   let riskHTML = ''
@@ -541,20 +595,20 @@ const buildCardHTML = (data) => {
 
   // 八字命理
   let baziHTML = ''
-  if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes('未提供八字信息')) baziHTML = `<div class="insight-strip accent-theme reveal"><div class="insight-strip-label">🧬 命理 / 年命参考</div><div class="insight-strip-body">${analysis.bazi_insight}</div></div>`
+  if (analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes('未提供八字信息')) baziHTML = `<div class="insight-strip accent-theme reveal"><div class="insight-strip-label">命理 / 年命参考</div><div class="insight-strip-body">${analysis.bazi_insight}</div></div>`
 
   // 评分依据
   let scoreBasisHTML = ''
   if (scoreBasis) {
-    const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">✅ 吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s => `<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : ''
-    const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">⚠️ 风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s => `<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : ''
+    const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s => `<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : ''
+    const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s => `<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : ''
     const logic = scoreBasis.score_logic ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : ''
-    if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">⚖️ 评分依据</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
+    if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">评分依据</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
   }
 
   // 动态应期
   let timingHTML = ''
-  if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="insight-strip accent-amber reveal"><div class="insight-strip-label">⏳ 动态应期（转机推演）</div><div class="insight-strip-body">${analysis.dynamic_timing}</div></div>`
+  if (analysis.dynamic_timing?.trim()) timingHTML = `<div class="insight-strip accent-amber reveal"><div class="insight-strip-label">动态应期（转机推演）</div><div class="insight-strip-body">${analysis.dynamic_timing}</div></div>`
 
   // 九宫格排盘
   let chartHTML = ''
@@ -570,30 +624,58 @@ const buildCardHTML = (data) => {
       if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`
       return `<div class="pan-cell"><div class="pan-god">${p.god || ''}</div><div class="pan-stem stem-sky">${p.sky || ''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star || ''}</div><div class="pan-door ${doorCls}">${p.door || ''}</div><div class="pan-stem stem-earth">${p.earth || ''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`
     }).join('')
-    chartHTML = `<div class="section-title reveal"><span class="icon">🧭</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
+    chartHTML = `<div class="section-title reveal"><span class="icon">盘</span>奇门排盘</div><div class="pan-wrapper reveal"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
   }
 
   return `<div class="card" style="display:block;--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
-    <div class="card-header reveal"><div class="card-header-left"><div class="title">${summary.title}</div><div class="verdict-badge verdict-${vd.cls}">${vd.label}</div></div><div class="score-badge"><div class="score" id="vueScoreValue">${score}</div><div class="score-label">综合评分</div></div></div>
-    <div class="conclusion reveal">${summary.conclusion}</div>
-    <div class="keyword reveal">🔑 ${summary.keyword || ''}</div>
-    ${question ? `<div class="user-question reveal">${question}</div>` : ''}
-    <div class="ornament-divider reveal"><span>☰</span></div>
-    ${chartHTML}
-    <div class="section-title reveal"><span class="icon">🔍</span>深度局象</div>
-    <div class="insight-flow">
-      ${baziHTML}
-      ${scoreBasisHTML}
-      ${timingHTML}
-      <div class="insight-strip accent-indigo reveal"><div class="insight-strip-label">🌌 时空能量</div><div class="insight-strip-body">${analysis.tensor || '-'}</div></div>
-      <div class="insight-strip accent-gold reveal"><div class="insight-strip-label">👤 用神分析</div><div class="insight-strip-body">${analysis.yong_shen || '-'}</div></div>
-      <div class="insight-strip accent-violet reveal"><div class="insight-strip-label">🔮 特殊格局</div><div class="insight-strip-body">${analysis.pattern || '-'}</div></div>
-      <div class="insight-strip accent-teal reveal"><div class="insight-strip-label">🙏 神助指引</div><div class="insight-strip-body">${analysis.god_help || '-'}</div></div>
+    <div class="result-hero reveal">
+      <div class="result-copy">
+        <div class="title">${summary.title || '本局断语'}</div>
+        <div class="verdict-badge verdict-${vd.cls}">${vd.label}</div>
+        <div class="conclusion">${summary.conclusion}</div>
+        ${summary.keyword ? `<div class="keyword">关键判断：${summary.keyword}</div>` : ''}
+      </div>
+      <div class="score-badge">
+        <div class="score-line"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span></div>
+        <div class="score-label">综合评分</div>
+      </div>
     </div>
-    <div class="section-title reveal"><span class="icon">💡</span>决策指引</div>
-    <ul class="strategy-list">${strategies}</ul>${riskHTML}
-    <div class="ornament-divider reveal"><span>☷</span></div>
-    <div class="footer reveal"><div class="f-item"><span class="f-icon">🧭</span><span class="f-label">有利方位</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div><div class="f-item"><span class="f-icon">⏰</span><span class="f-label">吉时窗口</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div><div class="f-item"><span class="f-icon">✨</span><span class="f-label">助运行为</span><span class="f-text">${advice.lucky_tips.action || '-'}</span></div></div>
+
+    ${question ? `<div class="user-question reveal"><div class="question-label">所问之事</div><div class="question-text">${question}</div></div>` : ''}
+
+    <div class="section-title reveal"><span class="icon">先</span>先看怎么做</div>
+    <div class="action-grid">${actionHTML}</div>
+    ${riskHTML}
+
+    <div class="reader-guide reveal">
+      <div class="reader-card beginner">
+        <div class="reader-eyebrow">给想快速判断的人</div>
+        <div class="reader-title">看结论和行动</div>
+        <div class="reader-text">${summary.conclusion}</div>
+      </div>
+      <div class="reader-card advanced">
+        <div class="reader-eyebrow">给熟悉奇门的人</div>
+        <div class="reader-title">看局象和依据</div>
+        <div class="reader-text">下方展开排盘、用神、格局、应期与评分依据，方便复盘判断链路。</div>
+      </div>
+    </div>
+
+    <details class="depth-panel reveal" open>
+      <summary><span>深度局象</span><small>排盘 / 用神 / 格局 / 应期</small></summary>
+      ${chartHTML}
+      <div class="insight-flow">
+        ${baziHTML}
+        ${scoreBasisHTML}
+        ${timingHTML}
+        <div class="insight-strip accent-indigo reveal"><div class="insight-strip-label">时空能量</div><div class="insight-strip-body">${analysis.tensor || '-'}</div></div>
+        <div class="insight-strip accent-gold reveal"><div class="insight-strip-label">用神分析</div><div class="insight-strip-body">${analysis.yong_shen || '-'}</div></div>
+        <div class="insight-strip accent-violet reveal"><div class="insight-strip-label">特殊格局</div><div class="insight-strip-body">${analysis.pattern || '-'}</div></div>
+        <div class="insight-strip accent-teal reveal"><div class="insight-strip-label">神助指引</div><div class="insight-strip-body">${analysis.god_help || '-'}</div></div>
+      </div>
+    </details>
+
+    ${strategies ? `<div class="section-title reveal"><span class="icon">行</span>完整决策指引</div><ul class="strategy-list">${strategies}</ul>` : ''}
+    <div class="footer reveal"><div class="f-item"><span class="f-label">有利方位</span><span class="f-text">${advice.lucky_tips.direction || '-'}</span></div><div class="f-item"><span class="f-label">吉时窗口</span><span class="f-text">${advice.lucky_tips.time || '-'}</span></div><div class="f-item"><span class="f-label">助运行为</span><span class="f-text">${advice.lucky_tips.action || '-'}</span></div></div>
   </div>`
 }
 </script>
@@ -693,6 +775,8 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 1px rgba(21
 .field-label { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; }
 input[type="email"], input[type="password"] { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: var(--radius-item); padding: 13px 16px; color: var(--text-primary); font-size: 15px; outline: none; }
 .auth-submit { width: 100%; padding: 15px; border: none; border-radius: var(--radius-item); background: linear-gradient(135deg, #E8CC80 0%, #B38B36 45%, #C9A052 100%); color: #0a0800; font-size: 15px; font-family: var(--font-serif); font-weight: 600; cursor: pointer; }
+.guest-submit { width: 100%; padding: 13px; border: 1px solid var(--gold-border); border-radius: var(--radius-item); background: rgba(212,175,55,0.08); color: var(--gold-light); font-size: 14px; font-family: var(--font-serif); cursor: pointer; }
+.guest-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; text-align: center; }
 .auth-switch { text-align: center; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .auth-switch span { color: var(--gold); text-decoration: underline; }
 
@@ -757,33 +841,62 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
   backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
 }
 :deep(.card)::before { content:''; position:absolute; top:0; left:8%; right:8%; height:1px; background:linear-gradient(90deg,transparent,var(--theme-color,#B38B36),transparent); opacity:.4; }
-:deep(.card-header) { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:18px; gap:12px; }
-:deep(.card-header-left) { flex:1; min-width:0; }
-:deep(.title) { font-size:10px; color:var(--text-muted); letter-spacing:2.5px; text-transform:uppercase; margin-bottom:8px; }
-:deep(.score-badge) { display:flex; flex-direction:column; align-items:center; gap:3px; flex-shrink:0; }
-:deep(.score-badge .score) {
-  background:var(--theme-color-dim,rgba(179,139,54,0.15)); color:var(--theme-color,#B38B36);
-  padding:4px 12px; border-radius:20px; font-weight:800; font-size:18px; letter-spacing:1px;
-  border:1px solid color-mix(in srgb,var(--theme-color,#B38B36) 30%,transparent);
-  box-shadow:0 0 16px var(--theme-color-dim,rgba(179,139,54,0.15));
-  animation:glowPulse 3s ease-in-out infinite;
+:deep(.result-hero) { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:start; margin-bottom:18px; }
+:deep(.result-copy) { min-width:0; }
+:deep(.title) { font-size:10px; color:var(--text-muted); letter-spacing:2.5px; text-transform:uppercase; margin-bottom:10px; }
+:deep(.score-badge) {
+  min-width:112px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; flex-shrink:0;
+  padding:14px 12px 12px; border-radius:18px; background:linear-gradient(180deg,var(--theme-color-dim,rgba(179,139,54,0.15)),rgba(255,255,255,0.015));
+  border:1px solid color-mix(in srgb,var(--theme-color,#B38B36) 24%,transparent);
+  box-shadow:0 0 24px var(--theme-color-dim,rgba(179,139,54,0.15));
 }
-:deep(.score-label) { font-size:9px; color:var(--text-muted); letter-spacing:1px; text-transform:uppercase; }
-:deep(.verdict-badge) { display:inline-flex; font-family:var(--font-serif); font-size:14px; padding:4px 16px; border-radius:20px; letter-spacing:.1em; border:1px solid; }
+:deep(.score-line) { display:flex; align-items:flex-end; justify-content:center; gap:3px; line-height:1; white-space:nowrap; }
+:deep(.score-badge .score) {
+  color:var(--theme-color,#B38B36); font-family:var(--font-serif); font-weight:700; font-size:44px; letter-spacing:0;
+  text-shadow:0 0 18px var(--theme-color-dim,rgba(179,139,54,0.15));
+}
+:deep(.score-unit) { color:var(--gold-light); font-family:var(--font-serif); font-size:18px; line-height:1.28; }
+:deep(.score-label) { font-size:9px; color:var(--text-muted); letter-spacing:1.2px; text-transform:uppercase; }
+:deep(.verdict-badge) { display:inline-flex; font-family:var(--font-serif); font-size:14px; padding:4px 13px; border-radius:999px; letter-spacing:.08em; border:1px solid; margin-bottom:12px; }
 :deep(.verdict-da-ji) { color:#00D26A; background:rgba(0,210,106,0.06); border-color:rgba(0,210,106,0.2); text-shadow:0 0 14px rgba(0,210,106,0.35); }
 :deep(.verdict-xiao-ji) { color:var(--teal); background:rgba(78,205,196,0.06); border-color:rgba(78,205,196,0.2); }
 :deep(.verdict-ping) { color:var(--gold-light); background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.2); }
 :deep(.verdict-da-xiong) { color:var(--crimson); background:rgba(255,94,87,0.06); border-color:rgba(255,94,87,0.2); }
-:deep(.conclusion) { font-family:var(--font-serif); font-size:22px; color:var(--theme-color,#E8CC80); margin-bottom:10px; line-height:1.45; letter-spacing:.5px; text-shadow:0 0 24px color-mix(in srgb,var(--theme-color,#B38B36) 30%,transparent); }
-:deep(.keyword) { display:inline-flex; gap:4px; font-size:12px; color:var(--text-muted); background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); padding:5px 14px; border-radius:20px; margin-bottom:20px; }
-:deep(.user-question) { font-size:14px; color:rgba(240,237,230,0.72); padding:14px 16px; background:rgba(255,255,255,0.02); border-radius:var(--radius-item); border-left:2px solid var(--theme-color,#B38B36); margin-bottom:22px; font-style:italic; line-height:1.75; position:relative; }
-:deep(.user-question)::before { content:'\201C'; position:absolute; top:-6px; left:10px; font-size:32px; font-family:Georgia,serif; color:var(--theme-color,#B38B36); opacity:.2; }
+:deep(.conclusion) { font-family:var(--font-serif); font-size:26px; color:var(--theme-color,#E8CC80); margin-bottom:12px; line-height:1.45; letter-spacing:0; text-shadow:0 0 24px color-mix(in srgb,var(--theme-color,#B38B36) 26%,transparent); }
+:deep(.keyword) { display:inline-flex; max-width:100%; font-size:12px; color:#CFC7B4; background:rgba(255,255,255,0.028); border:1px solid rgba(255,255,255,0.065); padding:6px 12px; border-radius:10px; line-height:1.55; }
+:deep(.user-question) {
+  color:rgba(240,237,230,0.72); padding:13px 15px 14px 17px; background:rgba(255,255,255,0.018);
+  border-radius:14px; border:1px solid rgba(255,255,255,0.055); border-left:3px solid var(--theme-color,#B38B36);
+  margin:0 0 22px; line-height:1.7; position:relative;
+}
+:deep(.question-label) { font-size:10px; color:var(--text-muted); letter-spacing:2px; margin-bottom:5px; }
+:deep(.question-text) { font-size:14px; color:rgba(240,237,230,0.76); font-style:normal; overflow-wrap:anywhere; }
 :deep(.ornament-divider) { display:flex; align-items:center; gap:12px; margin:6px 0; opacity:.2; }
 :deep(.ornament-divider)::before, :deep(.ornament-divider)::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,transparent,rgba(212,175,55,0.6),transparent); }
 :deep(.ornament-divider span) { font-size:10px; color:var(--gold); }
-:deep(.section-title) { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:10px; font-weight:600; letter-spacing:2.5px; text-transform:uppercase; margin:28px 0 14px; }
+:deep(.section-title) { display:flex; align-items:center; gap:8px; color:var(--text-muted); font-size:10px; font-weight:600; letter-spacing:2.5px; text-transform:uppercase; margin:24px 0 14px; }
 :deep(.section-title)::after { content:''; flex:1; height:1px; background:linear-gradient(90deg,rgba(255,255,255,0.06),transparent); }
-:deep(.section-title .icon) { font-size:14px; }
+:deep(.section-title .icon) { display:inline-grid; place-items:center; width:20px; height:20px; border-radius:50%; color:#141006; background:var(--theme-color,#B38B36); font-family:var(--font-serif); font-size:12px; letter-spacing:0; }
+:deep(.action-grid) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+:deep(.action-step) { min-width:0; padding:13px 13px 14px; border-radius:14px; background:linear-gradient(180deg,rgba(232,204,128,0.055),rgba(255,255,255,0.018)); border:1px solid rgba(232,204,128,0.12); }
+:deep(.action-index) { font-family:var(--font-serif); font-size:20px; color:var(--theme-color,#B38B36); margin-bottom:8px; }
+:deep(.action-copy) { font-size:13px; color:#D7D1C4; line-height:1.65; overflow-wrap:anywhere; }
+:deep(.reader-guide) { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; margin:22px 0 8px; }
+:deep(.reader-card) { min-width:0; padding:15px 15px 16px; border-radius:15px; border:1px solid rgba(255,255,255,0.06); background:rgba(0,0,0,0.18); }
+:deep(.reader-card.beginner) { border-color:rgba(232,204,128,0.14); background:linear-gradient(135deg,rgba(232,204,128,0.055),rgba(0,0,0,0.16)); }
+:deep(.reader-card.advanced) { border-color:rgba(123,140,255,0.14); background:linear-gradient(135deg,rgba(123,140,255,0.05),rgba(0,0,0,0.16)); }
+:deep(.reader-eyebrow) { font-size:10px; color:var(--text-muted); letter-spacing:1.7px; margin-bottom:8px; }
+:deep(.reader-title) { font-family:var(--font-serif); color:#F0E4B4; font-size:20px; margin-bottom:7px; }
+:deep(.reader-text) { font-size:13px; color:#C9C3B8; line-height:1.65; overflow-wrap:anywhere; }
+:deep(.depth-panel) { margin-top:18px; border:1px solid rgba(232,204,128,0.1); border-radius:16px; background:rgba(255,255,255,0.016); overflow:hidden; }
+:deep(.depth-panel summary) { display:flex; align-items:center; justify-content:space-between; gap:12px; cursor:pointer; padding:15px 16px; color:#E8CC80; font-family:var(--font-serif); font-size:18px; list-style:none; }
+:deep(.depth-panel summary::-webkit-details-marker) { display:none; }
+:deep(.depth-panel summary::after) { content:'+'; display:grid; place-items:center; width:24px; height:24px; border-radius:50%; color:#15110A; background:var(--theme-color,#B38B36); font-family:var(--font-body); font-size:16px; line-height:1; flex-shrink:0; }
+:deep(.depth-panel[open] summary::after) { content:'-'; }
+:deep(.depth-panel summary small) { margin-left:auto; color:var(--text-muted); font-family:var(--font-body); font-size:10px; letter-spacing:1.2px; text-transform:uppercase; }
+:deep(.depth-panel .section-title) { margin:6px 16px 12px; }
+:deep(.depth-panel .pan-wrapper) { margin:0 16px 16px; }
+:deep(.depth-panel .insight-flow) { padding:0 16px 16px; }
 /* 九宫格 */
 :deep(.pan-wrapper) { background:rgba(0,0,0,0.25); border:1px solid var(--gold-border); border-radius:16px; padding:14px; position:relative; overflow:hidden; }
 :deep(.pan-wrapper)::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 50%,rgba(212,175,55,0.03) 0%,transparent 70%); pointer-events:none; }
@@ -860,14 +973,18 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 @keyframes glowPulse { 0%,100% { box-shadow:0 0 16px var(--theme-color-dim,rgba(179,139,54,0.12)); } 50% { box-shadow:0 0 28px var(--theme-color-dim,rgba(179,139,54,0.25)); } }
 @keyframes floatIcon { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 @media(max-width:400px) { 
-  :deep(.conclusion) { font-size:18px; } 
+  :deep(.result-hero) { grid-template-columns:1fr; }
+  :deep(.score-badge) { width:100%; min-width:0; align-items:flex-start; padding:13px 14px; }
+  :deep(.score-line) { justify-content:flex-start; }
+  :deep(.conclusion) { font-size:21px; } 
+  :deep(.action-grid), :deep(.reader-guide) { grid-template-columns:1fr; }
+  :deep(.depth-panel summary) { align-items:flex-start; flex-wrap:wrap; }
+  :deep(.depth-panel summary small) { width:100%; margin-left:0; }
   :deep(.score-badge .score) { 
-    font-size:18px; 
+    font-size:38px; 
     white-space: nowrap; /* 强制不换行，让背景随文字宽度自然撑开 */
   } 
 }
 
 
 </style>
-
-

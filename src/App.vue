@@ -13,10 +13,10 @@
       </router-view>
       
       <!-- Padding block to ensure content is not hidden behind the fixed bottom nav -->
-      <div class="nav-padding"></div>
+      <div v-if="isBottomNavVisible" class="nav-padding"></div>
     </div>
 
-    <nav id="globalBottomNav">
+    <nav v-if="isBottomNavVisible" id="globalBottomNav">
       <router-link to="/" class="nav-item" active-class="active">
         <div class="nav-icon">🧭</div>
         <div class="nav-label">奇门</div>
@@ -36,11 +36,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
-import { globalState } from './store.js'
+import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { createClient } from '@supabase/supabase-js'
+import { globalState, setCurrentUser } from './store.js'
+
+const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
+const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const cosmosCanvas = ref(null)
+const isBottomNavVisible = computed(() => globalState.authReady && (globalState.currentUser || globalState.isGuest))
 let animationId = null
+let authSubscription = null
 
 const initVisuals = () => {
     if(!cosmosCanvas.value) return
@@ -78,10 +85,18 @@ const initVisuals = () => {
 
 onMounted(() => {
     initVisuals()
+    supabase.auth.getSession().then(({ data: { session } }) => {
+        setCurrentUser(session?.user || null)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+        setCurrentUser(session?.user || null)
+    })
+    authSubscription = data?.subscription
 })
 
 onUnmounted(() => {
     if (animationId) cancelAnimationFrame(animationId)
+    authSubscription?.unsubscribe()
 })
 </script>
 
