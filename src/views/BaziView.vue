@@ -1704,7 +1704,7 @@ const generateLunarPromptData = (profile) => {
 .slot-value {
     font-size: 26px;
     color: #F4EBDD;
-    font-family: var(--font-serif);
+    font-family: var(--font-ganzhi);
     font-weight: 600;
 }
 .pillar-choice-panel {
@@ -1726,7 +1726,7 @@ const generateLunarPromptData = (profile) => {
 .pillar-orb-current {
     color: var(--gold-light);
     font-size: 20px;
-    font-family: var(--font-serif);
+    font-family: var(--font-ganzhi);
     letter-spacing: 2px;
 }
 .pillar-rule-tip {
@@ -1756,7 +1756,7 @@ const generateLunarPromptData = (profile) => {
         rgba(10,10,20,0.78);
     font-size: 24px;
     font-weight: 700;
-    font-family: var(--font-serif);
+    font-family: var(--font-ganzhi);
     cursor: pointer;
 }
 .choice-chip.active {
@@ -1811,14 +1811,24 @@ const generateLunarPromptData = (profile) => {
 .tab.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 500; }
 
 .bazi-table-wrap { width: 100%; overflow: hidden; }
-.bazi-table { table-layout: fixed; width: 100%; border-collapse: collapse; text-align: center; }
-.bazi-table th, .bazi-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; word-wrap: break-word; }
+.bazi-table {
+    --bz-cell-py: 8px;
+    --bz-label-size: 10px;
+    --bz-meta-size: 10px;
+    --bz-char-size: 16px;
+    table-layout: fixed;
+    width: 100%;
+    border-collapse: collapse;
+    text-align: center;
+}
+.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; word-wrap: break-word; }
 .bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
+.bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
 
-.bz-label { color: var(--text-muted); font-weight: 500; font-size: 10px; }
-.bz-star { font-size: 10px; color: var(--text-primary); }
-.bz-char { font-size: 16px; font-weight: 600; font-family: 'Noto Serif SC', serif; margin: 2px 0; }
-.bz-sub { font-size: 10px; color: #aaa; line-height: 1.4; }
+.bz-label { color: var(--text-muted); font-weight: 500; font-size: var(--bz-label-size); }
+.bz-star { font-size: var(--bz-meta-size); color: var(--text-primary); }
+.bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
+.bz-sub { font-size: var(--bz-meta-size); color: #aaa; line-height: 1.4; }
 .bz-shensha { font-size: 9px; color: #B39DDB; line-height: 1.4; }
 
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
@@ -1835,11 +1845,11 @@ const generateLunarPromptData = (profile) => {
 .link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
 
 .item-header { font-size: 10px; color: #aaa; margin-bottom: 6px; text-align: center; line-height: 1.4; }
-.item-body { display: flex; flex-direction: column; gap: 2px; align-items: center; }
+.item-body { display: flex; flex-direction: row; gap: 14px; align-items: center; justify-content: center; flex-wrap: nowrap; }
 .xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
 
-.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 100%; height: 20px;}
-.char-gan, .char-zhi { font-size: 16px; font-family: 'Noto Serif SC', serif; font-weight: 600; line-height: 1;}
+.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: auto; min-width: 18px; height: 20px; padding-right: 14px; flex: 0 0 auto; }
+.char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
 
 .shi-shen { position: absolute; right: -16px; top: 0px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
 .shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
@@ -1877,9 +1887,9 @@ const generateLunarPromptData = (profile) => {
 .insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
 .insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
 .tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.verdict-line { margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); }
-.verdict-line span { display: block; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 6px; }
-.verdict-line p { color: #F3EBDD; font-size: 14px; font-weight: 600; margin: 0; }
+.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); min-width: 0; }
+.verdict-line span { display: block; flex: 0 0 auto; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
+.verdict-line p { flex: 1; min-width: 0; color: #F3EBDD; font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .overload-tag { color: #FF8F88; font-size: 12px; animation: pulse 1.5s infinite; }
 
@@ -2009,6 +2019,8 @@ const generateLunarPromptData = (profile) => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
     margin-bottom: 8px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255,255,255,0.05);
@@ -2021,7 +2033,7 @@ const generateLunarPromptData = (profile) => {
 }
 .shen-badge.favorable { background: rgba(129,199,132,0.1); color: #81C784; }
 .shen-badge.unfavorable { background: rgba(229,115,115,0.1); color: #E57373; }
-.total-score { font-size: 14px; font-weight: bold; color: #fff; }
+.total-score { flex: 0 0 auto; white-space: nowrap; font-size: 14px; font-weight: bold; color: #fff; }
 
 .scoring-bars {
     display: grid;
@@ -2112,6 +2124,19 @@ const generateLunarPromptData = (profile) => {
     .form-row { flex-direction: column; gap: 10px; }
     .bazi-header { flex-direction: column; }
     .btn-primary { width: 100%; }
+    .dashboard-panel { padding: 16px 10px; }
+    .tabs { gap: 16px; }
+    .tab { font-size: 12px; }
+    .bazi-table {
+        --bz-cell-py: 6px;
+        --bz-label-size: 9px;
+        --bz-meta-size: 9px;
+        --bz-char-size: 17px;
+    }
+    .bazi-table th { font-size: 11px; letter-spacing: .5px; }
+    .bazi-table th:first-child, .bazi-table td:first-child { width: 40px; }
+    .bz-sub { line-height: 1.3; }
+    .bz-shensha { font-size: 8px; line-height: 1.3; }
     .scoring-bars { grid-template-columns: 1fr; }
     .picker-topbar { gap: 8px; }
     .picker-form-row { grid-template-columns: 1fr 1fr; }
@@ -2131,6 +2156,10 @@ const generateLunarPromptData = (profile) => {
     .pillar-choice-panel { padding: 12px; border-radius: 20px; }
     .pillar-choice-head { align-items: flex-start; }
     .pillar-orb-current { font-size: 18px; }
+    .item-body { gap: 10px; }
+    .char-wrap { padding-right: 12px; }
+    .verdict-line { gap: 8px; }
+    .verdict-line p { font-size: 13px; }
 }
 
 @keyframes pulse {

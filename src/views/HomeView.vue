@@ -812,7 +812,7 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 .bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
 
 .bz-label { color: var(--text-muted); font-weight: 500; font-size: 10px; }
-.bz-char { font-size: 16px; font-weight: 600; font-family: 'Noto Serif SC', serif; margin: 2px 0; }
+.bz-char { font-size: 16px; font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
 .bz-sub { font-size: 10px; color: #aaa; line-height: 1.4; }
 
 .wx-jin { color: #E8CC80 !important; } .wx-mu { color: #81C784 !important; } .wx-shui { color: #64B5F6 !important; } .wx-huo { color: #E57373 !important; } .wx-tu { color: #DCE775 !important; }
