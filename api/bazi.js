@@ -912,6 +912,9 @@ module.exports = async function handler(req, res) {
             yuanju_core: llmQualitativeData.yuanju_core,
             current_dayun: llmQualitativeData.current_dayun,
             current_liunian: llmQualitativeData.current_liunian,
+            llm_yuanju_core: llmQualitativeData.yuanju_core,
+            llm_current_dayun: llmQualitativeData.current_dayun,
+            llm_current_liunian: llmQualitativeData.current_liunian,
             interactions: interactions,
             classic_verdict: {
                 source: '三命通会',
