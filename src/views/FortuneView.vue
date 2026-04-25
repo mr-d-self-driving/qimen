@@ -184,7 +184,8 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
 import { getGuestState, recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
@@ -200,6 +201,7 @@ import guestFortuneData from '../../mock/fortune-daily.json'
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const route = useRoute()
 
 const tabs = [
   { label: '日', value: 'day' },
@@ -271,7 +273,22 @@ const luckyDirectionShort = computed(() => {
   return dir.split('——')[0] || '-'
 })
 
-const generateDays = () => {
+const normalizeDateString = (value) => {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  return match ? match[0] : ''
+}
+
+const buildDayItem = (dateStr, label = '所选') => {
+  const target = new Date(`${dateStr}T12:00:00`)
+  const weekMap = ['日', '一', '二', '三', '四', '五', '六']
+  return {
+    fullDate: dateStr,
+    dateNum: String(target.getDate()).padStart(2, '0'),
+    weekDay: label || `周${weekMap[target.getDay()]}`
+  }
+}
+
+const generateDays = (preferredDate = '') => {
   const days = []
   const weekMap = ['日', '一', '二', '三', '四', '五', '六']
   const today = new Date()
@@ -288,8 +305,12 @@ const generateDays = () => {
       weekDay: i === 0 ? '今日' : `周${weekMap[target.getDay()]}`
     })
   }
+  const normalizedPreferred = normalizeDateString(preferredDate)
+  if (normalizedPreferred && !days.some(day => day.fullDate === normalizedPreferred)) {
+    days.unshift(buildDayItem(normalizedPreferred))
+  }
   availableDays.value = days
-  selectedDate.value = days[0].fullDate
+  selectedDate.value = normalizedPreferred || days[0].fullDate
 }
 
 const getTabLabel = (val) => tabs.find(t => t.value === val)?.label
@@ -330,7 +351,11 @@ const fetchProfiles = async () => {
 
   const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
   baziProfiles.value = data || []
-  if (!selectedProfileId.value && baziProfiles.value.length > 0) {
+  const requestedProfileId = String(route.query.profileId || '')
+  const matchedRequestedProfile = requestedProfileId && baziProfiles.value.find(profile => profile.id === requestedProfileId)
+  if (matchedRequestedProfile) {
+    selectedProfileId.value = matchedRequestedProfile.id
+  } else if (!selectedProfileId.value && baziProfiles.value.length > 0) {
     const defaultProfile = baziProfiles.value.find(profile => profile.is_default) || baziProfiles.value[0]
     selectedProfileId.value = defaultProfile.id
   }
@@ -489,13 +514,30 @@ const selectDate = (dateStr) => {
 onMounted(async () => {
   document.addEventListener('click', handleDocumentClick)
   await fetchProfiles()
-  generateDays()
+  generateDays(String(route.query.date || ''))
   fetchFortuneData(selectedDate.value)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
 })
+
+watch(
+  () => [route.query.date, route.query.profileId],
+  ([nextDate, nextProfileId]) => {
+    const normalizedDate = normalizeDateString(nextDate)
+    if (normalizedDate && normalizedDate !== selectedDate.value) {
+      generateDays(normalizedDate)
+      fetchFortuneData(normalizedDate)
+    }
+
+    const profileId = String(nextProfileId || '')
+    if (profileId && profileId !== selectedProfileId.value && baziProfiles.value.some(profile => profile.id === profileId)) {
+      selectedProfileId.value = profileId
+      fetchFortuneData(selectedDate.value || normalizedDate)
+    }
+  }
+)
 </script>
 
 <style scoped>

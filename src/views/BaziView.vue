@@ -339,7 +339,13 @@
                 </div>
 
                 <div v-show="currentTab === 'pro' && fullDayunList.length" class="timeline-section">
-                    <div class="timeline-title">专业四柱大运流年流月联动</div>
+                    <div class="timeline-head">
+                        <div class="timeline-title">专业四柱大运流年流月流日联动</div>
+                        <div class="timeline-actions">
+                            <button class="timeline-mini-btn" @click="jumpToCurrentTransit">今</button>
+                            <button class="timeline-mini-btn accent" @click="openFortuneGuide">看日运</button>
+                        </div>
+                    </div>
                     
                     <!-- 1. 大运 -->
                     <div class="linkage-row">
@@ -372,7 +378,7 @@
                             <div v-for="ln in linkedLiunianList" :key="'ln'+ln.year" 
                                  class="link-item ln-item"
                                  :class="{ active: selectedLiunianYear === ln.year }"
-                                 @click="selectedLiunianYear = ln.year">
+                                 @click="selectLiunian(ln.year)">
                                  <div class="item-header">{{ ln.year }}</div>
                                  <div class="item-body stacked-ganzhi">
                                      <div class="char-wrap">
@@ -393,7 +399,9 @@
                         <div class="row-label">流<br>月</div>
                         <div class="row-content">
                             <div v-for="(ly, i) in linkedLiuyueList" :key="'ly'+i" 
-                                 class="link-item ly-item">
+                                 class="link-item ly-item"
+                                 :class="{ active: selectedLiuyueIndex === ly.index }"
+                                 @click="selectedLiuyueIndex = ly.index">
                                  <div class="item-header">{{ ly.monthName }}</div>
                                  <div class="item-body stacked-ganzhi">
                                      <div class="char-wrap">
@@ -409,7 +417,38 @@
                         </div>
                     </div>
 
-                    <!-- 4. 生克合化关系 -->
+                    <!-- 4. 流日 -->
+                    <div class="linkage-row">
+                        <div class="row-label">流<br>日</div>
+                        <div class="row-content">
+                            <div v-for="day in linkedLiuriList" :key="day.dateKey"
+                                 class="link-item lr-item"
+                                 :class="{ active: selectedLiuriDateKey === day.dateKey }"
+                                 @click="selectedLiuriDateKey = day.dateKey">
+                                 <div class="item-header">{{ day.dateLabel }}<br>{{ day.weekLabel }}</div>
+                                 <div class="item-body stacked-ganzhi">
+                                     <div class="char-wrap">
+                                         <span class="char-gan" :class="WX_MAP[day.gan]">{{ day.gan }}</span>
+                                         <span class="shi-shen" :class="getShenColor(day.shi_shen)">{{ day.shi_shen }}</span>
+                                     </div>
+                                     <div class="char-wrap">
+                                         <span class="char-zhi" :class="WX_MAP[day.zhi]">{{ day.zhi }}</span>
+                                         <span class="shi-shen" :class="getShenColor(day.zhi_shi_shen)">{{ day.zhi_shi_shen }}</span>
+                                     </div>
+                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div v-if="activeLiuri" class="fortune-guide-card">
+                        <div>
+                            <div class="fortune-guide-title">每日运势引导</div>
+                            <div class="fortune-guide-copy">已定位到 {{ activeLiuri.dateKey }}（{{ activeLiuri.monthName }}）。可继续查看这一天的日运断语与开运建议。</div>
+                        </div>
+                        <button class="fortune-guide-btn" @click="openFortuneGuide">查看每日运势</button>
+                    </div>
+
+                    <!-- 5. 生克合化关系 -->
                     <div v-if="interactions" class="ai-section" style="margin-top:20px;">
                         <div class="timeline-title">生克合化注意</div>
                         
@@ -679,6 +718,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
 import { globalState } from '../store.js'
@@ -699,10 +739,15 @@ import {
     buildLocalBaziMatrix,
     getPromptDataFromProfile
 } from '../utils/baziLocalMatrix.mjs'
+import {
+    buildLiuRiList,
+    findTransitSelectionByDate
+} from '../utils/baziTransit.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+const router = useRouter()
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
@@ -942,15 +987,22 @@ const baziEngine = computed(() => {
 
 const selectedDayunIdx = ref(0);
 const selectedLiunianYear = ref(new Date().getFullYear());
+const selectedLiuyueIndex = ref(0);
+const selectedLiuriDateKey = ref('');
+
+const syncTransitSelection = (targetDate = new Date()) => {
+    if (!baziEngine.value) return
+    const selection = findTransitSelectionByDate(baziEngine.value, targetDate)
+    if (!selection) return
+    selectedDayunIdx.value = selection.dayunIndex
+    selectedLiunianYear.value = selection.liunianYear
+    selectedLiuyueIndex.value = selection.liuyueIndex
+    selectedLiuriDateKey.value = selection.liuriDateKey
+}
 
 watch(baziEngine, (newVal) => {
     if (newVal) {
-        const currentYear = new Date().getFullYear();
-        const dys = newVal.yun.getDaYun();
-        let foundIdx = dys.findIndex(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear());
-        if (foundIdx === -1) foundIdx = 0;
-        selectedDayunIdx.value = foundIdx;
-        selectedLiunianYear.value = currentYear;
+        syncTransitSelection(new Date());
     }
 }, { immediate: true });
 
@@ -982,8 +1034,14 @@ const selectDayun = (idx) => {
     if (dy) {
         // 默认选中该大运的第一年
         selectedLiunianYear.value = dy.getStartYear();
+        selectedLiuyueIndex.value = 0;
     }
 };
+
+const selectLiunian = (year) => {
+    selectedLiunianYear.value = year
+    selectedLiuyueIndex.value = 0
+}
 
 const fullDayunList = computed(() => {
     if (!baziEngine.value) return [];
@@ -1035,10 +1093,11 @@ const linkedLiuyueList = computed(() => {
     const targetLn = linkedLiunianList.value.find(ln => ln.year === lnYear)?.originalLn;
     if (!targetLn) return [];
     
-    return targetLn.getLiuYue().map(ly => {
+    return targetLn.getLiuYue().map((ly, index) => {
         const ganZhi = ly.getGanZhi();
         const gan = ganZhi.charAt(0);
         return {
+            index,
             monthName: ly.getMonthInChinese() + '月',
             gan: gan,
             zhi: ganZhi.charAt(1),
@@ -1047,6 +1106,52 @@ const linkedLiuyueList = computed(() => {
         };
     });
 });
+
+const linkedLiuriList = computed(() => {
+    if (!baziEngine.value || linkedLiunianList.value.length === 0) return []
+    const targetLn = linkedLiunianList.value.find(ln => ln.year === selectedLiunianYear.value)?.originalLn
+    if (!targetLn) return []
+    return buildLiuRiList(targetLn, selectedLiuyueIndex.value, baziEngine.value.dayGan)
+})
+
+const activeLiuri = computed(() => {
+    return linkedLiuriList.value.find(item => item.dateKey === selectedLiuriDateKey.value) || linkedLiuriList.value[0] || null
+})
+
+watch(linkedLiuyueList, (list) => {
+    if (!list.length) {
+        selectedLiuyueIndex.value = 0
+        return
+    }
+    if (!list.some(item => item.index === selectedLiuyueIndex.value)) {
+        selectedLiuyueIndex.value = list[0].index
+    }
+}, { immediate: true })
+
+watch(linkedLiuriList, (list) => {
+    if (!list.length) {
+        selectedLiuriDateKey.value = ''
+        return
+    }
+    if (!list.some(item => item.dateKey === selectedLiuriDateKey.value)) {
+        selectedLiuriDateKey.value = list[0].dateKey
+    }
+}, { immediate: true })
+
+const jumpToCurrentTransit = () => {
+    syncTransitSelection(new Date())
+}
+
+const openFortuneGuide = () => {
+    if (!activeLiuri.value) return
+    router.push({
+        name: 'fortune',
+        query: {
+            date: activeLiuri.value.dateKey,
+            profileId: activeProfile.value?.id || ''
+        }
+    })
+}
 
 const specialPatterns = computed(() => {
     if (!activeProfile.value || !activeProfile.value.bazi_detail?.base_info?.special_patterns) return []
@@ -2005,7 +2110,11 @@ const getShenColor = (shen) => {
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
 
 .timeline-section { margin-top: 16px; border-top: 1px dashed var(--glass-border); padding-top: 16px; }
-.timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 12px; font-family: var(--font-serif); text-align: center; font-weight: 500; }
+.timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 0; font-family: var(--font-serif); text-align: center; font-weight: 500; }
+.timeline-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.timeline-mini-btn { min-width: 34px; height: 30px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.16); background: rgba(255,255,255,0.04); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; padding: 0 10px; }
+.timeline-mini-btn.accent { background: rgba(212,175,55,0.14); border-color: rgba(232,204,128,0.26); }
 
 .linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
 .row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
@@ -2014,6 +2123,7 @@ const getShenColor = (shen) => {
 
 .link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 10px 8px; border-radius: 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: start; }
 .link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
+.lr-item { min-width: 66px; }
 
 .item-header { font-size: 10px; color: #aaa; margin-bottom: 8px; text-align: center; line-height: 1.45; min-height: 30px; display: flex; align-items: center; justify-content: center; }
 .item-body { display: flex; flex-direction: row; gap: 10px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 24px; }
@@ -2023,6 +2133,10 @@ const getShenColor = (shen) => {
 .char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 22px; min-width: 22px; height: 24px; padding-right: 14px; flex: 0 0 auto; }
 .stacked-ganzhi .char-wrap { width: 100%; min-width: 0; padding-right: 16px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
+.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fortune-guide-title { color: var(--gold-light); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.fortune-guide-copy { color: #D8D2BF; font-size: 12px; line-height: 1.6; }
+.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid rgba(232,204,128,0.3); border-radius: 999px; background: rgba(212,175,55,0.16); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .shi-shen { position: absolute; right: -14px; top: -1px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
 .shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
@@ -2487,10 +2601,15 @@ const getShenColor = (shen) => {
     .pillar-choice-panel { padding: 12px; border-radius: 20px; }
     .pillar-choice-head { align-items: flex-start; }
     .pillar-orb-current { font-size: 18px; }
+    .timeline-head { align-items: flex-start; }
+    .timeline-actions { gap: 6px; }
+    .timeline-mini-btn { min-width: 30px; padding: 0 9px; }
     .row-content { gap: 6px; padding: 6px; }
     .link-item { min-width: 68px; padding: 9px 6px; }
     .item-body { gap: 8px; }
     .char-wrap { width: 20px; min-width: 20px; padding-right: 12px; }
+    .fortune-guide-card { flex-direction: column; align-items: stretch; }
+    .fortune-guide-btn { width: 100%; }
     .verdict-line { gap: 8px; }
     .verdict-line p { font-size: 13px; }
     .geju-card-head { flex-direction: column; align-items: stretch; }
