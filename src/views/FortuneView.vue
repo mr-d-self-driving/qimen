@@ -10,7 +10,6 @@
           <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
             <button class="profile-switch-trigger" @click="toggleProfileMenu">
               <span class="profile-switch-name">{{ activeProfileName }}</span>
-              <span class="profile-switch-icon">⇆</span>
             </button>
             <div v-if="isProfileMenuOpen" class="profile-flyout">
               <button

@@ -223,16 +223,6 @@
                         <div class="name-row">
                             <span class="bazi-name">{{ activeProfile.name }}</span>
                             <span
-                                v-if="activeProfile.geju"
-                                class="badge badge-gold badge-action"
-                                role="button"
-                                tabindex="0"
-                                title="查看格局判定"
-                                @click="openInsightPanel('geju')"
-                                @keydown.enter.prevent="openInsightPanel('geju')"
-                                @keydown.space.prevent="openInsightPanel('geju')"
-                            >{{ activeProfile.geju }}</span>
-                            <span
                                 v-if="activeProfile.strong_weak"
                                 class="badge badge-blue badge-action"
                                 role="button"
@@ -242,6 +232,16 @@
                                 @keydown.enter.prevent="openInsightPanel('strength')"
                                 @keydown.space.prevent="openInsightPanel('strength')"
                             >{{ activeProfile.strong_weak }}</span>
+                            <span
+                                v-if="activeProfile.geju"
+                                class="badge badge-gold badge-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看格局判定"
+                                @click="openInsightPanel('geju')"
+                                @keydown.enter.prevent="openInsightPanel('geju')"
+                                @keydown.space.prevent="openInsightPanel('geju')"
+                            >{{ activeProfile.geju }}</span>
                         </div>
                         <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
                         <div class="bazi-meta">阳历：{{ solarDateStr }}</div>
@@ -639,7 +639,7 @@
                                     @keydown.space.prevent="openStrengthPanel"
                                 >{{ activeProfile.strong_weak }}</span>
                                 <span class="tag-gold">{{ activeProfile.geju }}</span>
-                                <span v-if="showChengGeText" class="geju-inline-text">{{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                                <span v-if="showChengGeText" class="tag-gold tag-emerald">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
                             </div>
                         </div>
                         <div v-if="strengthSummaryLine" class="geju-summary-line">{{ strengthSummaryLine }}</div>
@@ -751,6 +751,7 @@ import {
     buildLocalBaziMatrix,
     getPromptDataFromProfile
 } from '../utils/baziLocalMatrix.mjs'
+import { resolveBaziInterpretation } from '../utils/baziInterpretation.mjs'
 import {
     buildLiuRiList,
     findTransitSelectionByDate
@@ -1324,37 +1325,18 @@ const showChengGeText = computed(() => {
         && activeProfile.value.bazi_detail.chengge_detail.chengGeResult !== '待定'
 })
 
+const resolvedInterpretation = computed(() => resolveBaziInterpretation(activeProfile.value || {}))
+
 const resolvedYuanjuCore = computed(() => {
-    const detail = activeProfile.value?.bazi_detail
-    return activeProfile.value?.llm_yuanju_core
-        || detail?.llm_yuanju_core
-        || activeProfile.value?.engine_yuanju_core
-        || detail?.engine_yuanju_core
-        || activeProfile.value?.display_yuanju_core
-        || activeProfile.value?.yuanju_core
-        || ''
+    return resolvedInterpretation.value.yuanju_core
 })
 
 const resolvedCurrentDayun = computed(() => {
-    const detail = activeProfile.value?.bazi_detail
-    return activeProfile.value?.llm_current_dayun
-        || detail?.llm_current_dayun
-        || activeProfile.value?.engine_current_dayun
-        || detail?.engine_current_dayun
-        || activeProfile.value?.display_current_dayun
-        || activeProfile.value?.current_dayun
-        || ''
+    return resolvedInterpretation.value.current_dayun
 })
 
 const resolvedCurrentLiunian = computed(() => {
-    const detail = activeProfile.value?.bazi_detail
-    return activeProfile.value?.llm_current_liunian
-        || detail?.llm_current_liunian
-        || activeProfile.value?.engine_current_liunian
-        || detail?.engine_current_liunian
-        || activeProfile.value?.display_current_liunian
-        || activeProfile.value?.current_liunian
-        || ''
+    return resolvedInterpretation.value.current_liunian
 })
 
 // 时间解析逻辑
