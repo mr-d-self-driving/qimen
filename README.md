@@ -170,9 +170,15 @@ create table bazi_profiles (
   strong_weak text,            -- 日主强弱
   favorable_elements text[],   -- 喜用神列表
   unfavorable_elements text[], -- 忌仇神列表
-  yuanju_core text,            -- 原局核心断语
-  current_dayun text,          -- 当前大运断语
-  current_liunian text,        -- 当前流年断语
+  display_yuanju_core text,    -- 展示用原局核心断语（优先 llm，回退 engine）
+  display_current_dayun text,  -- 展示用当前大运断语（优先 llm，回退 engine）
+  display_current_liunian text,-- 展示用当前流年断语（优先 llm，回退 engine）
+  llm_yuanju_core text,        -- LLM 原局核心断语
+  llm_current_dayun text,      -- LLM 当前大运断语
+  llm_current_liunian text,    -- LLM 当前流年断语
+  engine_yuanju_core text,     -- 规则引擎原局核心断语
+  engine_current_dayun text,   -- 规则引擎当前大运断语
+  engine_current_liunian text, -- 规则引擎当前流年断语
   shensha text,                -- 神煞 JSON
   geju text,                   -- 格局名称
   ri_zhu text,                 -- 日柱（供算分引擎使用）

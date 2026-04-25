@@ -342,8 +342,19 @@
                     <div class="timeline-head">
                         <div class="timeline-title">专业四柱大运流年流月流日联动</div>
                         <div class="timeline-actions">
-                            <button class="timeline-mini-btn" @click="jumpToCurrentTransit">今</button>
-                            <button class="timeline-mini-btn accent" @click="openFortuneGuide">看日运</button>
+                            <button class="timeline-icon-btn" title="跳转到今天" @click="jumpToCurrentTransit" aria-label="跳转到今天">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <rect x="4" y="5.5" width="16" height="14" rx="3"></rect>
+                                    <path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>
+                                    <circle cx="12" cy="14" r="2.2"></circle>
+                                </svg>
+                            </button>
+                            <button class="timeline-icon-btn accent" title="查看每日运势" @click="openFortuneGuide" aria-label="查看每日运势">
+                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                    <path d="M7 17L17 7"></path>
+                                    <path d="M9 7h8v8"></path>
+                                </svg>
+                            </button>
                         </div>
                     </div>
                     
@@ -440,12 +451,12 @@
                         </div>
                     </div>
 
-                    <div v-if="activeLiuri" class="fortune-guide-card">
+                    <div v-if="activeLiuri" class="fortune-guide-card" :class="{ masked: liuriInsightMasked }">
                         <div>
-                            <div class="fortune-guide-title">每日运势引导</div>
-                            <div class="fortune-guide-copy">已定位到 {{ activeLiuri.dateKey }}（{{ activeLiuri.monthName }}）。可继续查看这一天的日运断语与开运建议。</div>
+                            <div class="fortune-guide-title">{{ liuriInsightTitle }}</div>
+                            <div class="fortune-guide-copy">{{ liuriInsightText }}</div>
                         </div>
-                        <button class="fortune-guide-btn" @click="openFortuneGuide">查看每日运势</button>
+                        <button class="fortune-guide-btn" @click="openFortuneGuide">查看运势</button>
                     </div>
 
                     <!-- 5. 生克合化关系 -->
@@ -723,6 +734,7 @@ import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
 import { globalState } from '../store.js'
 import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
+import { loadCachedFortune as loadSharedCachedFortune } from '../fortuneCache.mjs'
 import {
     buildPillarsProfilePayload,
     buildSolarProfilePayload,
@@ -748,6 +760,7 @@ const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const router = useRouter()
+const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
@@ -1118,6 +1131,46 @@ const activeLiuri = computed(() => {
     return linkedLiuriList.value.find(item => item.dateKey === selectedLiuriDateKey.value) || linkedLiuriList.value[0] || null
 })
 
+const todayDateKey = computed(() => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+})
+
+const previewFortuneCache = computed(() => {
+    if (!activeLiuri.value || !currentUser.value?.id) return null
+    return loadSharedCachedFortune(
+        getFortuneStorage(),
+        currentUser.value.id,
+        activeLiuri.value.dateKey,
+        new Date(),
+        activeProfile.value?.id || ''
+    )
+})
+
+const isFarFutureLiuri = computed(() => {
+    if (!activeLiuri.value) return false
+    const diffMs = new Date(`${activeLiuri.value.dateKey}T12:00:00+08:00`).getTime() - new Date(`${todayDateKey.value}T12:00:00+08:00`).getTime()
+    return diffMs > 6 * 24 * 60 * 60 * 1000
+})
+
+const liuriInsightTitle = computed(() => {
+    if (!activeLiuri.value) return '当日断语'
+    return `当日断语 · ${activeLiuri.value.dateKey}`
+})
+
+const liuriInsightText = computed(() => {
+    if (previewFortuneCache.value?.day_insight) return previewFortuneCache.value.day_insight
+    if (isFarFutureLiuri.value) return '天机尚覆轻纱，远日之象只露一线端倪。待时辰临近，再观其全貌。'
+    return '此日断语暂未显化，点入运势页后可查看完整日运推演。'
+})
+
+const liuriInsightMasked = computed(() => {
+    return !previewFortuneCache.value?.day_insight && isFarFutureLiuri.value
+})
+
 watch(linkedLiuyueList, (list) => {
     if (!list.length) {
         selectedLiuyueIndex.value = 0
@@ -1221,7 +1274,7 @@ const gejuPanelContent = computed(() => {
     const yongShenStem = chenggeDetail.yongShen || ''
     const yongShen = yongShenStem && yongShenTenGod ? `${yongShenTenGod}（${yongShenStem}）` : (yongShenStem || yongShenTenGod || info.yongShenTypical || '待定')
     const xianShen = chenggeDetail.xianShen || info.xianShenTypical || '待定'
-    const fallbackReason = `未成格，先以${profile.geju || gejuDetail.geju || '主格'}常情观之：${info.judgeBase || getGejuDesc(profile.geju)}`
+    const fallbackReason = `未成格，当前先按${profile.geju || gejuDetail.geju || '主格'}常法参考，仍需结合全局配合与岁运再定。`
     return {
         title: showChengGe ? `${profile.geju || gejuDetail.geju || '格局'} · ${chenggeDetail.chengGe}` : (profile.geju || gejuDetail.geju || '格局'),
         strongWeak: profile.strong_weak || '未定',
@@ -1273,17 +1326,35 @@ const showChengGeText = computed(() => {
 
 const resolvedYuanjuCore = computed(() => {
     const detail = activeProfile.value?.bazi_detail
-    return detail?.llm_yuanju_core || detail?.yuanju_core || activeProfile.value?.yuanju_core || ''
+    return activeProfile.value?.llm_yuanju_core
+        || detail?.llm_yuanju_core
+        || activeProfile.value?.engine_yuanju_core
+        || detail?.engine_yuanju_core
+        || activeProfile.value?.display_yuanju_core
+        || activeProfile.value?.yuanju_core
+        || ''
 })
 
 const resolvedCurrentDayun = computed(() => {
     const detail = activeProfile.value?.bazi_detail
-    return detail?.llm_current_dayun || detail?.current_dayun || activeProfile.value?.current_dayun || ''
+    return activeProfile.value?.llm_current_dayun
+        || detail?.llm_current_dayun
+        || activeProfile.value?.engine_current_dayun
+        || detail?.engine_current_dayun
+        || activeProfile.value?.display_current_dayun
+        || activeProfile.value?.current_dayun
+        || ''
 })
 
 const resolvedCurrentLiunian = computed(() => {
     const detail = activeProfile.value?.bazi_detail
-    return detail?.llm_current_liunian || detail?.current_liunian || activeProfile.value?.current_liunian || ''
+    return activeProfile.value?.llm_current_liunian
+        || detail?.llm_current_liunian
+        || activeProfile.value?.engine_current_liunian
+        || detail?.engine_current_liunian
+        || activeProfile.value?.display_current_liunian
+        || activeProfile.value?.current_liunian
+        || ''
 })
 
 // 时间解析逻辑
@@ -2113,27 +2184,29 @@ const getShenColor = (shen) => {
 .timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 0; font-family: var(--font-serif); text-align: center; font-weight: 500; }
 .timeline-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.timeline-mini-btn { min-width: 34px; height: 30px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.16); background: rgba(255,255,255,0.04); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; padding: 0 10px; }
-.timeline-mini-btn.accent { background: rgba(212,175,55,0.14); border-color: rgba(232,204,128,0.26); }
+.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.16); background: rgba(255,255,255,0.04); color: var(--gold-light); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.timeline-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.timeline-icon-btn.accent { background: rgba(212,175,55,0.14); border-color: rgba(232,204,128,0.26); }
 
 .linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
 .row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
-.row-content { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 8px; flex: 1; scroll-snap-type: x proximity; }
+.row-content { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 6px; flex: 1; scroll-snap-type: x proximity; }
 .row-content::-webkit-scrollbar { display: none; }
 
-.link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 74px; padding: 10px 8px; border-radius: 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: start; }
+.link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 66px; padding: 8px 6px; border-radius: 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: start; }
 .link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
-.lr-item { min-width: 66px; }
+.lr-item { min-width: 58px; }
 
 .item-header { font-size: 10px; color: #aaa; margin-bottom: 8px; text-align: center; line-height: 1.45; min-height: 30px; display: flex; align-items: center; justify-content: center; }
-.item-body { display: flex; flex-direction: row; gap: 10px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 24px; }
-.stacked-ganzhi { flex-direction: column; gap: 8px; }
+.item-body { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 24px; }
+.stacked-ganzhi { flex-direction: column; gap: 5px; }
 .xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
 
-.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 22px; min-width: 22px; height: 24px; padding-right: 14px; flex: 0 0 auto; }
-.stacked-ganzhi .char-wrap { width: 100%; min-width: 0; padding-right: 16px; }
+.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; height: 22px; padding-right: 10px; flex: 0 0 auto; }
+.stacked-ganzhi .char-wrap { width: 100%; min-width: 0; padding-right: 12px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
-.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
+.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: linear-gradient(180deg, rgba(8,8,16,0.12), rgba(8,8,16,0.28)); pointer-events: none; }
 .fortune-guide-title { color: var(--gold-light); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
 .fortune-guide-copy { color: #D8D2BF; font-size: 12px; line-height: 1.6; }
 .fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid rgba(232,204,128,0.3); border-radius: 999px; background: rgba(212,175,55,0.16); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; }
@@ -2603,7 +2676,7 @@ const getShenColor = (shen) => {
     .pillar-orb-current { font-size: 18px; }
     .timeline-head { align-items: flex-start; }
     .timeline-actions { gap: 6px; }
-    .timeline-mini-btn { min-width: 30px; padding: 0 9px; }
+    .timeline-icon-btn { width: 28px; height: 28px; }
     .row-content { gap: 6px; padding: 6px; }
     .link-item { min-width: 68px; padding: 9px 6px; }
     .item-body { gap: 8px; }

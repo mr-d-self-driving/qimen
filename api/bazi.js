@@ -9,6 +9,30 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_KEY
 );
 
+function buildQualitativeSections({ llmSucceeded, llmQualitativeData, engineQualitativeData }) {
+    const normalizedEngine = {
+        yuanju_core: engineQualitativeData?.yuanju_core || '',
+        current_dayun: engineQualitativeData?.current_dayun || '',
+        current_liunian: engineQualitativeData?.current_liunian || ''
+    };
+
+    const normalizedLlm = llmSucceeded ? {
+        yuanju_core: llmQualitativeData?.yuanju_core || '',
+        current_dayun: llmQualitativeData?.current_dayun || '',
+        current_liunian: llmQualitativeData?.current_liunian || ''
+    } : {
+        yuanju_core: null,
+        current_dayun: null,
+        current_liunian: null
+    };
+
+    return {
+        display: llmSucceeded ? normalizedLlm : normalizedEngine,
+        llm: normalizedLlm,
+        engine: normalizedEngine
+    };
+}
+
 const GE_JU_INFO = {
     '正官格': {
         name: '正官格',
@@ -874,7 +898,13 @@ module.exports = async function handler(req, res) {
             })
         });
 
-        let llmQualitativeData = { yuanju_core: engineYuanjuCore, current_dayun: engineCurrentDayun, current_liunian: engineCurrentLiunian };
+        const engineQualitativeData = {
+            yuanju_core: engineYuanjuCore,
+            current_dayun: engineCurrentDayun,
+            current_liunian: engineCurrentLiunian
+        };
+        let llmQualitativeData = null;
+        let llmSucceeded = false;
         try {
             const rawText = await llmResponse.text();
             if (!llmResponse.ok) {
@@ -885,13 +915,20 @@ module.exports = async function handler(req, res) {
                 if (apiData.choices && apiData.choices[0] && apiData.choices[0].message) {
                     const rawResult = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
                     llmQualitativeData = JSON.parse(rawResult);
+                    llmSucceeded = true;
                 }
             }
         } catch (e) {
             console.error("LLM API 解析失败，降级使用本地规则引擎结果:", e);
         }
 
-        const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${llmQualitativeData.yuanju_core}\n\n当前大运：\n${llmQualitativeData.current_dayun}\n\n当前流年：\n${llmQualitativeData.current_liunian}`;
+        const qualitativeSections = buildQualitativeSections({
+            llmSucceeded,
+            llmQualitativeData,
+            engineQualitativeData
+        });
+
+        const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${qualitativeSections.display.yuanju_core}\n\n当前大运：\n${qualitativeSections.display.current_dayun}\n\n当前流年：\n${qualitativeSections.display.current_liunian}`;
 
         const finalBaziDetail = {
             ...objectiveBaziData,
@@ -908,23 +945,18 @@ module.exports = async function handler(req, res) {
             scoring_details: favorableResult.scoring_details,
             dimension_breakdown: favorableResult.dimension_breakdown,
             wuxing_ratio: favorableResult.wuxing_ratio,
-            // LLM 版放在第一层，供旧代码读取
-            yuanju_core: llmQualitativeData.yuanju_core,
-            current_dayun: llmQualitativeData.current_dayun,
-            current_liunian: llmQualitativeData.current_liunian,
-            llm_yuanju_core: llmQualitativeData.yuanju_core,
-            llm_current_dayun: llmQualitativeData.current_dayun,
-            llm_current_liunian: llmQualitativeData.current_liunian,
+            llm_yuanju_core: qualitativeSections.llm.yuanju_core,
+            llm_current_dayun: qualitativeSections.llm.current_dayun,
+            llm_current_liunian: qualitativeSections.llm.current_liunian,
             interactions: interactions,
             classic_verdict: {
                 source: '三命通会',
                 key: siziSummaryKey,
                 text: siziSummaryText
             },
-            // Rule Engine 版放在这里供后端使用
-            engine_yuanju: engineYuanjuCore,
-            engine_dayun: engineCurrentDayun,
-            engine_liunian: engineCurrentLiunian
+            engine_yuanju_core: qualitativeSections.engine.yuanju_core,
+            engine_current_dayun: qualitativeSections.engine.current_dayun,
+            engine_current_liunian: qualitativeSections.engine.current_liunian
         };
 
         // ── 命理基底字段（供 calculateDailyScore 纯 JS 算分引擎使用）──
@@ -938,9 +970,15 @@ module.exports = async function handler(req, res) {
             strong_weak: finalBaziDetail.strong_weak,
             favorable_elements: finalBaziDetail.favorable_gods,
             unfavorable_elements: finalBaziDetail.unfavorable_gods,
-            yuanju_core: finalBaziDetail.yuanju_core,
-            current_dayun: finalBaziDetail.current_dayun,
-            current_liunian: finalBaziDetail.current_liunian,
+            display_yuanju_core: qualitativeSections.display.yuanju_core,
+            display_current_dayun: qualitativeSections.display.current_dayun,
+            display_current_liunian: qualitativeSections.display.current_liunian,
+            llm_yuanju_core: qualitativeSections.llm.yuanju_core,
+            llm_current_dayun: qualitativeSections.llm.current_dayun,
+            llm_current_liunian: qualitativeSections.llm.current_liunian,
+            engine_yuanju_core: qualitativeSections.engine.yuanju_core,
+            engine_current_dayun: qualitativeSections.engine.current_dayun,
+            engine_current_liunian: qualitativeSections.engine.current_liunian,
             bazi_detail: finalBaziDetail,
             shensha: JSON.stringify(shenshaFull),
             geju: geJu,
@@ -964,3 +1002,4 @@ module.exports = async function handler(req, res) {
 module.exports.GE_JU_INFO = GE_JU_INFO;
 module.exports.getChengGe = getChengGe;
 module.exports.getGeJu = BaziEngine.getGeJu.bind(BaziEngine);
+module.exports.buildQualitativeSections = buildQualitativeSections;

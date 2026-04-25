@@ -15,5 +15,6 @@ test('stacked-ganzhi 样式强制纵向排列', () => {
 
 test('专业联动区包含流日与日运跳转入口', () => {
   assert.match(source, /流日/)
-  assert.match(source, /看日运/)
+  assert.match(source, /查看每日运势/)
+  assert.doesNotMatch(source, />看日运</)
 })

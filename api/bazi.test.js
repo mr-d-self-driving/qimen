@@ -87,3 +87,67 @@ test('GE_JU_INFO exposes the requested major structures', () => {
   assert.equal(baziModule.GE_JU_INFO['建禄格'].element, '比');
   assert.ok(baziModule.GE_JU_INFO['伤官格'].chengGeTypes.includes('伤官佩印格'));
 });
+
+test('buildQualitativeSections keeps llm fields empty when llm request fails', () => {
+  const result = baziModule.buildQualitativeSections({
+    llmSucceeded: false,
+    llmQualitativeData: null,
+    engineQualitativeData: {
+      yuanju_core: 'engine-yuanju',
+      current_dayun: 'engine-dayun',
+      current_liunian: 'engine-liunian'
+    }
+  });
+
+  assert.deepEqual(result, {
+    display: {
+      yuanju_core: 'engine-yuanju',
+      current_dayun: 'engine-dayun',
+      current_liunian: 'engine-liunian'
+    },
+    llm: {
+      yuanju_core: null,
+      current_dayun: null,
+      current_liunian: null
+    },
+    engine: {
+      yuanju_core: 'engine-yuanju',
+      current_dayun: 'engine-dayun',
+      current_liunian: 'engine-liunian'
+    }
+  });
+});
+
+test('buildQualitativeSections uses llm fields only when llm request succeeds', () => {
+  const result = baziModule.buildQualitativeSections({
+    llmSucceeded: true,
+    llmQualitativeData: {
+      yuanju_core: 'llm-yuanju',
+      current_dayun: 'llm-dayun',
+      current_liunian: 'llm-liunian'
+    },
+    engineQualitativeData: {
+      yuanju_core: 'engine-yuanju',
+      current_dayun: 'engine-dayun',
+      current_liunian: 'engine-liunian'
+    }
+  });
+
+  assert.deepEqual(result, {
+    display: {
+      yuanju_core: 'llm-yuanju',
+      current_dayun: 'llm-dayun',
+      current_liunian: 'llm-liunian'
+    },
+    llm: {
+      yuanju_core: 'llm-yuanju',
+      current_dayun: 'llm-dayun',
+      current_liunian: 'llm-liunian'
+    },
+    engine: {
+      yuanju_core: 'engine-yuanju',
+      current_dayun: 'engine-dayun',
+      current_liunian: 'engine-liunian'
+    }
+  });
+});
