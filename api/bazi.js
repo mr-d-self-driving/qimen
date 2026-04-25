@@ -9,6 +9,475 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_KEY
 );
 
+const GE_JU_INFO = {
+    '正官格': {
+        name: '正官格',
+        element: '官',
+        judgeBase: '月令以官星司令，取官为格。',
+        yongShenTypical: '官星',
+        xianShenTypical: '印绶、财星',
+        strength: '宜身强',
+        shunNi: '顺用',
+        personality: ['端凝守礼', '重名分秩序', '行事持中', '喜清不喜杂'],
+        goodFor: ['仕途法务', '组织管理', '公职文教'],
+        watchOut: ['最忌官杀混杂', '防伤官犯官', '忌财印两伤'],
+        chengGeTypes: ['正官佩印格', '用官喜财格', '弃官就食格', '弃官存财格'],
+        defeatConditions: ['官杀混杂', '伤官见官', '官星无根受制'],
+        classicQuote: '《子平真诠》意旨：官以纯粹为贵，喜财印相随，最忌混杀伤官。'
+    },
+    '七杀格': {
+        name: '七杀格',
+        element: '杀',
+        judgeBase: '月令以七杀司令，取杀为格。',
+        yongShenTypical: '七杀',
+        xianShenTypical: '食神、印绶、劫财',
+        strength: '宜身强',
+        shunNi: '逆用',
+        personality: ['气决胆壮', '任事果断', '好胜尚权', '遇制则贵'],
+        goodFor: ['武职权柄', '竞争行业', '高压决断岗位'],
+        watchOut: ['忌杀无制化', '忌财党助杀', '忌身弱受攻'],
+        chengGeTypes: ['杀印相生格', '杀邀食制格', '以劫合杀格', '财滋弱杀格'],
+        defeatConditions: ['七杀无气无根', '杀旺无制', '身弱受杀'],
+        classicQuote: '《子平真诠》意旨：杀为偏官，须有制伏，制化得宜，反成权贵。'
+    },
+    '正财格': {
+        name: '正财格',
+        element: '财',
+        judgeBase: '月令以正财司令，取财为格。',
+        yongShenTypical: '正财',
+        xianShenTypical: '官星、食神',
+        strength: '宜身强',
+        shunNi: '顺用',
+        personality: ['务实持家', '重信用分寸', '善经营筹画', '不喜虚浮'],
+        goodFor: ['经营理财', '实业贸易', '稳定管理岗'],
+        watchOut: ['防比劫争财', '忌财多身弱', '忌印财交战'],
+        chengGeTypes: ['财旺生官格', '财喜食生格', '用财喜印格', '用财喜比格'],
+        defeatConditions: ['比劫争财', '财多压身', '财星失根'],
+        classicQuote: '《子平真诠》意旨：财宜根深有气，得食生官护，则富而能贵。'
+    },
+    '偏财格': {
+        name: '偏财格',
+        element: '才',
+        judgeBase: '月令以偏财司令，取才为格。',
+        yongShenTypical: '偏财',
+        xianShenTypical: '官星、食神',
+        strength: '宜身强',
+        shunNi: '顺用',
+        personality: ['机敏通达', '善应变取机', '重效率资源', '外缘较广'],
+        goodFor: ['市场拓展', '项目经营', '资源整合型工作'],
+        watchOut: ['防比劫夺财', '忌贪多冒进', '忌财轻浮荡'],
+        chengGeTypes: ['财旺生官格', '财喜食生格', '用财喜印格', '用财喜比格'],
+        defeatConditions: ['比劫争财', '财旺身弱', '财星无根'],
+        classicQuote: '《子平真诠》意旨：偏财喜身强而能任，得食官辅佐，则发福尤速。'
+    },
+    '食神格': {
+        name: '食神格',
+        element: '食',
+        judgeBase: '月令以食神司令，取食为格。',
+        yongShenTypical: '食神',
+        xianShenTypical: '财星、七杀',
+        strength: '强弱皆可',
+        shunNi: '顺用',
+        personality: ['温厚宽和', '辞气雍容', '才艺外发', '重生活情趣'],
+        goodFor: ['文艺策划', '教育传播', '品牌内容'],
+        watchOut: ['忌枭神夺食', '忌财引杀重', '忌食轻无根'],
+        chengGeTypes: ['食神制杀格', '食神生财格', '用食喜比格', '弃食就印格'],
+        defeatConditions: ['枭神夺食', '食神失根', '杀重无制'],
+        classicQuote: '《子平真诠》意旨：食神最喜生财制杀，怕偏印夺其清气。'
+    },
+    '伤官格': {
+        name: '伤官格',
+        element: '伤',
+        judgeBase: '月令以伤官司令，取伤为格。',
+        yongShenTypical: '伤官',
+        xianShenTypical: '印绶、财星',
+        strength: '宜身强',
+        shunNi: '逆用',
+        personality: ['聪警敏锐', '辞锋见长', '不拘常格', '好胜自任'],
+        goodFor: ['创意表达', '技术突破', '营销策动'],
+        watchOut: ['防伤官见官', '忌锋芒太露', '忌无印节制'],
+        chengGeTypes: ['伤官佩印格', '伤官生财格', '伤官喜官格', '伤官弃官格'],
+        defeatConditions: ['伤官见官', '伤重无印', '官星受伤成祸'],
+        classicQuote: '《子平真诠》意旨：伤官虽秀，须财印相辅；若直犯官星，多主反覆。'
+    },
+    '正印格': {
+        name: '正印格',
+        element: '印',
+        judgeBase: '月令以正印司令，取印为格。',
+        yongShenTypical: '正印',
+        xianShenTypical: '官星、比劫',
+        strength: '强弱皆可',
+        shunNi: '顺用',
+        personality: ['慈厚稳重', '喜学好古', '重名节涵养', '有护持心'],
+        goodFor: ['教育研究', '顾问策士', '文职学术'],
+        watchOut: ['防财破印', '忌枭食并争', '忌印重闭塞'],
+        chengGeTypes: ['用印喜官格', '用印喜食格', '用印喜比格', '弃印就财格'],
+        defeatConditions: ['财破印', '印轻无根', '食印相碍'],
+        classicQuote: '《子平真诠》意旨：印绶喜官来生扶，最怕财星坏印。'
+    },
+    '偏印格': {
+        name: '偏印格',
+        element: '枭',
+        judgeBase: '月令以偏印司令，取枭为格。',
+        yongShenTypical: '偏印',
+        xianShenTypical: '官星、比劫',
+        strength: '强弱皆可',
+        shunNi: '逆用',
+        personality: ['思深好静', '悟性偏高', '孤介不群', '多偏门专长'],
+        goodFor: ['术数设计', '研究开发', '宗教身心领域'],
+        watchOut: ['防枭神夺食', '忌财来破印', '忌孤高失群'],
+        chengGeTypes: ['用印喜官格', '用印喜食格', '用印喜比格', '弃印就财格'],
+        defeatConditions: ['财破印', '枭神夺食', '印枭失根'],
+        classicQuote: '《子平真诠》意旨：偏印偏于孤清，得官比扶持则奇，见财多损。'
+    },
+    '建禄格': {
+        name: '建禄格',
+        element: '比',
+        judgeBase: '月支为日主禄位，以身自旺立格。',
+        yongShenTypical: '比肩',
+        xianShenTypical: '官星、财星、食神',
+        strength: '宜身强',
+        shunNi: '逆用',
+        personality: ['自主自立', '自尊极强', '行事果毅', '不喜受制'],
+        goodFor: ['自主创业', '统筹管理', '开创型岗位'],
+        watchOut: ['防比劫太重', '忌无财官引', '防刚强失和'],
+        chengGeTypes: ['建禄用官格', '建禄用财格', '建禄用食格'],
+        defeatConditions: ['比劫壅滞', '无吉神引化', '财官俱薄'],
+        classicQuote: '《子平真诠》意旨：建禄月劫，最喜财官透出，方见福力。'
+    },
+    '羊刃格': {
+        name: '羊刃格',
+        element: '劫',
+        judgeBase: '阳干月支临刃，以刃气过刚立格。',
+        yongShenTypical: '劫财',
+        xianShenTypical: '七杀、正官、食伤',
+        strength: '宜身强',
+        shunNi: '逆用',
+        personality: ['刚决猛烈', '好胜不屈', '担当敢为', '喜直不喜曲'],
+        goodFor: ['军警竞技', '攻坚执行', '高压管理场域'],
+        watchOut: ['忌羊刃无制', '防争斗伤灾', '忌财星裸露'],
+        chengGeTypes: ['刃杀相停格', '羊刃驾官格', '刃泄生财格'],
+        defeatConditions: ['羊刃无制', '刃旺伤身', '财官受冲'],
+        classicQuote: '《子平真诠》意旨：羊刃极刚，须官杀制伏，制得其宜，反主威权。'
+    }
+};
+
+const _FULL_TEN_GOD_MAP = {
+    '比': '比肩',
+    '劫': '劫财',
+    '食': '食神',
+    '伤': '伤官',
+    '财': '正财',
+    '才': '偏财',
+    '官': '正官',
+    '杀': '七杀',
+    '印': '正印',
+    '枭': '偏印'
+};
+const _SHORT_TEN_GOD_MAP = Object.fromEntries(Object.entries(_FULL_TEN_GOD_MAP).map(([key, value]) => [value, key]));
+const _GAN_TO_ELEMENT = { '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土', '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水' };
+const _ELEMENT_TO_REP_GAN = { '木': '甲', '火': '丙', '土': '戊', '金': '庚', '水': '壬' };
+const _ELEMENT_TO_STEMS = {
+    '木': ['甲', '乙'],
+    '火': ['丙', '丁'],
+    '土': ['戊', '己'],
+    '金': ['庚', '辛'],
+    '水': ['壬', '癸']
+};
+const _HE_GAN_MAP = { '甲': '己', '己': '甲', '乙': '庚', '庚': '乙', '丙': '辛', '辛': '丙', '丁': '壬', '壬': '丁', '戊': '癸', '癸': '戊' };
+let _monthMergeStemContext = [];
+
+function _normalizeTenGodName(name) {
+    return _SHORT_TEN_GOD_MAP[name] || name || '';
+}
+
+function _buildStemsFromBazi(bazi) {
+    return [bazi.year[0], bazi.month[0], bazi.day[0], bazi.time[0]];
+}
+
+function _buildBranchesFromBazi(bazi) {
+    return [bazi.year[1], bazi.month[1], bazi.day[1], bazi.time[1]];
+}
+
+function _getVisibleStems(allStems, dayGan) {
+    const visible = [];
+    allStems.forEach((stem, index) => {
+        if (index === 2) return;
+        visible.push(stem);
+    });
+    return visible.filter(stem => stem !== undefined && stem !== null && stem !== '');
+}
+
+function _isStemTouGan(stem, allStems) {
+    return _getVisibleStems(allStems).includes(stem);
+}
+
+function _countStemTouGan(stem, allStems) {
+    return _getVisibleStems(allStems).filter(item => item === stem).length;
+}
+
+function _getStemRootStats(stem, allBranches) {
+    const stats = { strong: 0, weak: 0, trace: 0, none: 0, phases: [] };
+    allBranches.forEach(branch => {
+        const phase = getDiShi(stem, branch);
+        stats.phases.push({ branch, phase });
+        if (phase === '帝旺' || phase === '临官') stats.strong += 1;
+        else if (phase === '长生' || phase === '冠带') stats.weak += 1;
+        else if (phase === '墓') stats.trace += 1;
+        else stats.none += 1;
+    });
+    return stats;
+}
+
+function _getStemState(stem, allStems, allBranches) {
+    const rootStats = _getStemRootStats(stem, allBranches);
+    const touGanCount = _countStemTouGan(stem, allStems);
+    return {
+        stem,
+        touGan: touGanCount > 0,
+        touGanCount,
+        rootStats,
+        hasStrongRoot: rootStats.strong > 0,
+        hasWeakRoot: rootStats.weak > 0,
+        hasTraceRoot: rootStats.trace > 0,
+        hasRoot: rootStats.strong > 0 || rootStats.weak > 0 || rootStats.trace > 0,
+        hasLi: touGanCount > 0 && rootStats.strong > 0,
+        hasQi: touGanCount > 0 && (rootStats.strong > 0 || rootStats.weak > 0),
+        noRoot: rootStats.strong === 0 && rootStats.weak === 0 && rootStats.trace === 0
+    };
+}
+
+function _getTenGodStem(dayGan, tenGod, tenGodMap) {
+    const normalized = _normalizeTenGodName(tenGod);
+    const mapEntries = tenGodMap ? Object.entries(tenGodMap) : Object.entries(BaziEngine.ShiShen[dayGan] || {});
+    const found = mapEntries.find(([, value]) => _normalizeTenGodName(value) === normalized);
+    return found ? found[0] : '';
+}
+
+function _getTenGodState(dayGan, tenGod, allStems, allBranches, tenGodMap) {
+    const stem = _getTenGodStem(dayGan, tenGod, tenGodMap);
+    return stem ? _getStemState(stem, allStems, allBranches) : {
+        stem: '',
+        touGan: false,
+        touGanCount: 0,
+        rootStats: { strong: 0, weak: 0, trace: 0, none: allBranches.length, phases: [] },
+        hasStrongRoot: false,
+        hasWeakRoot: false,
+        hasTraceRoot: false,
+        hasRoot: false,
+        hasLi: false,
+        hasQi: false,
+        noRoot: true
+    };
+}
+
+function _getCombinedTenGodState(dayGan, tenGods, allStems, allBranches, tenGodMap) {
+    const states = tenGods.map(tenGod => _getTenGodState(dayGan, tenGod, allStems, allBranches, tenGodMap));
+    const active = states.filter(state => state.stem);
+    return {
+        stems: active.map(state => state.stem),
+        states: active,
+        touGan: active.some(state => state.touGan),
+        hasLi: active.some(state => state.hasLi),
+        hasQi: active.some(state => state.hasQi),
+        hasRoot: active.some(state => state.hasRoot),
+        overWang: false
+    };
+}
+
+function _isElementOverWang(element, allStems, allBranches) {
+    const stems = _ELEMENT_TO_STEMS[element] || [];
+    const touGanCount = stems.reduce((sum, stem) => sum + _countStemTouGan(stem, allStems), 0);
+    const strongRootCount = stems.reduce((sum, stem) => sum + _getStemRootStats(stem, allBranches).strong, 0);
+    return touGanCount >= 2 && strongRootCount >= 2;
+}
+
+function _isOfficialMixed(states) {
+    if (!states.guan.touGan || !states.sha.touGan) return false;
+    if (states.shi.hasLi) return false;
+    if (states.jie.touGan && (_HE_GAN_MAP[states.jie.stem] === states.sha.stem || _HE_GAN_MAP[states.jie.stem] === states.guan.stem)) return false;
+    return true;
+}
+
+function _isDangerousShangGuan(dayGan, states) {
+    if (['庚', '辛', '壬', '癸'].includes(dayGan)) return false;
+    return states.shang.hasQi && states.guan.touGan && !states.yin.touGan;
+}
+
+function _isAnyShangGuanJianGuan(dayGan, states) {
+    if (['庚', '辛', '壬', '癸'].includes(dayGan)) return false;
+    return states.shang.hasQi && states.guan.touGan && !states.yin.touGan;
+}
+
+function _isStemKe(targetStem, attackerStem) {
+    const targetElement = _GAN_TO_ELEMENT[targetStem];
+    const attackerElement = _GAN_TO_ELEMENT[attackerStem];
+    const keMap = { '木': '土', '火': '金', '土': '水', '金': '木', '水': '火' };
+    return keMap[attackerElement] === targetElement;
+}
+
+function _getMonthHiddenGans(monthZhi) {
+    const hides = BaziEngine.ZHI_HIDE[monthZhi] || [];
+    return [hides[0] || null, hides[1] || null, hides[2] || null];
+}
+
+function _detectMonthMerge(allBranches, monthZhi) {
+    const sanHeGroups = [
+        { branches: ['申', '子', '辰'], element: '水' },
+        { branches: ['寅', '午', '戌'], element: '火' },
+        { branches: ['巳', '酉', '丑'], element: '金' },
+        { branches: ['亥', '卯', '未'], element: '木' }
+    ];
+    for (const group of sanHeGroups) {
+        if (!group.branches.includes(monthZhi)) continue;
+        if (group.branches.every(branch => allBranches.includes(branch))) {
+            return {
+                mergeType: '三合',
+                originalZhi: monthZhi,
+                resultElement: group.element,
+                resultGan: _ELEMENT_TO_REP_GAN[group.element]
+            };
+        }
+    }
+    const liuHeGroups = [
+        { branches: ['子', '丑'], element: '土' },
+        { branches: ['寅', '亥'], element: '木' },
+        { branches: ['卯', '戌'], element: '火' },
+        { branches: ['辰', '酉'], element: '金' },
+        { branches: ['巳', '申'], element: '水' },
+        { branches: ['午', '未'], element: '土' }
+    ];
+    for (const group of liuHeGroups) {
+        if (!group.branches.includes(monthZhi)) continue;
+        if (!group.branches.every(branch => allBranches.includes(branch))) continue;
+        const resultStems = _ELEMENT_TO_STEMS[group.element] || [];
+        const hasVisibleStem = _monthMergeStemContext.some(stem => resultStems.includes(stem));
+        if (!hasVisibleStem) continue;
+        return {
+            mergeType: '六合',
+            originalZhi: monthZhi,
+            resultElement: group.element,
+            resultGan: _ELEMENT_TO_REP_GAN[group.element]
+        };
+    }
+    return null;
+}
+
+function getChengGe(baziInfo) {
+    const { geju, dayGan, allStems, allBranches, tenGodMap, dayStrength } = baziInfo;
+    const baseBasis = baziInfo.basis || (geju === '建禄格' || geju === '羊刃格' ? '特判' : '月令本气');
+    const states = {
+        bi: _getTenGodState(dayGan, '比', allStems, allBranches, tenGodMap),
+        jie: _getTenGodState(dayGan, '劫', allStems, allBranches, tenGodMap),
+        shi: _getTenGodState(dayGan, '食', allStems, allBranches, tenGodMap),
+        shang: _getTenGodState(dayGan, '伤', allStems, allBranches, tenGodMap),
+        cai: _getTenGodState(dayGan, '财', allStems, allBranches, tenGodMap),
+        caiPian: _getTenGodState(dayGan, '才', allStems, allBranches, tenGodMap),
+        guan: _getTenGodState(dayGan, '官', allStems, allBranches, tenGodMap),
+        sha: _getTenGodState(dayGan, '杀', allStems, allBranches, tenGodMap),
+        yin: _getTenGodState(dayGan, '印', allStems, allBranches, tenGodMap),
+        xiao: _getTenGodState(dayGan, '枭', allStems, allBranches, tenGodMap)
+    };
+    const finance = _getCombinedTenGodState(dayGan, ['财', '才'], allStems, allBranches, tenGodMap);
+    const seal = _getCombinedTenGodState(dayGan, ['印', '枭'], allStems, allBranches, tenGodMap);
+    const official = _getCombinedTenGodState(dayGan, ['官', '杀'], allStems, allBranches, tenGodMap);
+    const biJieTooStrong = _isElementOverWang(_GAN_TO_ELEMENT[states.bi.stem || dayGan], allStems, allBranches);
+    const result = {
+        yongShen: '',
+        yongShenTenGod: '',
+        chengGe: geju,
+        chengGeResult: '待定',
+        chengGeReason: '月令已定格，仍待四柱配合分高下。',
+        xianShen: '',
+        basis: baseBasis
+    };
+    const setResult = (yongTenGod, chengGe, chengGeResult, chengGeReason, xianShen = '', yongStem = '') => {
+        result.yongShenTenGod = yongTenGod;
+        result.yongShen = yongStem || _getTenGodStem(dayGan, yongTenGod, tenGodMap) || (yongTenGod === '比' ? dayGan : '');
+        result.chengGe = chengGe;
+        result.chengGeResult = chengGeResult;
+        result.chengGeReason = chengGeReason;
+        result.xianShen = xianShen;
+        return result;
+    };
+
+    if (geju === '正官格') {
+        if (_isOfficialMixed(states)) return setResult('官', '正官格', '败格', '官杀混杂', '', states.guan.stem);
+        if (_isDangerousShangGuan(dayGan, states)) return setResult('官', '正官格', '败格', '伤官见官', '', states.guan.stem);
+        if (states.guan.hasLi && seal.hasLi) return setResult('官', '正官佩印格', '成格', '官印相扶，官星清而有护。', '印', states.guan.stem);
+        if (states.guan.hasLi && finance.hasQi && !states.shang.touGan) return setResult('官', '用官喜财格', '成格', '官星有力，财星通气以生官。', '财', states.guan.stem);
+        if (states.guan.noRoot && (states.shang.hasLi || states.shi.hasLi)) return setResult('官', '弃官就食格', '成格', '官星无根受制，转取食神成局。', '食', states.guan.stem);
+        if ((states.shang.hasLi || states.sha.hasLi) && finance.hasLi) return setResult('官', '弃官存财格', '成格', '官星受制，财星反得成用。', '财', states.guan.stem);
+        return setResult('官', '正官格', '待定', '官星已立，须再观印财与清纯。', '', states.guan.stem);
+    }
+
+    if (geju === '七杀格') {
+        if (states.sha.noRoot && !finance.hasQi) return setResult('杀', '七杀格', '败格', '七杀无气无根', '', states.sha.stem);
+        if (states.sha.hasRoot && seal.hasLi) return setResult('杀', '杀印相生格', '成格', '七杀有根，印绶有力相化。', '印', states.sha.stem);
+        if (states.shi.hasLi && states.sha.hasRoot) return setResult('杀', '杀邀食制格', '成格', '食神得力，能制七杀。', '食', states.sha.stem);
+        if (states.jie.touGan && _HE_GAN_MAP[states.jie.stem] === states.sha.stem) return setResult('杀', '以劫合杀格', '成格', '劫财透干，与杀相合成权。', '劫', states.sha.stem);
+        if (finance.hasLi && states.sha.hasRoot && dayStrength === '身强') return setResult('杀', '财滋弱杀格', '成格', '财星有力而身能任杀。', '财', states.sha.stem);
+        return setResult('杀', '七杀格', '待定', '杀星已立，仍须制化得所。', '', states.sha.stem);
+    }
+
+    if (geju === '正财格' || geju === '偏财格') {
+        const yongTenGod = geju === '正财格' ? '财' : '才';
+        const yongState = geju === '正财格' ? states.cai : states.caiPian;
+        if (biJieTooStrong && !official.hasQi) return setResult(yongTenGod, geju, '败格', '比劫争财', '', yongState.stem);
+        if (yongState.hasLi && states.guan.hasQi) return setResult(yongTenGod, '财旺生官格', '成格', '财星有力，官星得气。', '官', yongState.stem);
+        if (states.shi.hasLi && yongState.hasQi) return setResult(yongTenGod, '财喜食生格', '成格', '食神有力，能生财星。', '食', yongState.stem);
+        if (seal.hasLi && yongState.hasLi && !allBranches.every(branch => branch === baziInfo.monthZhi)) return setResult(yongTenGod, '用财喜印格', '成格', '财印各有所凭，互成高下。', '印', yongState.stem);
+        if ((states.bi.touGan || states.jie.touGan) && yongState.hasRoot && !biJieTooStrong) return setResult(yongTenGod, '用财喜比格', '成格', '比劫透而不劫尽，反能任财。', '比', yongState.stem);
+        return setResult(yongTenGod, geju, '待定', '财星已立，仍需官食护持。', '', yongState.stem);
+    }
+
+    if (geju === '正印格' || geju === '偏印格') {
+        const yongTenGod = geju === '正印格' ? '印' : '枭';
+        const yongState = geju === '正印格' ? states.yin : states.xiao;
+        if (finance.hasLi && yongState.hasLi && !states.bi.touGan && !states.jie.touGan) return setResult(yongTenGod, geju, '败格', '财破印', '', yongState.stem);
+        if (yongState.hasLi && states.guan.hasQi) return setResult(yongTenGod, '用印喜官格', '成格', '印绶有力，官星来生。', '官', yongState.stem);
+        if (yongState.hasLi && states.shi.hasQi && !(states.xiao.hasLi && states.shi.noRoot)) return setResult(yongTenGod, '用印喜食格', '成格', '印绶稳而食神通气。', '食', yongState.stem);
+        if (yongState.hasLi && (states.bi.hasQi || states.jie.hasQi)) return setResult(yongTenGod, '用印喜比格', '成格', '印比相扶，身有依归。', '比', yongState.stem);
+        if (yongState.noRoot && finance.hasLi) return setResult(yongTenGod, '弃印就财格', '成格', '印星失势，转取财星为用。', '财', yongState.stem);
+        return setResult(yongTenGod, geju, '待定', '印星已立，仍须看官比食之配。', '', yongState.stem);
+    }
+
+    if (geju === '食神格') {
+        if (states.xiao.hasLi && states.shi.noRoot) return setResult('食', '食神格', '败格', '枭神夺食', '', states.shi.stem);
+        if (states.shi.hasLi && states.sha.hasRoot && !finance.touGan) return setResult('食', '食神制杀格', '成格', '食神有力而专制七杀。', '杀', states.shi.stem);
+        if (states.shi.hasLi && finance.hasQi) return setResult('食', '食神生财格', '成格', '食神通关，财星随之而起。', '财', states.shi.stem);
+        if (states.shi.hasLi && (states.bi.hasQi || states.jie.hasQi) && !official.touGan) return setResult('食', '用食喜比格', '成格', '比劫相扶，食神得展。', '比', states.shi.stem);
+        if (states.shi.noRoot && seal.hasLi) return setResult('食', '弃食就印格', '成格', '食神失根，转取印绶。', '印', states.shi.stem);
+        return setResult('食', '食神格', '待定', '食神已立，仍须分清财杀印之路。', '', states.shi.stem);
+    }
+
+    if (geju === '伤官格') {
+        if (_isAnyShangGuanJianGuan(dayGan, states)) return setResult('伤', '伤官格', '败格', '伤官见官', '', states.shang.stem);
+        if (states.shang.touGan && seal.hasLi) return setResult('伤', '伤官佩印格', '成格', '伤官外露而印绶能化。', '印', states.shang.stem);
+        if (states.shang.touGan && finance.hasLi) return setResult('伤', '伤官生财格', '成格', '伤官吐秀而财星得生。', '财', states.shang.stem);
+        if (['庚', '辛', '壬', '癸'].includes(dayGan) && states.shang.touGan && states.guan.hasQi) return setResult('伤', '伤官喜官格', '成格', '金水日主，伤官见官反成清贵。', '官', states.shang.stem);
+        if (states.guan.noRoot && states.shang.hasLi) return setResult('伤', '伤官弃官格', '成格', '官星无根，伤官得以专用。', '', states.shang.stem);
+        return setResult('伤', '伤官格', '待定', '伤官已立，仍须看印财调停。', '', states.shang.stem);
+    }
+
+    if (geju === '建禄格') {
+        if (states.guan.hasQi && !states.shang.touGan) return setResult('比', '建禄用官格', '成格', '建禄身旺，以官为相最清。', '官', dayGan);
+        if (finance.hasLi && !biJieTooStrong) return setResult('比', '建禄用财格', '成格', '建禄得财，身能任之。', '财', dayGan);
+        if ((states.shi.hasLi || states.shang.hasLi) && finance.touGan) return setResult('比', '建禄用食格', '成格', '食伤吐秀而财来引化。', '食', dayGan);
+        return setResult('比', '建禄格', '待定', '建禄身旺，仍需财官食引发。', '', dayGan);
+    }
+
+    if (geju === '羊刃格') {
+        if (!states.sha.touGan && !states.guan.touGan && !(states.shi.hasLi || states.shang.hasLi)) return setResult('劫', '羊刃格', '败格', '羊刃无制', '', states.jie.stem);
+        if (states.sha.touGan && states.sha.hasRoot) return setResult('劫', '刃杀相停格', '成格', '七杀透而有根，可以驾刃。', '杀', states.jie.stem);
+        if (states.guan.touGan && states.guan.hasRoot) return setResult('劫', '羊刃驾官格', '成格', '官星透而有根，可以制刃。', '官', states.jie.stem);
+        if ((states.shi.hasLi || states.shang.hasLi) && finance.touGan) return setResult('劫', '刃泄生财格', '成格', '食伤泄刃而财星引化。', '食', states.jie.stem);
+        return setResult('劫', '羊刃格', '待定', '羊刃已立，仍须官杀食伤调之。', '', states.jie.stem);
+    }
+
+    return result;
+}
+
 // ============================================================================
 // 🌟 东方玄学 OS - 全能后端排盘引擎 (接管所有前端计算逻辑)
 // ============================================================================
@@ -106,15 +575,60 @@ const BaziEngine = {
     },
     ZhiMainGan: { '子': '癸', '丑': '己', '寅': '甲', '卯': '乙', '辰': '戊', '巳': '丙', '午': '丁', '未': '己', '申': '庚', '酉': '辛', '戌': '戊', '亥': '壬' },
     getGeJu: function (bazi) {
-        const dayGan = bazi.day[0], monthZhi = bazi.month[1];
+        const dayGan = bazi.day[0];
+        const monthZhi = bazi.month[1];
+        const allStems = _buildStemsFromBazi(bazi);
+        const allBranches = _buildBranchesFromBazi(bazi);
         const jianLuMap = { '甲': '寅', '乙': '卯', '丙': '巳', '丁': '午', '戊': '巳', '己': '午', '庚': '申', '辛': '酉', '壬': '亥', '癸': '子' };
-        const yueRenMap = { '甲': '卯', '庚': '酉', '壬': '子' };
-        if (jianLuMap[dayGan] === monthZhi) return "建禄格";
-        if (yueRenMap[dayGan] === monthZhi) return "月刃格";
-        const mainGan = this.ZhiMainGan[monthZhi];
-        const gejuName = this.ShiShen[dayGan][mainGan];
-        const formatMap = { '官': '正官格', '杀': '七杀格', '财': '正财格', '才': '偏财格', '食': '食神格', '伤': '伤官格', '印': '正印格', '枭': '偏印格', '比': '比肩格', '劫': '劫财格' };
-        return formatMap[gejuName] || (gejuName + "格");
+        const yangRenMap = { '甲': '卯', '丙': '午', '戊': '午', '庚': '酉', '壬': '子' };
+        _monthMergeStemContext = _getVisibleStems(allStems);
+        const monthMergeInfo = _detectMonthMerge(allBranches, monthZhi);
+        const rawMonthMainGan = this.ZhiMainGan[monthZhi];
+        const yangRenKey = `${dayGan}${monthZhi}`;
+        if (yangRenMap[dayGan] === monthZhi) {
+            return {
+                geju: '羊刃格',
+                basis: '羊刃特判',
+                monthMainGan: rawMonthMainGan,
+                tenGod: '劫',
+                monthMergeInfo,
+                note: `${yangRenKey}命中羊刃特判，取原月支不论合化。`
+            };
+        }
+        if (jianLuMap[dayGan] === monthZhi) {
+            return {
+                geju: '建禄格',
+                basis: '建禄特判',
+                monthMainGan: rawMonthMainGan,
+                tenGod: '比',
+                monthMergeInfo,
+                note: `${dayGan}${monthZhi}命中建禄特判，取原月支禄位立格。`
+            };
+        }
+        const monthHiddenGans = this.ZHI_HIDE[monthZhi] || [];
+        let monthMainGan = rawMonthMainGan;
+        let basis = '月支本气';
+        if (monthMergeInfo) {
+            monthMainGan = monthMergeInfo.resultGan;
+            basis = '月支合化';
+        } else {
+            const visibleHidden = monthHiddenGans.filter(stem => stem && _isStemTouGan(stem, allStems));
+            if (visibleHidden.length > 0) {
+                monthMainGan = visibleHidden.includes(rawMonthMainGan) ? rawMonthMainGan : visibleHidden[0];
+            }
+        }
+        const tenGod = this.ShiShen[dayGan][monthMainGan];
+        const formatMap = { '官': '正官格', '杀': '七杀格', '财': '正财格', '才': '偏财格', '食': '食神格', '伤': '伤官格', '印': '正印格', '枭': '偏印格', '比': '建禄格', '劫': '羊刃格' };
+        return {
+            geju: formatMap[tenGod] || `${tenGod}格`,
+            basis,
+            monthMainGan,
+            tenGod,
+            monthMergeInfo,
+            note: monthMergeInfo
+                ? `${monthZhi}参与${monthMergeInfo.mergeType}化${monthMergeInfo.resultElement}，以${monthMainGan}立格。`
+                : `${monthZhi}以${monthMainGan}为月令主气取格。`
+        };
     }
 };
 
@@ -167,7 +681,8 @@ module.exports = async function handler(req, res) {
         };
 
         const shenshaResult = BaziEngine.calculateShenSha(baziObj);
-        const geJu = BaziEngine.getGeJu(baziObj);
+        const geJuInfo = BaziEngine.getGeJu(baziObj);
+        const geJu = geJuInfo.geju;
         const specialPatterns = BaziEngine.extractSpecialPatterns(baziObj);
         const siziSummaryKey = buildSiziSummaryKey(baZi.getDayGan(), baZi.getTime());
         const siziSummaryText = getSiziSummary(siziSummaryKey);
@@ -253,7 +768,7 @@ module.exports = async function handler(req, res) {
         const currentLiuNianData = buildPillar('流年', currentLiuNianGan, currentLiuNianZhi, '流年');
 
         const objectiveBaziData = {
-            base_info: { qi_yun: `出生后${yun.getStartYear()}年${yun.getStartMonth()}月${yun.getStartDay()}天起运`, ge_ju: geJu, special_patterns: specialPatterns },
+            base_info: { qi_yun: `出生后${yun.getStartYear()}年${yun.getStartMonth()}月${yun.getStartDay()}天起运`, ge_ju: geJu, ge_ju_detail: geJuInfo, special_patterns: specialPatterns },
             matrix: {
                 pillars: pillarsData,
                 dayun_list: daYunList,
@@ -277,6 +792,18 @@ module.exports = async function handler(req, res) {
 
         // ── 日主强弱 ──
         const strengthResult = BaziRuleEngine.calculateStrength(dayGanVal, gansArr, zhisArr);
+        const monthHiddenGans = _getMonthHiddenGans(monthZhiVal2);
+        const chengGeDetail = getChengGe({
+            geju: geJuInfo.geju,
+            basis: geJuInfo.basis === '月支合化' ? '月支合化' : (geJuInfo.basis.includes('特判') ? '特判' : (geJuInfo.monthMergeInfo ? '月支合化' : (monthHiddenGans.some(stem => stem && _isStemTouGan(stem, gansArr)) ? '月令透干' : '月令本气'))),
+            dayGan: dayGanVal,
+            monthZhi: monthZhiVal2,
+            allStems: gansArr,
+            allBranches: zhisArr,
+            monthHiddenGans,
+            tenGodMap: BaziEngine.ShiShen[dayGanVal],
+            dayStrength: strengthResult.strongWeak === '身强' ? '身强' : (strengthResult.strongWeak === '身弱' ? '身弱' : '身中')
+        });
 
         // ── 喜忌神 ──
         const favorableResult = BaziRuleEngine.getFavorableUnfavorable(
@@ -372,6 +899,9 @@ module.exports = async function handler(req, res) {
             strong_weak: strengthResult.strongWeak,
             strength_basis: strengthResult.strengthBasis,
             strength_detail: strengthResult.strengthDetail,
+            geju_detail: geJuInfo,
+            geju_info: GE_JU_INFO[geJuInfo.geju] || null,
+            chengge_detail: chengGeDetail,
             favorable_gods: favorableResult.core_shens.favorable,
             unfavorable_gods: favorableResult.core_shens.unfavorable,
             favorable_verdict: favorableResult.verdict,
@@ -427,3 +957,7 @@ module.exports = async function handler(req, res) {
         return res.status(error.message.includes("额度") ? 403 : 500).json({ error: error.message });
     }
 }
+
+module.exports.GE_JU_INFO = GE_JU_INFO;
+module.exports.getChengGe = getChengGe;
+module.exports.getGeJu = BaziEngine.getGeJu.bind(BaziEngine);

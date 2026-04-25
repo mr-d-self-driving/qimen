@@ -265,11 +265,7 @@
                     <div class="tab" :class="{ active: currentTab === 'pro' }" @click="currentTab = 'pro'">专业细盘</div>
                 </div>
 
-                <div v-if="needsUpgrade" style="text-align:center; padding: 30px 10px; color: var(--gold-light); font-size: 13px; line-height: 1.8;">
-                    🚀 架构已升级，数据已迁移至云端引擎计算。<br>请点击右上角 <strong style="color:var(--gold);">「推演天机」</strong> 升级该档案排盘数据。
-                </div>
-
-                <div v-else class="bazi-table-wrap">
+                <div v-if="resolvedMatrix" class="bazi-table-wrap">
                     <table class="bazi-table">
                         <thead>
                             <tr>
@@ -329,7 +325,11 @@
                     </table>
                 </div>
 
-                <div v-show="currentTab === 'pro' && !needsUpgrade" class="timeline-section">
+                <div v-if="needsUpgrade" class="matrix-fallback-note">
+                    基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
+                </div>
+
+                <div v-show="currentTab === 'pro' && fullDayunList.length" class="timeline-section">
                     <div class="timeline-title">专业四柱大运流年流月联动</div>
                     
                     <!-- 1. 大运 -->
@@ -460,6 +460,67 @@
                 </Teleport>
 
                 <Teleport to="body">
+                    <div v-if="activeInfoPanel === 'geju' && gejuPanelContent" class="modal-overlay" @click="activeInfoPanel = null">
+                        <div class="detail-drawer geju-detail-drawer" @click.stop>
+                            <div class="drawer-head">
+                                <div>
+                                    <div class="section-kicker">格局判定</div>
+                                    <h4>{{ gejuPanelContent.title }}</h4>
+                                </div>
+                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
+                            </div>
+                            <div class="geju-modal-tags">
+                                <span class="geju-chip">{{ gejuPanelContent.strongWeak }}</span>
+                                <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
+                                <span class="geju-chip accent">{{ gejuPanelContent.chengGe }}</span>
+                                <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeResult }}</span>
+                            </div>
+                            <div class="geju-modal-grid">
+                                <div class="geju-modal-block">
+                                    <div class="geju-block-title">定格依据</div>
+                                    <div class="geju-block-main">{{ gejuPanelContent.gejuBasis }}</div>
+                                    <p class="geju-block-copy">{{ gejuPanelContent.gejuReason }}</p>
+                                    <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
+                                </div>
+                                <div class="geju-modal-block">
+                                    <div class="geju-block-title">成格判断</div>
+                                    <div class="geju-block-main">{{ gejuPanelContent.chengGe }}</div>
+                                    <p class="geju-block-copy">{{ gejuPanelContent.chengGeReason }}</p>
+                                    <div class="geju-inline-pairs">
+                                        <span>用神：{{ gejuPanelContent.yongShen }}</span>
+                                        <span>相神：{{ gejuPanelContent.xianShen }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="geju-modal-block">
+                                <div class="geju-block-title">断语</div>
+                                <p class="geju-block-copy geju-verdict-copy">{{ gejuPanelContent.verdict }}</p>
+                            </div>
+                            <div v-if="gejuPanelContent.personality.length" class="geju-modal-block">
+                                <div class="geju-block-title">格局气质</div>
+                                <div class="geju-bullet-row">
+                                    <span v-for="item in gejuPanelContent.personality" :key="item" class="geju-bullet-chip">{{ item }}</span>
+                                </div>
+                            </div>
+                            <div class="geju-modal-grid compact">
+                                <div v-if="gejuPanelContent.chengTypes.length" class="geju-modal-block">
+                                    <div class="geju-block-title">常见成格方向</div>
+                                    <div class="geju-bullet-list">
+                                        <span v-for="item in gejuPanelContent.chengTypes" :key="item" class="geju-list-chip">{{ item }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="gejuPanelContent.defeatConditions.length" class="geju-modal-block">
+                                    <div class="geju-block-title">常见败格因素</div>
+                                    <div class="geju-bullet-list warning">
+                                        <span v-for="item in gejuPanelContent.defeatConditions" :key="item" class="geju-list-chip">{{ item }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Teleport>
+
+                <Teleport to="body">
                     <div v-if="activeInfoPanel === 'scoring' && activeProfile.bazi_detail?.scoring_details" class="modal-overlay" @click="activeInfoPanel = null">
                         <div class="detail-drawer" @click.stop>
                             <div class="drawer-head">
@@ -517,18 +578,23 @@
                     
                     <!-- 1. 格局特性卡片 -->
                     <div class="insight-card geju-card">
-                        <div class="tag-row">
-                            <span
-                                class="tag-gold tag-action"
-                                role="button"
-                                tabindex="0"
-                                title="查看身强身弱依据"
-                                @click="openStrengthPanel"
-                                @keydown.enter.prevent="openStrengthPanel"
-                                @keydown.space.prevent="openStrengthPanel"
-                            >{{ activeProfile.strong_weak }}</span>
-                            <span class="tag-gold">{{ activeProfile.geju }}</span>
+                        <div class="geju-card-head">
+                            <div class="tag-row">
+                                <span
+                                    class="tag-gold tag-action"
+                                    role="button"
+                                    tabindex="0"
+                                    title="查看身强身弱依据"
+                                    @click="openStrengthPanel"
+                                    @keydown.enter.prevent="openStrengthPanel"
+                                    @keydown.space.prevent="openStrengthPanel"
+                                >{{ activeProfile.strong_weak }}</span>
+                                <span class="tag-gold">{{ activeProfile.geju }}</span>
+                                <span v-if="activeProfile.bazi_detail?.chengge_detail?.chengGe" class="tag-gold tag-emerald">{{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                            </div>
+                            <button v-if="gejuPanelContent" class="info-button" title="查看格局依据" @click="openGejuPanel">i</button>
                         </div>
+                        <div v-if="gejuSummaryLine" class="geju-summary-line">{{ gejuSummaryLine }}</div>
                         <p>
                             {{ getGejuDesc(activeProfile.geju) }}
                         </p>
@@ -634,6 +700,10 @@ import {
     parseCompactSolarInput,
     ZHI
 } from '../utils/baziProfileInput.mjs'
+import {
+    buildLocalBaziMatrix,
+    getPromptDataFromProfile
+} from '../utils/baziLocalMatrix.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -660,6 +730,16 @@ const GEJU_DESCRIPTIONS = {
 const getGejuDesc = (geju) => {
     return GEJU_DESCRIPTIONS[geju] || '此格局具有独特的五行气势，需结合大运流年综合分析。';
 };
+
+const GEJU_BASIS_LABELS = {
+    '羊刃特判': '羊刃特判',
+    '建禄特判': '建禄特判',
+    '月支本气': '月支本气',
+    '月支合化': '月支合化',
+    '月令透干': '月令透干',
+    '月令本气': '月令本气',
+    '特判': '特判'
+}
 
 const getScoreColor = (score) => {
     if (score > 0) return 'positive';
@@ -703,7 +783,9 @@ const analysisSteps = [
     '联动大运流年',
     '整理天机断语'
 ]
+const ANALYSIS_PROGRESS_FRAMES = [8, 12, 17, 23, 29, 36, 43, 50, 57, 64, 70, 76, 81, 85, 89, 92]
 let analysisTimer = null
+let analysisFrameIndex = 0
 
 const form = reactive({
     name: '',
@@ -797,23 +879,31 @@ const needsUpgrade = computed(() => {
     return !detail || !detail.matrix
 })
 
+const localMatrix = computed(() => {
+    if (!activeProfile.value) return null
+    return buildLocalBaziMatrix(activeProfile.value)
+})
+
+const resolvedMatrix = computed(() => {
+    return activeProfile.value?.bazi_detail?.matrix || localMatrix.value || null
+})
+
 const displayColumns = computed(() => {
-    if (needsUpgrade.value || !activeProfile.value) return []
-    const matrix = activeProfile.value.bazi_detail.matrix
+    const matrix = resolvedMatrix.value
+    if (!matrix) return []
     let cols = []
     if (currentTab.value === 'basic') {
-        cols = matrix.pillars
+        cols = matrix.pillars || []
     } else {
         if (matrix.current_liunian) cols.push(matrix.current_liunian)
         if (matrix.current_dayun) cols.push(matrix.current_dayun)
-        cols.push(...matrix.pillars)
+        cols.push(...(matrix.pillars || []))
     }
     return cols
 })
 
 const dayunList = computed(() => {
-    if (needsUpgrade.value || !activeProfile.value) return []
-    return activeProfile.value.bazi_detail.matrix.dayun_list || []
+    return resolvedMatrix.value?.dayun_list || []
 })
 
 const ZHI_MAIN_GAN = {
@@ -1016,10 +1106,52 @@ const openStrengthPanel = () => {
     activeInfoPanel.value = 'strength'
 }
 
+const gejuPanelContent = computed(() => {
+    const profile = activeProfile.value
+    if (!profile?.bazi_detail) return null
+    const detail = profile.bazi_detail
+    const gejuDetail = detail.geju_detail || {}
+    const chenggeDetail = detail.chengge_detail || {}
+    const info = detail.geju_info || {}
+    const mergeInfo = gejuDetail.monthMergeInfo || null
+    const yongShenTenGod = chenggeDetail.yongShenTenGod || info.yongShenTypical || ''
+    const yongShenStem = chenggeDetail.yongShen || ''
+    const yongShen = yongShenStem && yongShenTenGod ? `${yongShenTenGod}（${yongShenStem}）` : (yongShenStem || yongShenTenGod || info.yongShenTypical || '待定')
+    const xianShen = chenggeDetail.xianShen || info.xianShenTypical || '待定'
+    return {
+        title: `${profile.geju || gejuDetail.geju || '格局'} · ${chenggeDetail.chengGe || '待定'}`,
+        strongWeak: profile.strong_weak || '未定',
+        baseGeju: profile.geju || gejuDetail.geju || '未定格',
+        chengGe: chenggeDetail.chengGe || profile.geju || '待定',
+        chengGeResult: chenggeDetail.chengGeResult || '待定',
+        resultClass: chenggeDetail.chengGeResult === '成格' ? 'is-good' : (chenggeDetail.chengGeResult === '败格' ? 'is-bad' : 'is-wait'),
+        gejuBasis: GEJU_BASIS_LABELS[gejuDetail.basis] || gejuDetail.basis || '月令取格',
+        gejuReason: gejuDetail.note || info.judgeBase || getGejuDesc(profile.geju),
+        monthMergeLine: mergeInfo ? `${mergeInfo.originalZhi}参与${mergeInfo.mergeType}，化${mergeInfo.resultElement}，以${mergeInfo.resultGan}为月令主气。` : '',
+        chengGeReason: chenggeDetail.chengGeReason || '当前仅完成基础格局判定。',
+        yongShen,
+        xianShen,
+        verdict: detail.favorable_verdict || '需结合全盘喜忌继续细断。',
+        personality: Array.isArray(info.personality) ? info.personality : [],
+        chengTypes: Array.isArray(info.chengGeTypes) ? info.chengGeTypes : [],
+        defeatConditions: Array.isArray(info.defeatConditions) ? info.defeatConditions : []
+    }
+})
+
+const gejuSummaryLine = computed(() => {
+    if (!gejuPanelContent.value) return ''
+    return `${gejuPanelContent.value.gejuBasis} · ${gejuPanelContent.value.chengGeResult} · ${gejuPanelContent.value.chengGeReason}`
+})
+
+const openGejuPanel = () => {
+    if (!gejuPanelContent.value) return
+    activeInfoPanel.value = 'geju'
+}
+
 // 时间解析逻辑
 const promptDataObj = computed(() => {
     if (!activeProfile.value) return null
-    return generateLunarPromptData(activeProfile.value)
+    return getPromptDataFromProfile(activeProfile.value)
 })
 
 const solarParsedInput = computed(() => parseCompactSolarInput(solarInput.text))
@@ -1113,9 +1245,10 @@ const fetchProfiles = async () => {
     }
     const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
     baziProfiles.value = data || []
-    if (baziProfiles.value.length > 0 && !selectedProfileId.value) {
+    const hasActiveSelection = baziProfiles.value.some(profile => profile.id === selectedProfileId.value)
+    if (!hasActiveSelection) {
         const defaultProfile = baziProfiles.value.find(p => p.is_default) || baziProfiles.value[0]
-        selectedProfileId.value = defaultProfile.id
+        selectedProfileId.value = defaultProfile?.id || ''
     }
 }
 
@@ -1265,9 +1398,23 @@ const saveProfile = async () => {
     }]).select('id').single()
     if (error) alert(error.message) 
     else { 
+        if (data?.id) {
+            const optimisticProfile = {
+                id: data.id,
+                name: payload.name,
+                gender: payload.gender,
+                birth_date: payload.birth_date,
+                bazi_str: payload.bazi_str,
+                is_default: baziProfiles.value.length === 0
+            }
+            baziProfiles.value = [
+                optimisticProfile,
+                ...baziProfiles.value.filter(profile => profile.id !== data.id)
+            ]
+            selectedProfileId.value = data.id
+        }
         showAdd.value = false
         resetProfileEntry()
-        if (data?.id) selectedProfileId.value = data.id
         await fetchProfiles() 
     }
 }
@@ -1317,7 +1464,9 @@ const setDefaultProfile = async () => {
 
 const deleteProfile = async () => {
     if (selectedProfileId.value && confirm("确认删除该档案？")) { 
-        await supabase.from('bazi_profiles').delete().eq('id', selectedProfileId.value)
+        const deletedId = selectedProfileId.value
+        await supabase.from('bazi_profiles').delete().eq('id', deletedId)
+        baziProfiles.value = baziProfiles.value.filter(profile => profile.id !== deletedId)
         selectedProfileId.value = ''
         await fetchProfiles() 
     }
@@ -1326,12 +1475,14 @@ const deleteProfile = async () => {
 const startAnalysisMotion = () => {
     analysisNotice.value = ''
     analysisStageIndex.value = 0
-    analysisProgress.value = 8
+    analysisFrameIndex = 0
+    analysisProgress.value = ANALYSIS_PROGRESS_FRAMES[analysisFrameIndex]
     stopAnalysisMotion()
     analysisTimer = window.setInterval(() => {
-        analysisProgress.value = Math.min(92, analysisProgress.value + 7)
+        analysisFrameIndex = Math.min(ANALYSIS_PROGRESS_FRAMES.length - 1, analysisFrameIndex + 1)
+        analysisProgress.value = ANALYSIS_PROGRESS_FRAMES[analysisFrameIndex]
         analysisStageIndex.value = Math.min(analysisSteps.length - 1, Math.floor((analysisProgress.value / 100) * analysisSteps.length))
-    }, 900)
+    }, 1300)
 }
 
 const stopAnalysisMotion = () => {
@@ -1434,29 +1585,6 @@ const getShenColor = (shen) => {
     return 'shen-gray';
 }
 
-const generateLunarPromptData = (profile) => {
-    let res = { gender: profile.gender === 'M' ? '男' : '女', birthStr: "", baziStr: "", daYunStr: "当前大运" }
-    if (profile.birth_date) {
-        const p = profile.birth_date.match(/\d+/g)
-        if (p && p.length >= 3) {
-            const hour = p[3] || '12', minute = p[4] || '00'
-            res.birthStr = `${p[0]}年${p[1]}月${p[2]}日 ${hour}:${minute}`
-            const b = Solar.fromYmdHms(parseInt(p[0]), parseInt(p[1]), parseInt(p[2]), parseInt(hour), parseInt(minute), 0).getLunar().getEightChar()
-            res.baziStr = `${b.getYear()} ${b.getMonth()} ${b.getDay()} ${b.getTime()}`
-        }
-    } else if (profile.bazi_str) {
-        res.baziStr = profile.bazi_str
-        const bz = profile.bazi_str.split(' ')
-        if (bz.length === 4) {
-            const matches = findDatesByBazi(bz[0], bz[1], bz[2], bz[3])
-            if (matches.length > 0) {
-                const s = matches[matches.length - 1]
-                res.birthStr = `${s.getYear()}年${s.getMonth()}月${s.getDay()}日 ${s.getHour()}:00`
-            } else res.birthStr = "1990年01月01日 12:00"
-        }
-    }
-    return res
-}
 </script>
 
 <style scoped>
@@ -1830,6 +1958,16 @@ const generateLunarPromptData = (profile) => {
 .bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
 .bz-sub { font-size: var(--bz-meta-size); color: #aaa; line-height: 1.4; }
 .bz-shensha { font-size: 9px; color: #B39DDB; line-height: 1.4; }
+.matrix-fallback-note {
+    margin-top: 12px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(232,204,128,0.14);
+    background: rgba(232,204,128,0.05);
+    color: var(--gold-light);
+    font-size: 12px;
+    line-height: 1.7;
+}
 
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
 
@@ -1971,6 +2109,11 @@ const generateLunarPromptData = (profile) => {
     box-shadow: 0 6px 18px rgba(212,175,55,0.12);
     outline: none;
 }
+.tag-emerald {
+    color: #8ee0bb;
+    border-color: rgba(142,224,187,0.26);
+    background: rgba(142,224,187,0.1);
+}
 
 .wuxing-bar-container {
     display: flex;
@@ -2064,6 +2207,9 @@ const generateLunarPromptData = (profile) => {
 .strength-drawer {
     width: min(92vw, 520px);
 }
+.geju-detail-drawer {
+    width: min(92vw, 560px);
+}
 .drawer-head {
     display: flex;
     align-items: flex-start;
@@ -2117,6 +2263,124 @@ const generateLunarPromptData = (profile) => {
     font-size: 13px;
     line-height: 1.7;
 }
+.geju-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.geju-summary-line {
+    margin-bottom: 10px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(232,204,128,0.12);
+    background: rgba(255,255,255,0.025);
+    color: #cfc6b0;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.geju-modal-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+.geju-chip {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid rgba(232,204,128,0.18);
+    background: rgba(255,255,255,0.03);
+    color: #f1dfae;
+    font-size: 12px;
+    font-weight: 600;
+}
+.geju-chip.accent {
+    border-color: rgba(142,224,187,0.26);
+    background: rgba(142,224,187,0.1);
+    color: #8ee0bb;
+}
+.geju-chip.is-good {
+    color: #8fe39a;
+    border-color: rgba(143,227,154,0.24);
+    background: rgba(143,227,154,0.1);
+}
+.geju-chip.is-bad {
+    color: #ff9f97;
+    border-color: rgba(255,159,151,0.24);
+    background: rgba(255,159,151,0.1);
+}
+.geju-chip.is-wait {
+    color: #f3d68b;
+}
+.geju-modal-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.geju-modal-grid.compact {
+    margin-bottom: 0;
+}
+.geju-modal-block {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(232,204,128,0.1);
+}
+.geju-block-title {
+    margin-bottom: 8px;
+    color: rgba(232,204,128,0.72);
+    font-size: 11px;
+    letter-spacing: 1px;
+}
+.geju-block-main {
+    color: #f5ebce;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 7px;
+}
+.geju-block-copy {
+    color: #d8d2bf;
+    font-size: 13px;
+    line-height: 1.7;
+}
+.geju-verdict-copy {
+    color: #f3ebdd;
+    font-weight: 600;
+}
+.geju-inline-note {
+    margin-top: 9px;
+    color: #9ec7ff;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.geju-inline-pairs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    margin-top: 10px;
+    color: #d7c89b;
+    font-size: 12px;
+}
+.geju-bullet-row, .geju-bullet-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.geju-bullet-chip, .geju-list-chip {
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.045);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #e7ddc6;
+    font-size: 12px;
+}
+.geju-bullet-list.warning .geju-list-chip {
+    color: #ffb3aa;
+    border-color: rgba(255,159,151,0.2);
+    background: rgba(255,159,151,0.08);
+}
 
 @media (max-width: 420px) {
     .profile-actions { grid-template-columns: 1fr 1fr; }
@@ -2160,6 +2424,17 @@ const generateLunarPromptData = (profile) => {
     .char-wrap { padding-right: 12px; }
     .verdict-line { gap: 8px; }
     .verdict-line p { font-size: 13px; }
+    .geju-card-head { flex-direction: column; align-items: stretch; }
+    .geju-modal-grid { grid-template-columns: 1fr; }
+    .geju-detail-drawer {
+        width: 100%;
+        max-height: min(84vh, 760px);
+        border-bottom-left-radius: 0;
+        border-bottom-right-radius: 0;
+        border-bottom: none;
+        padding-bottom: 22px;
+        align-self: flex-end;
+    }
 }
 
 @keyframes pulse {
