@@ -288,8 +288,8 @@
                     <button
                         v-if="activeProfile && !needsUpgrade && !isGuest"
                         class="tab life-events-tab"
-                        :class="{ active: isLifeEventsOpen }"
-                        @click="isLifeEventsOpen = !isLifeEventsOpen"
+                        :class="{ active: currentTab === 'events' }"
+                        @click="currentTab = 'events'"
                     >
                         断事笔记
                         <span v-if="lifeEvents.length" class="life-events-tab-count">{{ lifeEvents.length }}</span>
@@ -297,30 +297,10 @@
                 </div>
 
                 <!-- ══ 命主断事笔记 ══ -->
-                <div v-if="activeProfile && !needsUpgrade && !isGuest && isLifeEventsOpen" class="life-events-card">
+                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
                     <div class="ai-header-row">
                         <div class="ai-header-title">断事笔记</div>
-                        <span v-if="isCalibrated" class="calibrated-badge">
-                            ✅ 已深度校准 · {{ calibratedTimeStr }}
-                        </span>
                     </div>
-
-                    <button
-                        class="calibrate-btn"
-                        :class="{
-                            'calibrate-btn--active': lifeEvents.length >= 1 && !isCalibrating,
-                            'calibrate-btn--loading': isCalibrating,
-                        }"
-                        :disabled="lifeEvents.length === 0 || isCalibrating"
-                        @click="triggerCalibration"
-                    >
-                        <span v-if="isCalibrating" class="calibrate-spinner"></span>
-                        <span v-else>🔮</span>
-                        {{ isCalibrating ? '深度校准中...' : 'AI 深度校准盘面' }}
-                        <span v-if="lifeEvents.length > 0 && !isCalibrating" class="calibrate-count">
-                            {{ lifeEvents.length }}
-                        </span>
-                    </button>
 
                     <div v-if="sortedLifeEvents.length > 0" class="le-timeline">
                         <div
@@ -429,7 +409,7 @@
                 </div>
                 <!-- ══ /命主断事笔记 ══ -->
 
-                <div v-if="resolvedMatrix" class="bazi-table-wrap">
+                <div v-if="resolvedMatrix && currentTab !== 'events'" class="bazi-table-wrap">
                     <table class="bazi-table">
                         <thead>
                             <tr>
@@ -489,7 +469,7 @@
                     </table>
                 </div>
 
-                <div v-if="needsUpgrade" class="matrix-fallback-note">
+                <div v-if="needsUpgrade && currentTab !== 'events'" class="matrix-fallback-note">
                     基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
                 </div>
 
@@ -768,7 +748,7 @@
                 </Teleport>
 
                 <!-- 命局天机分析版块 -->
-                <div v-if="activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
+                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
                     <div class="ai-header-row">
                         <div class="ai-header-title">命局天机</div>
                         <button class="info-button" title="查看命局判定" @click="openInsightPanel('strength')">i</button>
@@ -817,7 +797,7 @@
 
                 </div>
 
-                <div v-if="resolvedYuanjuCore" class="ai-section" style="display: block;">
+                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="ai-section" style="display: block;">
                     <div class="ai-header-row">
                         <div class="ai-header-title">天机锦囊</div>
                         <button class="info-button" title="查看核心用神四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
@@ -847,11 +827,11 @@
                     </div>
                 </div>
 
-                <div v-else-if="activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
+                <div v-else-if="currentTab !== 'events' && activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
                     {{ activeProfile.bazi_summary }}
                 </div>
 
-                <div v-if="classicVerdictText" class="ai-section classic-verdict-section">
+                <div v-if="currentTab !== 'events' && classicVerdictText" class="ai-section classic-verdict-section">
                     <div class="classic-header">
                         <div>
                             <div class="ai-header-title classic-main-title">古籍断语</div>
@@ -978,7 +958,6 @@ const showRename = ref(false)
 const isProfileMenuOpen = ref(false)
 const isAnalyzing = ref(false)
 // ── 断事笔记 ──────────────────────────────────────────
-const isLifeEventsOpen = ref(false)
 const isFormOpen = ref(false)
 const isCalibrating = ref(false)
 
@@ -1539,13 +1518,6 @@ const sortedLifeEvents = computed(() =>
     )
 )
 
-const isCalibrated = computed(() => Boolean(activeProfile.value?.calibrated_at))
-
-const calibratedTimeStr = computed(() => {
-    const t = activeProfile.value?.calibrated_at
-    return t ? new Date(t).toLocaleDateString('zh-CN') : ''
-})
-
 const birthYear = computed(() => {
     const bd = activeProfile.value?.birth_date
     return bd ? parseInt(String(bd).slice(0, 4)) : 1900
@@ -1567,6 +1539,52 @@ const eventImpactClass = (val) =>
 
 const eventImpactLabel = (val) =>
     IMPACT_OPTIONS.find(o => o.value === val)?.label || ''
+
+const firstNonEmpty = (...values) => {
+    for (const value of values) {
+        const normalized = String(value || '').trim()
+        if (normalized) return normalized
+    }
+    return ''
+}
+
+const getRawInterpretation = (profile = {}) => {
+    const detail = profile.bazi_detail || {}
+    return {
+        yuanju_core: firstNonEmpty(
+            profile.llm_yuanju_core,
+            detail.llm_yuanju_core,
+            profile.engine_yuanju_core,
+            detail.engine_yuanju_core,
+            profile.display_yuanju_core,
+            profile.yuanju_core
+        ),
+        current_dayun: firstNonEmpty(
+            profile.llm_current_dayun,
+            detail.llm_current_dayun,
+            profile.engine_current_dayun,
+            detail.engine_current_dayun,
+            profile.display_current_dayun,
+            profile.current_dayun
+        ),
+        current_liunian: firstNonEmpty(
+            profile.llm_current_liunian,
+            detail.llm_current_liunian,
+            profile.engine_current_liunian,
+            detail.engine_current_liunian,
+            profile.display_current_liunian,
+            profile.current_liunian
+        ),
+    }
+}
+
+const appendFeedbackCorrection = (base, correction) => {
+    const normalizedBase = String(base || '').trim()
+    const normalizedCorrection = String(correction || '').trim()
+    if (!normalizedCorrection) return normalizedBase
+    if (!normalizedBase) return `【命主反馈纠偏】\n${normalizedCorrection}`
+    return `${normalizedBase}\n\n【命主反馈纠偏】\n${normalizedCorrection}`
+}
 
 // 时间解析逻辑
 const promptDataObj = computed(() => {
@@ -1937,6 +1955,8 @@ const stopAnalysisMotion = () => {
 
 const requestAiSummary = async () => {
     if (!activeProfile.value) return
+    const profileId = activeProfile.value.id
+    const shouldCalibrateFromEvents = lifeEvents.value.length > 0
     isAnalyzing.value = true
     startAnalysisMotion()
     try {
@@ -1947,7 +1967,7 @@ const requestAiSummary = async () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({ 
-                promptData: { profileId: activeProfile.value.id, gender: pd.gender, birthStr: pd.birthStr, baziStr: pd.baziStr, daYunStr: "当前大运" }
+                promptData: { profileId, gender: pd.gender, birthStr: pd.birthStr, baziStr: pd.baziStr, daYunStr: "当前大运" }
             })
         })
 
@@ -1955,6 +1975,9 @@ const requestAiSummary = async () => {
         if (data.error) throw new Error(data.error)
         analysisProgress.value = 100
         await fetchProfiles() // 刷新拿到最新数据
+        if (shouldCalibrateFromEvents) {
+            await triggerCalibration({ profileId })
+        }
         analysisNotice.value = '推演完成'
     } catch (err) {
         alert("推演失败: " + err.message)
@@ -1967,9 +1990,19 @@ const requestAiSummary = async () => {
 // ── 断事笔记：保存事件列表到数据库 ──────────────────
 const saveLifeEvents = async (events) => {
     if (!activeProfile.value || isGuest.value) return
+    const clearsCalibration = events.length === 0
+    const payload = clearsCalibration
+        ? {
+            life_events: events,
+            calibrated_yuanju_core: null,
+            calibrated_current_dayun: null,
+            calibrated_current_liunian: null,
+            calibrated_at: null,
+        }
+        : { life_events: events }
     const { error } = await supabase
         .from('bazi_profiles')
-        .update({ life_events: events })
+        .update(payload)
         .eq('id', activeProfile.value.id)
     if (error) {
         console.error('保存断事笔记失败:', error)
@@ -1977,7 +2010,7 @@ const saveLifeEvents = async (events) => {
     }
     const idx = baziProfiles.value.findIndex(p => p.id === activeProfile.value.id)
     if (idx !== -1) {
-        baziProfiles.value[idx] = { ...baziProfiles.value[idx], life_events: events }
+        baziProfiles.value[idx] = { ...baziProfiles.value[idx], ...payload }
     }
 }
 
@@ -2011,7 +2044,7 @@ const deleteLifeEvent = async (id) => {
 }
 
 // ── AI 深度校准 ──────────────────────────────────────
-const triggerCalibration = async () => {
+const triggerCalibration = async ({ profileId = activeProfile.value?.id } = {}) => {
     if (!activeProfile.value || lifeEvents.value.length === 0 || isCalibrating.value) return
     isCalibrating.value = true
     try {
@@ -2026,24 +2059,41 @@ const triggerCalibration = async () => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${session.access_token}`,
             },
-            body: JSON.stringify({ profileId: activeProfile.value.id, prompt }),
+            body: JSON.stringify({ profileId, prompt }),
         })
 
         const data = await res.json()
         if (data.error) throw new Error(data.error)
 
-        const idx = baziProfiles.value.findIndex(p => p.id === activeProfile.value.id)
+        const idx = baziProfiles.value.findIndex(p => p.id === profileId)
         if (idx !== -1) {
+            const base = getRawInterpretation(baziProfiles.value[idx])
+            const calibratedAt = new Date().toISOString()
+            const calibrated = {
+                yuanju_core: appendFeedbackCorrection(base.yuanju_core, data.yuanju_core),
+                current_dayun: appendFeedbackCorrection(base.current_dayun, data.current_dayun),
+                current_liunian: appendFeedbackCorrection(base.current_liunian, data.current_liunian),
+            }
+            const { error: dbError } = await supabase
+                .from('bazi_profiles')
+                .update({
+                    calibrated_yuanju_core: calibrated.yuanju_core,
+                    calibrated_current_dayun: calibrated.current_dayun,
+                    calibrated_current_liunian: calibrated.current_liunian,
+                    calibrated_at: calibratedAt,
+                })
+                .eq('id', profileId)
+            if (dbError) throw dbError
             baziProfiles.value[idx] = {
                 ...baziProfiles.value[idx],
-                calibrated_yuanju_core: data.yuanju_core,
-                calibrated_current_dayun: data.current_dayun,
-                calibrated_current_liunian: data.current_liunian,
-                calibrated_at: new Date().toISOString(),
+                calibrated_yuanju_core: calibrated.yuanju_core,
+                calibrated_current_dayun: calibrated.current_dayun,
+                calibrated_current_liunian: calibrated.current_liunian,
+                calibrated_at: calibratedAt,
             }
         }
     } catch (err) {
-        alert('深度校准失败: ' + err.message)
+        throw err
     } finally {
         isCalibrating.value = false
     }
@@ -3068,56 +3118,6 @@ const getShenColor = (shen) => {
     border-radius: 12px;
     background: color-mix(in srgb, var(--bg-card) 82%, transparent);
     border: 1px solid var(--glass-border);
-}
-
-.calibrated-badge {
-    font-size: 11px;
-    color: var(--teal);
-    background: color-mix(in srgb, var(--teal) 8%, transparent);
-    border: 1px solid color-mix(in srgb, var(--teal) 20%, transparent);
-    border-radius: 999px;
-    padding: 2px 10px;
-}
-
-.calibrate-btn {
-    display: flex; align-items: center; justify-content: center;
-    gap: 8px; width: 100%; min-height: 46px;
-    border-radius: 12px;
-    border: 1px solid var(--glass-border);
-    background: color-mix(in srgb, var(--bg-card) 75%, transparent);
-    color: var(--text-muted);
-    font-size: 14px; font-weight: 600;
-    cursor: not-allowed;
-    margin-bottom: 16px;
-    transition: all 0.3s;
-}
-.calibrate-btn--active {
-    border-color: color-mix(in srgb, var(--gold) 40%, transparent);
-    background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 12%, transparent), color-mix(in srgb, var(--gold) 5%, transparent));
-    color: var(--gold-light);
-    cursor: pointer;
-    animation: calibrateGlow 2.5s ease-in-out infinite alternate;
-}
-.calibrate-btn--loading { cursor: wait; opacity: 0.8; }
-@keyframes calibrateGlow {
-    from { box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 6%, transparent); }
-    to { box-shadow: 0 0 26px color-mix(in srgb, var(--gold) 20%, transparent); }
-}
-.calibrate-spinner {
-    width: 15px; height: 15px;
-    border: 2px solid color-mix(in srgb, var(--gold) 30%, transparent);
-    border-top-color: var(--gold-light);
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-.calibrate-count {
-    min-width: 20px; height: 20px; padding: 0 5px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--gold) 25%, transparent);
-    color: var(--gold-light);
-    font-size: 11px; font-weight: 700;
-    display: inline-flex; align-items: center; justify-content: center;
 }
 
 .le-timeline { display: flex; flex-direction: column; margin-bottom: 14px; }

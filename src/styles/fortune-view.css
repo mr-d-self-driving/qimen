@@ -56,7 +56,7 @@
 .score-value { font-size:34px; font-weight:bold; color:var(--gold-light); line-height:1; }
 .score-unit { font-size:11px; color:var(--text-muted); margin-top:4px; }
 .score-side { min-width:0; display:flex; flex-direction:column; gap:10px; }
-.score-ganzhi { font-size:23px; color:#E8CC80; font-family:'Songti SC','STSong','华文宋体','SimSun','Noto Serif SC',serif; font-weight:600; line-height:1.35; letter-spacing:1.5px; text-shadow:0 0 16px rgba(232,204,128,0.14); }
+.score-ganzhi { font-size:23px; color:#E8CC80; font-family:'Kaiti SC','STKaiti','KaiTi','楷体','FZKai-Z03','Noto Serif SC',serif; font-weight:500; line-height:1.42; letter-spacing:2px; text-shadow:0 0 16px rgba(232,204,128,0.14); }
 .score-insight { margin:0; font-size:15px; line-height:1.75; color:#E8CC80; font-family:var(--font-serif); text-shadow:0 0 12px rgba(232,204,128,0.15); }
 .score-insight.muted { color:var(--text-muted); opacity:0.78; text-shadow:none; }
 .warning-tag { margin-top:14px; padding:8px 12px; background:rgba(255,94,87,0.1); color:#FF5E57; border-radius:8px; font-size:12px; border:1px solid rgba(255,94,87,0.2); display:inline-block; }
