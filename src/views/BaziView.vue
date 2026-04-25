@@ -2191,13 +2191,13 @@ const getShenColor = (shen) => {
 .profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
 .profile-switch-symbol { color: var(--gold-light); font-size: 21px; line-height: 1; opacity: .92; }
 .profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
-.profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
+.profile-flyout { position: static; margin-top: 10px; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
+.profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
 .profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
 .profile-item-main { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.profile-item-date { color: #FF5E57; font-size: 13px; white-space: nowrap; }
-.profile-item-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
+.profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
 .guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
@@ -3043,8 +3043,9 @@ const getShenColor = (shen) => {
     .profile-switch-trigger { min-height: 46px; padding: 7px 10px; }
     .profile-switch-name { font-size: 18px; }
     .profile-switch-symbol { font-size: 19px; }
-    .profile-flyout-item { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; }
-    .profile-item-meta { grid-column: 2; white-space: normal; line-height: 1.35; }
+    .profile-flyout-item { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; padding: 11px 12px; }
+    .profile-item-date { font-size: 11px; }
+    .profile-item-meta { font-size: 11px; line-height: 1; }
     .icon-btn { width: 46px; min-height: 46px; }
     .mini-action.danger { grid-column: span 2; }
     .form-row { flex-direction: column; gap: 10px; }

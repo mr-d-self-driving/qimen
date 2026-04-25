@@ -20,12 +20,12 @@
 .profile-switch-symbol { color:var(--gold-light); font-size:24px; line-height:1; opacity:0.92; }
 .profile-switcher.open .profile-switch-trigger { box-shadow:inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
 .profile-flyout { position:absolute; top:calc(100% + 10px); left:0; right:0; z-index:120; padding:8px; border-radius:16px; background:rgba(12,12,22,0.98); border:1px solid rgba(212,175,55,0.2); box-shadow:0 16px 40px rgba(0,0,0,0.45); backdrop-filter:blur(24px); }
-.profile-flyout-item { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:14px; padding:12px 14px; border:none; border-radius:12px; background:transparent; color:var(--text-primary); cursor:pointer; text-align:left; }
+.profile-flyout-item { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:12px; padding:12px 14px; border:none; border-radius:12px; background:transparent; color:var(--text-primary); cursor:pointer; text-align:left; }
 .profile-flyout-item + .profile-flyout-item { margin-top:4px; }
 .profile-flyout-item.active { background:rgba(212,175,55,0.1); box-shadow:inset 0 0 0 1px rgba(212,175,55,0.18); }
 .profile-item-main { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:600; }
-.profile-item-date { color:#FF5E57; font-size:13px; white-space:nowrap; }
-.profile-item-meta { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+.profile-item-date { color:#FF5E57; font-size:12px; white-space:nowrap; }
+.profile-item-meta { font-size:12px; color:var(--text-muted); white-space:nowrap; }
 
 /* Tabs */
 .dimension-tabs { display:flex; gap:8px; padding:6px; border-radius:14px; }
@@ -134,8 +134,9 @@
   .profile-switch-name { font-size:20px; }
   .profile-switch-trigger { min-height:52px; gap:10px; }
   .profile-switch-symbol { font-size:21px; }
-  .profile-flyout-item { grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; }
-  .profile-item-meta { grid-column:2; }
+  .profile-flyout-item { grid-template-columns:minmax(0,1fr) auto auto; gap:8px; padding:11px 12px; }
+  .profile-item-date { font-size:11px; }
+  .profile-item-meta { font-size:11px; }
   .date-scroll-container { gap:8px; }
   .date-item { padding:9px 12px; }
   .score-dashboard { padding:16px 14px 13px; }
