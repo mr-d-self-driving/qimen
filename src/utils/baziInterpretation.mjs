@@ -37,6 +37,7 @@ export function resolveBaziInterpretation(profile = {}) {
 
   return {
     yuanju_core: firstText(
+      profile.calibrated_yuanju_core,
       profile.llm_yuanju_core,
       detail.llm_yuanju_core,
       profile.engine_yuanju_core,
@@ -46,6 +47,7 @@ export function resolveBaziInterpretation(profile = {}) {
       legacy.yuanju_core
     ),
     current_dayun: firstText(
+      profile.calibrated_current_dayun,
       profile.llm_current_dayun,
       detail.llm_current_dayun,
       profile.engine_current_dayun,
@@ -55,6 +57,7 @@ export function resolveBaziInterpretation(profile = {}) {
       legacy.current_dayun
     ),
     current_liunian: firstText(
+      profile.calibrated_current_liunian,
       profile.llm_current_liunian,
       detail.llm_current_liunian,
       profile.engine_current_liunian,

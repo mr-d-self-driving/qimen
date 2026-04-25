@@ -201,3 +201,20 @@ export const buildLocalBaziMatrix = (profile, referenceDate = new Date()) => {
     dayun_list: []
   }
 }
+
+/**
+ * 根据年份查找命主当时所在的大运干支
+ * @param {Object} profile - bazi_profiles 记录
+ * @param {number} year    - 查询年份
+ * @returns {string}       - 如 "庚戌"；找不到时返回 ""
+ */
+export const getDayunByYear = (profile, year) => {
+  const solar = resolveSolarFromProfile(profile)
+  if (!solar) return ''
+  const eightChar = solar.getLunar().getEightChar()
+  const yun = eightChar.getYun(profile?.gender === 'M' ? 1 : 0)
+  const dayun = yun.getDaYun().find(
+    dy => year >= dy.getStartYear() && year <= dy.getEndYear()
+  )
+  return dayun?.getGanZhi() || ''
+}

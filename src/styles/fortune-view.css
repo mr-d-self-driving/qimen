@@ -15,14 +15,16 @@
 /* Profile Switch */
 .profile-switch-card { position:relative; z-index:40; padding:14px 16px; overflow:visible; }
 .profile-switcher { position:relative; z-index:60; }
-.profile-switch-trigger { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; border:none; border-radius:14px; background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color:var(--gold-light); cursor:pointer; box-shadow:inset 0 0 0 1px rgba(212,175,55,0.14); }
-.profile-switch-name { font-family:var(--font-serif); font-size:22px; letter-spacing:1px; line-height:1; }
+.profile-switch-trigger { width:100%; display:flex; align-items:center; justify-content:center; gap:14px; min-height:56px; border:none; border-radius:16px; background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color:var(--gold-light); cursor:pointer; box-shadow:inset 0 0 0 1px rgba(212,175,55,0.14); }
+.profile-switch-name { font-family:var(--font-serif); font-size:24px; letter-spacing:1px; line-height:1; }
+.profile-switch-symbol { color:var(--gold-light); font-size:24px; line-height:1; opacity:0.92; }
 .profile-switcher.open .profile-switch-trigger { box-shadow:inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
 .profile-flyout { position:absolute; top:calc(100% + 10px); left:0; right:0; z-index:120; padding:8px; border-radius:16px; background:rgba(12,12,22,0.98); border:1px solid rgba(212,175,55,0.2); box-shadow:0 16px 40px rgba(0,0,0,0.45); backdrop-filter:blur(24px); }
-.profile-flyout-item { width:100%; display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 14px; border:none; border-radius:12px; background:transparent; color:var(--text-primary); cursor:pointer; text-align:left; }
+.profile-flyout-item { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:14px; padding:12px 14px; border:none; border-radius:12px; background:transparent; color:var(--text-primary); cursor:pointer; text-align:left; }
 .profile-flyout-item + .profile-flyout-item { margin-top:4px; }
 .profile-flyout-item.active { background:rgba(212,175,55,0.1); box-shadow:inset 0 0 0 1px rgba(212,175,55,0.18); }
-.profile-item-main { font-size:14px; font-weight:600; }
+.profile-item-main { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:14px; font-weight:600; }
+.profile-item-date { color:#FF5E57; font-size:13px; white-space:nowrap; }
 .profile-item-meta { font-size:11px; color:var(--text-muted); white-space:nowrap; }
 
 /* Tabs */
@@ -31,14 +33,10 @@
 .tab-btn.active { background:rgba(212,175,55,0.15); color:var(--gold-light); box-shadow:inset 0 0 0 1px rgba(212,175,55,0.3); }
 
 /* Date Scroll */
-.date-jump-row { display:grid; grid-template-columns:38px minmax(0,1fr) 38px; gap:8px; align-items:center; margin-bottom:16px; }
-.date-scroll-container { display:flex; overflow-x:auto; gap:12px; padding-bottom:10px; }
+.date-scroll-container { display:flex; overflow-x:auto; gap:12px; padding-bottom:10px; margin-bottom:16px; }
 .date-scroll-container::-webkit-scrollbar { display:none; }
 .date-item { flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:10px 14px; border-radius:12px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); cursor:pointer; transition:.3s; }
 .date-item.active { background:rgba(212,175,55,0.1); border-color:var(--gold); }
-.date-jump-btn { width:38px; height:44px; border-radius:12px; border:1px solid rgba(212,175,55,0.18); background:rgba(0,0,0,0.22); color:var(--gold-light); font-size:25px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .2s, background .2s, color .2s; }
-.date-jump-btn:hover:not(:disabled) { border-color:rgba(212,175,55,0.36); background:rgba(212,175,55,0.1); }
-.date-jump-btn:disabled { opacity:0.34; cursor:default; }
 .day-of-week { font-size:11px; color:var(--text-muted); margin-bottom:4px; }
 .date-num { font-size:18px; font-weight:bold; color:#fff; }
 .date-item.active .date-num { color:var(--gold-light); }
@@ -134,8 +132,10 @@
 @media (max-width: 480px) {
   .page-wrap { padding:18px 14px; }
   .profile-switch-name { font-size:20px; }
-  .date-jump-row { grid-template-columns:34px minmax(0,1fr) 34px; gap:6px; }
-  .date-jump-btn { width:34px; height:42px; border-radius:10px; }
+  .profile-switch-trigger { min-height:52px; gap:10px; }
+  .profile-switch-symbol { font-size:21px; }
+  .profile-flyout-item { grid-template-columns:minmax(0,1fr) auto; gap:6px 10px; }
+  .profile-item-meta { grid-column:2; }
   .date-scroll-container { gap:8px; }
   .date-item { padding:9px 12px; }
   .score-dashboard { padding:16px 14px 13px; }

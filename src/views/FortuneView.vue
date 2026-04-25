@@ -10,6 +10,7 @@
           <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
             <button class="profile-switch-trigger" @click="toggleProfileMenu">
               <span class="profile-switch-name">{{ activeProfileName }}</span>
+              <span class="profile-switch-symbol" aria-hidden="true">⇄</span>
             </button>
             <div v-if="isProfileMenuOpen" class="profile-flyout">
               <button
@@ -20,10 +21,8 @@
                 @click="selectProfile(profile.id)"
               >
                 <span class="profile-item-main">{{ profile.name }}</span>
-                <span class="profile-item-meta">
-                  {{ profile.gender === 'M' ? '乾造' : '坤造' }}
-                  <span v-if="profile.is_default">· 默认</span>
-                </span>
+                <span class="profile-item-date">{{ formatSolarDate(profile.birth_date) }}</span>
+                <span class="profile-item-meta">{{ profileMetaText(profile) }}</span>
               </button>
             </div>
           </div>
@@ -39,31 +38,15 @@
 
         <div v-if="currentTab === 'day'" class="tab-content">
 
-          <div class="date-jump-row">
-            <button
-              class="date-jump-btn"
-              :disabled="!canJumpDate"
-              title="前一天"
-              aria-label="前一天"
-              @click="jumpDate(-1)"
-            >‹</button>
-            <div class="date-scroll-container">
-              <div
-                v-for="day in availableDays" :key="day.fullDate"
-                :class="['date-item', { active: selectedDate === day.fullDate }]"
-                @click="selectDate(day.fullDate)"
-              >
-                <span class="day-of-week">{{ day.weekDay }}</span>
-                <span class="date-num">{{ day.dateNum }}</span>
-              </div>
+          <div class="date-scroll-container">
+            <div
+              v-for="day in availableDays" :key="day.fullDate"
+              :class="['date-item', { active: selectedDate === day.fullDate }]"
+              @click="selectDate(day.fullDate)"
+            >
+              <span class="day-of-week">{{ day.weekDay }}</span>
+              <span class="date-num">{{ day.dateNum }}</span>
             </div>
-            <button
-              class="date-jump-btn"
-              :disabled="!canJumpDate"
-              title="后一天"
-              aria-label="后一天"
-              @click="jumpDate(1)"
-            >›</button>
           </div>
 
           <transition name="fade" mode="out-in">
@@ -256,7 +239,6 @@ const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfile = computed(() => baziProfiles.value.find(profile => profile.id === selectedProfileId.value) || null)
 const activeProfileName = computed(() => activeProfile.value?.name || '命主未设')
 const currentProfileCacheKey = computed(() => selectedProfileId.value || '')
-const canJumpDate = computed(() => !isGuest.value && Boolean(selectedDate.value || availableDays.value.length))
 const fortuneGanzhiText = computed(() => {
   if (!fortuneData.value) return '-'
   const month = fortuneData.value.month_gz ? `${fortuneData.value.month_gz}月` : ''
@@ -329,22 +311,20 @@ const generateDays = (preferredDate = '') => {
   selectedDate.value = normalizedPreferred || days[0].fullDate
 }
 
-const formatDateKey = (date) => {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-const ensureDateVisible = (dateStr) => {
-  if (!normalizeDateString(dateStr) || availableDays.value.some(day => day.fullDate === dateStr)) return
-  availableDays.value = [
-    ...availableDays.value,
-    buildDayItem(dateStr)
-  ].sort((a, b) => a.fullDate.localeCompare(b.fullDate))
-}
-
 const getTabLabel = (val) => tabs.find(t => t.value === val)?.label
+
+const formatSolarDate = (value) => {
+  if (!value) return '阳历待确认'
+  const p = String(value).match(/\d+/g)
+  if (!p || p.length < 3) return '阳历待确认'
+  return `${p[0]}.${p[1].padStart(2, '0')}.${p[2].padStart(2, '0')}`
+}
+
+const profileMetaText = (profile) => {
+  const parts = [profile.gender === 'M' ? '乾造' : '坤造']
+  if (profile.is_default) parts.push('默认')
+  return parts.join(' · ')
+}
 
 const formatGuide = (guideStr, type) => {
   if (!guideStr) return '无特殊忌讳'
@@ -538,18 +518,8 @@ const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileI
 
 const selectDate = (dateStr) => {
   if (selectedDate.value === dateStr) return
-  ensureDateVisible(dateStr)
   selectedDate.value = dateStr
   fetchFortuneData(dateStr)
-}
-
-const jumpDate = (offset) => {
-  if (!canJumpDate.value) return
-  const baseDate = normalizeDateString(selectedDate.value) || availableDays.value[0]?.fullDate
-  if (!baseDate) return
-  const target = new Date(`${baseDate}T12:00:00`)
-  target.setDate(target.getDate() + offset)
-  selectDate(formatDateKey(target))
 }
 
 onMounted(async () => {

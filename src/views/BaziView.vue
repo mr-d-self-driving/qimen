@@ -16,27 +16,26 @@
                     <span v-if="activeProfile?.is_default" class="default-chip">默认</span>
                 </div>
 
-                <div class="profile-selector">
-                    <button
-                        class="profile-nav-btn"
-                        :disabled="!canSwitchProfile"
-                        title="上一档案"
-                        aria-label="上一档案"
-                        @click="switchProfile(-1)"
-                    >‹</button>
-                    <select v-model="selectedProfileId" class="profile-select" @change="handleProfileSelect">
-                        <option value="">{{ baziProfiles.length ? '请选择命主档案' : '正在加载档案或暂无档案' }}</option>
-                        <option v-for="p in baziProfiles" :key="p.id" :value="p.id">
-                            {{ formatProfileOption(p) }}
-                        </option>
-                    </select>
-                    <button
-                        class="profile-nav-btn"
-                        :disabled="!canSwitchProfile"
-                        title="下一档案"
-                        aria-label="下一档案"
-                        @click="switchProfile(1)"
-                    >›</button>
+                <div class="profile-filter-row">
+                    <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
+                        <button class="profile-switch-trigger" :disabled="!showProfileSwitcher" @click="toggleProfileMenu">
+                            <span class="profile-switch-name">{{ activeProfileName }}</span>
+                            <span class="profile-switch-symbol" aria-hidden="true">⇄</span>
+                        </button>
+                        <div v-if="isProfileMenuOpen" class="profile-flyout">
+                            <button
+                                v-for="profile in baziProfiles"
+                                :key="profile.id"
+                                class="profile-flyout-item"
+                                :class="{ active: profile.id === selectedProfileId }"
+                                @click="selectProfile(profile.id)"
+                            >
+                                <span class="profile-item-main">{{ profile.name }}</span>
+                                <span class="profile-item-date">{{ formatSolarDate(profile.birth_date) }}</span>
+                                <span class="profile-item-meta">{{ profileMetaText(profile) }}</span>
+                            </button>
+                        </div>
+                    </div>
                     <button class="icon-btn" title="新增档案" @click="openAddProfile">+</button>
                 </div>
 
@@ -286,7 +285,149 @@
                 <div class="tabs">
                     <div class="tab" :class="{ active: currentTab === 'basic' }" @click="currentTab = 'basic'">基础排盘</div>
                     <div class="tab" :class="{ active: currentTab === 'pro' }" @click="currentTab = 'pro'">专业细盘</div>
+                    <button
+                        v-if="activeProfile && !needsUpgrade && !isGuest"
+                        class="tab life-events-tab"
+                        :class="{ active: isLifeEventsOpen }"
+                        @click="isLifeEventsOpen = !isLifeEventsOpen"
+                    >
+                        断事笔记
+                        <span v-if="lifeEvents.length" class="life-events-tab-count">{{ lifeEvents.length }}</span>
+                    </button>
                 </div>
+
+                <!-- ══ 命主断事笔记 ══ -->
+                <div v-if="activeProfile && !needsUpgrade && !isGuest && isLifeEventsOpen" class="life-events-card">
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">断事笔记</div>
+                        <span v-if="isCalibrated" class="calibrated-badge">
+                            ✅ 已深度校准 · {{ calibratedTimeStr }}
+                        </span>
+                    </div>
+
+                    <button
+                        class="calibrate-btn"
+                        :class="{
+                            'calibrate-btn--active': lifeEvents.length >= 1 && !isCalibrating,
+                            'calibrate-btn--loading': isCalibrating,
+                        }"
+                        :disabled="lifeEvents.length === 0 || isCalibrating"
+                        @click="triggerCalibration"
+                    >
+                        <span v-if="isCalibrating" class="calibrate-spinner"></span>
+                        <span v-else>🔮</span>
+                        {{ isCalibrating ? '深度校准中...' : 'AI 深度校准盘面' }}
+                        <span v-if="lifeEvents.length > 0 && !isCalibrating" class="calibrate-count">
+                            {{ lifeEvents.length }}
+                        </span>
+                    </button>
+
+                    <div v-if="sortedLifeEvents.length > 0" class="le-timeline">
+                        <div
+                            v-for="ev in sortedLifeEvents"
+                            :key="ev.id"
+                            class="le-item"
+                        >
+                            <div class="le-dot" :class="`le-dot--${eventImpactClass(ev.impact)}`"></div>
+                            <div class="le-line"></div>
+                            <div class="le-card">
+                                <div class="le-card-head">
+                                    <span class="le-year">
+                                        {{ ev.year }}年{{ ev.month ? ev.month + '月' : '' }}
+                                    </span>
+                                    <span v-if="ev.dayun_at_time" class="le-dayun">大运 {{ ev.dayun_at_time }}</span>
+                                    <span class="le-cat">{{ eventCategoryLabel(ev.category) }}</span>
+                                    <span class="le-impact" :class="`le-impact--${eventImpactClass(ev.impact)}`">
+                                        {{ eventImpactLabel(ev.impact) }}
+                                    </span>
+                                    <button class="le-del" @click="deleteLifeEvent(ev.id)">×</button>
+                                </div>
+                                <p class="le-desc">{{ ev.description }}</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div v-else class="le-empty">暂无记录，添加真实大事以校准盘面</div>
+
+                    <button class="le-toggle-btn" @click="isFormOpen = !isFormOpen">
+                        {{ isFormOpen ? '收起' : '+ 添加事件' }}
+                    </button>
+
+                    <div v-if="isFormOpen" class="le-form">
+                        <div class="le-form-row">
+                            <div class="le-field">
+                                <label>发生年份 *</label>
+                                <input
+                                    type="number"
+                                    v-model.number="eventForm.year"
+                                    :min="birthYear"
+                                    :max="new Date().getFullYear()"
+                                    placeholder="如 2020"
+                                >
+                            </div>
+                            <div class="le-field">
+                                <label>发生月份（选填）</label>
+                                <select v-model.number="eventForm.month">
+                                    <option :value="undefined">不填</option>
+                                    <option v-for="m in 12" :key="m" :value="m">{{ m }} 月</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="le-field">
+                            <label>事件领域 *</label>
+                            <div class="le-cats">
+                                <button
+                                    v-for="cat in LIFE_EVENT_CATEGORIES"
+                                    :key="cat.value"
+                                    class="le-cat-chip"
+                                    :class="{ active: eventForm.category === cat.value }"
+                                    @click="eventForm.category = cat.value"
+                                >
+                                    {{ cat.icon }} {{ cat.label }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="le-field">
+                            <label>事件性质 *</label>
+                            <div class="le-impacts">
+                                <button
+                                    v-for="opt in IMPACT_OPTIONS"
+                                    :key="opt.value"
+                                    class="le-impact-btn"
+                                    :class="[`le-impact-btn--${opt.cls}`, { active: eventForm.impact === opt.value }]"
+                                    @click="eventForm.impact = opt.value"
+                                >
+                                    {{ opt.label }}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="le-field">
+                            <label>
+                                事件描述 *
+                                <span
+                                    class="le-charcount"
+                                    :class="{ warn: eventForm.description.length > 180 }"
+                                >{{ eventForm.description.length }}/200</span>
+                            </label>
+                            <textarea
+                                v-model="eventForm.description"
+                                maxlength="200"
+                                rows="3"
+                                placeholder="简述经过与影响，如：入职某AI公司任技术负责人，薪资翻倍..."
+                            ></textarea>
+                        </div>
+
+                        <div class="le-form-actions">
+                            <button class="btn-ghost" @click="resetEventForm">取消</button>
+                            <button class="btn-primary" :disabled="!isEventFormValid" @click="submitLifeEvent">
+                                确认添加
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- ══ /命主断事笔记 ══ -->
 
                 <div v-if="resolvedMatrix" class="bazi-table-wrap">
                     <table class="bazi-table">
@@ -361,12 +502,6 @@
                                     <rect x="4" y="5.5" width="16" height="14" rx="3"></rect>
                                     <path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>
                                     <circle cx="12" cy="14" r="2.2"></circle>
-                                </svg>
-                            </button>
-                            <button class="timeline-icon-btn accent" title="查看每日运势" @click="openFortuneGuide" aria-label="查看每日运势">
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <path d="M7 17L17 7"></path>
-                                    <path d="M9 7h8v8"></path>
                                 </svg>
                             </button>
                         </div>
@@ -763,9 +898,11 @@ import {
 } from '../utils/baziProfileInput.mjs'
 import {
     buildLocalBaziMatrix,
+    getDayunByYear,
     getPromptDataFromProfile
 } from '../utils/baziLocalMatrix.mjs'
 import { resolveBaziInterpretation } from '../utils/baziInterpretation.mjs'
+import { buildCalibrationPrompt } from '../utils/buildCalibrationPrompt.mjs'
 import {
     buildLiuRiList,
     findTransitSelectionByDate
@@ -838,7 +975,37 @@ const selectedProfileId = ref('')
 const currentTab = ref('basic')
 const showAdd = ref(false)
 const showRename = ref(false)
+const isProfileMenuOpen = ref(false)
 const isAnalyzing = ref(false)
+// ── 断事笔记 ──────────────────────────────────────────
+const isLifeEventsOpen = ref(false)
+const isFormOpen = ref(false)
+const isCalibrating = ref(false)
+
+const LIFE_EVENT_CATEGORIES = [
+    { value: 'career', label: '事业/学业', icon: '💼' },
+    { value: 'wealth', label: '财富/资产', icon: '💰' },
+    { value: 'relationship', label: '感情/婚姻', icon: '💕' },
+    { value: 'health', label: '健康/灾厄', icon: '🏥' },
+    { value: 'family_parent', label: '父母', icon: '👨‍👩‍👧' },
+    { value: 'family_spouse', label: '配偶', icon: '💍' },
+    { value: 'family_child', label: '子女', icon: '👶' },
+    { value: 'family_sibling', label: '兄弟姐妹', icon: '🤝' },
+]
+
+const IMPACT_OPTIONS = [
+    { value: 1, label: '🟢 顺遂/提升', cls: 'positive' },
+    { value: 0, label: '🟡 平稳/变动', cls: 'neutral' },
+    { value: -1, label: '🔴 坎坷/挫折', cls: 'negative' },
+]
+
+const eventForm = reactive({
+    year: new Date().getFullYear(),
+    month: undefined,
+    category: 'career',
+    impact: 1,
+    description: '',
+})
 const activeInfoPanel = ref(null)
 const insightTab = ref('strength')
 const renameName = ref('')
@@ -929,8 +1096,8 @@ const activeProfile = computed(() => {
     return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
 })
 const isGuest = computed(() => globalState.isGuest && !currentUser.value)
-const activeProfileIndex = computed(() => baziProfiles.value.findIndex(p => p.id === selectedProfileId.value))
-const canSwitchProfile = computed(() => baziProfiles.value.length > 1 && activeProfileIndex.value !== -1)
+const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
+const activeProfileName = computed(() => activeProfile.value?.name || (baziProfiles.value.length ? '请选择命主档案' : '暂无命主档案'))
 
 const formatSolarDate = (value) => {
     if (!value) return '未录入阳历'
@@ -942,6 +1109,12 @@ const formatSolarDate = (value) => {
 
 const formatProfileOption = (profile) => {
     return `${profile.name}（${formatSolarDate(profile.birth_date)}）`
+}
+
+const profileMetaText = (profile) => {
+    const parts = [profile.gender === 'M' ? '乾造' : '坤造']
+    if (profile.is_default) parts.push('默认')
+    return parts.join(' · ')
 }
 
 const needsUpgrade = computed(() => {
@@ -1355,6 +1528,46 @@ const resolvedCurrentLiunian = computed(() => {
     return resolvedInterpretation.value.current_liunian
 })
 
+const lifeEvents = computed(() => {
+    const events = activeProfile.value?.life_events
+    return Array.isArray(events) ? events : []
+})
+
+const sortedLifeEvents = computed(() =>
+    [...lifeEvents.value].sort((a, b) =>
+        b.year - a.year || (b.month || 0) - (a.month || 0)
+    )
+)
+
+const isCalibrated = computed(() => Boolean(activeProfile.value?.calibrated_at))
+
+const calibratedTimeStr = computed(() => {
+    const t = activeProfile.value?.calibrated_at
+    return t ? new Date(t).toLocaleDateString('zh-CN') : ''
+})
+
+const birthYear = computed(() => {
+    const bd = activeProfile.value?.birth_date
+    return bd ? parseInt(String(bd).slice(0, 4)) : 1900
+})
+
+const isEventFormValid = computed(() =>
+    eventForm.year >= birthYear.value &&
+    eventForm.year <= new Date().getFullYear() &&
+    eventForm.category &&
+    eventForm.impact !== undefined &&
+    eventForm.description.trim().length > 0
+)
+
+const eventCategoryLabel = (val) =>
+    LIFE_EVENT_CATEGORIES.find(c => c.value === val)?.label || val
+
+const eventImpactClass = (val) =>
+    val === 1 ? 'positive' : val === -1 ? 'negative' : 'neutral'
+
+const eventImpactLabel = (val) =>
+    IMPACT_OPTIONS.find(o => o.value === val)?.label || ''
+
 // 时间解析逻辑
 const promptDataObj = computed(() => {
     if (!activeProfile.value) return null
@@ -1429,6 +1642,7 @@ const lunarDateStr = computed(() => {
 
 // 生命周期
 onMounted(async () => {
+    document.addEventListener('click', handleDocumentClick)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session && globalState.isGuest) {
         loadGuestProfile()
@@ -1441,6 +1655,7 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
+    document.removeEventListener('click', handleDocumentClick)
     stopAnalysisMotion()
 })
 
@@ -1465,12 +1680,25 @@ const handleProfileSelect = () => {
     analysisNotice.value = ''
 }
 
-const switchProfile = (direction) => {
-    if (!canSwitchProfile.value) return
-    const total = baziProfiles.value.length
-    const nextIndex = (activeProfileIndex.value + direction + total) % total
-    selectedProfileId.value = baziProfiles.value[nextIndex].id
+const toggleProfileMenu = () => {
+    if (!showProfileSwitcher.value) return
+    isProfileMenuOpen.value = !isProfileMenuOpen.value
+}
+
+const selectProfile = (profileId) => {
+    if (!profileId || profileId === selectedProfileId.value) {
+        isProfileMenuOpen.value = false
+        return
+    }
+    selectedProfileId.value = profileId
+    isProfileMenuOpen.value = false
     handleProfileSelect()
+}
+
+const handleDocumentClick = (event) => {
+    const target = event.target
+    if (!(target instanceof Element)) return
+    if (!target.closest('.profile-switcher')) isProfileMenuOpen.value = false
 }
 
 const openAddProfile = () => {
@@ -1736,6 +1964,91 @@ const requestAiSummary = async () => {
     }
 }
 
+// ── 断事笔记：保存事件列表到数据库 ──────────────────
+const saveLifeEvents = async (events) => {
+    if (!activeProfile.value || isGuest.value) return
+    const { error } = await supabase
+        .from('bazi_profiles')
+        .update({ life_events: events })
+        .eq('id', activeProfile.value.id)
+    if (error) {
+        console.error('保存断事笔记失败:', error)
+        return
+    }
+    const idx = baziProfiles.value.findIndex(p => p.id === activeProfile.value.id)
+    if (idx !== -1) {
+        baziProfiles.value[idx] = { ...baziProfiles.value[idx], life_events: events }
+    }
+}
+
+const resetEventForm = () => {
+    eventForm.year = new Date().getFullYear()
+    eventForm.month = undefined
+    eventForm.category = 'career'
+    eventForm.impact = 1
+    eventForm.description = ''
+    isFormOpen.value = false
+}
+
+const submitLifeEvent = async () => {
+    if (!isEventFormValid.value) return
+    const dayun = getDayunByYear(activeProfile.value, eventForm.year)
+    const newEvent = {
+        id: `le_${Date.now()}`,
+        year: eventForm.year,
+        month: eventForm.month || undefined,
+        category: eventForm.category,
+        impact: eventForm.impact,
+        description: eventForm.description.trim(),
+        dayun_at_time: dayun || undefined,
+    }
+    await saveLifeEvents([...lifeEvents.value, newEvent])
+    resetEventForm()
+}
+
+const deleteLifeEvent = async (id) => {
+    await saveLifeEvents(lifeEvents.value.filter(e => e.id !== id))
+}
+
+// ── AI 深度校准 ──────────────────────────────────────
+const triggerCalibration = async () => {
+    if (!activeProfile.value || lifeEvents.value.length === 0 || isCalibrating.value) return
+    isCalibrating.value = true
+    try {
+        const pd = promptDataObj.value
+        const prompt = buildCalibrationPrompt(activeProfile.value, lifeEvents.value, pd)
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session?.access_token) throw new Error('登录状态已失效，请重新登录')
+
+        const res = await fetch('/api/bazi-calibrate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({ profileId: activeProfile.value.id, prompt }),
+        })
+
+        const data = await res.json()
+        if (data.error) throw new Error(data.error)
+
+        const idx = baziProfiles.value.findIndex(p => p.id === activeProfile.value.id)
+        if (idx !== -1) {
+            baziProfiles.value[idx] = {
+                ...baziProfiles.value[idx],
+                calibrated_yuanju_core: data.yuanju_core,
+                calibrated_current_dayun: data.current_dayun,
+                calibrated_current_liunian: data.current_liunian,
+                calibrated_at: new Date().toISOString(),
+            }
+        }
+    } catch (err) {
+        alert('深度校准失败: ' + err.message)
+    } finally {
+        isCalibrating.value = false
+    }
+}
+
 // 辅助方法
 const formatShen = (shenArr) => {
     return shenArr && shenArr.length > 0 ? shenArr.join('<br>') : '-'
@@ -1821,12 +2134,21 @@ const getShenColor = (shen) => {
 .section-title { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .default-chip { color: #101018; background: linear-gradient(135deg, var(--gold-light), var(--gold)); border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
 
-.profile-selector { display: flex; gap: 8px; margin-bottom: 10px; }
-.profile-select { flex: 1; min-width: 0; background: rgba(0,0,0,0.34); border: 1px solid rgba(232,204,128,0.32); color: #F4EBDD; padding: 11px 12px; border-radius: 10px; outline: none; font-size: 13px; }
-.profile-nav-btn { width: 38px; height: 42px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.24); background: rgba(0,0,0,0.24); color: var(--gold-light); font-size: 24px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .2s, border-color .2s, color .2s; }
-.profile-nav-btn:hover:not(:disabled) { background: rgba(212,175,55,0.1); border-color: rgba(232,204,128,0.4); }
-.profile-nav-btn:disabled { opacity: .35; cursor: default; }
-.icon-btn { width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
+.profile-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: stretch; margin-bottom: 10px; }
+.profile-switcher { position: relative; z-index: 60; min-width: 0; }
+.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color: var(--gold-light); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(212,175,55,0.14); padding: 8px 12px; }
+.profile-switch-trigger:disabled { opacity: .68; cursor: default; }
+.profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
+.profile-switch-symbol { color: var(--gold-light); font-size: 21px; line-height: 1; opacity: .92; }
+.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
+.profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 14px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
+.profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
+.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
+.profile-item-main { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.profile-item-date { color: #FF5E57; font-size: 13px; white-space: nowrap; }
+.profile-item-meta { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
 .guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .mini-action { min-height: 34px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; }
@@ -2152,9 +2474,29 @@ const getShenColor = (shen) => {
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-.tabs { display: flex; gap: 20px; margin-bottom: 12px; }
-.tab { font-size: 13px; color: var(--text-muted); cursor: pointer; padding-bottom: 6px; border-bottom: 2px solid transparent; transition: all 0.3s; }
+.tabs { display: flex; align-items: center; gap: 20px; margin-bottom: 12px; }
+.tab { font-size: 13px; color: var(--text-muted); cursor: pointer; padding: 0 0 6px; border: 0; border-bottom: 2px solid transparent; background: transparent; transition: all 0.3s; }
 .tab.active { color: var(--gold); border-bottom-color: var(--gold); font-weight: 500; }
+.life-events-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-body);
+}
+.life-events-tab-count {
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gold) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+    color: var(--gold-light);
+    font-size: 10px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
 
 .bazi-table-wrap { width: 100%; overflow: hidden; }
 .bazi-table {
@@ -2647,10 +2989,13 @@ const getShenColor = (shen) => {
 
 @media (max-width: 420px) {
     .profile-actions { grid-template-columns: 1fr 1fr; }
-    .profile-selector { gap: 6px; }
-    .profile-nav-btn { width: 32px; height: 40px; border-radius: 9px; font-size: 22px; }
-    .icon-btn { width: 40px; height: 40px; }
-    .profile-select { padding: 10px 8px; font-size: 12px; }
+    .profile-filter-row { grid-template-columns: minmax(0, 1fr) 46px; gap: 6px; }
+    .profile-switch-trigger { min-height: 46px; padding: 7px 10px; }
+    .profile-switch-name { font-size: 18px; }
+    .profile-switch-symbol { font-size: 19px; }
+    .profile-flyout-item { grid-template-columns: minmax(0, 1fr) auto; gap: 5px 10px; }
+    .profile-item-meta { grid-column: 2; white-space: normal; line-height: 1.35; }
+    .icon-btn { width: 46px; min-height: 46px; }
     .mini-action.danger { grid-column: span 2; }
     .form-row { flex-direction: column; gap: 10px; }
     .bazi-header { flex-direction: column; }
@@ -2714,5 +3059,189 @@ const getShenColor = (shen) => {
     0% { opacity: 1; }
     50% { opacity: 0.5; }
     100% { opacity: 1; }
+}
+
+/* ══ 断事笔记 ══ */
+.life-events-card {
+    padding: 14px;
+    margin: 0 0 14px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+    border: 1px solid var(--glass-border);
+}
+
+.calibrated-badge {
+    font-size: 11px;
+    color: var(--teal);
+    background: color-mix(in srgb, var(--teal) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--teal) 20%, transparent);
+    border-radius: 999px;
+    padding: 2px 10px;
+}
+
+.calibrate-btn {
+    display: flex; align-items: center; justify-content: center;
+    gap: 8px; width: 100%; min-height: 46px;
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--bg-card) 75%, transparent);
+    color: var(--text-muted);
+    font-size: 14px; font-weight: 600;
+    cursor: not-allowed;
+    margin-bottom: 16px;
+    transition: all 0.3s;
+}
+.calibrate-btn--active {
+    border-color: color-mix(in srgb, var(--gold) 40%, transparent);
+    background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 12%, transparent), color-mix(in srgb, var(--gold) 5%, transparent));
+    color: var(--gold-light);
+    cursor: pointer;
+    animation: calibrateGlow 2.5s ease-in-out infinite alternate;
+}
+.calibrate-btn--loading { cursor: wait; opacity: 0.8; }
+@keyframes calibrateGlow {
+    from { box-shadow: 0 0 10px color-mix(in srgb, var(--gold) 6%, transparent); }
+    to { box-shadow: 0 0 26px color-mix(in srgb, var(--gold) 20%, transparent); }
+}
+.calibrate-spinner {
+    width: 15px; height: 15px;
+    border: 2px solid color-mix(in srgb, var(--gold) 30%, transparent);
+    border-top-color: var(--gold-light);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.calibrate-count {
+    min-width: 20px; height: 20px; padding: 0 5px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gold) 25%, transparent);
+    color: var(--gold-light);
+    font-size: 11px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+
+.le-timeline { display: flex; flex-direction: column; margin-bottom: 14px; }
+.le-item {
+    position: relative;
+    display: flex; align-items: flex-start;
+    padding-left: 22px; padding-bottom: 12px;
+}
+.le-dot {
+    position: absolute; left: 2px; top: 6px;
+    width: 9px; height: 9px; border-radius: 50%;
+}
+.le-dot--positive { background: var(--teal); box-shadow: 0 0 7px color-mix(in srgb, var(--teal) 50%, transparent); }
+.le-dot--neutral { background: var(--gold); box-shadow: 0 0 7px color-mix(in srgb, var(--gold) 40%, transparent); }
+.le-dot--negative { background: var(--crimson); box-shadow: 0 0 7px color-mix(in srgb, var(--crimson) 50%, transparent); }
+.le-line {
+    position: absolute; left: 6px; top: 18px; bottom: 0;
+    width: 1px;
+    background: linear-gradient(to bottom, var(--glass-border), transparent);
+}
+.le-item:last-child .le-line { display: none; }
+
+.le-card {
+    flex: 1; min-width: 0;
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: 10px; padding: 10px 12px;
+}
+.le-item:has(.le-dot--positive) .le-card { border-color: color-mix(in srgb, var(--teal) 14%, transparent); }
+.le-item:has(.le-dot--negative) .le-card { border-color: color-mix(in srgb, var(--crimson) 14%, transparent); }
+
+.le-card-head {
+    display: flex; flex-wrap: wrap; align-items: center;
+    gap: 6px; margin-bottom: 6px;
+}
+.le-year { font-size: 13px; color: var(--gold-light); font-weight: 600; }
+.le-dayun { font-size: 11px; color: var(--text-muted); }
+.le-cat { font-size: 11px; padding: 1px 6px; border-radius: 4px; background: color-mix(in srgb, var(--text-primary) 5%, transparent); border: 1px solid var(--glass-border); color: var(--text-primary); }
+.le-impact { font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; }
+.le-impact--positive { background: color-mix(in srgb, var(--teal) 10%, transparent); color: var(--teal); }
+.le-impact--neutral { background: color-mix(in srgb, var(--gold) 10%, transparent); color: var(--gold-light); }
+.le-impact--negative { background: color-mix(in srgb, var(--crimson) 10%, transparent); color: var(--crimson); }
+.le-del {
+    margin-left: auto; width: 20px; height: 20px;
+    border-radius: 50%; border: 1px solid var(--glass-border);
+    background: transparent; color: var(--text-muted);
+    font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+}
+.le-del:hover { background: color-mix(in srgb, var(--crimson) 15%, transparent); color: var(--crimson); }
+.le-desc { font-size: 12px; color: var(--text-primary); line-height: 1.65; margin: 0; }
+.le-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 16px 0 12px; }
+
+.le-toggle-btn {
+    padding: 7px 16px; border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+    background: color-mix(in srgb, var(--gold) 8%, transparent);
+    color: var(--gold-light); font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
+    margin-bottom: 4px;
+}
+.le-toggle-btn:hover { background: color-mix(in srgb, var(--gold) 15%, transparent); }
+
+.le-form {
+    margin-top: 12px; display: flex; flex-direction: column; gap: 14px;
+    padding: 16px; border-radius: 14px;
+    background: color-mix(in srgb, var(--bg-card) 72%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gold-light) 10%, transparent);
+}
+.le-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.le-field { display: flex; flex-direction: column; gap: 6px; }
+.le-field label {
+    font-size: 11px; color: var(--text-muted); letter-spacing: 0.5px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+.le-charcount { font-size: 10px; }
+.le-charcount.warn { color: var(--crimson); }
+.le-field input,
+.le-field select,
+.le-field textarea {
+    background: color-mix(in srgb, var(--bg-card) 70%, transparent);
+    border: 1px solid var(--glass-border);
+    border-radius: 8px; padding: 9px 12px;
+    color: var(--text-primary); font-size: 13px; outline: none;
+    font-family: var(--font-body);
+}
+.le-field input:focus,
+.le-field select:focus,
+.le-field textarea:focus { border-color: color-mix(in srgb, var(--gold) 35%, transparent); }
+.le-field textarea { resize: vertical; line-height: 1.65; }
+
+.le-cats { display: flex; flex-wrap: wrap; gap: 7px; }
+.le-cat-chip {
+    padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+    color: var(--text-muted); font-size: 12px; cursor: pointer;
+    transition: all 0.2s;
+}
+.le-cat-chip.active {
+    background: color-mix(in srgb, var(--gold) 15%, transparent);
+    border-color: color-mix(in srgb, var(--gold) 40%, transparent);
+    color: var(--gold-light);
+}
+
+.le-impacts { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; }
+.le-impact-btn {
+    min-height: 40px; border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: color-mix(in srgb, var(--bg-card) 78%, transparent);
+    color: var(--text-muted); font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+}
+.le-impact-btn--positive.active { background: color-mix(in srgb, var(--teal) 12%, transparent); border-color: color-mix(in srgb, var(--teal) 35%, transparent); color: var(--teal); }
+.le-impact-btn--neutral.active { background: color-mix(in srgb, var(--gold) 12%, transparent); border-color: color-mix(in srgb, var(--gold) 35%, transparent); color: var(--gold-light); }
+.le-impact-btn--negative.active { background: color-mix(in srgb, var(--crimson) 12%, transparent); border-color: color-mix(in srgb, var(--crimson) 35%, transparent); color: var(--crimson); }
+
+.le-form-actions {
+    display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px;
+}
+
+@media (max-width: 420px) {
+    .le-form-row { grid-template-columns: 1fr; }
+    .le-impacts { grid-template-columns: 1fr; }
 }
 </style>
