@@ -222,16 +222,25 @@
                     <div>
                         <div class="name-row">
                             <span class="bazi-name">{{ activeProfile.name }}</span>
-                            <span v-if="activeProfile.geju" class="badge badge-gold">{{ activeProfile.geju }}</span>
+                            <span
+                                v-if="activeProfile.geju"
+                                class="badge badge-gold badge-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看格局判定"
+                                @click="openInsightPanel('geju')"
+                                @keydown.enter.prevent="openInsightPanel('geju')"
+                                @keydown.space.prevent="openInsightPanel('geju')"
+                            >{{ activeProfile.geju }}</span>
                             <span
                                 v-if="activeProfile.strong_weak"
                                 class="badge badge-blue badge-action"
                                 role="button"
                                 tabindex="0"
                                 title="查看身强身弱依据"
-                                @click="openStrengthPanel"
-                                @keydown.enter.prevent="openStrengthPanel"
-                                @keydown.space.prevent="openStrengthPanel"
+                                @click="openInsightPanel('strength')"
+                                @keydown.enter.prevent="openInsightPanel('strength')"
+                                @keydown.space.prevent="openInsightPanel('strength')"
                             >{{ activeProfile.strong_weak }}</span>
                         </div>
                         <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
@@ -342,7 +351,7 @@
                                  @click="selectDayun(d.id)">
                                  <div class="item-header">{{ d.start_year }}<br>{{ d.start_age }}~{{ d.start_age + 9 }}岁</div>
                                  <div v-if="d.isXiaoyun" class="item-body xiaoyun-body">小运</div>
-                                 <div v-else class="item-body">
+                                 <div v-else class="item-body stacked-ganzhi">
                                      <div class="char-wrap">
                                          <span class="char-gan" :class="WX_MAP[d.gan]">{{ d.gan }}</span>
                                          <span class="shi-shen" :class="getShenColor(d.shi_shen)">{{ d.shi_shen }}</span>
@@ -365,7 +374,7 @@
                                  :class="{ active: selectedLiunianYear === ln.year }"
                                  @click="selectedLiunianYear = ln.year">
                                  <div class="item-header">{{ ln.year }}</div>
-                                 <div class="item-body">
+                                 <div class="item-body stacked-ganzhi">
                                      <div class="char-wrap">
                                          <span class="char-gan" :class="WX_MAP[ln.gan]">{{ ln.gan }}</span>
                                          <span class="shi-shen" :class="getShenColor(ln.shi_shen)">{{ ln.shi_shen }}</span>
@@ -386,7 +395,7 @@
                             <div v-for="(ly, i) in linkedLiuyueList" :key="'ly'+i" 
                                  class="link-item ly-item">
                                  <div class="item-header">{{ ly.monthName }}</div>
-                                 <div class="item-body">
+                                 <div class="item-body stacked-ganzhi">
                                      <div class="char-wrap">
                                          <span class="char-gan" :class="WX_MAP[ly.gan]">{{ ly.gan }}</span>
                                          <span class="shi-shen" :class="getShenColor(ly.shi_shen)">{{ ly.shi_shen }}</span>
@@ -437,78 +446,72 @@
                 </Teleport>
 
                 <Teleport to="body">
-                    <div v-if="activeInfoPanel === 'strength' && strengthPanelContent" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer strength-drawer" @click.stop>
+                    <div v-if="activeInfoPanel === 'insight' && (strengthPanelContent || gejuPanelContent)" class="modal-overlay" @click="activeInfoPanel = null">
+                        <div class="detail-drawer insight-detail-drawer" @click.stop>
                             <div class="drawer-head">
                                 <div>
-                                    <div class="section-kicker">强弱依据</div>
-                                    <h4>日主{{ activeProfile?.strong_weak || '强弱' }}判定</h4>
+                                    <div class="section-kicker">命局判定</div>
+                                    <h4>{{ insightTab === 'strength' ? `日主${activeProfile?.strong_weak || '强弱'}判定` : gejuPanelContent?.title }}</h4>
                                 </div>
                                 <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                             </div>
-                            <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
-                                <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
-                                    <div class="strength-section-head">
-                                        <h5>{{ section.title }}</h5>
-                                        <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
+                            <div class="insight-switcher">
+                                <button class="insight-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">强弱判定</button>
+                                <button class="insight-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
+                            </div>
+                            <template v-if="insightTab === 'strength' && strengthPanelContent">
+                                <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
+                                    <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
+                                        <div class="strength-section-head">
+                                            <h5>{{ section.title }}</h5>
+                                            <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
+                                        </div>
+                                        <p>{{ section.text }}</p>
                                     </div>
-                                    <p>{{ section.text }}</p>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </Teleport>
-
-                <Teleport to="body">
-                    <div v-if="activeInfoPanel === 'geju' && gejuPanelContent" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer geju-detail-drawer" @click.stop>
-                            <div class="drawer-head">
-                                <div>
-                                    <div class="section-kicker">格局判定</div>
-                                    <h4>{{ gejuPanelContent.title }}</h4>
+                            </template>
+                            <template v-else-if="gejuPanelContent">
+                                <div class="geju-modal-tags">
+                                    <span class="geju-chip">{{ gejuPanelContent.strongWeak }}</span>
+                                    <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
+                                    <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent is-text">{{ gejuPanelContent.chengGe }}</span>
+                                    <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeStatus }}</span>
                                 </div>
-                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
-                            </div>
-                            <div class="geju-modal-tags">
-                                <span class="geju-chip">{{ gejuPanelContent.strongWeak }}</span>
-                                <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
-                                <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent">{{ gejuPanelContent.chengGe }}</span>
-                                <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeResult }}</span>
-                            </div>
-                            <div class="geju-modal-block">
-                                <div class="geju-block-title">立格依据</div>
-                                <div class="geju-block-main">{{ gejuPanelContent.gejuBasis }}</div>
-                                <p class="geju-block-copy">{{ gejuPanelContent.judgeBase }}</p>
-                                <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
-                            </div>
-                            <div class="geju-modal-block">
-                                <div class="geju-block-title">断语</div>
-                                <p class="geju-block-copy geju-verdict-copy">{{ gejuPanelContent.verdict }}</p>
-                                <div v-if="gejuPanelContent.showChengGe" class="geju-inline-pairs geju-inline-pairs-top">
-                                    <span>小格：{{ gejuPanelContent.chengGe }}</span>
-                                    <span>用神：{{ gejuPanelContent.yongShen }}</span>
-                                    <span>相神：{{ gejuPanelContent.xianShen }}</span>
+                                <div class="geju-modal-block">
+                                    <div class="geju-block-title">立格依据</div>
+                                    <div class="geju-block-main">{{ gejuPanelContent.gejuBasis }}</div>
+                                    <p class="geju-block-copy">{{ gejuPanelContent.judgeBase }}</p>
+                                    <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
                                 </div>
-                                <p v-if="gejuPanelContent.showChengGe" class="geju-block-copy geju-subcopy">{{ gejuPanelContent.chengGeReason }}</p>
-                            </div>
-                            <div v-if="gejuPanelContent.personality.length" class="geju-modal-block">
-                                <div class="geju-block-title">格局气质</div>
-                                <div class="geju-bullet-row">
-                                    <span v-for="item in gejuPanelContent.personality" :key="item" class="geju-bullet-chip">{{ item }}</span>
+                                <div class="geju-modal-block">
+                                    <div class="geju-block-title">成格依据</div>
+                                    <div class="geju-block-main">{{ gejuPanelContent.chengGeStatus }}</div>
+                                    <p class="geju-block-copy">{{ gejuPanelContent.chengGeReason }}</p>
+                                    <div v-if="gejuPanelContent.showChengGe" class="geju-inline-pairs geju-inline-pairs-top">
+                                        <span>小格：{{ gejuPanelContent.chengGe }}</span>
+                                        <span>用神：{{ gejuPanelContent.yongShen }}</span>
+                                        <span>相神：{{ gejuPanelContent.xianShen }}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div v-if="gejuPanelContent.goodFor.length" class="geju-modal-block">
-                                <div class="geju-block-title">适合方向</div>
-                                <div class="geju-bullet-list">
-                                    <span v-for="item in gejuPanelContent.goodFor" :key="item" class="geju-list-chip">{{ item }}</span>
+                                <div v-if="gejuPanelContent.personality.length" class="geju-modal-block">
+                                    <div class="geju-block-title">格局气质</div>
+                                    <div class="geju-bullet-row">
+                                        <span v-for="item in gejuPanelContent.personality" :key="item" class="geju-bullet-chip">{{ item }}</span>
+                                    </div>
                                 </div>
-                            </div>
-                            <div v-if="gejuPanelContent.watchOut.length" class="geju-modal-block">
-                                <div class="geju-block-title">注意事项</div>
-                                <div class="geju-bullet-list warning">
-                                    <span v-for="item in gejuPanelContent.watchOut" :key="item" class="geju-list-chip">{{ item }}</span>
+                                <div v-if="gejuPanelContent.goodFor.length" class="geju-modal-block">
+                                    <div class="geju-block-title">适合方向</div>
+                                    <div class="geju-bullet-list">
+                                        <span v-for="item in gejuPanelContent.goodFor" :key="item" class="geju-list-chip">{{ item }}</span>
+                                    </div>
                                 </div>
-                            </div>
+                                <div v-if="gejuPanelContent.watchOut.length" class="geju-modal-block">
+                                    <div class="geju-block-title">注意事项</div>
+                                    <div class="geju-bullet-list warning">
+                                        <span v-for="item in gejuPanelContent.watchOut" :key="item" class="geju-list-chip">{{ item }}</span>
+                                    </div>
+                                </div>
+                            </template>
                         </div>
                     </div>
                 </Teleport>
@@ -567,7 +570,10 @@
 
                 <!-- 命局天机分析版块 -->
                 <div v-if="activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
-                    <div class="ai-header-title">命局天机</div>
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">命局天机</div>
+                        <button class="info-button" title="查看命局判定" @click="openInsightPanel('strength')">i</button>
+                    </div>
                     
                     <!-- 1. 格局特性卡片 -->
                     <div class="insight-card geju-card">
@@ -583,11 +589,11 @@
                                     @keydown.space.prevent="openStrengthPanel"
                                 >{{ activeProfile.strong_weak }}</span>
                                 <span class="tag-gold">{{ activeProfile.geju }}</span>
-                                <span v-if="showChengGeTag" class="tag-gold tag-emerald">{{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                                <span v-if="showChengGeText" class="geju-inline-text">{{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
                             </div>
-                            <button v-if="gejuPanelContent" class="info-button" title="查看格局依据" @click="openGejuPanel">i</button>
                         </div>
-                        <div v-if="gejuSummaryLine" class="geju-summary-line">{{ gejuSummaryLine }}</div>
+                        <div v-if="strengthSummaryLine" class="geju-summary-line">{{ strengthSummaryLine }}</div>
+                        <div v-if="gejuSummaryLine" class="geju-summary-line secondary">{{ gejuSummaryLine }}</div>
                         <p>
                             {{ getGejuDesc(activeProfile.geju) }}
                         </p>
@@ -761,6 +767,7 @@ const showAdd = ref(false)
 const showRename = ref(false)
 const isAnalyzing = ref(false)
 const activeInfoPanel = ref(null)
+const insightTab = ref('strength')
 const renameName = ref('')
 const analysisNotice = ref('')
 const analysisStageIndex = ref(0)
@@ -1091,8 +1098,7 @@ const strengthPanelContent = computed(() => {
 })
 
 const openStrengthPanel = () => {
-    if (!strengthPanelContent.value) return
-    activeInfoPanel.value = 'strength'
+    openInsightPanel('strength')
 }
 
 const gejuPanelContent = computed(() => {
@@ -1104,24 +1110,27 @@ const gejuPanelContent = computed(() => {
     const info = detail.geju_info || {}
     const mergeInfo = gejuDetail.monthMergeInfo || null
     const chengGeResult = chenggeDetail.chengGeResult || '待定'
+    const chengGeStatus = chengGeResult === '待定' ? '未成格' : chengGeResult
     const showChengGe = !!chenggeDetail.chengGe && chenggeDetail.chengGe !== (profile.geju || gejuDetail.geju) && chengGeResult !== '待定'
     const yongShenTenGod = chenggeDetail.yongShenTenGod || info.yongShenTypical || ''
     const yongShenStem = chenggeDetail.yongShen || ''
     const yongShen = yongShenStem && yongShenTenGod ? `${yongShenTenGod}（${yongShenStem}）` : (yongShenStem || yongShenTenGod || info.yongShenTypical || '待定')
     const xianShen = chenggeDetail.xianShen || info.xianShenTypical || '待定'
+    const fallbackReason = `未成格，先以${profile.geju || gejuDetail.geju || '主格'}常情观之：${info.judgeBase || getGejuDesc(profile.geju)}`
     return {
         title: showChengGe ? `${profile.geju || gejuDetail.geju || '格局'} · ${chenggeDetail.chengGe}` : (profile.geju || gejuDetail.geju || '格局'),
         strongWeak: profile.strong_weak || '未定',
         baseGeju: profile.geju || gejuDetail.geju || '未定格',
         chengGe: chenggeDetail.chengGe || profile.geju || '待定',
         chengGeResult,
+        chengGeStatus,
         showChengGe,
         resultClass: chengGeResult === '成格' ? 'is-good' : (chengGeResult === '败格' ? 'is-bad' : 'is-wait'),
         gejuBasis: GEJU_BASIS_LABELS[gejuDetail.basis] || gejuDetail.basis || '月令取格',
         gejuReason: gejuDetail.note || getGejuDesc(profile.geju),
         judgeBase: info.judgeBase || gejuDetail.note || getGejuDesc(profile.geju),
         monthMergeLine: mergeInfo ? `${mergeInfo.originalZhi}参与${mergeInfo.mergeType}，化${mergeInfo.resultElement}，以${mergeInfo.resultGan}为月令主气。` : '',
-        chengGeReason: chenggeDetail.chengGeReason || '当前仅完成基础格局判定。',
+        chengGeReason: chengGeResult === '待定' ? fallbackReason : (chenggeDetail.chengGeReason || fallbackReason),
         yongShen,
         xianShen,
         verdict: detail.favorable_verdict || '需结合全盘喜忌继续细断。',
@@ -1133,20 +1142,28 @@ const gejuPanelContent = computed(() => {
 
 const gejuSummaryLine = computed(() => {
     if (!gejuPanelContent.value) return ''
-    const parts = [gejuPanelContent.value.gejuBasis]
+    const parts = [gejuPanelContent.value.gejuBasis, `成格：${gejuPanelContent.value.chengGeStatus}`]
     if (gejuPanelContent.value.showChengGe) parts.push(`小格：${gejuPanelContent.value.chengGe}`)
-    parts.push(gejuPanelContent.value.chengGeResult)
     return parts.join(' · ')
 })
 
-const openGejuPanel = () => {
-    if (!gejuPanelContent.value) return
-    activeInfoPanel.value = 'geju'
+const strengthSummaryLine = computed(() => {
+    if (!activeProfile.value?.strong_weak) return ''
+    const summary = activeProfile.value.bazi_detail?.strength_detail?.summary || ''
+    return summary ? `强弱：${summary}` : `强弱：${activeProfile.value.strong_weak}`
+})
+
+const openInsightPanel = (tab = 'strength') => {
+    if (tab === 'geju' && !gejuPanelContent.value) return
+    if (tab === 'strength' && !strengthPanelContent.value) return
+    insightTab.value = tab
+    activeInfoPanel.value = 'insight'
 }
 
-const showChengGeTag = computed(() => {
+const showChengGeText = computed(() => {
     if (!activeProfile.value?.bazi_detail?.chengge_detail?.chengGe) return false
     return activeProfile.value.bazi_detail.chengge_detail.chengGe !== activeProfile.value.geju
+        && activeProfile.value.bazi_detail.chengge_detail.chengGeResult !== '待定'
 })
 
 const resolvedYuanjuCore = computed(() => {
@@ -2000,9 +2017,11 @@ const getShenColor = (shen) => {
 
 .item-header { font-size: 10px; color: #aaa; margin-bottom: 8px; text-align: center; line-height: 1.45; min-height: 30px; display: flex; align-items: center; justify-content: center; }
 .item-body { display: flex; flex-direction: row; gap: 10px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 24px; }
+.stacked-ganzhi { flex-direction: column; gap: 8px; }
 .xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
 
 .char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 22px; min-width: 22px; height: 24px; padding-right: 14px; flex: 0 0 auto; }
+.stacked-ganzhi .char-wrap { width: 100%; min-width: 0; padding-right: 16px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
 
 .shi-shen { position: absolute; right: -14px; top: -1px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
@@ -2125,6 +2144,11 @@ const getShenColor = (shen) => {
     box-shadow: 0 6px 18px rgba(212,175,55,0.12);
     outline: none;
 }
+.geju-inline-text {
+    color: #8ee0bb;
+    font-size: 14px;
+    font-weight: 700;
+}
 .tag-emerald {
     color: #8ee0bb;
     border-color: rgba(142,224,187,0.26);
@@ -2223,8 +2247,32 @@ const getShenColor = (shen) => {
 .strength-drawer {
     width: min(92vw, 520px);
 }
+.insight-detail-drawer {
+    width: min(92vw, 560px);
+}
 .geju-detail-drawer {
     width: min(92vw, 560px);
+}
+.insight-switcher {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+.insight-tab {
+    flex: 1;
+    min-height: 38px;
+    border-radius: 999px;
+    border: 1px solid rgba(232,204,128,0.16);
+    background: rgba(255,255,255,0.03);
+    color: #cdbf96;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.insight-tab.active {
+    color: #17130c;
+    background: linear-gradient(135deg, rgba(232,204,128,0.95), rgba(212,175,55,0.95));
+    border-color: transparent;
 }
 .drawer-head {
     display: flex;
@@ -2295,6 +2343,10 @@ const getShenColor = (shen) => {
     color: #cfc6b0;
     font-size: 12px;
     line-height: 1.6;
+}
+.geju-summary-line.secondary {
+    background: rgba(255,255,255,0.02);
+    color: #bfb6a2;
 }
 .geju-modal-tags {
     display: flex;
