@@ -2178,7 +2178,7 @@ const getShenColor = (shen) => {
 .glass-card { background: rgba(14,14,24,0.72); border: 1px solid rgba(232,204,128,0.12); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 4px 32px rgba(0,0,0,0.35); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 
-.profile-card { padding: 16px; }
+.profile-card { position: relative; z-index: 40; padding: 16px; overflow: visible; }
 .profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .section-kicker { color: rgba(232,204,128,0.72); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
 .section-title { color: var(--text-primary); font-size: 14px; font-weight: 600; }
@@ -2191,7 +2191,7 @@ const getShenColor = (shen) => {
 .profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
 .profile-switch-symbol { color: var(--gold-light); font-size: 21px; line-height: 1; opacity: .92; }
 .profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
-.profile-flyout { position: static; margin-top: 10px; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
 .profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
 .profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
