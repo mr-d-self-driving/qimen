@@ -685,7 +685,16 @@ module.exports = async function handler(req, res) {
         }
 
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
-        if (memoryCache[cacheKey]) return res.status(200).json(memoryCache[cacheKey]);
+        if (memoryCache[cacheKey]) {
+            const cachedOutput = memoryCache[cacheKey];
+            if (cachedOutput.dbUpdatePayload) {
+                const { error: dbError } = await supabase.from('bazi_profiles').update(cachedOutput.dbUpdatePayload).eq('id', promptData.profileId);
+                if (dbError) console.error("缓存命中数据库写入失败:", dbError);
+                return res.status(200).json(cachedOutput.outputPayload);
+            } else {
+                delete memoryCache[cacheKey];
+            }
+        }
 
         // ==================== 1. 核心排盘计算 ====================
         const dateParts = promptData.birthStr ? promptData.birthStr.match(/\d+/g) : null;
@@ -965,7 +974,7 @@ module.exports = async function handler(req, res) {
         const yearZhiVal = baZi.getYearZhi();     // 年支
         const monthZhiVal = baZi.getMonthZhi();   // 月支
 
-        const { error: dbError } = await supabase.from('bazi_profiles').update({
+        const dbUpdatePayload = {
             bazi_summary: combinedResultText,
             strong_weak: finalBaziDetail.strong_weak,
             favorable_elements: finalBaziDetail.favorable_gods,
@@ -986,12 +995,14 @@ module.exports = async function handler(req, res) {
             day_zhi: dayZhiVal,
             year_zhi: yearZhiVal,
             month_zhi: monthZhiVal,
-        }).eq('id', promptData.profileId);
+        };
+
+        const { error: dbError } = await supabase.from('bazi_profiles').update(dbUpdatePayload).eq('id', promptData.profileId);
 
         if (dbError) console.error("数据库写入失败:", dbError);
 
         const outputPayload = { result: combinedResultText, bazi_detail: finalBaziDetail };
-        memoryCache[cacheKey] = outputPayload;
+        memoryCache[cacheKey] = { outputPayload, dbUpdatePayload };
         return res.status(200).json(outputPayload);
 
     } catch (error) {
