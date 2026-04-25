@@ -17,12 +17,26 @@
                 </div>
 
                 <div class="profile-selector">
+                    <button
+                        class="profile-nav-btn"
+                        :disabled="!canSwitchProfile"
+                        title="上一档案"
+                        aria-label="上一档案"
+                        @click="switchProfile(-1)"
+                    >‹</button>
                     <select v-model="selectedProfileId" class="profile-select" @change="handleProfileSelect">
                         <option value="">{{ baziProfiles.length ? '请选择命主档案' : '正在加载档案或暂无档案' }}</option>
                         <option v-for="p in baziProfiles" :key="p.id" :value="p.id">
                             {{ formatProfileOption(p) }}
                         </option>
                     </select>
+                    <button
+                        class="profile-nav-btn"
+                        :disabled="!canSwitchProfile"
+                        title="下一档案"
+                        aria-label="下一档案"
+                        @click="switchProfile(1)"
+                    >›</button>
                     <button class="icon-btn" title="新增档案" @click="openAddProfile">+</button>
                 </div>
 
@@ -915,6 +929,8 @@ const activeProfile = computed(() => {
     return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
 })
 const isGuest = computed(() => globalState.isGuest && !currentUser.value)
+const activeProfileIndex = computed(() => baziProfiles.value.findIndex(p => p.id === selectedProfileId.value))
+const canSwitchProfile = computed(() => baziProfiles.value.length > 1 && activeProfileIndex.value !== -1)
 
 const formatSolarDate = (value) => {
     if (!value) return '未录入阳历'
@@ -1449,6 +1465,14 @@ const handleProfileSelect = () => {
     analysisNotice.value = ''
 }
 
+const switchProfile = (direction) => {
+    if (!canSwitchProfile.value) return
+    const total = baziProfiles.value.length
+    const nextIndex = (activeProfileIndex.value + direction + total) % total
+    selectedProfileId.value = baziProfiles.value[nextIndex].id
+    handleProfileSelect()
+}
+
 const openAddProfile = () => {
     if (isGuest.value && baziProfiles.value.length >= 1) {
         alert('访客模式仅可添加 1 个本地八字档案')
@@ -1799,6 +1823,9 @@ const getShenColor = (shen) => {
 
 .profile-selector { display: flex; gap: 8px; margin-bottom: 10px; }
 .profile-select { flex: 1; min-width: 0; background: rgba(0,0,0,0.34); border: 1px solid rgba(232,204,128,0.32); color: #F4EBDD; padding: 11px 12px; border-radius: 10px; outline: none; font-size: 13px; }
+.profile-nav-btn { width: 38px; height: 42px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.24); background: rgba(0,0,0,0.24); color: var(--gold-light); font-size: 24px; line-height: 1; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background .2s, border-color .2s, color .2s; }
+.profile-nav-btn:hover:not(:disabled) { background: rgba(212,175,55,0.1); border-color: rgba(232,204,128,0.4); }
+.profile-nav-btn:disabled { opacity: .35; cursor: default; }
 .icon-btn { width: 42px; height: 42px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
 .guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
@@ -2620,6 +2647,10 @@ const getShenColor = (shen) => {
 
 @media (max-width: 420px) {
     .profile-actions { grid-template-columns: 1fr 1fr; }
+    .profile-selector { gap: 6px; }
+    .profile-nav-btn { width: 32px; height: 40px; border-radius: 9px; font-size: 22px; }
+    .icon-btn { width: 40px; height: 40px; }
+    .profile-select { padding: 10px 8px; font-size: 12px; }
     .mini-action.danger { grid-column: span 2; }
     .form-row { flex-direction: column; gap: 10px; }
     .bazi-header { flex-direction: column; }

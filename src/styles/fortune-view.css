@@ -31,10 +31,14 @@
 .tab-btn.active { background:rgba(212,175,55,0.15); color:var(--gold-light); box-shadow:inset 0 0 0 1px rgba(212,175,55,0.3); }
 
 /* Date Scroll */
-.date-scroll-container { display:flex; overflow-x:auto; gap:12px; padding-bottom:10px; margin-bottom:16px; }
+.date-jump-row { display:grid; grid-template-columns:38px minmax(0,1fr) 38px; gap:8px; align-items:center; margin-bottom:16px; }
+.date-scroll-container { display:flex; overflow-x:auto; gap:12px; padding-bottom:10px; }
 .date-scroll-container::-webkit-scrollbar { display:none; }
 .date-item { flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:10px 14px; border-radius:12px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); cursor:pointer; transition:.3s; }
 .date-item.active { background:rgba(212,175,55,0.1); border-color:var(--gold); }
+.date-jump-btn { width:38px; height:44px; border-radius:12px; border:1px solid rgba(212,175,55,0.18); background:rgba(0,0,0,0.22); color:var(--gold-light); font-size:25px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; transition:border-color .2s, background .2s, color .2s; }
+.date-jump-btn:hover:not(:disabled) { border-color:rgba(212,175,55,0.36); background:rgba(212,175,55,0.1); }
+.date-jump-btn:disabled { opacity:0.34; cursor:default; }
 .day-of-week { font-size:11px; color:var(--text-muted); margin-bottom:4px; }
 .date-num { font-size:18px; font-weight:bold; color:#fff; }
 .date-item.active .date-num { color:var(--gold-light); }
@@ -47,14 +51,14 @@
 
 /* ═══ Score Dashboard ═══ */
 .score-dashboard { padding:18px 18px 14px; }
-.score-main { display:grid; grid-template-columns:116px minmax(0,1fr); gap:18px; align-items:center; }
+.score-main { display:grid; grid-template-columns:112px minmax(0,1fr); gap:18px; align-items:center; }
 .guest-score-note { color:var(--text-muted); font-size:12px; line-height:1.7; text-align:center; }
 .score-ring { width:112px; height:112px; border-radius:50%; display:flex; align-items:center; justify-content:center; padding:8px; box-shadow:0 0 20px rgba(212,175,55,0.2); margin:0 auto; }
 .score-inner { width:100%; height:100%; background:#0c0c16; border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; }
 .score-value { font-size:34px; font-weight:bold; color:var(--gold-light); line-height:1; }
 .score-unit { font-size:11px; color:var(--text-muted); margin-top:4px; }
 .score-side { min-width:0; display:flex; flex-direction:column; gap:10px; }
-.score-ganzhi { font-size:23px; color:#E8CC80; font-family:var(--font-ganzhi); line-height:1.4; letter-spacing:1px; }
+.score-ganzhi { font-size:23px; color:#E8CC80; font-family:'Songti SC','STSong','华文宋体','SimSun','Noto Serif SC',serif; font-weight:600; line-height:1.35; letter-spacing:1.5px; text-shadow:0 0 16px rgba(232,204,128,0.14); }
 .score-insight { margin:0; font-size:15px; line-height:1.75; color:#E8CC80; font-family:var(--font-serif); text-shadow:0 0 12px rgba(232,204,128,0.15); }
 .score-insight.muted { color:var(--text-muted); opacity:0.78; text-shadow:none; }
 .warning-tag { margin-top:14px; padding:8px 12px; background:rgba(255,94,87,0.1); color:#FF5E57; border-radius:8px; font-size:12px; border:1px solid rgba(255,94,87,0.2); display:inline-block; }
@@ -130,8 +134,15 @@
 @media (max-width: 480px) {
   .page-wrap { padding:18px 14px; }
   .profile-switch-name { font-size:20px; }
-  .score-main { grid-template-columns:1fr; gap:14px; }
+  .date-jump-row { grid-template-columns:34px minmax(0,1fr) 34px; gap:6px; }
+  .date-jump-btn { width:34px; height:42px; border-radius:10px; }
+  .date-scroll-container { gap:8px; }
+  .date-item { padding:9px 12px; }
+  .score-dashboard { padding:16px 14px 13px; }
+  .score-main { grid-template-columns:108px minmax(0,1fr); gap:14px; }
   .score-ring { width:108px; height:108px; }
-  .score-side { text-align:center; align-items:center; }
-  .inline-warning, .inline-hint { align-self:center; }
+  .score-side { text-align:left; align-items:flex-start; }
+  .score-ganzhi { font-size:20px; letter-spacing:1.2px; }
+  .score-insight { font-size:13px; line-height:1.65; }
+  .inline-warning, .inline-hint { align-self:flex-start; }
 }
