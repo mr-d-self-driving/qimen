@@ -1291,16 +1291,6 @@ watch(
     { immediate: true }
 )
 
-watch([birthYear, currentEventYear], ([nextBirthYear, nextCurrentYear]) => {
-    if (eventForm.year < nextBirthYear) {
-        eventForm.year = nextBirthYear
-        return
-    }
-    if (eventForm.year > nextCurrentYear) {
-        eventForm.year = nextCurrentYear
-    }
-}, { immediate: true })
-
 const selectDayun = (idx) => {
     selectedDayunIdx.value = idx;
     const dy = fullDayunList.value[idx]?.originalDy;
@@ -1652,6 +1642,16 @@ const isEventFormValid = computed(() =>
     eventForm.impact !== undefined &&
     eventForm.description.trim().length > 0
 )
+
+watch([birthYear, currentEventYear], ([nextBirthYear, nextCurrentYear]) => {
+    if (eventForm.year < nextBirthYear) {
+        eventForm.year = nextBirthYear
+        return
+    }
+    if (eventForm.year > nextCurrentYear) {
+        eventForm.year = nextCurrentYear
+    }
+}, { immediate: true })
 
 const eventCategoryLabel = (val) =>
     LIFE_EVENT_CATEGORIES.find(c => c.value === val)?.label || val
