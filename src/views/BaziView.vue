@@ -300,6 +300,10 @@
                 <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
                     <div class="ai-header-row">
                         <div class="ai-header-title">断事笔记</div>
+                        <button class="info-button" title="功能说明" @click="showLeGuide = true">?</button>
+                        <span v-if="isCalibrated" class="calibrated-badge">
+                            已深度校准 · {{ calibratedTimeStr }}
+                        </span>
                     </div>
 
                     <div v-if="sortedLifeEvents.length > 0" class="le-timeline">
@@ -336,13 +340,9 @@
                         <div class="le-form-row">
                             <div class="le-field">
                                 <label>发生年份 *</label>
-                                <input
-                                    type="number"
-                                    v-model.number="eventForm.year"
-                                    :min="birthYear"
-                                    :max="new Date().getFullYear()"
-                                    placeholder="如 2020"
-                                >
+                                <select v-model.number="eventForm.year">
+                                    <option v-for="year in eventYearOptions" :key="year" :value="year">{{ year }} 年</option>
+                                </select>
                             </div>
                             <div class="le-field">
                                 <label>发生月份（选填）</label>
@@ -585,7 +585,7 @@
                             <div class="fortune-guide-title">{{ liuriInsightTitle }}</div>
                             <div class="fortune-guide-copy">{{ liuriInsightText }}</div>
                         </div>
-                        <button class="fortune-guide-btn" @click="openFortuneGuide">查看运势</button>
+                        <button class="fortune-guide-btn" @click="openFortuneGuide">查看每日运势</button>
                     </div>
 
                     <!-- 5. 生克合化关系 -->
@@ -747,6 +747,48 @@
                     </div>
                 </Teleport>
 
+                <Teleport to="body">
+                    <div v-if="showLeGuide" class="modal-overlay" @click="showLeGuide = false">
+                        <div class="le-guide-card" @click.stop>
+                            <div class="le-guide-head">
+                                <span>断事笔记是什么？</span>
+                                <button class="close-button" title="关闭" @click="showLeGuide = false">×</button>
+                            </div>
+
+                            <div class="le-guide-body">
+                                <div class="le-guide-block">
+                                    <div class="le-guide-block-title">命理初稿 vs 真实定盘</div>
+                                    <p>
+                                        AI 根据你的出生时刻推算出的喜忌，只是一份「初稿」。<br>
+                                        真正准确的定盘，需要用你亲历的人生大事来验证和修正。
+                                    </p>
+                                </div>
+
+                                <div class="le-guide-block">
+                                    <div class="le-guide-block-title">怎么用</div>
+                                    <p>
+                                        填入几个关键年份的真实大事（升职、失业、婚恋、大病、意外之财……），
+                                        AI 会分析这些事件对应的五行能量，反推出更贴近你真实命局的喜忌神，
+                                        并重新校准原局、大运、流年三段解读。
+                                    </p>
+                                </div>
+
+                                <div class="le-guide-example">
+                                    <div class="le-guide-example-label">举个例子</div>
+                                    <p>
+                                        初判说你喜水忌火，但你在丙午年（火旺之年）反而事业大爆发
+                                        这说明初判存在偏差。断事笔记会把这个信号告诉 AI，让它重新校准。
+                                    </p>
+                                </div>
+
+                                <div class="le-guide-tip">
+                                    填 3～5 条最佳，选吉凶最明确的年份。极端事件比平淡年份更有参考价值。
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </Teleport>
+
                 <!-- 命局天机分析版块 -->
                 <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
                     <div class="ai-header-row">
@@ -876,7 +918,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
@@ -1201,11 +1243,31 @@ const syncTransitSelection = (targetDate = new Date()) => {
     selectedLiuriDateKey.value = selection.liuriDateKey
 }
 
-watch(baziEngine, (newVal) => {
+const scrollActiveTransitItemsIntoView = async () => {
+    await nextTick()
+    if (typeof document === 'undefined') return
+    document.querySelectorAll('.timeline-section .link-item.active').forEach((el) => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+    })
+}
+
+const jumpToCurrentTransit = async () => {
+    syncTransitSelection(new Date())
+    await scrollActiveTransitItemsIntoView()
+}
+
+watch(baziEngine, async (newVal) => {
     if (newVal) {
         syncTransitSelection(new Date());
+        await scrollActiveTransitItemsIntoView()
     }
 }, { immediate: true });
+
+watch(currentTab, async (tab) => {
+    if (tab === 'pro') {
+        await scrollActiveTransitItemsIntoView()
+    }
+})
 
 watch(
     () => pillarInput.monthPillar.charAt(0),
@@ -1228,6 +1290,16 @@ watch(
     },
     { immediate: true }
 )
+
+watch([birthYear, currentEventYear], ([nextBirthYear, nextCurrentYear]) => {
+    if (eventForm.year < nextBirthYear) {
+        eventForm.year = nextBirthYear
+        return
+    }
+    if (eventForm.year > nextCurrentYear) {
+        eventForm.year = nextCurrentYear
+    }
+}, { immediate: true })
 
 const selectDayun = (idx) => {
     selectedDayunIdx.value = idx;
@@ -1378,10 +1450,6 @@ watch(linkedLiuriList, (list) => {
         selectedLiuriDateKey.value = list[0].dateKey
     }
 }, { immediate: true })
-
-const jumpToCurrentTransit = () => {
-    syncTransitSelection(new Date())
-}
 
 const openFortuneGuide = () => {
     if (!activeLiuri.value) return
@@ -1546,6 +1614,9 @@ const feedbackCorrectionDate = computed(() => {
     return value ? new Date(value).toLocaleDateString('zh-CN') : ''
 })
 
+const isCalibrated = computed(() => hasFeedbackCorrections.value)
+const calibratedTimeStr = computed(() => feedbackCorrectionDate.value)
+
 const lifeEvents = computed(() => {
     const events = activeProfile.value?.life_events
     return Array.isArray(events) ? events : []
@@ -1562,9 +1633,21 @@ const birthYear = computed(() => {
     return bd ? parseInt(String(bd).slice(0, 4)) : 1900
 })
 
+const currentEventYear = computed(() => new Date().getFullYear())
+
+const eventYearOptions = computed(() => {
+    const start = birthYear.value
+    const end = currentEventYear.value
+    const years = []
+    for (let year = end; year >= start; year -= 1) {
+        years.push(year)
+    }
+    return years
+})
+
 const isEventFormValid = computed(() =>
     eventForm.year >= birthYear.value &&
-    eventForm.year <= new Date().getFullYear() &&
+    eventForm.year <= currentEventYear.value &&
     eventForm.category &&
     eventForm.impact !== undefined &&
     eventForm.description.trim().length > 0
@@ -2008,7 +2091,7 @@ const saveLifeEvents = async (events) => {
 }
 
 const resetEventForm = () => {
-    eventForm.year = new Date().getFullYear()
+    eventForm.year = currentEventYear.value
     eventForm.month = undefined
     eventForm.category = 'career'
     eventForm.impact = 1
@@ -2098,6 +2181,7 @@ const formatXiJi = (val) => {
 }
 
 const selectedShensha = ref(null);
+const showLeGuide = ref(false)
 const showShensha = (shensha) => {
     selectedShensha.value = shensha;
 };
@@ -2578,20 +2662,20 @@ const getShenColor = (shen) => {
 
 .linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
 .row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
-.row-content { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; padding: 6px; flex: 1; scroll-snap-type: x proximity; }
+.row-content { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 4px; flex: 1; scroll-snap-type: x proximity; }
 .row-content::-webkit-scrollbar { display: none; }
 
-.link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 66px; padding: 8px 6px; border-radius: 10px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: start; }
+.link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 58px; padding: 6px 4px; border-radius: 8px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: center; }
 .link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
-.lr-item { min-width: 58px; }
+.lr-item { min-width: 52px; }
 
-.item-header { font-size: 10px; color: #aaa; margin-bottom: 8px; text-align: center; line-height: 1.45; min-height: 30px; display: flex; align-items: center; justify-content: center; }
-.item-body { display: flex; flex-direction: row; gap: 6px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 24px; }
-.stacked-ganzhi { flex-direction: column; gap: 5px; }
+.item-header { font-size: 10px; color: #aaa; margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
+.item-body { display: flex; flex-direction: row; gap: 4px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 22px; }
+.stacked-ganzhi { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
 
-.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; height: 22px; padding-right: 10px; flex: 0 0 auto; }
-.stacked-ganzhi .char-wrap { width: 100%; min-width: 0; padding-right: 12px; }
+.char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; height: 20px; padding-right: 8px; flex: 0 0 auto; }
+.stacked-ganzhi .char-wrap { width: 100%; min-width: 0; height: 19px; padding-right: 10px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
 .fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
 .fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: linear-gradient(180deg, rgba(8,8,16,0.12), rgba(8,8,16,0.28)); pointer-events: none; }
@@ -2668,6 +2752,15 @@ const getShenColor = (shen) => {
 .feedback-correction-line strong {
     color: var(--teal);
     font-weight: 700;
+}
+.calibrated-badge {
+    margin-left: auto;
+    font-size: 11px;
+    color: var(--gold-light);
+    background: color-mix(in srgb, var(--gold) 10%, transparent);
+    border: 1px solid var(--gold-border);
+    border-radius: 999px;
+    padding: 2px 10px;
 }
 .tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); min-width: 0; }
@@ -3108,10 +3201,12 @@ const getShenColor = (shen) => {
     .timeline-head { align-items: flex-start; }
     .timeline-actions { gap: 6px; }
     .timeline-icon-btn { width: 28px; height: 28px; }
-    .row-content { gap: 6px; padding: 6px; }
-    .link-item { min-width: 68px; padding: 9px 6px; }
-    .item-body { gap: 8px; }
-    .char-wrap { width: 20px; min-width: 20px; padding-right: 12px; }
+    .row-content { gap: 3px; padding: 4px; }
+    .link-item { min-width: 58px; padding: 6px 4px; }
+    .item-body { gap: 4px; }
+    .stacked-ganzhi { gap: 2px; }
+    .char-wrap { width: 18px; min-width: 18px; height: 20px; padding-right: 8px; }
+    .stacked-ganzhi .char-wrap { height: 19px; padding-right: 10px; }
     .fortune-guide-card { flex-direction: column; align-items: stretch; }
     .fortune-guide-btn { width: 100%; }
     .verdict-line { gap: 8px; }
@@ -3197,13 +3292,16 @@ const getShenColor = (shen) => {
 
 .le-toggle-btn {
     padding: 7px 16px; border-radius: 999px;
-    border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
-    background: color-mix(in srgb, var(--gold) 8%, transparent);
-    color: var(--gold-light); font-size: 13px; font-weight: 600;
-    cursor: pointer; transition: background 0.2s;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: border-color 0.2s, color 0.2s;
     margin-bottom: 4px;
 }
-.le-toggle-btn:hover { background: color-mix(in srgb, var(--gold) 15%, transparent); }
+.le-toggle-btn:hover {
+    border-color: var(--gold-border);
+    color: var(--gold-light);
+}
 
 .le-form {
     margin-top: 12px; display: flex; flex-direction: column; gap: 14px;
@@ -3261,6 +3359,90 @@ const getShenColor = (shen) => {
 
 .le-form-actions {
     display: flex; justify-content: flex-end; gap: 10px; margin-top: 2px;
+}
+
+/* ══ 断事笔记使用说明浮层 ══ */
+.le-guide-card {
+    width: min(92vw, 400px);
+    max-height: 78vh;
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--bg-card) 96%, black 55%);
+    border: 1px solid var(--gold-border);
+    border-radius: 20px;
+    padding: 20px 18px;
+    box-shadow: 0 20px 60px color-mix(in srgb, black 55%, transparent);
+    animation: riseIn 0.25s ease;
+}
+
+.le-guide-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    color: var(--gold-light);
+    padding-bottom: 14px;
+    margin-bottom: 14px;
+    border-bottom: 1px solid color-mix(in srgb, var(--gold) 14%, transparent);
+}
+
+.le-guide-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.le-guide-block {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--bg-card) 82%, transparent);
+    border: 1px solid var(--glass-border);
+}
+
+.le-guide-block-title {
+    font-size: 11px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.le-guide-block p {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.75;
+    margin: 0;
+}
+
+.le-guide-example {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 6%, transparent), color-mix(in srgb, var(--bg-card) 88%, transparent));
+    border: 1px solid color-mix(in srgb, var(--gold) 18%, transparent);
+    border-left: 3px solid var(--gold);
+}
+
+.le-guide-example-label {
+    font-size: 11px;
+    color: var(--gold-light);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+
+.le-guide-example p {
+    font-size: 13px;
+    color: var(--text-primary);
+    line-height: 1.75;
+    margin: 0;
+}
+
+.le-guide-tip {
+    font-size: 12px;
+    color: var(--text-muted);
+    line-height: 1.7;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--bg-card) 80%, transparent);
+    border: 1px dashed var(--glass-border);
 }
 
 @media (max-width: 420px) {
