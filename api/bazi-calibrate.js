@@ -5,6 +5,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_KEY
 )
 
+const LLM_TIMEOUT_MS = 90 * 1000
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    })
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}
+
 module.exports = async function handler(req, res) {
   const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*'
   res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
@@ -34,19 +49,27 @@ module.exports = async function handler(req, res) {
       return res.status(403).json({ error: '无权操作该档案' })
     }
 
-    const llmRes = await fetch('https://yinli.one/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: 'gemini-3.1-pro-preview',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.2,
-        response_format: { type: 'json_object' },
-      }),
-    })
+    let llmRes
+    try {
+      llmRes = await fetchWithTimeout('https://yinli.one/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${process.env.GEMINI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gemini-3.1-pro-preview',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.2,
+          response_format: { type: 'json_object' },
+        }),
+      }, LLM_TIMEOUT_MS)
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return res.status(504).json({ error: 'LLM 请求超时（90s）' })
+      }
+      throw error
+    }
 
     if (!llmRes.ok) {
       const errText = await llmRes.text()

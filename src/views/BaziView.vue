@@ -815,6 +815,13 @@
                     <div class="insight-card">
                         <h4>原局核心</h4>
                         <p>{{ resolvedYuanjuCore }}</p>
+                        <div v-if="feedbackCorrections.yuanju_core" class="feedback-correction-block">
+                            <div class="feedback-correction-head">
+                                <span>命主反馈纠偏</span>
+                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
+                            </div>
+                            <p class="feedback-correction-copy">{{ feedbackCorrections.yuanju_core }}</p>
+                        </div>
                     </div>
                     <div class="insight-card">
                         <h4>岁运推演</h4>
@@ -824,6 +831,18 @@
                         <p>
                             <strong style="color:var(--gold)">【流年】</strong> {{ resolvedCurrentLiunian }}
                         </p>
+                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="feedback-correction-block is-transit">
+                            <div class="feedback-correction-head">
+                                <span>命主反馈纠偏</span>
+                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
+                            </div>
+                            <div v-if="feedbackCorrections.current_dayun" class="feedback-correction-line">
+                                <strong>【大运修正】</strong> {{ feedbackCorrections.current_dayun }}
+                            </div>
+                            <div v-if="feedbackCorrections.current_liunian" class="feedback-correction-line">
+                                <strong>【流年修正】</strong> {{ feedbackCorrections.current_liunian }}
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -1507,6 +1526,26 @@ const resolvedCurrentLiunian = computed(() => {
     return resolvedInterpretation.value.current_liunian
 })
 
+const feedbackCorrections = computed(() => ({
+    yuanju_core: String(activeProfile.value?.calibrated_yuanju_core || '').trim(),
+    current_dayun: String(activeProfile.value?.calibrated_current_dayun || '').trim(),
+    current_liunian: String(activeProfile.value?.calibrated_current_liunian || '').trim(),
+    calibrated_at: activeProfile.value?.calibrated_at || ''
+}))
+
+const hasFeedbackCorrections = computed(() =>
+    Boolean(
+        feedbackCorrections.value.yuanju_core ||
+        feedbackCorrections.value.current_dayun ||
+        feedbackCorrections.value.current_liunian
+    )
+)
+
+const feedbackCorrectionDate = computed(() => {
+    const value = feedbackCorrections.value.calibrated_at
+    return value ? new Date(value).toLocaleDateString('zh-CN') : ''
+})
+
 const lifeEvents = computed(() => {
     const events = activeProfile.value?.life_events
     return Array.isArray(events) ? events : []
@@ -1539,52 +1578,6 @@ const eventImpactClass = (val) =>
 
 const eventImpactLabel = (val) =>
     IMPACT_OPTIONS.find(o => o.value === val)?.label || ''
-
-const firstNonEmpty = (...values) => {
-    for (const value of values) {
-        const normalized = String(value || '').trim()
-        if (normalized) return normalized
-    }
-    return ''
-}
-
-const getRawInterpretation = (profile = {}) => {
-    const detail = profile.bazi_detail || {}
-    return {
-        yuanju_core: firstNonEmpty(
-            profile.llm_yuanju_core,
-            detail.llm_yuanju_core,
-            profile.engine_yuanju_core,
-            detail.engine_yuanju_core,
-            profile.display_yuanju_core,
-            profile.yuanju_core
-        ),
-        current_dayun: firstNonEmpty(
-            profile.llm_current_dayun,
-            detail.llm_current_dayun,
-            profile.engine_current_dayun,
-            detail.engine_current_dayun,
-            profile.display_current_dayun,
-            profile.current_dayun
-        ),
-        current_liunian: firstNonEmpty(
-            profile.llm_current_liunian,
-            detail.llm_current_liunian,
-            profile.engine_current_liunian,
-            detail.engine_current_liunian,
-            profile.display_current_liunian,
-            profile.current_liunian
-        ),
-    }
-}
-
-const appendFeedbackCorrection = (base, correction) => {
-    const normalizedBase = String(base || '').trim()
-    const normalizedCorrection = String(correction || '').trim()
-    if (!normalizedCorrection) return normalizedBase
-    if (!normalizedBase) return `【命主反馈纠偏】\n${normalizedCorrection}`
-    return `${normalizedBase}\n\n【命主反馈纠偏】\n${normalizedCorrection}`
-}
 
 // 时间解析逻辑
 const promptDataObj = computed(() => {
@@ -2067,28 +2060,22 @@ const triggerCalibration = async ({ profileId = activeProfile.value?.id } = {}) 
 
         const idx = baziProfiles.value.findIndex(p => p.id === profileId)
         if (idx !== -1) {
-            const base = getRawInterpretation(baziProfiles.value[idx])
             const calibratedAt = new Date().toISOString()
-            const calibrated = {
-                yuanju_core: appendFeedbackCorrection(base.yuanju_core, data.yuanju_core),
-                current_dayun: appendFeedbackCorrection(base.current_dayun, data.current_dayun),
-                current_liunian: appendFeedbackCorrection(base.current_liunian, data.current_liunian),
-            }
             const { error: dbError } = await supabase
                 .from('bazi_profiles')
                 .update({
-                    calibrated_yuanju_core: calibrated.yuanju_core,
-                    calibrated_current_dayun: calibrated.current_dayun,
-                    calibrated_current_liunian: calibrated.current_liunian,
+                    calibrated_yuanju_core: data.yuanju_core,
+                    calibrated_current_dayun: data.current_dayun,
+                    calibrated_current_liunian: data.current_liunian,
                     calibrated_at: calibratedAt,
                 })
                 .eq('id', profileId)
             if (dbError) throw dbError
             baziProfiles.value[idx] = {
                 ...baziProfiles.value[idx],
-                calibrated_yuanju_core: calibrated.yuanju_core,
-                calibrated_current_dayun: calibrated.current_dayun,
-                calibrated_current_liunian: calibrated.current_liunian,
+                calibrated_yuanju_core: data.yuanju_core,
+                calibrated_current_dayun: data.current_dayun,
+                calibrated_current_liunian: data.current_liunian,
                 calibrated_at: calibratedAt,
             }
         }
@@ -2647,6 +2634,41 @@ const getShenColor = (shen) => {
 .insight-card { background: linear-gradient(180deg, rgba(232,204,128,0.06) 0%, rgba(255,255,255,0.015) 100%); border: 1px solid rgba(232,204,128,0.12); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
 .insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
+.feedback-correction-block {
+    margin-top: 12px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--teal) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--teal) 18%, var(--glass-border));
+}
+.feedback-correction-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+    color: var(--teal);
+    font-size: 11px;
+    font-weight: 700;
+}
+.feedback-correction-date {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.feedback-correction-copy,
+.feedback-correction-line {
+    white-space: pre-line;
+    line-height: 1.8;
+    color: var(--text-primary);
+    font-size: 12px;
+}
+.feedback-correction-line + .feedback-correction-line {
+    margin-top: 8px;
+}
+.feedback-correction-line strong {
+    color: var(--teal);
+    font-weight: 700;
+}
 .tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
 .verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); min-width: 0; }
 .verdict-line span { display: block; flex: 0 0 auto; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 0; white-space: nowrap; }

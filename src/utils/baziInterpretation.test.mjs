@@ -30,6 +30,7 @@ test('parseLegacyBaziSummary splits old summary into three display sections', ()
 
 test('resolveBaziInterpretation prefers llm, falls back to engine, then legacy summary', () => {
   assert.deepEqual(resolveBaziInterpretation({
+    calibrated_yuanju_core: 'calibrated-yuanju',
     llm_yuanju_core: 'llm-yuanju',
     engine_yuanju_core: 'engine-yuanju',
     bazi_summary: '原局核心：\nlegacy-yuanju\n\n当前大运：\nlegacy-dayun\n\n当前流年：\nlegacy-liunian'

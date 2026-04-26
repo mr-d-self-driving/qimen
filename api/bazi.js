@@ -9,6 +9,29 @@ const supabase = createClient(
     process.env.SUPABASE_SERVICE_KEY
 );
 
+const LLM_TIMEOUT_MS = 90 * 1000;
+
+function hasCompleteLlmCache(profile = {}) {
+    return Boolean(
+        profile.llm_yuanju_core &&
+        profile.llm_current_dayun &&
+        profile.llm_current_liunian
+    );
+}
+
+async function fetchWithTimeout(url, options, timeoutMs) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+        return await fetch(url, {
+            ...options,
+            signal: controller.signal,
+        });
+    } finally {
+        clearTimeout(timeoutId);
+    }
+}
+
 function buildQualitativeSections({ llmSucceeded, llmQualitativeData, engineQualitativeData }) {
     const normalizedEngine = {
         yuanju_core: engineQualitativeData?.yuanju_core || '',
@@ -676,12 +699,27 @@ module.exports = async function handler(req, res) {
         const whitelist = (process.env.WHITELIST_EMAILS || "").split(',').map(e => e.trim().toLowerCase());
         const isVIP = whitelist.includes(user.email?.toLowerCase() || "");
 
+        const { data: existingProfile, error: profileError } = await supabase
+            .from('bazi_profiles')
+            .select('*')
+            .eq('id', promptData.profileId)
+            .single();
+        if (profileError || !existingProfile) return res.status(404).json({ error: "档案不存在" });
+        if (existingProfile.user_id !== user.id) return res.status(403).json({ error: "无权操作该档案" });
+
         if (!isVIP) {
             const { count } = await supabase.from('bazi_profiles').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('bazi_summary', 'is', null);
             if (count >= 3) {
-                const { data: existingProfile } = await supabase.from('bazi_profiles').select('bazi_summary').eq('id', promptData.profileId).single();
                 if (!existingProfile || !existingProfile.bazi_summary) return res.status(403).json({ error: "免费额度已用尽" });
             }
+        }
+
+        if (hasCompleteLlmCache(existingProfile)) {
+            return res.status(200).json({
+                result: existingProfile.bazi_summary || '',
+                bazi_detail: existingProfile.bazi_detail || {},
+                cached: true,
+            });
         }
 
         const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
@@ -896,16 +934,24 @@ module.exports = async function handler(req, res) {
 }`;
 
         const API_URL = 'https://yinli.one/v1/chat/completions';
-        const llmResponse = await fetch(API_URL, {
-            method: 'POST',
-            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GEMINI_API_KEY}` },
-            body: JSON.stringify({
-                model: 'gemini-3.1-pro-preview',
-                messages: [{ role: 'user', content: llmPrompt }],
-                temperature: 0.2,
-                response_format: { type: "json_object" }
-            })
-        });
+        let llmResponse;
+        try {
+            llmResponse = await fetchWithTimeout(API_URL, {
+                method: 'POST',
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${process.env.GEMINI_API_KEY}` },
+                body: JSON.stringify({
+                    model: 'gemini-3.1-pro-preview',
+                    messages: [{ role: 'user', content: llmPrompt }],
+                    temperature: 0.2,
+                    response_format: { type: "json_object" }
+                })
+            }, LLM_TIMEOUT_MS);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                throw new Error('LLM 请求超时（90s）');
+            }
+            throw error;
+        }
 
         const engineQualitativeData = {
             yuanju_core: engineYuanjuCore,
