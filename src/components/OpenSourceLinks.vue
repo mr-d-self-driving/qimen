@@ -15,27 +15,11 @@
         />
       </svg>
     </a>
-    <a
-      class="source-link sponsor-link"
-      :href="sponsorUrl"
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="打赏支持项目"
-      title="打赏支持"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <path
-          d="M12 20.35 10.55 19.03C5.4 14.35 2 11.26 2 7.48 2 4.4 4.42 2 7.5 2c1.74 0 3.41.81 4.5 2.08A6 6 0 0 1 16.5 2C19.58 2 22 4.4 22 7.48c0 3.78-3.4 6.87-8.55 11.55L12 20.35Z"
-          fill="currentColor"
-        />
-      </svg>
-    </a>
   </div>
 </template>
 
 <script setup>
 const githubUrl = import.meta.env.VITE_GITHUB_URL || 'https://github.com/oceanjustinlin/qimen'
-const sponsorUrl = import.meta.env.VITE_SPONSOR_URL || 'https://github.com/sponsors/oceanjustinlin'
 </script>
 
 <style scoped>
@@ -72,17 +56,6 @@ const sponsorUrl = import.meta.env.VITE_SPONSOR_URL || 'https://github.com/spons
 .source-link svg {
   width: 17px;
   height: 17px;
-}
-
-.sponsor-link {
-  color: rgba(255, 126, 154, 0.86);
-}
-
-.sponsor-link:hover,
-.sponsor-link:focus-visible {
-  color: #ff9caf;
-  border-color: rgba(255, 126, 154, 0.42);
-  background: rgba(255, 126, 154, 0.12);
 }
 
 @media (max-width: 380px) {
