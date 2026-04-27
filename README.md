@@ -4,11 +4,11 @@
 > 时家奇门拆补转盘法 × 全息八字子平推演 × Gemini 大模型 × 全栈 Web 应用
 
 <p align="center">
-  <img src="home.jpg" width="200" alt="主界面"/>
+  <img src="public/images/home.jpg" width="200" alt="主界面"/>
   &nbsp;&nbsp;
-  <img src="menu_1.jpg" width="200" alt="历史占卜"/>
+  <img src="public/images/menu_1.jpg" width="200" alt="历史占卜"/>
   &nbsp;&nbsp;
-  <img src="sample_1.jpg" width="200" alt="决策卡片"/>
+  <img src="public/images/sample_1.jpg" width="200" alt="决策卡片"/>
 </p>
 
 <p align="center">
@@ -146,14 +146,11 @@ npm install
 # 2. 启动开发环境
 npm run dev
 
-# 3. 构建生产包
+# 3. 运行测试
+npm test
+
+# 4. 构建生产包
 npm run build
-```
-
-项目目前未在 `package.json` 中配置统一的 `test` script。如需运行现有测试，可使用 Node.js Test Runner：
-
-```bash
-node --test api/*.test.js lib/*.test.js src/**/*.test.mjs
 ```
 
 ### 前置条件
@@ -238,9 +235,9 @@ create policy "用户只能访问自己的日运缓存" on fortune_cache
 
 仓库的 `docs/` 目录还包含后续迁移脚本，可按功能需要继续执行：
 
-- `docs/bazi-llm-engine-migration.sql`：八字 LLM / 规则引擎断语字段
-- `docs/bazi-calibration-migration.sql`：八字校准反馈与再生成相关字段
-- `docs/guest-events.sql`：访客模式事件记录
+- `docs/sql/bazi-llm-engine-migration.sql`：八字 LLM / 规则引擎断语字段
+- `docs/sql/bazi-calibration-migration.sql`：八字校准反馈与再生成相关字段
+- `docs/sql/guest-events.sql`：访客模式事件记录
 
 ### 部署步骤
 
@@ -318,10 +315,19 @@ vercel deploy
 │       └── FortuneView.vue   # 日运界面：每日分值 · 运势解读 · 缓存回放
 │
 ├── docs/
-│   ├── bazi-calibration-migration.sql # 八字校准迁移脚本
-│   ├── bazi-llm-engine-migration.sql  # 八字引擎字段迁移脚本
-│   ├── bazi-ui-prototype.html         # 八字 UI 原型
-│   └── guest-events.sql               # 访客事件记录表
+│   ├── sql/
+│   │   ├── bazi-calibration-migration.sql # 八字校准迁移脚本
+│   │   ├── bazi-llm-engine-migration.sql  # 八字引擎字段迁移脚本
+│   │   └── guest-events.sql               # 访客事件记录表
+│   └── prototypes/
+│       └── bazi-ui-prototype.html         # 八字 UI 原型
+│
+├── bazi/                        # Python 八字参考实现与经典资料
+├── public/
+│   └── images/                  # README 截图与移动端图标等静态资源
+│
+├── archive/                     # 旧版 HTML 与外部快捷指令脚本
+├── scripts/                     # 一次性分析 / 调试脚本
 │
 ├── index.html                # HTML 入口
 ├── vite.config.js            # Vite 构建配置
@@ -333,9 +339,9 @@ vercel deploy
 ## 效果展示
 
 <p align="center">
-  <img src="sample_1.jpg" width="220" alt="核心概览"/>
+  <img src="public/images/sample_1.jpg" width="220" alt="核心概览"/>
   &nbsp;
-  <img src="sample_2.jpg" width="220" alt="决策指引"/>
+  <img src="public/images/sample_2.jpg" width="220" alt="决策指引"/>
 </p>
 
 **奇门结果卡片包含：**
