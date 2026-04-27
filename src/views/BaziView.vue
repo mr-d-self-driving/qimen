@@ -631,13 +631,14 @@
                             <div class="drawer-head">
                                 <div>
                                     <div class="section-kicker">命局判定</div>
-                                    <h4>{{ insightTab === 'strength' ? `日主${activeProfile?.strong_weak || '强弱'}判定` : gejuPanelContent?.title }}</h4>
+                                    <h4>{{ insightPanelTitle }}</h4>
                                 </div>
                                 <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                             </div>
                             <div class="insight-switcher">
                                 <button class="insight-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">强弱判定</button>
                                 <button class="insight-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
+                                <button class="insight-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
                             </div>
                             <template v-if="insightTab === 'strength' && strengthPanelContent">
                                 <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
@@ -650,9 +651,8 @@
                                     </div>
                                 </div>
                             </template>
-                            <template v-else-if="gejuPanelContent">
+                            <template v-else-if="insightTab === 'geju' && gejuPanelContent">
                                 <div class="geju-modal-tags">
-                                    <span class="geju-chip">{{ gejuPanelContent.strongWeak }}</span>
                                     <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
                                     <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent is-text">{{ gejuPanelContent.chengGe }}</span>
                                     <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeStatus }}</span>
@@ -689,6 +689,24 @@
                                     <div class="geju-block-title">注意事项</div>
                                     <div class="geju-bullet-list warning">
                                         <span v-for="item in gejuPanelContent.watchOut" :key="item" class="geju-list-chip">{{ item }}</span>
+                                    </div>
+                                </div>
+                            </template>
+                            <template v-else-if="explanationPanelContent">
+                                <div class="explain-summary-card">
+                                    <div class="explain-summary-title">一句总结</div>
+                                    <p>{{ explanationPanelContent.summary }}</p>
+                                </div>
+                                <div class="explain-section-list">
+                                    <div v-for="section in explanationPanelContent.sections" :key="section.key" class="explain-section-card">
+                                        <div class="explain-section-head">
+                                            <h5>{{ section.title }}</h5>
+                                            <span class="explain-source-chip">{{ section.source }}</span>
+                                        </div>
+                                        <blockquote v-if="section.quote" class="explain-quote">{{ section.quote }}</blockquote>
+                                        <div class="explain-paragraphs">
+                                            <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
+                                        </div>
                                     </div>
                                 </div>
                             </template>
@@ -1557,6 +1575,52 @@ const strengthSummaryLine = computed(() => {
     if (!activeProfile.value?.strong_weak) return ''
     const summary = activeProfile.value.bazi_detail?.strength_detail?.summary || ''
     return summary ? `强弱：${summary}` : `强弱：${activeProfile.value.strong_weak}`
+})
+
+const explanationPanelContent = computed(() => ({
+    summary: '强弱，是看日主站不站得住；格局，是看命局主轴落在哪里；成格，是看这个主轴能不能真正成立。三者合起来，才比较接近传统子平论命的次序。',
+    sections: [
+        {
+            key: 'strength',
+            title: '强弱说明',
+            source: '《子平真诠》《渊海子平》《滴天髓》',
+            quote: '《子平真诠》评注云：以月令用神为经，诸神为纬。',
+            paragraphs: [
+                '子平法论命，先看日主旺衰。因为身强身弱，不只是一个标签，而是后面判断喜忌、取用、格局高低的根基。若不先辨旺衰，就很难知道命局中的财、官、印、食，到底是助力，还是压力。',
+                '古人论命，重月令、重根气、重扶抑。《渊海子平》一路以时令旺衰为本，《滴天髓》又特别强调旺衰气势，不主张只看某一个五行多寡。',
+                '所以这里的程序判断，不是单纯数五行，而是按古法顺序来：先看月令得不得时，再看地支有没有根，再看天干有没有印比帮扶，最后综合落出身强、身中、身弱。',
+                '身强，通常表示日主自持力较足，抗压、执行、担当的力量更明显，但若失衡，也容易过刚、过满；身弱，则表示日主更需要环境扶助，感受性更强、反应更细，若配合得好，多见谨慎、细腻、知分寸，若失衡，则容易感到压力先到。这里的强弱，不是好坏之分，而是命局力量结构不同。'
+            ]
+        },
+        {
+            key: 'geju',
+            title: '格局说明',
+            source: '《子平真诠》',
+            quote: '《真诠》以月令为主，先定格局之所从来。',
+            paragraphs: [
+                '格局回答的不是你厉不厉害，而是这张命盘的主轴是什么。强弱是看日主能不能承受，格局是看命局主要围绕财、官、印、食，还是别的核心在运转。',
+                '关于格局，古法最重月令。徐乐吾评《子平真诠》时说，《真诠》以月令用神为经，诸神为纬，意思就是立格先抓月令，不是先看全盘哪颗星最显眼。',
+                '所以程序里先看月支主气，再看月令藏干是否透出、是否有合化变化，然后定出基础格局。这个阶段解决的是此局以什么立名。'
+            ]
+        },
+        {
+            key: 'chengge',
+            title: '成格说明',
+            source: '《子平真诠》',
+            quote: '子平论格，不独看其名，更重成败得失。',
+            paragraphs: [
+                '但立格不等于成格。立格，是先把命局的骨架找出来；成格，是再看这个骨架有没有真正立住。',
+                '同样是财格，有的财能生官，有的财反被争夺；同样是官格，有的官印相生，有的则官杀混杂。程序因此还会继续判断：这个格有没有根气、有没有生扶、有没有破坏、有没有配合。',
+                '若条件齐备，就更接近成格；若主轴虽在，但配合未足，就会显示待定或未成格。成格与否，不是把人硬分成高低，而是看这张盘的结构是否完整、力量是否顺畅。成格，多表示优势更容易稳定发挥；未成格，则表示方向已经有了，但现实表现更依赖后天选择与岁运配合。'
+            ]
+        }
+    ]
+}))
+
+const insightPanelTitle = computed(() => {
+    if (insightTab.value === 'strength') return '身强/身弱判定结果'
+    if (insightTab.value === 'geju') return gejuPanelContent.value?.title || '格局判定结果'
+    return '判定说明'
 })
 
 const openInsightPanel = (tab = 'strength') => {
@@ -2963,9 +3027,11 @@ const getShenColor = (shen) => {
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
+    flex-wrap: wrap;
 }
 .insight-tab {
     flex: 1;
+    min-width: 140px;
     min-height: 38px;
     border-radius: 999px;
     border: 1px solid rgba(232,204,128,0.16);
@@ -3032,6 +3098,76 @@ const getShenColor = (shen) => {
     color: #D8D2BF;
     font-size: 13px;
     line-height: 1.7;
+}
+.explain-summary-card,
+.explain-section-card {
+    padding: 14px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(232,204,128,0.1);
+}
+.explain-summary-card {
+    margin-bottom: 12px;
+    background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.025));
+}
+.explain-summary-title {
+    margin-bottom: 8px;
+    color: var(--gold-light);
+    font-size: 13px;
+    font-weight: 700;
+}
+.explain-summary-card p {
+    color: #f2ead5;
+    font-size: 13px;
+    line-height: 1.75;
+}
+.explain-section-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+.explain-section-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+.explain-section-head h5 {
+    color: var(--gold-light);
+    font-size: 14px;
+    font-weight: 700;
+}
+.explain-source-chip {
+    flex-shrink: 0;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(232,204,128,0.16);
+    background: rgba(232,204,128,0.08);
+    color: #e7d5a3;
+    font-size: 10px;
+    letter-spacing: 0.4px;
+}
+.explain-quote {
+    margin: 0 0 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border-left: 3px solid rgba(232,204,128,0.44);
+    background: rgba(232,204,128,0.06);
+    color: #f2dfaf;
+    font-size: 12px;
+    line-height: 1.7;
+}
+.explain-paragraphs {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.explain-paragraphs p {
+    margin: 0;
+    color: #d8d2bf;
+    font-size: 13px;
+    line-height: 1.75;
 }
 .geju-card-head {
     display: flex;
@@ -3192,6 +3328,10 @@ const getShenColor = (shen) => {
     .date-segment { padding: 10px 4px; border-radius: 14px; }
     .date-segment strong { font-size: 14px; }
     .pillar-slot-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+    .insight-switcher { gap: 6px; }
+    .insight-tab { min-width: 0; flex: 1 1 calc(50% - 6px); font-size: 12px; }
+    .explain-section-head { align-items: flex-start; flex-direction: column; }
+    .explain-source-chip { align-self: flex-start; }
     .pillar-slot { min-height: 88px; border-radius: 18px; padding: 10px 4px; }
     .slot-label { font-size: 12px; }
     .slot-value { font-size: 20px; }
