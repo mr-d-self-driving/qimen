@@ -636,7 +636,7 @@
                                 <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                             </div>
                             <div class="insight-switcher">
-                                <button class="insight-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">强弱判定</button>
+                                <button class="insight-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">身强/身弱判定</button>
                                 <button class="insight-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
                                 <button class="insight-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
                             </div>
@@ -1618,7 +1618,7 @@ const explanationPanelContent = computed(() => ({
 }))
 
 const insightPanelTitle = computed(() => {
-    if (insightTab.value === 'strength') return '身强/身弱判定结果'
+    if (insightTab.value === 'strength') return activeProfile.value?.strong_weak || '强弱'
     if (insightTab.value === 'geju') return gejuPanelContent.value?.title || '格局判定结果'
     return '判定说明'
 })
@@ -3027,19 +3027,21 @@ const getShenColor = (shen) => {
     display: flex;
     gap: 8px;
     margin-bottom: 12px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
 }
 .insight-tab {
-    flex: 1;
-    min-width: 140px;
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 38px;
+    padding: 0 8px;
     border-radius: 999px;
     border: 1px solid rgba(232,204,128,0.16);
     background: rgba(255,255,255,0.03);
     color: #cdbf96;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 700;
     cursor: pointer;
+    white-space: nowrap;
 }
 .insight-tab.active {
     color: #17130c;
@@ -3329,7 +3331,7 @@ const getShenColor = (shen) => {
     .date-segment strong { font-size: 14px; }
     .pillar-slot-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
     .insight-switcher { gap: 6px; }
-    .insight-tab { min-width: 0; flex: 1 1 calc(50% - 6px); font-size: 12px; }
+    .insight-tab { flex: 1 1 0; min-width: 0; font-size: 11px; padding: 0 6px; }
     .explain-section-head { align-items: flex-start; flex-direction: column; }
     .explain-source-chip { align-self: flex-start; }
     .pillar-slot { min-height: 88px; border-radius: 18px; padding: 10px 4px; }
