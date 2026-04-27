@@ -3,6 +3,7 @@
 
     <header id="siteHeader">
         <div class="site-logo">全息八字</div>
+        <OpenSourceLinks class="header-source-links" />
     </header>
 
     <div class="page-wrap">
@@ -925,6 +926,7 @@ import { Solar } from 'lunar-javascript'
 import { globalState } from '../store.js'
 import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
 import { loadCachedFortune as loadSharedCachedFortune } from '../fortuneCache.mjs'
+import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import {
     buildPillarsProfilePayload,
     buildSolarProfilePayload,
@@ -2242,6 +2244,7 @@ const getShenColor = (shen) => {
 
 #siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
+.header-source-links { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); }
 
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
 .container { width: 100%; max-width: 520px; }

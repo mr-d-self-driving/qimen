@@ -2,6 +2,7 @@
   <div class="fortune-view">
     <header class="page-header">
       <div class="header-title">天机日运</div>
+      <OpenSourceLinks class="header-source-links" />
     </header>
 
     <div class="page-wrap">
@@ -195,6 +196,7 @@ import {
   rememberPendingInterpretation
 } from '../fortuneCache.mjs'
 import guestFortuneData from '../../mock/fortune-daily.json'
+import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'

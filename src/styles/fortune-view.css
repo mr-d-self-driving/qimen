@@ -4,6 +4,7 @@
 /* Header */
 .page-header { position:sticky; top:0; z-index:100; padding:14px 20px; text-align:center; background:rgba(5,5,10,0.65); backdrop-filter:blur(24px) saturate(1.5); border-bottom:1px solid rgba(255,255,255,0.04); overflow:visible; }
 .header-title { font-family:'Noto Serif SC',serif; font-size:17px; font-weight:500; color:var(--gold-light); letter-spacing:2px; }
+.header-source-links { position:absolute; right:20px; top:50%; transform:translateY(-50%); }
 
 /* Layout */
 .page-wrap { display:flex; flex-direction:column; align-items:center; padding:20px 18px; }
