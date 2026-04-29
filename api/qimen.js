@@ -3,6 +3,7 @@ const { createClient } = require('@supabase/supabase-js'); // 引入 Supabase
 const C = require('../lib/QimenConstants');
 const U = require('../lib/QimenUtils');
 const Calc = require('../lib/QimenCalculations');
+const { setCorsHeaders } = require('./cors');
 
 // ==========================================
 // ⚡️ 云端内存缓存 (基于 时辰 + 问题)
@@ -166,11 +167,7 @@ module.exports = async function handler(req, res) {
     // ============================================================================
     // 🛡️ 防线 1：CORS 跨域限制 (防别人克隆前端盗用)
     // ============================================================================
-    const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
-    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Guest-Id'); // 必须允许 Authorization
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (setCorsHeaders(req, res, 'Content-Type, Authorization, X-Guest-Id')) return res.status(200).end();
 
     try {
         // ============================================================================

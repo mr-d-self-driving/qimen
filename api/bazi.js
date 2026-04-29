@@ -2,6 +2,7 @@ const { Solar, Lunar } = require('lunar-javascript');
 const { createClient } = require('@supabase/supabase-js');
 const { BaziRuleEngine, getDiShi, getShen } = require('../lib/BaziRuleEngine');
 const { buildSiziSummaryKey, getSiziSummary } = require('../lib/siziSummary');
+const { setCorsHeaders } = require('./cors');
 
 const memoryCache = {};
 const supabase = createClient(
@@ -680,11 +681,7 @@ const BaziEngine = {
 };
 
 module.exports = async function handler(req, res) {
-    const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*';
-    res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (setCorsHeaders(req, res)) return res.status(200).end();
 
     try {
         const authHeader = req.headers.authorization;

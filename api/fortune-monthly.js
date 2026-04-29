@@ -4,20 +4,12 @@ const {
   buildMonthlyFortunePayload,
   getBeijingMonthInfo,
 } = require('../lib/fortuneMonthlyCore');
+const { setCorsHeaders } = require('./cors');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_KEY
 );
-
-function setCorsHeaders(req, res) {
-  const allowedOrigin = process.env.FRONTEND_URL || '*';
-  res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
-  res.setHeader('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  if (req.method === 'OPTIONS') return true;
-  return false;
-}
 
 async function getAuthedUser(req, res) {
   const authHeader = req.headers.authorization;

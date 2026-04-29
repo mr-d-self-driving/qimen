@@ -1,4 +1,5 @@
 const { createClient } = require('@supabase/supabase-js')
+const { setCorsHeaders } = require('./cors')
 
 const supabase = createClient(
   process.env.SUPABASE_URL,
@@ -21,11 +22,7 @@ async function fetchWithTimeout(url, options, timeoutMs) {
 }
 
 module.exports = async function handler(req, res) {
-  const ALLOWED_ORIGIN = process.env.FRONTEND_URL || '*'
-  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN)
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-  if (req.method === 'OPTIONS') return res.status(200).end()
+  if (setCorsHeaders(req, res)) return res.status(200).end()
 
   try {
     const token = req.headers.authorization?.split(' ')[1]

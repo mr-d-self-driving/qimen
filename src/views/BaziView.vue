@@ -2,13 +2,7 @@
   <div class="bazi-view">
 
     <header id="siteHeader">
-        <div class="site-logo" aria-label="Qimendao 奇门道 八字">
-            <span class="logo-mark">道</span>
-            <span class="logo-copy">
-                <span class="logo-word">Qimendao</span>
-                <span class="logo-domain">qimendao.com</span>
-            </span>
-        </div>
+        <div class="site-logo">全息八字</div>
         <OpenSourceLinks class="header-source-links" />
     </header>
 
@@ -2313,11 +2307,7 @@ const getShenColor = (shen) => {
 .bazi-view { width: 100%; min-height: 100vh; position: relative;}
 
 #siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
-.site-logo { display: inline-flex; align-items: center; gap: 9px; min-width: 0; filter: drop-shadow(0 0 12px rgba(212,175,55,0.34)); }
-.logo-mark { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; font-family: var(--font-serif); font-size: 15px; line-height: 1; color: #15100A; background: radial-gradient(circle at 35% 28%, #FFF1B8 0%, var(--gold-light) 38%, var(--gold) 100%); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.32), 0 0 18px rgba(212,175,55,0.22); }
-.logo-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; line-height: 1; }
-.logo-word { font-family: 'Noto Serif SC', serif; font-size: 18px; letter-spacing: .08em; font-weight: 600; background: linear-gradient(135deg, var(--gold) 0%, #F4E1A5 52%, var(--gold-light) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; white-space: nowrap; }
-.logo-domain { margin-top: 4px; color: rgba(232,204,128,0.62); font-size: 9px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; white-space: nowrap; }
+.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
 .header-source-links { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); }
 
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
@@ -3304,11 +3294,6 @@ const getShenColor = (shen) => {
 }
 
 @media (max-width: 420px) {
-    #siteHeader { padding: 12px 14px; }
-    .site-logo { gap: 7px; }
-    .logo-mark { width: 27px; height: 27px; font-size: 13px; }
-    .logo-word { font-size: 16px; letter-spacing: .06em; }
-    .logo-domain { font-size: 8px; letter-spacing: .16em; }
     .profile-actions { grid-template-columns: 1fr 1fr; }
     .profile-filter-row { grid-template-columns: minmax(0, 1fr) 46px; gap: 6px; }
     .profile-switch-trigger { min-height: 46px; padding: 7px 10px; }
