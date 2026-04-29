@@ -4,7 +4,13 @@
       <button class="hamburger" :class="{ open: globalState.isDrawerOpen }" @click="toggleDrawer" aria-label="历史记录">
         <span></span><span></span><span></span>
       </button>
-      <div class="site-logo" @click="resetToInput" style="cursor: pointer;" title="返回首页">奇门遁甲</div>
+      <div class="site-logo" @click="resetToInput" style="cursor: pointer;" title="返回首页" aria-label="Qimendao 奇门道 返回首页">
+        <span class="logo-mark">道</span>
+        <span class="logo-copy">
+          <span class="logo-word">Qimendao</span>
+          <span class="logo-domain">qimendao.com</span>
+        </span>
+      </div>
       <div class="header-actions">
         <OpenSourceLinks />
         <div class="avatar-wrap">
@@ -723,7 +729,11 @@ const buildCardHTML = (data) => {
 .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
 .hamburger.open span:nth-child(3) { transform: translateY(-6.5px) rotate(-45deg); }
 
-.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); position: relative; }
+.site-logo { position: relative; display: inline-flex; align-items: center; gap: 9px; min-width: 0; filter: drop-shadow(0 0 12px rgba(212,175,55,0.34)); }
+.logo-mark { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 50%; font-family: var(--font-serif); font-size: 15px; line-height: 1; color: #15100A; background: radial-gradient(circle at 35% 28%, #FFF1B8 0%, var(--gold-light) 38%, var(--gold) 100%); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.32), 0 0 18px rgba(212,175,55,0.22); }
+.logo-copy { display: flex; flex-direction: column; justify-content: center; min-width: 0; line-height: 1; }
+.logo-word { font-family: 'Noto Serif SC', serif; font-size: 18px; letter-spacing: .08em; font-weight: 600; background: linear-gradient(135deg, var(--gold) 0%, #F4E1A5 52%, var(--gold-light) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; white-space: nowrap; }
+.logo-domain { margin-top: 4px; color: rgba(232,204,128,0.62); font-size: 9px; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; white-space: nowrap; }
 
 .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .avatar-wrap { position: relative; flex-shrink: 0; }
@@ -1018,6 +1028,11 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 @keyframes glowPulse { 0%,100% { box-shadow:0 0 16px var(--theme-color-dim,rgba(179,139,54,0.12)); } 50% { box-shadow:0 0 28px var(--theme-color-dim,rgba(179,139,54,0.25)); } }
 @keyframes floatIcon { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-3px); } }
 @media(max-width:400px) { 
+  #siteHeader { padding: 12px 14px; }
+  .site-logo { gap: 7px; }
+  .logo-mark { width: 27px; height: 27px; font-size: 13px; }
+  .logo-word { font-size: 16px; letter-spacing: .06em; }
+  .logo-domain { font-size: 8px; letter-spacing: .16em; }
   :deep(.summary-top) { grid-template-columns:1fr; }
   :deep(.summary-score-bubble) { min-width:96px; justify-self:start; }
   :deep(.conclusion) { font-size:21px; } 
