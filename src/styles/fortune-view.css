@@ -35,9 +35,12 @@
 
 /* Date Scroll */
 .date-scroll-container { display:flex; overflow-x:auto; gap:12px; padding-bottom:10px; margin-bottom:16px; }
+.day-scroll-container { justify-content:center; }
+.month-scroll-container { padding-left:2px; padding-right:2px; scroll-snap-type:x proximity; }
 .date-scroll-container::-webkit-scrollbar { display:none; }
 .date-item { flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:10px 14px; border-radius:12px; background:rgba(0,0,0,0.2); border:1px solid var(--glass-border); cursor:pointer; transition:.3s; }
 .date-item.active { background:rgba(212,175,55,0.1); border-color:var(--gold); }
+.month-item { min-width:62px; scroll-snap-align:center; }
 .day-of-week { font-size:11px; color:var(--text-muted); margin-bottom:4px; }
 .date-num { font-size:18px; font-weight:bold; color:#fff; }
 .date-item.active .date-num { color:var(--gold-light); }
@@ -150,7 +153,9 @@
   .profile-item-date { font-size:11px; }
   .profile-item-meta { font-size:11px; }
   .date-scroll-container { gap:8px; }
+  .day-scroll-container { justify-content:center; }
   .date-item { padding:9px 12px; }
+  .month-item { min-width:58px; }
   .score-dashboard { padding:16px 14px 13px; }
   .score-main { grid-template-columns:108px minmax(0,1fr); gap:14px; }
   .score-ring { width:108px; height:108px; }

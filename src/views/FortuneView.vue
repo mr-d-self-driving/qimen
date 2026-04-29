@@ -39,7 +39,7 @@
 
         <div v-if="currentTab === 'day'" class="tab-content">
 
-          <div class="date-scroll-container">
+          <div class="date-scroll-container day-scroll-container">
             <div
               v-for="day in availableDays" :key="day.fullDate"
               :class="['date-item', { active: selectedDate === day.fullDate }]"
@@ -173,6 +173,18 @@
         </div>
 
         <div v-else-if="currentTab === 'month'" class="tab-content">
+          <div ref="monthScrollerRef" class="date-scroll-container month-scroll-container">
+            <div
+              v-for="monthItem in availableMonths"
+              :key="monthItem.key"
+              :class="['date-item', 'month-item', { active: selectedMonthKey === monthItem.key }]"
+              @click="selectMonth(monthItem.key)"
+            >
+              <span class="day-of-week">{{ monthItem.label }}</span>
+              <span class="date-num">{{ monthItem.monthText }}</span>
+            </div>
+          </div>
+
           <transition name="fade" mode="out-in">
             <div v-if="isMonthLoading" class="glass-card loading-state">
               <div class="bagua-ring-wrap">
@@ -184,20 +196,20 @@
               <div class="loader-text-block">流月推演中...</div>
             </div>
 
-            <div v-else-if="monthlyData" class="fortune-display">
+            <div v-else-if="visibleMonthlyData" class="fortune-display">
               <div class="glass-card score-dashboard">
                 <div class="score-main">
                   <div class="score-ring" :style="monthlyScoreRingStyle">
                     <div class="score-inner">
-                      <span class="score-value">{{ monthlyData.monthly_score || 0 }}</span>
+                      <span class="score-value">{{ visibleMonthlyData.monthly_score || 0 }}</span>
                       <span class="score-unit">分</span>
                     </div>
                   </div>
                   <div class="score-side">
                     <div class="score-ganzhi">{{ monthlyGanzhiText }}</div>
-                    <p class="score-insight">{{ monthlyData.month_zhi_relations || '无明显刑冲合害' }}</p>
-                    <div v-if="monthlyData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
-                    <div v-else-if="monthlyData.has_sanxing" class="warning-tag inline-warning">三刑触发</div>
+                    <p class="score-insight">{{ visibleMonthlyData.month_zhi_relations || '无明显刑冲合害' }}</p>
+                    <div v-if="visibleMonthlyData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
+                    <div v-else-if="visibleMonthlyData.has_sanxing" class="warning-tag inline-warning">三刑触发</div>
                   </div>
                 </div>
               </div>
@@ -205,19 +217,19 @@
               <div class="monthly-stat-grid">
                 <div class="monthly-stat-card">
                   <span class="monthly-stat-label">日均</span>
-                  <span class="monthly-stat-value">{{ monthlyData.avg_daily_score }}</span>
+                  <span class="monthly-stat-value">{{ visibleMonthlyData.avg_daily_score }}</span>
                 </div>
                 <div class="monthly-stat-card">
                   <span class="monthly-stat-label">高分日</span>
-                  <span class="monthly-stat-value">{{ monthlyData.high_score_days }}</span>
+                  <span class="monthly-stat-value">{{ visibleMonthlyData.high_score_days }}</span>
                 </div>
                 <div class="monthly-stat-card">
                   <span class="monthly-stat-label">低分日</span>
-                  <span class="monthly-stat-value">{{ monthlyData.low_score_days }}</span>
+                  <span class="monthly-stat-value">{{ visibleMonthlyData.low_score_days }}</span>
                 </div>
                 <div class="monthly-stat-card">
                   <span class="monthly-stat-label">最佳</span>
-                  <span class="monthly-stat-value compact">{{ formatMonthDay(monthlyData.best_date) }}</span>
+                  <span class="monthly-stat-value compact">{{ formatMonthDay(visibleMonthlyData.best_date) }}</span>
                 </div>
               </div>
 
@@ -225,21 +237,21 @@
                 <h3 class="card-title"><span>☯</span> 流月节律</h3>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">月令五行</span>
-                  <span class="monthly-detail-value">{{ monthlyData.month_wuxing || '-' }} · {{ monthlyData.month_wuxing_relation || '闲' }}</span>
+                  <span class="monthly-detail-value">{{ visibleMonthlyData.month_wuxing || '-' }} · {{ visibleMonthlyData.month_wuxing_relation || '闲' }}</span>
                 </div>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">节气</span>
-                  <span class="monthly-detail-value">{{ formatList(monthlyData.jieqi_list) }}</span>
+                  <span class="monthly-detail-value">{{ formatList(visibleMonthlyData.jieqi_list) }}</span>
                 </div>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">低谷期</span>
-                  <span class="monthly-detail-value">{{ monthlyData.has_trough ? monthlyData.trough_period : '无连续低谷' }}</span>
+                  <span class="monthly-detail-value">{{ visibleMonthlyData.has_trough ? visibleMonthlyData.trough_period : '无连续低谷' }}</span>
                 </div>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">最高/最低</span>
                   <span class="monthly-detail-value">
-                    {{ formatMonthDay(monthlyData.best_date) }} {{ monthlyData.best_score }}分 /
-                    {{ formatMonthDay(monthlyData.worst_date) }} {{ monthlyData.worst_score }}分
+                    {{ formatMonthDay(visibleMonthlyData.best_date) }} {{ visibleMonthlyData.best_score }}分 /
+                    {{ formatMonthDay(visibleMonthlyData.worst_date) }} {{ visibleMonthlyData.worst_score }}分
                   </span>
                 </div>
               </div>
@@ -263,7 +275,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
@@ -291,9 +303,12 @@ const tabs = [
 ]
 const currentTab = ref('day')
 const availableDays = ref([])
+const availableMonths = ref([])
 const selectedDate = ref('')
+const selectedMonth = ref('')
 const fortuneData = ref(null)
 const monthlyData = ref(null)
+const monthlyDataKey = ref('')
 const isLoading = ref(false)
 const isMonthLoading = ref(false)
 const isInterpretationLoading = ref(false)
@@ -304,6 +319,7 @@ const monthRequestSerial = ref(0)
 const baziProfiles = ref([])
 const selectedProfileId = ref('')
 const isProfileMenuOpen = ref(false)
+const monthScrollerRef = ref(null)
 const isGuest = computed(() => globalState.isGuest)
 
 const fortuneGridItems = [
@@ -343,22 +359,25 @@ const scoreRingStyle = computed(() => {
 })
 
 const selectedMonthKey = computed(() => {
-  const normalized = normalizeDateString(selectedDate.value)
-  if (normalized) return normalized.slice(0, 7)
+  if (selectedMonth.value) return selectedMonth.value
   const now = new Date()
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
 })
 
+const visibleMonthlyData = computed(() => (
+  monthlyData.value && monthlyDataKey.value === selectedMonthKey.value ? monthlyData.value : null
+))
+
 const monthlyScoreRingStyle = computed(() => {
-  const score = monthlyData.value?.monthly_score || 0
+  const score = visibleMonthlyData.value?.monthly_score || 0
   const pct = Math.min(100, Math.max(0, score))
   return { background: `conic-gradient(var(--gold) ${pct}%, rgba(255,255,255,0.05) 0deg)` }
 })
 
 const monthlyGanzhiText = computed(() => {
-  if (!monthlyData.value) return '-'
-  const monthLabel = `${monthlyData.value.year || ''}年${monthlyData.value.month || ''}月`
-  const gz = monthlyData.value.month_gz ? `${monthlyData.value.month_gz}月` : ''
+  if (!visibleMonthlyData.value) return '-'
+  const monthLabel = `${visibleMonthlyData.value.year || ''}年${visibleMonthlyData.value.month || ''}月`
+  const gz = visibleMonthlyData.value.month_gz ? `${visibleMonthlyData.value.month_gz}月` : ''
   return `${monthLabel} ${gz}`.trim()
 })
 
@@ -392,6 +411,14 @@ const buildDayItem = (dateStr, label = '所选') => {
   }
 }
 
+const buildMonthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
+
+const buildMonthItem = (date, label = '') => ({
+  key: buildMonthKey(date),
+  label,
+  monthText: `${date.getMonth() + 1}月`,
+})
+
 const generateDays = (preferredDate = '') => {
   const days = []
   const weekMap = ['日', '一', '二', '三', '四', '五', '六']
@@ -415,6 +442,20 @@ const generateDays = (preferredDate = '') => {
   }
   availableDays.value = days
   selectedDate.value = normalizedPreferred || days[0].fullDate
+}
+
+const generateMonths = () => {
+  const months = []
+  const today = new Date()
+  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+  for (let offset = -6; offset <= 24; offset++) {
+    const target = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1)
+    const label = offset === 0 ? '本月' : `${target.getFullYear()}`
+    months.push(buildMonthItem(target, label))
+  }
+  availableMonths.value = months
+  selectedMonth.value = buildMonthKey(currentMonth)
+  scrollSelectedMonthIntoView()
 }
 
 const getTabLabel = (val) => tabs.find(t => t.value === val)?.label
@@ -636,6 +677,8 @@ const fetchMonthlyFortuneData = async () => {
   const currentRequest = monthRequestSerial.value + 1
   monthRequestSerial.value = currentRequest
   monthError.value = ''
+  monthlyData.value = null
+  monthlyDataKey.value = ''
 
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -651,6 +694,7 @@ const fetchMonthlyFortuneData = async () => {
     const data = await fetchMonthlyFortuneFromApi(selectedMonthKey.value, session.access_token, profileId)
     if (currentRequest !== monthRequestSerial.value) return
     monthlyData.value = data
+    monthlyDataKey.value = selectedMonthKey.value
   } catch (error) {
     if (currentRequest !== monthRequestSerial.value) return
     console.error(error)
@@ -681,19 +725,31 @@ const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileI
 
 const selectDate = (dateStr) => {
   if (selectedDate.value === dateStr) return
-  const previousMonthKey = selectedMonthKey.value
   selectedDate.value = dateStr
-  if (currentTab.value === 'month') {
-    if (selectedMonthKey.value !== previousMonthKey) fetchMonthlyFortuneData()
-  } else {
+  if (currentTab.value !== 'month') {
     fetchFortuneData(dateStr)
   }
+}
+
+const selectMonth = (monthKey) => {
+  if (!monthKey || selectedMonth.value === monthKey) return
+  selectedMonth.value = monthKey
+  scrollSelectedMonthIntoView()
+  fetchMonthlyFortuneData()
+}
+
+const scrollSelectedMonthIntoView = () => {
+  nextTick(() => {
+    const activeItem = monthScrollerRef.value?.querySelector('.month-item.active')
+    activeItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  })
 }
 
 onMounted(async () => {
   document.addEventListener('click', handleDocumentClick)
   await fetchProfiles()
   generateDays(String(route.query.date || ''))
+  generateMonths()
   fetchFortuneData(selectedDate.value)
 })
 
@@ -727,9 +783,11 @@ watch(
 )
 
 watch(currentTab, (nextTab) => {
-  if (nextTab === 'month' && !monthlyData.value && !isMonthLoading.value) {
+  if (nextTab === 'month' && !visibleMonthlyData.value && !isMonthLoading.value) {
+    scrollSelectedMonthIntoView()
     fetchMonthlyFortuneData()
   }
+  if (nextTab === 'month') scrollSelectedMonthIntoView()
 })
 </script>
 
