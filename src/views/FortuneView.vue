@@ -635,7 +635,6 @@ const fetchFortuneData = async (dateStr) => {
 const fetchMonthlyFortuneData = async () => {
   const currentRequest = monthRequestSerial.value + 1
   monthRequestSerial.value = currentRequest
-  isMonthLoading.value = true
   monthError.value = ''
 
   try {
@@ -647,6 +646,7 @@ const fetchMonthlyFortuneData = async () => {
     }
     if (!session) { alert('请先前往首页登录'); return }
 
+    isMonthLoading.value = true
     const profileId = currentProfileCacheKey.value
     const data = await fetchMonthlyFortuneFromApi(selectedMonthKey.value, session.access_token, profileId)
     if (currentRequest !== monthRequestSerial.value) return
