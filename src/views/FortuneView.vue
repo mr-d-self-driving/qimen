@@ -214,22 +214,41 @@
                 </div>
               </div>
 
-              <div class="monthly-stat-grid">
-                <div class="monthly-stat-card">
-                  <span class="monthly-stat-label">日均</span>
-                  <span class="monthly-stat-value">{{ visibleMonthlyData.avg_daily_score }}</span>
+              <div class="glass-card monthly-chart-card">
+                <div class="monthly-chart-header">
+                  <span>月度曲线</span>
+                  <span>日均 {{ visibleMonthlyData.avg_daily_score }}</span>
                 </div>
-                <div class="monthly-stat-card">
-                  <span class="monthly-stat-label">高分日</span>
-                  <span class="monthly-stat-value">{{ visibleMonthlyData.high_score_days }}</span>
-                </div>
-                <div class="monthly-stat-card">
-                  <span class="monthly-stat-label">低分日</span>
-                  <span class="monthly-stat-value">{{ visibleMonthlyData.low_score_days }}</span>
-                </div>
-                <div class="monthly-stat-card">
-                  <span class="monthly-stat-label">最佳</span>
-                  <span class="monthly-stat-value compact">{{ formatMonthDay(visibleMonthlyData.best_date) }}</span>
+                <svg class="monthly-chart" viewBox="0 0 320 140" role="img" aria-label="月度每日分数变化曲线">
+                  <line x1="12" y1="24" x2="308" y2="24" class="monthly-chart-grid" />
+                  <line x1="12" y1="70" x2="308" y2="70" class="monthly-chart-grid" />
+                  <line x1="12" y1="116" x2="308" y2="116" class="monthly-chart-grid" />
+                  <line
+                    v-if="monthlyChartAvgLineY"
+                    x1="12"
+                    :y1="monthlyChartAvgLineY"
+                    x2="308"
+                    :y2="monthlyChartAvgLineY"
+                    class="monthly-chart-average"
+                  />
+                  <polyline
+                    v-if="monthlyChartPolyline"
+                    :points="monthlyChartPolyline"
+                    class="monthly-chart-line"
+                  />
+                  <circle
+                    v-for="point in monthlyChartMarkers"
+                    :key="point.date"
+                    :cx="point.x"
+                    :cy="point.y"
+                    r="3"
+                    :class="['monthly-chart-dot', point.kind]"
+                  />
+                </svg>
+                <div class="monthly-chart-meta">
+                  <span>高分日 {{ visibleMonthlyData.high_score_days }}</span>
+                  <span>低分日 {{ visibleMonthlyData.low_score_days }}</span>
+                  <span>最佳 {{ formatMonthDay(visibleMonthlyData.best_date) }}</span>
                 </div>
               </div>
 
@@ -379,6 +398,46 @@ const monthlyGanzhiText = computed(() => {
   const monthLabel = `${visibleMonthlyData.value.year || ''}年${visibleMonthlyData.value.month || ''}月`
   const gz = visibleMonthlyData.value.month_gz ? `${visibleMonthlyData.value.month_gz}月` : ''
   return `${monthLabel} ${gz}`.trim()
+})
+
+const mapMonthlyChartPoint = (item, index, total) => {
+  const x = total <= 1 ? 160 : 12 + (index / (total - 1)) * 296
+  const score = Math.min(98, Math.max(45, Number(item.score) || 45))
+  const y = 116 - ((score - 45) / 53) * 92
+  return {
+    date: item.date,
+    score,
+    x: Math.round(x * 10) / 10,
+    y: Math.round(y * 10) / 10,
+  }
+}
+
+const monthlyChartPoints = computed(() => {
+  const points = visibleMonthlyData.value?.daily_score_points
+  if (!Array.isArray(points) || points.length === 0) return []
+  return points.map((item, index) => mapMonthlyChartPoint(item, index, points.length))
+})
+
+const monthlyChartPolyline = computed(() => monthlyChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
+
+const monthlyChartAvgLineY = computed(() => {
+  const avg = visibleMonthlyData.value?.avg_daily_score
+  if (!Number.isFinite(avg)) return 0
+  return Math.round((116 - ((Math.min(98, Math.max(45, avg)) - 45) / 53) * 92) * 10) / 10
+})
+
+const monthlyChartMarkers = computed(() => {
+  const points = monthlyChartPoints.value
+  if (points.length === 0) return []
+  const bestDate = visibleMonthlyData.value?.best_date
+  const worstDate = visibleMonthlyData.value?.worst_date
+  const stride = Math.max(1, Math.ceil(points.length / 8))
+  return points
+    .filter((point, index) => index % stride === 0 || point.date === bestDate || point.date === worstDate || index === points.length - 1)
+    .map(point => ({
+      ...point,
+      kind: point.date === bestDate ? 'best' : point.date === worstDate ? 'worst' : 'normal',
+    }))
 })
 
 const luckyHours = computed(() => {
