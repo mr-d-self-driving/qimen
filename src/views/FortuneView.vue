@@ -172,6 +172,86 @@
           </transition>
         </div>
 
+        <div v-else-if="currentTab === 'month'" class="tab-content">
+          <transition name="fade" mode="out-in">
+            <div v-if="isMonthLoading" class="glass-card loading-state">
+              <div class="bagua-ring-wrap">
+                <svg class="bagua-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="60" cy="60" r="56" stroke="rgba(212,175,55,0.15)" stroke-width="1" fill="none"/>
+                  <circle cx="60" cy="60" r="36" stroke="rgba(212,175,55,0.35)" stroke-width="1.5" fill="none" stroke-dasharray="8 6"/>
+                </svg>
+              </div>
+              <div class="loader-text-block">流月推演中...</div>
+            </div>
+
+            <div v-else-if="monthlyData" class="fortune-display">
+              <div class="glass-card score-dashboard">
+                <div class="score-main">
+                  <div class="score-ring" :style="monthlyScoreRingStyle">
+                    <div class="score-inner">
+                      <span class="score-value">{{ monthlyData.monthly_score || 0 }}</span>
+                      <span class="score-unit">分</span>
+                    </div>
+                  </div>
+                  <div class="score-side">
+                    <div class="score-ganzhi">{{ monthlyGanzhiText }}</div>
+                    <p class="score-insight">{{ monthlyData.month_zhi_relations || '无明显刑冲合害' }}</p>
+                    <div v-if="monthlyData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
+                    <div v-else-if="monthlyData.has_sanxing" class="warning-tag inline-warning">三刑触发</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="monthly-stat-grid">
+                <div class="monthly-stat-card">
+                  <span class="monthly-stat-label">日均</span>
+                  <span class="monthly-stat-value">{{ monthlyData.avg_daily_score }}</span>
+                </div>
+                <div class="monthly-stat-card">
+                  <span class="monthly-stat-label">高分日</span>
+                  <span class="monthly-stat-value">{{ monthlyData.high_score_days }}</span>
+                </div>
+                <div class="monthly-stat-card">
+                  <span class="monthly-stat-label">低分日</span>
+                  <span class="monthly-stat-value">{{ monthlyData.low_score_days }}</span>
+                </div>
+                <div class="monthly-stat-card">
+                  <span class="monthly-stat-label">最佳</span>
+                  <span class="monthly-stat-value compact">{{ formatMonthDay(monthlyData.best_date) }}</span>
+                </div>
+              </div>
+
+              <div class="glass-card info-card">
+                <h3 class="card-title"><span>☯</span> 流月节律</h3>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">月令五行</span>
+                  <span class="monthly-detail-value">{{ monthlyData.month_wuxing || '-' }} · {{ monthlyData.month_wuxing_relation || '闲' }}</span>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">节气</span>
+                  <span class="monthly-detail-value">{{ formatList(monthlyData.jieqi_list) }}</span>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">低谷期</span>
+                  <span class="monthly-detail-value">{{ monthlyData.has_trough ? monthlyData.trough_period : '无连续低谷' }}</span>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">最高/最低</span>
+                  <span class="monthly-detail-value">
+                    {{ formatMonthDay(monthlyData.best_date) }} {{ monthlyData.best_score }}分 /
+                    {{ formatMonthDay(monthlyData.worst_date) }} {{ monthlyData.worst_score }}分
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="glass-card placeholder-content">
+              <div class="placeholder-icon">⏳</div>
+              <p>{{ monthError || '流月数据暂未生成' }}</p>
+            </div>
+          </transition>
+        </div>
+
         <div v-else class="glass-card placeholder-content">
           <div class="placeholder-icon">⏳</div>
           <p>【{{ getTabLabel(currentTab) }}运】推演引擎升级中<br>敬请期待</p>
@@ -213,10 +293,14 @@ const currentTab = ref('day')
 const availableDays = ref([])
 const selectedDate = ref('')
 const fortuneData = ref(null)
+const monthlyData = ref(null)
 const isLoading = ref(false)
+const isMonthLoading = ref(false)
 const isInterpretationLoading = ref(false)
 const interpretationError = ref('')
+const monthError = ref('')
 const requestSerial = ref(0)
+const monthRequestSerial = ref(0)
 const baziProfiles = ref([])
 const selectedProfileId = ref('')
 const isProfileMenuOpen = ref(false)
@@ -256,6 +340,26 @@ const scoreRingStyle = computed(() => {
   const score = fortuneData.value?.day_score || 0
   const pct = Math.min(100, Math.max(0, score))
   return { background: `conic-gradient(var(--gold) ${pct}%, rgba(255,255,255,0.05) 0deg)` }
+})
+
+const selectedMonthKey = computed(() => {
+  const normalized = normalizeDateString(selectedDate.value)
+  if (normalized) return normalized.slice(0, 7)
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+})
+
+const monthlyScoreRingStyle = computed(() => {
+  const score = monthlyData.value?.monthly_score || 0
+  const pct = Math.min(100, Math.max(0, score))
+  return { background: `conic-gradient(var(--gold) ${pct}%, rgba(255,255,255,0.05) 0deg)` }
+})
+
+const monthlyGanzhiText = computed(() => {
+  if (!monthlyData.value) return '-'
+  const monthLabel = `${monthlyData.value.year || ''}年${monthlyData.value.month || ''}月`
+  const gz = monthlyData.value.month_gz ? `${monthlyData.value.month_gz}月` : ''
+  return `${monthLabel} ${gz}`.trim()
 })
 
 const luckyHours = computed(() => {
@@ -336,6 +440,14 @@ const formatGuide = (guideStr, type) => {
   return guideStr
 }
 
+const formatList = (items) => Array.isArray(items) && items.length ? items.join('、') : '-'
+
+const formatMonthDay = (dateStr) => {
+  const match = String(dateStr || '').match(/^\d{4}-(\d{2})-(\d{2})$/)
+  if (!match) return '-'
+  return `${Number(match[1])}月${Number(match[2])}日`
+}
+
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
 const rememberFortuneCache = (userId, dateStr, data, profileId = '') => {
@@ -386,7 +498,11 @@ const selectProfile = (profileId) => {
   }
   selectedProfileId.value = profileId
   isProfileMenuOpen.value = false
-  fetchFortuneData(selectedDate.value)
+  if (currentTab.value === 'month') {
+    fetchMonthlyFortuneData()
+  } else {
+    fetchFortuneData(selectedDate.value)
+  }
 }
 
 const handleDocumentClick = (event) => {
@@ -407,6 +523,22 @@ const fetchFortuneBaseFromApi = async (dateStr, accessToken, profileId) => {
   if (!response.ok) {
     const err = await response.json()
     throw new Error(err.error || '推演失败')
+  }
+  return response.json()
+}
+
+const fetchMonthlyFortuneFromApi = async (monthKey, accessToken, profileId) => {
+  const response = await fetch('/api/fortune-monthly', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ target_month: monthKey, profile_id: profileId || undefined })
+  })
+  if (!response.ok) {
+    const err = await response.json()
+    throw new Error(err.error || '月运推演失败')
   }
   return response.json()
 }
@@ -500,6 +632,35 @@ const fetchFortuneData = async (dateStr) => {
   }
 }
 
+const fetchMonthlyFortuneData = async () => {
+  const currentRequest = monthRequestSerial.value + 1
+  monthRequestSerial.value = currentRequest
+  isMonthLoading.value = true
+  monthError.value = ''
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session && isGuest.value) {
+      monthlyData.value = null
+      monthError.value = '访客模式暂不展示月运'
+      return
+    }
+    if (!session) { alert('请先前往首页登录'); return }
+
+    const profileId = currentProfileCacheKey.value
+    const data = await fetchMonthlyFortuneFromApi(selectedMonthKey.value, session.access_token, profileId)
+    if (currentRequest !== monthRequestSerial.value) return
+    monthlyData.value = data
+  } catch (error) {
+    if (currentRequest !== monthRequestSerial.value) return
+    console.error(error)
+    monthlyData.value = null
+    monthError.value = error.message
+  } finally {
+    if (currentRequest === monthRequestSerial.value) isMonthLoading.value = false
+  }
+}
+
 const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileId, requestId) => {
   isInterpretationLoading.value = true
   interpretationError.value = ''
@@ -520,8 +681,13 @@ const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileI
 
 const selectDate = (dateStr) => {
   if (selectedDate.value === dateStr) return
+  const previousMonthKey = selectedMonthKey.value
   selectedDate.value = dateStr
-  fetchFortuneData(dateStr)
+  if (currentTab.value === 'month') {
+    if (selectedMonthKey.value !== previousMonthKey) fetchMonthlyFortuneData()
+  } else {
+    fetchFortuneData(dateStr)
+  }
 }
 
 onMounted(async () => {
@@ -541,16 +707,30 @@ watch(
     const normalizedDate = normalizeDateString(nextDate)
     if (normalizedDate && normalizedDate !== selectedDate.value) {
       generateDays(normalizedDate)
-      fetchFortuneData(normalizedDate)
+      if (currentTab.value === 'month') {
+        fetchMonthlyFortuneData()
+      } else {
+        fetchFortuneData(normalizedDate)
+      }
     }
 
     const profileId = String(nextProfileId || '')
     if (profileId && profileId !== selectedProfileId.value && baziProfiles.value.some(profile => profile.id === profileId)) {
       selectedProfileId.value = profileId
-      fetchFortuneData(selectedDate.value || normalizedDate)
+      if (currentTab.value === 'month') {
+        fetchMonthlyFortuneData()
+      } else {
+        fetchFortuneData(selectedDate.value || normalizedDate)
+      }
     }
   }
 )
+
+watch(currentTab, (nextTab) => {
+  if (nextTab === 'month' && !monthlyData.value && !isMonthLoading.value) {
+    fetchMonthlyFortuneData()
+  }
+})
 </script>
 
 <style scoped>
