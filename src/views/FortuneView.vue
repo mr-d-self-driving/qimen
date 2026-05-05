@@ -311,9 +311,6 @@
                 <div v-else-if="activeMonthlyInterpretation" class="monthly-interpretation-body">
                   <div class="monthly-interpretation-title">{{ activeMonthlyInterpretation.title }}</div>
                   <p class="monthly-interpretation-highlight">{{ activeMonthlyInterpretation.highlight }}</p>
-                  <div v-if="activeMonthlyBasis.length" class="monthly-basis-list">
-                    <span v-for="item in activeMonthlyBasis" :key="item" class="monthly-basis-chip">{{ item }}</span>
-                  </div>
                   <div class="monthly-interpretation-details">
                     <p v-for="(paragraph, index) in activeMonthlyDetailsParagraphs" :key="index">{{ paragraph }}</p>
                   </div>
@@ -470,11 +467,6 @@ const activeMonthlyDetailsParagraphs = computed(() => {
 const activeMonthlyTags = computed(() => {
   const tags = activeMonthlyInterpretation.value?.tags
   return Array.isArray(tags) ? tags.slice(0, 3) : []
-})
-
-const activeMonthlyBasis = computed(() => {
-  const basis = activeMonthlyInterpretation.value?.basis
-  return Array.isArray(basis) ? basis.slice(0, 3) : []
 })
 
 const activeMonthlyAdvice = computed(() => {
@@ -824,7 +816,6 @@ const requestMonthlyInterpretation = async (monthKey, accessToken, profileId, di
     details: fullText,
     title: '月度详批生成中',
     highlight: '断语已流式返回',
-    basis: [],
     tags: [],
     advice: [],
   }
