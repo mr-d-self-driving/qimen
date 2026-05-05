@@ -413,7 +413,7 @@
               @click="selectYear(yearItem.key)"
             >
               <span class="day-of-week">{{ yearItem.label }}年</span>
-              <span class="date-num">{{ visibleAnnualData && visibleAnnualData.year === yearItem.yearValue ? visibleAnnualData.liunian_gz : '' }}</span>
+              <span class="date-num">{{ getAnnualGanZhi(yearItem.yearValue) }}</span>
             </div>
           </div>
 
@@ -458,7 +458,7 @@
                 </div>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">大运背景</span>
-                  <span class="monthly-detail-value">{{ visibleAnnualData.dayun_gz }}运 · {{ visibleAnnualData.dayun_qi_status }}</span>
+                  <span class="monthly-detail-value">{{ annualDayunBackgroundText }}</span>
                 </div>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">流年与原局</span>
@@ -664,6 +664,26 @@ const visibleMonthlyData = computed(() => (
 const visibleAnnualData = computed(() => {
   if (!annualDataList.value || !annualDataList.value.length) return null
   return annualDataList.value.find(y => String(y.year) === selectedYear.value) || null
+})
+
+const annualDataByYear = computed(() => {
+  const entries = Array.isArray(annualDataList.value) ? annualDataList.value : []
+  return new Map(entries.map(item => [Number(item.year), item]))
+})
+
+const getAnnualGanZhi = (year) => annualDataByYear.value.get(Number(year))?.liunian_gz || ''
+
+const annualDayunQiText = computed(() => {
+  const status = visibleAnnualData.value?.dayun_qi_status
+  if (status === 'same') return '干支同气'
+  if (status === 'diff') return '干支异气'
+  if (status === 'neutral') return '平稳'
+  return ''
+})
+
+const annualDayunBackgroundText = computed(() => {
+  const dayun = visibleAnnualData.value?.dayun_gz ? `${visibleAnnualData.value.dayun_gz}运` : '大运待确认'
+  return [dayun, annualDayunQiText.value].filter(Boolean).join(' · ')
 })
 
 const activeMonthlyInterpretation = computed(() => (
