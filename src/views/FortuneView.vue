@@ -215,9 +215,8 @@
               </div>
 
               <div class="glass-card monthly-chart-card">
-                <div class="monthly-chart-header">
-                  <span>月度曲线</span>
-                  <span>日均 {{ visibleMonthlyData.avg_daily_score }}</span>
+                <div class="module-title-bar">
+                  <h3 class="card-title compact-title"><span>✦</span> 月度曲线</h3>
                 </div>
                 <svg class="monthly-chart" viewBox="0 0 320 140" role="img" aria-label="月度每日分数变化曲线">
                   <line x1="12" y1="24" x2="308" y2="24" class="monthly-chart-grid" />
@@ -253,7 +252,9 @@
               </div>
 
               <div class="glass-card info-card">
-                <h3 class="card-title"><span>☯</span> 流月节律</h3>
+                <div class="module-title-bar">
+                  <h3 class="card-title compact-title"><span>✦</span> 流月节律</h3>
+                </div>
                 <div class="monthly-detail-row">
                   <span class="monthly-detail-label">月令五行</span>
                   <span class="monthly-detail-value">{{ visibleMonthlyData.month_wuxing || '-' }} · {{ visibleMonthlyData.month_wuxing_relation || '闲' }}</span>
@@ -276,7 +277,7 @@
               </div>
 
               <div class="glass-card monthly-interpretation-card">
-                <div class="monthly-interpretation-head">
+                <div class="module-title-bar monthly-interpretation-head">
                   <h3 class="card-title compact-title"><span>✦</span> 月度详批</h3>
                   <span v-if="activeMonthlyInterpretation?.interpretation_status === 'ready'" class="interpretation-ready">已生成</span>
                 </div>
@@ -310,6 +311,9 @@
                 <div v-else-if="activeMonthlyInterpretation" class="monthly-interpretation-body">
                   <div class="monthly-interpretation-title">{{ activeMonthlyInterpretation.title }}</div>
                   <p class="monthly-interpretation-highlight">{{ activeMonthlyInterpretation.highlight }}</p>
+                  <div v-if="activeMonthlyBasis.length" class="monthly-basis-list">
+                    <span v-for="item in activeMonthlyBasis" :key="item" class="monthly-basis-chip">{{ item }}</span>
+                  </div>
                   <div class="monthly-interpretation-details">
                     <p v-for="(paragraph, index) in activeMonthlyDetailsParagraphs" :key="index">{{ paragraph }}</p>
                   </div>
@@ -466,6 +470,11 @@ const activeMonthlyDetailsParagraphs = computed(() => {
 const activeMonthlyTags = computed(() => {
   const tags = activeMonthlyInterpretation.value?.tags
   return Array.isArray(tags) ? tags.slice(0, 3) : []
+})
+
+const activeMonthlyBasis = computed(() => {
+  const basis = activeMonthlyInterpretation.value?.basis
+  return Array.isArray(basis) ? basis.slice(0, 3) : []
 })
 
 const activeMonthlyAdvice = computed(() => {
@@ -810,7 +819,15 @@ const requestMonthlyInterpretation = async (monthKey, accessToken, profileId, di
 
   const finalJson = tryParseMonthlyInterpretation(fullText)
   if (finalJson) return finalJson
-  return { dimension, details: fullText, title: '月度详批生成中', highlight: '断语已流式返回', tags: [], advice: [] }
+  return {
+    dimension,
+    details: fullText,
+    title: '月度详批生成中',
+    highlight: '断语已流式返回',
+    basis: [],
+    tags: [],
+    advice: [],
+  }
 }
 
 const requestFortuneInterpretation = async (userId, dateStr, accessToken, profileId) => {
