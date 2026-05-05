@@ -1091,7 +1091,10 @@ import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
 import { globalState } from '../store.js'
 import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
-import { loadCachedFortune as loadSharedCachedFortune } from '../fortuneCache.mjs'
+import {
+    loadCachedFortune as loadSharedCachedFortune,
+    rememberMonthlyInterpretationRefresh
+} from '../fortuneCache.mjs'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import {
     buildPillarsProfilePayload,
@@ -1299,6 +1302,8 @@ const eventForm = reactive({
 })
 const profileContextDraft = ref(createEmptyProfileContextDraft())
 const monthlyContextDraft = ref(createEmptyMonthlyContextDraft())
+const profileContextBaseline = ref(createEmptyProfileContextDraft())
+const monthlyContextBaseline = ref(createEmptyMonthlyContextDraft())
 const recentMonthlyContextRecords = ref([])
 const notesMonthKey = ref('')
 const showCenteredToast = ref(false)
@@ -2184,9 +2189,11 @@ const fetchProfileContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '加载长期基调失败')
         profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
+        profileContextBaseline.value = cloneContextValue(profileContextDraft.value)
     } catch (error) {
         console.error(error)
         profileContextDraft.value = createEmptyProfileContextDraft()
+        profileContextBaseline.value = cloneContextValue(profileContextDraft.value)
         showToast(error.message, 'error')
     }
 }
@@ -2205,10 +2212,12 @@ const fetchMonthlyContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '加载月度现状失败')
         monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
+        monthlyContextBaseline.value = cloneContextValue(monthlyContextDraft.value)
         recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
     } catch (error) {
         console.error(error)
         monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value)
+        monthlyContextBaseline.value = cloneContextValue(monthlyContextDraft.value)
         recentMonthlyContextRecords.value = []
         showToast(error.message, 'error')
     }
@@ -2218,6 +2227,7 @@ const saveProfileContextDraft = async () => {
     if (!activeProfile.value || isGuest.value) return
     isSavingProfileContext.value = true
     try {
+        const shouldRefreshInterpretation = computeProfileContextRefreshSignal(profileContextBaseline.value, profileContextDraft.value)
         const accessToken = await getAccessToken()
         const response = await fetch('/api/context-notes', {
             method: 'POST',
@@ -2234,6 +2244,10 @@ const saveProfileContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存长期基调失败')
         profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
+        profileContextBaseline.value = cloneContextValue(profileContextDraft.value)
+        if (shouldRefreshInterpretation) {
+            queueMonthlyInterpretationRefresh({ scope: 'profile', monthKey: '*' })
+        }
         showToast('长期基调已保存')
     } catch (error) {
         console.error(error)
@@ -2247,6 +2261,7 @@ const saveMonthlyContextDraft = async () => {
     if (!activeProfile.value || isGuest.value) return
     isSavingMonthlyContext.value = true
     try {
+        const shouldRefreshInterpretation = computeMonthlyContextRefreshSignal(monthlyContextBaseline.value, monthlyContextDraft.value)
         const accessToken = await getAccessToken()
         const response = await fetch('/api/context-notes', {
             method: 'POST',
@@ -2264,7 +2279,11 @@ const saveMonthlyContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存月度现状失败')
         monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
+        monthlyContextBaseline.value = cloneContextValue(monthlyContextDraft.value)
         recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
+        if (shouldRefreshInterpretation) {
+            queueMonthlyInterpretationRefresh({ scope: 'monthly', monthKey: notesMonthKey.value || currentMonthKey.value })
+        }
         showToast('月度基调已保存')
     } catch (error) {
         console.error(error)
@@ -2792,6 +2811,86 @@ const showToast = (message, kind = 'success') => {
     toastTimer = window.setTimeout(() => {
         showCenteredToast.value = false
     }, 1800)
+}
+const cloneContextValue = (value) => JSON.parse(JSON.stringify(value))
+const normalizeDiffText = (value) => String(value || '')
+    .replace(/\s+/g, '')
+    .replace(/[，。！？、,.!?;；:：“”"'‘’（）()【】[\]{}<>《》\-—_]/g, '')
+    .trim()
+const levenshteinDistance = (source, target) => {
+    const a = normalizeDiffText(source)
+    const b = normalizeDiffText(target)
+    if (a === b) return 0
+    if (!a.length) return b.length
+    if (!b.length) return a.length
+    const rows = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0))
+    for (let i = 0; i <= a.length; i++) rows[i][0] = i
+    for (let j = 0; j <= b.length; j++) rows[0][j] = j
+    for (let i = 1; i <= a.length; i++) {
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1
+            rows[i][j] = Math.min(
+                rows[i - 1][j] + 1,
+                rows[i][j - 1] + 1,
+                rows[i - 1][j - 1] + cost
+            )
+        }
+    }
+    return rows[a.length][b.length]
+}
+const computeProfileContextRefreshSignal = (previous, next) => {
+    const sections = PROFILE_CONTEXT_SECTIONS
+    let changedFieldCount = 0
+    let shouldRefresh = false
+    for (const section of sections) {
+        const prevSection = previous?.[section.storeKey] || {}
+        const nextSection = next?.[section.storeKey] || {}
+        for (const field of section.fields) {
+            const prevVal = prevSection[field.key] || ''
+            const nextVal = nextSection[field.key] || ''
+            if (String(prevVal) === String(nextVal)) continue
+            changedFieldCount += 1
+            if (field.type === 'select') shouldRefresh = true
+            if ((field.type === 'text' || field.type === 'textarea') && levenshteinDistance(prevVal, nextVal) >= 12) {
+                shouldRefresh = true
+            }
+        }
+    }
+    if (changedFieldCount >= 2) shouldRefresh = true
+    return shouldRefresh
+}
+const computeMonthlyContextRefreshSignal = (previous, next) => {
+    const prevOverall = previous?.overall_note || ''
+    const nextOverall = next?.overall_note || ''
+    const overallDelta = levenshteinDistance(prevOverall, nextOverall)
+    let changedFieldCount = overallDelta > 0 ? 1 : 0
+    let shouldRefresh = overallDelta >= 20 || (!normalizeDiffText(prevOverall) && normalizeDiffText(nextOverall).length >= 20)
+
+    for (const section of MONTHLY_CONTEXT_SECTIONS) {
+        const prevSection = previous?.[section.storeKey] || {}
+        const nextSection = next?.[section.storeKey] || {}
+        if (String(prevSection.status || '') !== String(nextSection.status || '')) {
+            changedFieldCount += 1
+            shouldRefresh = true
+        }
+        for (const key of ['summary', 'goal', 'worry']) {
+            const delta = levenshteinDistance(prevSection[key] || '', nextSection[key] || '')
+            if (delta > 0) changedFieldCount += 1
+            if (delta >= 12) shouldRefresh = true
+        }
+    }
+    if (changedFieldCount >= 2) shouldRefresh = true
+    return shouldRefresh
+}
+const queueMonthlyInterpretationRefresh = ({ scope = 'monthly', monthKey = '*' } = {}) => {
+    if (!activeProfile.value || isGuest.value) return
+    rememberMonthlyInterpretationRefresh(getFortuneStorage(), {
+        profileId: activeProfile.value.id,
+        monthKey,
+        scope,
+        changedAt: Date.now(),
+        message: scope === 'profile' ? '长期基调有明显更新' : '月度基调有明显更新',
+    })
 }
 const hasPreviousMonthlyContext = computed(() =>
     recentMonthlyContextRecords.value.some(item => item.month_key && item.month_key !== notesMonthKey.value)

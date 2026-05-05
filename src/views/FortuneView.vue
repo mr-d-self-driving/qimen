@@ -336,26 +336,14 @@
 
               <div class="glass-card monthly-interpretation-card">
                 <div class="module-title-bar monthly-interpretation-head">
-                  <h3 class="card-title compact-title"><span>✦</span> 月度详批</h3>
-                  <span v-if="activeMonthlyInterpretation?.interpretation_status === 'ready'" class="interpretation-ready">已生成</span>
-                </div>
-                <div class="monthly-factors-card">
-                  <div class="monthly-factors-title">这段月运文案，主要参考这些因素：</div>
-                  <div class="monthly-factors-list">
-                    <div v-for="item in monthlyInterpretationFactors" :key="item.title" class="monthly-factor-item">
-                      <div class="monthly-factor-head">{{ item.title }}</div>
-                      <div class="monthly-factor-copy">
-                        {{ item.copy }}
-                        <button
-                          v-if="item.title === '你的现实背景'"
-                          type="button"
-                          class="monthly-factor-link"
-                          @click="openMonthlyContextNotes"
-                        >
-                          去填写基调
-                        </button>
-                      </div>
-                    </div>
+                  <h3 class="card-title compact-title">
+                    <span>✦</span>
+                    月度详批
+                    <button type="button" class="monthly-info-btn" @click="showMonthlyFactorsGuide = true">?</button>
+                  </h3>
+                  <div class="monthly-head-side">
+                    <span v-if="monthlyRefreshMessage" class="monthly-refresh-chip">{{ monthlyRefreshMessage }}</span>
+                    <span v-if="activeMonthlyInterpretation?.interpretation_status === 'ready'" class="interpretation-ready">已生成</span>
                   </div>
                 </div>
                 <div class="monthly-dimension-tabs" role="tablist" aria-label="月运解读维度">
@@ -420,6 +408,33 @@
           <p>【{{ getTabLabel(currentTab) }}运】推演引擎升级中<br>敬请期待</p>
         </div>
 
+        <Teleport to="body">
+          <div v-if="showMonthlyFactorsGuide" class="fortune-modal-overlay" @click="showMonthlyFactorsGuide = false">
+            <div class="fortune-guide-modal" @click.stop>
+              <div class="fortune-guide-head">
+                <span>这段月运文案怎么看出来的？</span>
+                <button type="button" class="fortune-guide-close" @click="showMonthlyFactorsGuide = false">×</button>
+              </div>
+              <div class="fortune-guide-body">
+                <div v-for="item in monthlyInterpretationFactors" :key="item.title" class="fortune-guide-item">
+                  <div class="fortune-guide-item-title">{{ item.title }}</div>
+                  <div class="fortune-guide-item-copy">
+                    {{ item.copy }}
+                    <button
+                      v-if="item.title === '你的现实背景'"
+                      type="button"
+                      class="fortune-guide-link"
+                      @click="openMonthlyContextNotes"
+                    >
+                      去填写基调
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </Teleport>
+
       </div>
     </div>
   </div>
@@ -432,9 +447,11 @@ import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
 import { getGuestState, recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
 import {
+  clearMonthlyInterpretationRefresh,
   clearPendingInterpretation,
   getPendingInterpretation,
   loadCachedFortune as loadSharedCachedFortune,
+  peekMonthlyInterpretationRefresh,
   rememberFortuneCache as rememberSharedFortuneCache,
   rememberPendingInterpretation
 } from '../fortuneCache.mjs'
@@ -510,12 +527,21 @@ const monthlyInterpretationFactors = [
     copy: '如果你填写了长期基调和本月现状，系统会把命理信号落到更贴近你当下的处境里，比如工作、感情、财务或生活状态。',
   },
 ]
+const monthlyRefreshMessage = computed(() => {
+  if (monthlyRefreshState.value === 'refreshing') return '检测到基调有较大更新，正在刷新本月详批…'
+  if (monthlyRefreshState.value === 'updated') return '本月详批已按最新基调刷新'
+  if (monthlyRefreshState.value === 'pending') return '基调有明显更新，进入月运时会自动刷新详批'
+  return ''
+})
 
 const selectedMonthlyDimension = ref('overall')
 const monthlyInterpretations = ref({})
 const isMonthlyInterpretationLoading = ref(false)
 const monthlyInterpretationError = ref('')
 const monthlyInterpretationSerial = ref(0)
+const monthlyRefreshSignal = ref(null)
+const monthlyRefreshState = ref('idle')
+const showMonthlyFactorsGuide = ref(false)
 
 const hasInterpretationFields = (data) => {
   return Boolean(
@@ -737,6 +763,10 @@ const formatMonthDay = (dateStr) => {
 }
 
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
+const syncMonthlyRefreshSignal = (profileId = currentProfileCacheKey.value, monthKey = selectedMonthKey.value) => {
+  monthlyRefreshSignal.value = peekMonthlyInterpretationRefresh(getFortuneStorage(), profileId, monthKey)
+  monthlyRefreshState.value = monthlyRefreshSignal.value ? 'pending' : 'idle'
+}
 
 const rememberFortuneCache = (userId, dateStr, data, profileId = '') => {
   rememberSharedFortuneCache(getFortuneStorage(), userId, dateStr, data, new Date(), profileId)
@@ -1032,11 +1062,13 @@ const fetchMonthlyFortuneData = async () => {
 
     isMonthLoading.value = true
     const profileId = currentProfileCacheKey.value
+    syncMonthlyRefreshSignal(profileId, selectedMonthKey.value)
+    if (monthlyRefreshSignal.value) monthlyRefreshState.value = 'refreshing'
     const data = await fetchMonthlyFortuneFromApi(selectedMonthKey.value, session.access_token, profileId)
     if (currentRequest !== monthRequestSerial.value) return
     monthlyData.value = data
     monthlyDataKey.value = selectedMonthKey.value
-    fetchMonthlyInterpretation(selectedMonthlyDimension.value)
+    fetchMonthlyInterpretation(selectedMonthlyDimension.value, { force: Boolean(monthlyRefreshSignal.value) })
   } catch (error) {
     if (currentRequest !== monthRequestSerial.value) return
     console.error(error)
@@ -1047,8 +1079,9 @@ const fetchMonthlyFortuneData = async () => {
   }
 }
 
-const fetchMonthlyInterpretation = async (dimension = selectedMonthlyDimension.value) => {
-  if (!visibleMonthlyData.value || monthlyInterpretations.value[dimension]) return
+const fetchMonthlyInterpretation = async (dimension = selectedMonthlyDimension.value, options = {}) => {
+  const force = Boolean(options.force)
+  if (!visibleMonthlyData.value || (!force && monthlyInterpretations.value[dimension])) return
   const currentRequest = monthlyInterpretationSerial.value + 1
   monthlyInterpretationSerial.value = currentRequest
   isMonthlyInterpretationLoading.value = true
@@ -1070,6 +1103,11 @@ const fetchMonthlyInterpretation = async (dimension = selectedMonthlyDimension.v
     )
     if (currentRequest !== monthlyInterpretationSerial.value) return
     applyMonthlyInterpretationPatch(dimension, result)
+    if (monthlyRefreshSignal.value) {
+      clearMonthlyInterpretationRefresh(getFortuneStorage(), currentProfileCacheKey.value, selectedMonthKey.value)
+      monthlyRefreshSignal.value = null
+      monthlyRefreshState.value = 'updated'
+    }
   } catch (error) {
     if (currentRequest !== monthlyInterpretationSerial.value) return
     console.error(error)
@@ -1082,10 +1120,11 @@ const fetchMonthlyInterpretation = async (dimension = selectedMonthlyDimension.v
 const selectMonthlyDimension = (dimension) => {
   if (selectedMonthlyDimension.value === dimension) return
   selectedMonthlyDimension.value = dimension
-  fetchMonthlyInterpretation(dimension)
+  fetchMonthlyInterpretation(dimension, { force: Boolean(monthlyRefreshSignal.value) })
 }
 
 const openMonthlyContextNotes = () => {
+  showMonthlyFactorsGuide.value = false
   router.push({
     name: 'bazi',
     query: {
@@ -1125,6 +1164,7 @@ const selectMonth = (monthKey) => {
   if (!monthKey || selectedMonth.value === monthKey) return
   selectedMonth.value = monthKey
   scrollSelectedMonthIntoView()
+  syncMonthlyRefreshSignal(currentProfileCacheKey.value, monthKey)
   fetchMonthlyFortuneData()
 }
 
@@ -1138,6 +1178,7 @@ const scrollSelectedMonthIntoView = () => {
 onMounted(async () => {
   document.addEventListener('click', handleDocumentClick)
   await fetchProfiles()
+  syncMonthlyRefreshSignal()
   generateDays(String(route.query.date || ''))
   generateMonths()
   fetchFortuneData(selectedDate.value)
@@ -1163,6 +1204,7 @@ watch(
     const profileId = String(nextProfileId || '')
     if (profileId && profileId !== selectedProfileId.value && baziProfiles.value.some(profile => profile.id === profileId)) {
       selectedProfileId.value = profileId
+      syncMonthlyRefreshSignal(profileId, selectedMonthKey.value)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()
       } else {
@@ -1175,6 +1217,7 @@ watch(
 watch(currentTab, (nextTab) => {
   if (nextTab === 'month' && !visibleMonthlyData.value && !isMonthLoading.value) {
     scrollSelectedMonthIntoView()
+    syncMonthlyRefreshSignal()
     fetchMonthlyFortuneData()
   }
   if (nextTab === 'month') scrollSelectedMonthIntoView()

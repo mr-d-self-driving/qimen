@@ -1,4 +1,5 @@
 const STORAGE_KEY = 'qimen:fortune-cache:v1'
+const MONTHLY_INTERPRETATION_REFRESH_KEY = 'qimen:monthly-interpretation-refresh:v1'
 
 const fortuneCacheByKey = new Map()
 const pendingInterpretationByKey = new Map()
@@ -33,6 +34,30 @@ const writeStorageState = (storage, state) => {
     storage.setItem(STORAGE_KEY, JSON.stringify(state))
   } catch (error) {
     console.warn('日运本地缓存写入失败，忽略缓存:', error)
+  }
+}
+
+const readJsonState = (storage, key, fallback) => {
+  if (!storage) return fallback
+  try {
+    const raw = storage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch (error) {
+    console.warn('本地状态读取失败，忽略缓存:', error)
+    return fallback
+  }
+}
+
+const writeJsonState = (storage, key, value) => {
+  if (!storage) return
+  try {
+    if (!value || (Array.isArray(value) && value.length === 0)) {
+      storage.removeItem(key)
+      return
+    }
+    storage.setItem(key, JSON.stringify(value))
+  } catch (error) {
+    console.warn('本地状态写入失败，忽略缓存:', error)
   }
 }
 
@@ -92,6 +117,46 @@ export const rememberPendingInterpretation = (userId, dateStr, promise, profileI
 export const clearPendingInterpretation = (userId, dateStr, profileId = '') => {
   if (!userId || !dateStr) return
   pendingInterpretationByKey.delete(buildCacheKey(userId, dateStr, profileId))
+}
+
+export const rememberMonthlyInterpretationRefresh = (storage, signal) => {
+  if (!storage || !signal?.profileId) return
+  const current = readJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, [])
+  const deduped = current.filter(item => !(
+    item?.profileId === signal.profileId
+    && item?.monthKey === signal.monthKey
+    && item?.scope === signal.scope
+  ))
+  deduped.push({
+    profileId: signal.profileId,
+    monthKey: signal.monthKey || '*',
+    scope: signal.scope || 'monthly',
+    changedAt: signal.changedAt || Date.now(),
+    message: signal.message || '',
+  })
+  writeJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, deduped)
+}
+
+export const peekMonthlyInterpretationRefresh = (storage, profileId, monthKey) => {
+  if (!storage || !profileId) return null
+  const current = readJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, [])
+  const matched = current
+    .filter(item => item?.profileId === profileId && (item?.monthKey === monthKey || item?.monthKey === '*'))
+    .sort((a, b) => {
+      if (a.monthKey === b.monthKey) return (b.changedAt || 0) - (a.changedAt || 0)
+      return a.monthKey === monthKey ? -1 : 1
+    })
+  return matched[0] || null
+}
+
+export const clearMonthlyInterpretationRefresh = (storage, profileId, monthKey) => {
+  if (!storage || !profileId) return
+  const current = readJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, [])
+  const next = current.filter(item => !(
+    item?.profileId === profileId
+    && (item?.monthKey === monthKey || item?.monthKey === '*')
+  ))
+  writeJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, next)
 }
 
 export const __resetFortuneCacheForTests = () => {
