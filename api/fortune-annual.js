@@ -38,7 +38,7 @@ function getTargetYear(req) {
 async function getProfileForFortune(userId, profileId) {
   let query = supabase
     .from('bazi_profiles')
-    .select('id, name, gender, birth_date, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu, nian_zhu')
+    .select('id, name, gender, birth_date, bazi_str, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
     .eq('user_id', userId);
 
   if (profileId) {
