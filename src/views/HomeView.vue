@@ -59,6 +59,14 @@
                 <span>{{ item.score }}分</span>
               </div>
             </div>
+            <button
+              v-if="item.canFeedback"
+              class="d-feedback-btn"
+              :class="{ done: item.hasFeedback }"
+              @click.stop="openFeedbackDrawer(item)"
+            >
+              {{ item.hasFeedback ? '已反馈' : '反馈' }}
+            </button>
             <span class="d-hist-badge" :class="'verdict-' + getVerdictInfo(item.score).cls">{{ getVerdictInfo(item.score).label }}</span>
           </div>
         </div>
@@ -242,6 +250,77 @@
       </div>
     </div>
 
+    <div class="feedback-overlay" :class="{ show: isFeedbackDrawerOpen }" @click="closeFeedbackDrawer">
+      <aside class="feedback-drawer" @click.stop>
+        <div class="feedback-head">
+          <div>
+            <div class="feedback-kicker">应验反馈</div>
+            <h3>这一次推演后来怎么样？</h3>
+          </div>
+          <button class="feedback-close" @click="closeFeedbackDrawer" aria-label="关闭反馈抽屉">&times;</button>
+        </div>
+
+        <div v-if="feedbackTargetRecord" class="feedback-summary">
+          <div class="feedback-question">“{{ feedbackTargetRecord.question }}”</div>
+          <div class="feedback-meta">
+            <span>{{ feedbackTargetRecord.dateStr }}</span>
+            <span>{{ feedbackTargetRecord.catLabel }}</span>
+            <span>{{ feedbackTargetRecord.score }}分</span>
+          </div>
+          <p v-if="feedbackConclusion" class="feedback-conclusion">{{ feedbackConclusion }}</p>
+        </div>
+
+        <div class="feedback-form">
+          <div class="feedback-field">
+            <div class="feedback-label">应验程度</div>
+            <div class="feedback-options">
+              <button
+                v-for="option in feedbackAccuracyOptions"
+                :key="option.value"
+                class="feedback-option"
+                :class="{ active: feedbackForm.accuracy_status === option.value }"
+                @click="feedbackForm.accuracy_status = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="feedback-field">
+            <div class="feedback-label">结果方向</div>
+            <div class="feedback-options">
+              <button
+                v-for="option in feedbackDirectionOptions"
+                :key="option.value"
+                class="feedback-option"
+                :class="{ active: feedbackForm.actual_direction === option.value }"
+                @click="feedbackForm.actual_direction = option.value"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+
+          <div class="feedback-field">
+            <div class="feedback-label">补充说明 <span>{{ feedbackForm.note.length }}/200</span></div>
+            <textarea
+              v-model="feedbackForm.note"
+              class="feedback-note"
+              maxlength="200"
+              placeholder="例如：实际第二天下午收到回复，但结果没有继续推进。"
+            ></textarea>
+          </div>
+        </div>
+
+        <div class="feedback-actions">
+          <button class="feedback-secondary" @click="closeFeedbackDrawer">取消</button>
+          <button class="feedback-primary" :disabled="feedbackSaving" @click="submitQimenFeedback">
+            {{ feedbackSaving ? '保存中...' : (feedbackTargetRecord?.hasFeedback ? '更新反馈' : '提交反馈') }}
+          </button>
+        </div>
+      </aside>
+    </div>
+
     <div class="bazi-info-overlay" :class="{ show: showBaziModal }" @click="showBaziModal = false">
       <div class="bazi-info-card" @click.stop>
         <div class="bazi-info-title"><span>何时需要注入八字？</span><span class="bazi-info-close" @click="showBaziModal = false">&times;</span></div>
@@ -280,6 +359,13 @@ import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
+import {
+  QIMEN_ACCURACY_OPTIONS,
+  QIMEN_DIRECTION_OPTIONS,
+  buildDefaultFeedbackForm,
+  mergeQimenFeedbackIntoRecords,
+  normalizeQimenFeedbackForm
+} from '../qimenFeedback.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -329,6 +415,13 @@ const categories = [
   { label: '📦 交易', value: 'item_transaction' },
   { label: '📋 杂事', value: 'general' }
 ]
+const feedbackAccuracyOptions = QIMEN_ACCURACY_OPTIONS
+const feedbackDirectionOptions = QIMEN_DIRECTION_OPTIONS
+const isFeedbackDrawerOpen = ref(false)
+const feedbackTargetRecord = ref(null)
+const feedbackSaving = ref(false)
+const feedbackForm = reactive(buildDefaultFeedbackForm())
+const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data?.summary?.conclusion || '')
 
 const resultHtml = ref('')
 const currentScore = ref(0) 
@@ -583,12 +676,28 @@ const animateScore = (targetScore) => {
 
 const loadHistory = async () => {
   const { data } = await supabase.from('qimen_records').select('*').order('created_at', { ascending: false })
-  historyRecords.value = (data || []).map(r => ({
+  const records = (data || []).map(r => ({
     ...r,
     dateStr: new Date(r.created_at).toLocaleDateString(),
     score: r.qimen_data?.summary?.score || 0,
     catLabel: categories.find(c => c.value === r.category)?.label || '杂事'
   }))
+
+  if (!currentUser.value) {
+    historyRecords.value = mergeQimenFeedbackIntoRecords(records, [], currentUser.value)
+    return
+  }
+
+  const { data: feedbackRows, error } = await supabase
+    .from('qimen_feedback')
+    .select('record_id, accuracy_status, actual_direction, note, updated_at')
+    .eq('user_id', currentUser.value.id)
+
+  if (error && error.code !== '42P01') {
+    console.warn('加载奇门反馈失败:', error.message)
+  }
+
+  historyRecords.value = mergeQimenFeedbackIntoRecords(records, error ? [] : (feedbackRows || []), currentUser.value)
 }
 
 const saveRecordToDatabase = async (question, data) => {
@@ -600,7 +709,10 @@ const saveRecordToDatabase = async (question, data) => {
       category: data.category || 'general',
       dateStr: new Date().toLocaleDateString(),
       score: data.summary?.score || 0,
-      catLabel: categories.find(c => c.value === data.category)?.label || '杂事'
+      catLabel: categories.find(c => c.value === data.category)?.label || '杂事',
+      canFeedback: false,
+      hasFeedback: false,
+      feedback: null
     }]
     return
   }
@@ -620,6 +732,54 @@ const loadRecord = (item) => {
     animateScore(item.qimen_data?.summary?.score || item.score || 0)
     setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 200)
   })
+}
+
+const applyFeedbackForm = (feedback) => {
+  const source = feedback || buildDefaultFeedbackForm()
+  feedbackForm.accuracy_status = source.accuracy_status || 'pending'
+  feedbackForm.actual_direction = source.actual_direction || 'pending'
+  feedbackForm.note = source.note || ''
+}
+
+const openFeedbackDrawer = (item) => {
+  if (!item?.canFeedback) return
+  feedbackTargetRecord.value = item
+  applyFeedbackForm(item.feedback)
+  isFeedbackDrawerOpen.value = true
+}
+
+const closeFeedbackDrawer = () => {
+  isFeedbackDrawerOpen.value = false
+}
+
+const submitQimenFeedback = async () => {
+  if (!feedbackTargetRecord.value || !currentUser.value || feedbackSaving.value) return
+
+  feedbackSaving.value = true
+  try {
+    const normalized = normalizeQimenFeedbackForm(feedbackForm)
+    const { error } = await supabase
+      .from('qimen_feedback')
+      .upsert({
+        record_id: feedbackTargetRecord.value.id,
+        user_id: currentUser.value.id,
+        accuracy_status: normalized.accuracy_status,
+        actual_direction: normalized.actual_direction,
+        note: normalized.note || null,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'record_id,user_id'
+      })
+
+    if (error) throw error
+    await loadHistory()
+    closeFeedbackDrawer()
+    alert('反馈已保存')
+  } catch (error) {
+    alert('反馈保存失败: ' + error.message)
+  } finally {
+    feedbackSaving.value = false
+  }
 }
 
 const getVerdictInfo = (score) => {
@@ -806,6 +966,9 @@ const buildCardHTML = (data) => {
 .d-hist-info { flex: 1; overflow: hidden; }
 .d-hist-q { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
 .d-hist-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+.d-feedback-btn { flex: 0 0 auto; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.18); background: rgba(212,175,55,0.04); color: rgba(232,204,128,0.72); font-size: 10px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.d-feedback-btn:hover { border-color: rgba(232,204,128,0.42); background: rgba(212,175,55,0.1); color: var(--gold-light); }
+.d-feedback-btn.done { color: rgba(78,205,196,0.82); border-color: rgba(78,205,196,0.22); background: rgba(78,205,196,0.05); }
 .d-hist-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; border: 1px solid; }
 
 /* 页面 */
@@ -899,6 +1062,38 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 .loader-main-text { font-family: var(--font-serif); font-size: 13px; color: var(--gold); text-align: center; }
 
 .reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: transparent; border: 1px solid var(--glass-border); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; margin-top: 16px; }
+
+.feedback-overlay { position: fixed; inset: 0; z-index: 9998; display: flex; justify-content: flex-end; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+.feedback-overlay.show { opacity: 1; pointer-events: auto; }
+.feedback-drawer { width: min(420px, 92vw); height: 100%; padding: 24px 22px; overflow-y: auto; background: rgba(14,14,31,0.96); border-left: 1px solid var(--gold-border); box-shadow: -18px 0 48px rgba(0,0,0,0.48); transform: translateX(18px); transition: transform .28s var(--ease); }
+.feedback-overlay.show .feedback-drawer { transform: translateX(0); }
+.feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.feedback-kicker { font-size: 10px; color: var(--text-muted); letter-spacing: .22em; margin-bottom: 7px; }
+.feedback-head h3 { margin: 0; font-family: var(--font-serif); font-size: 18px; font-weight: 500; color: var(--gold-light); line-height: 1.35; }
+.feedback-close { flex: 0 0 auto; width: 32px; height: 32px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; }
+.feedback-summary { padding: 14px 15px; border: 1px solid rgba(232,204,128,0.12); border-radius: 14px; background: rgba(212,175,55,0.045); margin-bottom: 18px; }
+.feedback-question { font-size: 14px; color: rgba(240,237,230,0.9); line-height: 1.65; overflow-wrap: anywhere; }
+.feedback-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; font-size: 10px; color: var(--text-muted); }
+.feedback-conclusion { margin: 11px 0 0; padding-top: 11px; border-top: 1px solid rgba(255,255,255,0.06); color: var(--gold-light); font-size: 13px; line-height: 1.65; }
+.feedback-form { display: flex; flex-direction: column; gap: 18px; }
+.feedback-field { display: flex; flex-direction: column; gap: 10px; }
+.feedback-label { display: flex; align-items: center; justify-content: space-between; color: rgba(240,237,230,0.82); font-size: 12px; letter-spacing: .08em; }
+.feedback-label span { color: var(--text-muted); font-size: 10px; letter-spacing: 0; }
+.feedback-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.feedback-option { min-height: 40px; padding: 9px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.03); color: rgba(240,237,230,0.78); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.feedback-option.active { border-color: rgba(232,204,128,0.52); background: rgba(212,175,55,0.13); color: var(--gold-light); }
+.feedback-note { min-height: 98px; padding: 12px 13px; border-radius: 12px; font-family: var(--font-body); font-size: 13px; line-height: 1.7; }
+.feedback-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 22px; }
+.feedback-secondary, .feedback-primary { min-height: 44px; border-radius: 12px; font-size: 14px; cursor: pointer; }
+.feedback-secondary { border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: var(--text-muted); }
+.feedback-primary { border: none; background: linear-gradient(135deg, #E8CC80 0%, #B38B36 100%); color: #130d00; font-weight: 700; }
+.feedback-primary:disabled { opacity: .55; cursor: not-allowed; }
+
+@media(max-width:560px) {
+  .feedback-overlay { align-items: flex-end; justify-content: center; }
+  .feedback-drawer { width: 100%; height: auto; max-height: 88vh; border-left: none; border-top: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; transform: translateY(24px); }
+  .feedback-overlay.show .feedback-drawer { transform: translateY(0); }
+}
 
 .bazi-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .3s; }
 .bazi-info-overlay.show { display: flex; opacity: 1; }

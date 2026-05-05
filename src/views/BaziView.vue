@@ -269,9 +269,6 @@
                         <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary">
                             {{ rerunButtonLabel }}
                         </button>
-                        <div v-if="hasPendingContextChanges && !isGuest" class="header-action-hint">
-                            已保存新笔记，重新推演后同步到解读
-                        </div>
                     </div>
                 </div>
 
@@ -304,7 +301,7 @@
 
                 <!-- ══ 命主断事笔记 ══ -->
                 <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
-                    <div class="ai-header-row">
+                    <div class="ai-header-row notes-card-header">
                         <div class="ai-header-title">断事笔记</div>
                         <div class="context-card-top-actions">
                             <button class="info-button" title="功能说明" @click="openLeGuide('events')">?</button>
@@ -417,7 +414,7 @@
                 </div>
 
                 <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
-                    <div class="ai-header-row">
+                    <div class="ai-header-row notes-card-header">
                         <div class="ai-header-title">长期基调</div>
                         <div class="context-card-top-actions">
                             <button class="info-button" title="查看长期基调说明" @click="openLeGuide('profile')">?</button>
@@ -461,7 +458,7 @@
                 </div>
 
                 <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
-                    <div class="ai-header-row">
+                    <div class="ai-header-row notes-card-header">
                         <div class="ai-header-title">月度基调</div>
                         <div class="context-card-top-actions">
                             <button class="info-button" title="查看月度基调说明" @click="openLeGuide('monthly')">?</button>
@@ -536,7 +533,6 @@
                                 </div>
                             </div>
                         </div>
-                        <div v-if="contextNotesMessage" class="context-notes-message">{{ contextNotesMessage }}</div>
                     </div>
                 </div>
                 <!-- ══ /命主断事笔记 ══ -->
@@ -924,6 +920,12 @@
                     </div>
                 </Teleport>
 
+                <Teleport to="body">
+                    <div v-if="showCenteredToast" class="screen-toast">
+                        <div class="screen-toast-card" :class="`is-${toastKind}`">{{ toastMessage }}</div>
+                    </div>
+                </Teleport>
+
                 <!-- 命局天机分析版块 -->
                 <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
                     <div class="ai-header-row">
@@ -1156,7 +1158,6 @@ const isProfileMenuOpen = ref(false)
 const isAnalyzing = ref(false)
 const isSavingProfileContext = ref(false)
 const isSavingMonthlyContext = ref(false)
-const hasPendingContextChanges = ref(false)
 // ── 断事笔记 ──────────────────────────────────────────
 const isFormOpen = ref(false)
 const isCalibrating = ref(false)
@@ -1268,7 +1269,9 @@ const profileContextDraft = ref(createEmptyProfileContextDraft())
 const monthlyContextDraft = ref(createEmptyMonthlyContextDraft())
 const recentMonthlyContextRecords = ref([])
 const notesMonthKey = ref('')
-const contextNotesMessage = ref('')
+const showCenteredToast = ref(false)
+const toastMessage = ref('')
+const toastKind = ref('success')
 const activeInfoPanel = ref(null)
 const insightTab = ref('strength')
 const renameName = ref('')
@@ -1285,6 +1288,7 @@ const analysisSteps = [
 const ANALYSIS_PROGRESS_FRAMES = [8, 12, 17, 23, 29, 36, 43, 50, 57, 64, 70, 76, 81, 85, 89, 92]
 let analysisTimer = null
 let analysisFrameIndex = 0
+let toastTimer = null
 
 const form = reactive({
     name: '',
@@ -1518,12 +1522,8 @@ watch(
             profileContextDraft.value = createEmptyProfileContextDraft()
             monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value || currentMonthKey.value)
             recentMonthlyContextRecords.value = []
-            hasPendingContextChanges.value = false
-            contextNotesMessage.value = ''
             return
         }
-        hasPendingContextChanges.value = false
-        contextNotesMessage.value = ''
         await fetchProfileContextDraft()
         await fetchMonthlyContextDraft()
     },
@@ -1533,7 +1533,6 @@ watch(
 watch(notesMonthKey, async (next) => {
     if (!next) return
     monthlyContextDraft.value = createEmptyMonthlyContextDraft(next)
-    contextNotesMessage.value = ''
     if (activeProfile.value && !isGuest.value) {
         await fetchMonthlyContextDraft()
     }
@@ -2068,6 +2067,7 @@ onMounted(async () => {
 onUnmounted(() => {
     document.removeEventListener('click', handleDocumentClick)
     stopAnalysisMotion()
+    if (toastTimer) window.clearTimeout(toastTimer)
 })
 
 // 业务方法
@@ -2112,11 +2112,10 @@ const fetchProfileContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '加载长期基调失败')
         profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
-        contextNotesMessage.value = ''
     } catch (error) {
         console.error(error)
         profileContextDraft.value = createEmptyProfileContextDraft()
-        contextNotesMessage.value = error.message
+        showToast(error.message, 'error')
     }
 }
 
@@ -2135,12 +2134,11 @@ const fetchMonthlyContextDraft = async () => {
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '加载月度现状失败')
         monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
         recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
-        contextNotesMessage.value = ''
     } catch (error) {
         console.error(error)
         monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value)
         recentMonthlyContextRecords.value = []
-        contextNotesMessage.value = error.message
+        showToast(error.message, 'error')
     }
 }
 
@@ -2164,11 +2162,10 @@ const saveProfileContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存长期基调失败')
         profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
-        hasPendingContextChanges.value = true
-        contextNotesMessage.value = '长期基调已保存，点击顶部“重新推演并应用”后会同步到最新解读'
+        showToast('长期基调已保存')
     } catch (error) {
         console.error(error)
-        contextNotesMessage.value = error.message
+        showToast(error.message, 'error')
     } finally {
         isSavingProfileContext.value = false
     }
@@ -2196,11 +2193,10 @@ const saveMonthlyContextDraft = async () => {
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存月度现状失败')
         monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
         recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
-        hasPendingContextChanges.value = true
-        contextNotesMessage.value = '月度基调已保存，点击顶部“重新推演并应用”后会同步到最新解读'
+        showToast('月度基调已保存')
     } catch (error) {
         console.error(error)
-        contextNotesMessage.value = error.message
+        showToast(error.message, 'error')
     } finally {
         isSavingMonthlyContext.value = false
     }
@@ -2209,14 +2205,14 @@ const saveMonthlyContextDraft = async () => {
 const copyPreviousMonthlyContext = () => {
     const previous = recentMonthlyContextRecords.value.find(item => item.month_key && item.month_key !== notesMonthKey.value)
     if (!previous) {
-        contextNotesMessage.value = '没有可沿用的上月记录'
+        showToast('没有可沿用的上月记录', 'error')
         return
     }
     monthlyContextDraft.value = JSON.parse(JSON.stringify({
         ...previous,
         month_key: notesMonthKey.value,
     }))
-    contextNotesMessage.value = `已沿用 ${previous.month_key} 的月度现状，记得保存后再重新推演`
+    showToast(`已沿用 ${previous.month_key} 的月度现状`)
 }
 
 const handleProfileSelect = () => {
@@ -2484,7 +2480,6 @@ const requestAiSummary = async () => {
     if (!activeProfile.value) return
     const profileId = activeProfile.value.id
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
-    const applyingContextNotes = hasPendingContextChanges.value
     isAnalyzing.value = true
     analysisNotice.value = ''
     startAnalysisMotion()
@@ -2507,9 +2502,7 @@ const requestAiSummary = async () => {
         if (shouldCalibrateFromEvents) {
             await triggerCalibration({ profileId })
         }
-        hasPendingContextChanges.value = false
-        contextNotesMessage.value = ''
-        analysisNotice.value = applyingContextNotes ? '推演完成，已应用最新笔记' : '推演完成'
+        analysisNotice.value = '推演完成'
     } catch (err) {
         alert("推演失败: " + err.message)
     } finally {
@@ -2698,6 +2691,15 @@ const openLeGuide = (mode = 'events') => {
     leGuideMode.value = mode
     showLeGuide.value = true
 }
+const showToast = (message, kind = 'success') => {
+    toastMessage.value = message
+    toastKind.value = kind
+    showCenteredToast.value = true
+    if (toastTimer) window.clearTimeout(toastTimer)
+    toastTimer = window.setTimeout(() => {
+        showCenteredToast.value = false
+    }, 1800)
+}
 const hasPreviousMonthlyContext = computed(() =>
     recentMonthlyContextRecords.value.some(item => item.month_key && item.month_key !== notesMonthKey.value)
 )
@@ -2705,7 +2707,6 @@ const rerunButtonLabel = computed(() => {
     if (isGuest.value) return '访客本地档案'
     if (isAnalyzing.value) return '正在推演'
     if (needsUpgrade.value) return '生成排盘'
-    if (hasPendingContextChanges.value) return '重新推演并应用'
     return '重新推演'
 })
 
@@ -3098,7 +3099,6 @@ const getShenColor = (shen) => {
 
 .bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
 .bazi-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
-.header-action-hint { color: rgba(232,204,128,0.78); font-size: 11px; line-height: 1.5; text-align: right; max-width: 180px; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px; font-weight: bold; }
 .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 2px; }
@@ -3693,6 +3693,13 @@ const getShenColor = (shen) => {
     gap: 8px;
     flex-wrap: wrap;
 }
+.notes-card-header {
+    align-items: center;
+}
+.notes-card-header .ai-header-title {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
 .context-card + .context-card {
     padding-top: 22px;
     border-top: 1px dashed rgba(232,204,128,0.14);
@@ -3820,8 +3827,43 @@ const getShenColor = (shen) => {
     color: #d5c495;
     font-size: 12px;
 }
+.screen-toast {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+.screen-toast-card {
+    max-width: min(78vw, 320px);
+    padding: 14px 18px;
+    border-radius: 14px;
+    border: 1px solid rgba(232,204,128,0.24);
+    background: rgba(10,10,18,0.9);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.34);
+    color: #f4e6c0;
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: center;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+}
+.screen-toast-card.is-error {
+    border-color: rgba(255,143,136,0.26);
+    color: #ffd1cc;
+}
 
 @media (max-width: 760px) {
+    .notes-card-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+    .notes-card-header .context-card-top-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
     .context-card-top-actions {
         width: 100%;
         justify-content: flex-start;
@@ -3939,7 +3981,6 @@ const getShenColor = (shen) => {
     .form-row { flex-direction: column; gap: 10px; }
     .bazi-header { flex-direction: column; }
     .bazi-header-actions { width: 100%; align-items: stretch; }
-    .header-action-hint { max-width: none; text-align: left; }
     .btn-primary { width: 100%; }
     .dashboard-panel { padding: 16px 10px; }
     .tabs { gap: 16px; }
