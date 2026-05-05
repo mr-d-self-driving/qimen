@@ -59,7 +59,7 @@ const parseBirthDate = (birthDate) => {
 export const resolveSolarFromProfile = (profile) => {
   if (!profile) return null
 
-  const parsed = parseBirthDate(profile.birth_date)
+  const parsed = parseBirthDate(profile.adjusted_birth_date || profile.birth_date)
   if (parsed) {
     return Solar.fromYmdHms(parsed.year, parsed.month, parsed.day, parsed.hour, parsed.minute, 0)
   }

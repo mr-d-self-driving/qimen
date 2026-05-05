@@ -44,13 +44,84 @@ const WU_SHU_DUN_START = {
 }
 
 const pad2 = (value) => String(value).padStart(2, '0')
+const STANDARD_MERIDIAN = 120
+
+const getDayOfYear = (year, month, day) => {
+  const start = Date.UTC(year, 0, 1)
+  const current = Date.UTC(year, month - 1, day)
+  return Math.floor((current - start) / 86400000) + 1
+}
+
+export const getEquationOfTimeMinutes = (year, month, day) => {
+  const dayOfYear = getDayOfYear(year, month, day)
+  const b = (2 * Math.PI * (dayOfYear - 81)) / 364
+  return 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b)
+}
+
+export const normalizeLongitude = (value) => {
+  if (value === '' || value === null || value === undefined) return null
+  const longitude = Number(value)
+  if (!Number.isFinite(longitude) || longitude < -180 || longitude > 180) return null
+  return longitude
+}
+
+const addMinutesToLocalDatetime = ({ year, month, day, hour = 0, minute = 0 }, deltaMinutes = 0) => {
+  const date = new Date(Date.UTC(year, month - 1, day, hour, minute + Math.round(deltaMinutes), 0))
+  return {
+    year: date.getUTCFullYear(),
+    month: date.getUTCMonth() + 1,
+    day: date.getUTCDate(),
+    hour: date.getUTCHours(),
+    minute: date.getUTCMinutes()
+  }
+}
+
+export const getSolarTimeAdjustment = ({
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  longitude,
+  mode = 'apparent',
+  standardMeridian = STANDARD_MERIDIAN
+}) => {
+  const normalizedLongitude = normalizeLongitude(longitude)
+  const clock = { year, month, day, hour, minute }
+  if (normalizedLongitude === null || mode === 'clock') {
+    return {
+      longitude: normalizedLongitude,
+      mode: 'clock',
+      standardMeridian,
+      longitudeMinutes: 0,
+      equationMinutes: 0,
+      totalMinutes: 0,
+      adjusted: clock
+    }
+  }
+
+  const longitudeMinutes = (normalizedLongitude - standardMeridian) * 4
+  const equationMinutes = mode === 'mean' ? 0 : getEquationOfTimeMinutes(year, month, day)
+  const totalMinutes = Math.round(longitudeMinutes + equationMinutes)
+  return {
+    longitude: normalizedLongitude,
+    mode: mode === 'mean' ? 'mean' : 'apparent',
+    standardMeridian,
+    longitudeMinutes,
+    equationMinutes,
+    totalMinutes,
+    adjusted: addMinutesToLocalDatetime(clock, totalMinutes)
+  }
+}
 
 export const formatBirthDate = (year, month, day, hour = 0, minute = 0) => (
   `${year}-${pad2(month)}-${pad2(day)} ${pad2(hour)}:${pad2(minute)}:00`
 )
 
-export const getEightCharString = (year, month, day, hour = 0, minute = 0) => {
-  const bazi = Solar.fromYmdHms(year, month, day, hour, minute, 0).getLunar().getEightChar()
+export const getEightCharString = (year, month, day, hour = 0, minute = 0, options = {}) => {
+  const adjustment = getSolarTimeAdjustment({ year, month, day, hour, minute, ...options })
+  const adjusted = adjustment.adjusted
+  const bazi = Solar.fromYmdHms(adjusted.year, adjusted.month, adjusted.day, adjusted.hour, adjusted.minute, 0).getLunar().getEightChar()
   return `${bazi.getYear()} ${bazi.getMonth()} ${bazi.getDay()} ${bazi.getTime()}`
 }
 
@@ -66,13 +137,17 @@ export const parseCompactSolarInput = (value) => {
   return { year, month, day, hour, minute }
 }
 
-export const getSolarLunarSnapshot = (year, month, day, hour = 0, minute = 0) => {
-  const solar = Solar.fromYmdHms(year, month, day, hour, minute, 0)
+export const getSolarLunarSnapshot = (year, month, day, hour = 0, minute = 0, options = {}) => {
+  const timeAdjustment = getSolarTimeAdjustment({ year, month, day, hour, minute, ...options })
+  const adjusted = timeAdjustment.adjusted
+  const solar = Solar.fromYmdHms(adjusted.year, adjusted.month, adjusted.day, adjusted.hour, adjusted.minute, 0)
   const lunar = solar.getLunar()
   return {
     solar,
     lunar,
-    solarText: solar.toYmdHms(),
+    solarText: Solar.fromYmdHms(year, month, day, hour, minute, 0).toYmdHms(),
+    adjustedSolarText: solar.toYmdHms(),
+    timeAdjustment,
     lunarText: `${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} ${lunar.getTimeZhi()}时`,
     baziStr: `${lunar.getEightChar().getYear()} ${lunar.getEightChar().getMonth()} ${lunar.getEightChar().getDay()} ${lunar.getEightChar().getTime()}`
   }
@@ -135,12 +210,43 @@ export const normalizePillarsByDunRules = ({ yearPillar, monthPillar, dayPillar,
   }
 }
 
-export const buildSolarProfilePayload = ({ name, gender, year, month, day, hour = 0, minute = 0 }) => ({
+export const buildSolarProfilePayload = ({
   name,
   gender,
-  birth_date: formatBirthDate(year, month, day, hour, minute),
-  bazi_str: getEightCharString(year, month, day, hour, minute)
-})
+  year,
+  month,
+  day,
+  hour = 0,
+  minute = 0,
+  birthLocation = '',
+  birthLongitude = null,
+  solarTimeMode = 'apparent'
+}) => {
+  const timeAdjustment = getSolarTimeAdjustment({
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    longitude: birthLongitude,
+    mode: solarTimeMode
+  })
+  const adjusted = timeAdjustment.adjusted
+  return {
+    name,
+    gender,
+    birth_date: formatBirthDate(year, month, day, hour, minute),
+    adjusted_birth_date: formatBirthDate(adjusted.year, adjusted.month, adjusted.day, adjusted.hour, adjusted.minute),
+    bazi_str: getEightCharString(year, month, day, hour, minute, {
+      longitude: birthLongitude,
+      mode: solarTimeMode
+    }),
+    birth_location: String(birthLocation || '').trim(),
+    birth_longitude: timeAdjustment.longitude,
+    solar_time_mode: timeAdjustment.mode,
+    solar_time_adjustment_minutes: timeAdjustment.totalMinutes
+  }
+}
 
 export const buildLunarProfilePayload = ({ name, gender, year, month, day, hour = 0, minute = 0 }) => {
   const lunar = Lunar.fromYmdHms(year, month, day, hour, minute, 0)

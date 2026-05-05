@@ -339,6 +339,25 @@
                   <h3 class="card-title compact-title"><span>✦</span> 月度详批</h3>
                   <span v-if="activeMonthlyInterpretation?.interpretation_status === 'ready'" class="interpretation-ready">已生成</span>
                 </div>
+                <div class="monthly-factors-card">
+                  <div class="monthly-factors-title">这段月运文案，主要参考这些因素：</div>
+                  <div class="monthly-factors-list">
+                    <div v-for="item in monthlyInterpretationFactors" :key="item.title" class="monthly-factor-item">
+                      <div class="monthly-factor-head">{{ item.title }}</div>
+                      <div class="monthly-factor-copy">
+                        {{ item.copy }}
+                        <button
+                          v-if="item.title === '你的现实背景'"
+                          type="button"
+                          class="monthly-factor-link"
+                          @click="openMonthlyContextNotes"
+                        >
+                          去填写基调
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div class="monthly-dimension-tabs" role="tablist" aria-label="月运解读维度">
                   <button
                     v-for="item in monthlyInterpretationTabs"
@@ -408,7 +427,7 @@
 
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
 import { getGuestState, recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
@@ -426,6 +445,7 @@ const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const route = useRoute()
+const router = useRouter()
 
 const tabs = [
   { label: '日', value: 'day' },
@@ -466,6 +486,29 @@ const monthlyInterpretationTabs = [
   { label: '事业', value: 'career' },
   { label: '财运', value: 'wealth' },
   { label: '感情', value: 'love' },
+]
+
+const monthlyInterpretationFactors = [
+  {
+    title: '流月本身',
+    copy: '看这个月的干支五行，对你是助力还是压力。',
+  },
+  {
+    title: '和原局、岁运的关系',
+    copy: '看它和你的原局、大运、流年之间，是顺势承接，还是有冲撞波动。',
+  },
+  {
+    title: '月内节奏',
+    copy: '看这个月高分日、低谷期、节气前后，哪些时间更适合推进，哪些时间更适合放缓。',
+  },
+  {
+    title: '神煞与结构信号',
+    copy: '会参考贵人、文昌、驿马、月德等辅助信号，但不会只靠单一神煞下结论。',
+  },
+  {
+    title: '你的现实背景',
+    copy: '如果你填写了长期基调和本月现状，系统会把命理信号落到更贴近你当下的处境里，比如工作、感情、财务或生活状态。',
+  },
 ]
 
 const selectedMonthlyDimension = ref('overall')
@@ -1040,6 +1083,16 @@ const selectMonthlyDimension = (dimension) => {
   if (selectedMonthlyDimension.value === dimension) return
   selectedMonthlyDimension.value = dimension
   fetchMonthlyInterpretation(dimension)
+}
+
+const openMonthlyContextNotes = () => {
+  router.push({
+    name: 'bazi',
+    query: {
+      tab: 'events',
+      profileId: selectedProfileId.value || undefined,
+    }
+  })
 }
 
 const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileId, requestId) => {

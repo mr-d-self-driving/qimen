@@ -7,8 +7,10 @@ import {
   buildSolarProfilePayload,
   getAllowedMonthBranchesByStem,
   getAllowedTimeBranchesByStem,
+  getSolarTimeAdjustment,
   getMonthStemByYearStem,
   getTimeStemByDayStem,
+  normalizeLongitude,
   normalizePillarsByDunRules,
   parseCompactSolarInput
 } from './baziProfileInput.mjs'
@@ -36,6 +38,52 @@ test('buildSolarProfilePayload derives birth_date and bazi_str from solar dateti
 
   assert.equal(payload.birth_date, '1999-06-07 09:11:00')
   assert.equal(payload.bazi_str, '己卯 庚午 庚寅 辛巳')
+})
+
+test('buildSolarProfilePayload can derive bazi from birthplace solar time', () => {
+  const payload = buildSolarProfilePayload({
+    name: '测试',
+    gender: 'M',
+    year: 1999,
+    month: 6,
+    day: 7,
+    hour: 23,
+    minute: 20,
+    birthLocation: '成都',
+    birthLongitude: 104.0668,
+    solarTimeMode: 'mean'
+  })
+
+  assert.equal(payload.birth_date, '1999-06-07 23:20:00')
+  assert.equal(payload.adjusted_birth_date, '1999-06-07 22:16:00')
+  assert.equal(payload.bazi_str, '己卯 庚午 庚寅 丁亥')
+  assert.equal(payload.birth_location, '成都')
+  assert.equal(payload.birth_longitude, 104.0668)
+  assert.equal(payload.solar_time_adjustment_minutes, -64)
+})
+
+test('solar time adjustment supports apparent time and longitude validation', () => {
+  assert.equal(normalizeLongitude('104.0668'), 104.0668)
+  assert.equal(normalizeLongitude('181'), null)
+
+  const adjustment = getSolarTimeAdjustment({
+    year: 1999,
+    month: 6,
+    day: 7,
+    hour: 23,
+    minute: 20,
+    longitude: 104.0668,
+    mode: 'apparent'
+  })
+
+  assert.equal(adjustment.totalMinutes, -62)
+  assert.deepEqual(adjustment.adjusted, {
+    year: 1999,
+    month: 6,
+    day: 7,
+    hour: 22,
+    minute: 18
+  })
 })
 
 test('buildLunarProfilePayload converts lunar birth into solar birth_date', () => {

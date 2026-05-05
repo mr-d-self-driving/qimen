@@ -29,6 +29,28 @@ test('getPromptDataFromProfile keeps exact birth and pillars', () => {
   assert.equal(promptData.baziStr, '戊寅 壬戌 甲辰 戊辰')
 })
 
+test('getPromptDataFromProfile prefers adjusted solar time when present', () => {
+  const promptData = getPromptDataFromProfile({
+    gender: 'M',
+    birth_date: '1999-06-07 23:20:00',
+    adjusted_birth_date: '1999-06-07 22:16:00',
+    bazi_str: '己卯 庚午 庚寅 丁亥'
+  })
+
+  assert.equal(promptData.birthStr, '1999年6月7日 22:16')
+  assert.equal(promptData.baziStr, '己卯 庚午 庚寅 丁亥')
+})
+
+test('resolveSolarFromProfile prefers adjusted birth date for calculations', () => {
+  const solar = resolveSolarFromProfile({
+    birth_date: '1999-06-07 23:20:00',
+    adjusted_birth_date: '1999-06-07 22:16:00',
+    bazi_str: '己卯 庚午 庚寅 丁亥'
+  })
+
+  assert.equal(solar.toYmdHms(), '1999-06-07 22:16:00')
+})
+
 test('buildLocalBaziMatrix derives four pillars immediately without cloud detail', () => {
   const matrix = buildLocalBaziMatrix({
     gender: 'F',

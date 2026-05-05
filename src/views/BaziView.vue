@@ -108,6 +108,35 @@
                                         >
                                         <div class="date-input-hint">仅支持数字输入，格式为 YYYYMMDDHHmm，也可只输入到日期或小时。</div>
                                     </div>
+                                    <div class="location-input-card">
+                                        <div class="location-input-grid">
+                                            <label class="location-field">
+                                                <span>出生地</span>
+                                                <input type="text" v-model.trim="form.birthLocation" placeholder="例如：成都">
+                                            </label>
+                                            <label class="location-field">
+                                                <span>经度</span>
+                                                <input
+                                                    type="number"
+                                                    inputmode="decimal"
+                                                    min="-180"
+                                                    max="180"
+                                                    step="0.0001"
+                                                    v-model="form.birthLongitude"
+                                                    placeholder="104.0668"
+                                                >
+                                            </label>
+                                            <label class="location-field">
+                                                <span>校正方式</span>
+                                                <select v-model="form.solarTimeMode">
+                                                    <option value="clock">不校正</option>
+                                                    <option value="mean">平太阳时</option>
+                                                    <option value="apparent">真太阳时</option>
+                                                </select>
+                                            </label>
+                                        </div>
+                                        <div class="date-input-hint">中国标准经度按东经 120° 计算；经度为空时按钟表时间排盘。</div>
+                                    </div>
                                     <div class="date-segment-row">
                                         <div class="date-segment"><span>年</span><strong>{{ solarInputDigits.slice(0, 4) || '----' }}</strong></div>
                                         <div class="date-segment"><span>月</span><strong>{{ solarInputDigits.slice(4, 6) || '--' }}</strong></div>
@@ -117,7 +146,8 @@
                                     </div>
                                 </div>
                                 <div v-if="solarPreview" class="picker-preview-card">
-                                    <div>阳历：{{ solarPreview.solarText }}</div>
+                                    <div>钟表阳历：{{ solarPreview.solarText }}</div>
+                                    <div v-if="solarTimeAdjustmentText">排盘时间：{{ solarPreview.adjustedSolarText }}（{{ solarTimeAdjustmentText }}）</div>
                                     <div>农历：{{ solarPreview.lunarText }}</div>
                                     <div>四柱：{{ solarPreview.baziStr }}</div>
                                 </div>
@@ -1056,7 +1086,7 @@
 
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
 import { globalState } from '../store.js'
@@ -1072,6 +1102,7 @@ import {
     getAllowedMonthBranchesByStem,
     getAllowedTimeBranchesByStem,
     getSolarLunarSnapshot,
+    normalizeLongitude,
     parseCompactSolarInput,
     ZHI
 } from '../utils/baziProfileInput.mjs'
@@ -1091,6 +1122,7 @@ const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const router = useRouter()
+const route = useRoute()
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
 // 核心字典
@@ -1292,7 +1324,10 @@ let toastTimer = null
 
 const form = reactive({
     name: '',
-    gender: 'M'
+    gender: 'M',
+    birthLocation: '',
+    birthLongitude: '',
+    solarTimeMode: 'apparent'
 })
 
 const entryMode = ref(ENTRY_MODE.SOLAR)
@@ -1399,6 +1434,11 @@ const formatProfileOption = (profile) => {
 
 const profileMetaText = (profile) => {
     const parts = [profile.gender === 'M' ? '乾造' : '坤造']
+    if (profile.birth_location) parts.push(profile.birth_location)
+    if (Number.isFinite(Number(profile.solar_time_adjustment_minutes)) && Number(profile.solar_time_adjustment_minutes) !== 0) {
+        const minutes = Number(profile.solar_time_adjustment_minutes)
+        parts.push(`太阳时${minutes > 0 ? '+' : ''}${minutes}分`)
+    }
     if (profile.is_default) parts.push('默认')
     return parts.join(' · ')
 }
@@ -1537,6 +1577,13 @@ watch(notesMonthKey, async (next) => {
         await fetchMonthlyContextDraft()
     }
 })
+
+watch(
+    () => route.query.tab,
+    () => {
+        syncBaziRouteState()
+    }
+)
 
 watch(
     () => pillarInput.monthPillar.charAt(0),
@@ -1994,13 +2041,31 @@ const solarInputError = computed(() => {
     if (parsed.month < 1 || parsed.month > 12 || parsed.day < 1 || parsed.day > 31 || parsed.hour > 23 || parsed.minute > 59) {
         return '日期格式不正确，请检查月份、日期、小时和分钟'
     }
+    if (String(form.birthLongitude || '').trim() && normalizeLongitude(form.birthLongitude) === null) {
+        return '经度需填写 -180 到 180 之间的数字'
+    }
     return ''
 })
 const solarPreview = computed(() => {
     if (solarInputError.value || !solarParsedInput.value) return null
     const { year, month, day, hour, minute } = solarParsedInput.value
-    return getSolarLunarSnapshot(year, month, day, hour, minute)
+    return getSolarLunarSnapshot(year, month, day, hour, minute, {
+        longitude: form.birthLongitude,
+        mode: form.solarTimeMode
+    })
 })
+const solarTimeAdjustmentText = computed(() => {
+    const adjustment = solarPreview.value?.timeAdjustment
+    if (!adjustment || !adjustment.totalMinutes) return ''
+    const direction = adjustment.totalMinutes > 0 ? '快' : '慢'
+    return `${direction}${Math.abs(adjustment.totalMinutes)}分钟`
+})
+const syncBaziRouteState = () => {
+    const requestedTab = String(route.query.tab || '')
+    if (requestedTab === 'events') {
+        currentTab.value = 'events'
+    }
+}
 const solarInputMasked = computed(() => {
     const digits = solarInputDigits.value
     const y = digits.slice(0, 4)
@@ -2053,6 +2118,7 @@ const lunarDateStr = computed(() => {
 onMounted(async () => {
     document.addEventListener('click', handleDocumentClick)
     notesMonthKey.value = currentMonthKey.value
+    syncBaziRouteState()
     const { data: { session } } = await supabase.auth.getSession()
     if (!session && globalState.isGuest) {
         loadGuestProfile()
@@ -2078,6 +2144,12 @@ const fetchProfiles = async () => {
     }
     const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
     baziProfiles.value = data || []
+    const requestedProfileId = String(route.query.profileId || '')
+    const matchedRequestedProfile = requestedProfileId && baziProfiles.value.find(profile => profile.id === requestedProfileId)
+    if (matchedRequestedProfile) {
+        selectedProfileId.value = matchedRequestedProfile.id
+        return
+    }
     const hasActiveSelection = baziProfiles.value.some(profile => profile.id === selectedProfileId.value)
     if (!hasActiveSelection) {
         const defaultProfile = baziProfiles.value.find(p => p.is_default) || baziProfiles.value[0]
@@ -2262,6 +2334,9 @@ const openRenameProfile = () => {
 const resetProfileEntry = () => {
     form.name = ''
     form.gender = 'M'
+    form.birthLocation = ''
+    form.birthLongitude = ''
+    form.solarTimeMode = 'apparent'
     entryMode.value = ENTRY_MODE.SOLAR
     solarInput.text = '199001010000'
     pillarInput.yearPillar = '庚午'
@@ -2341,7 +2416,10 @@ const buildProfilePayloadFromEntry = () => {
             month: solarParsedInput.value.month,
             day: solarParsedInput.value.day,
             hour: solarParsedInput.value.hour,
-            minute: solarParsedInput.value.minute
+            minute: solarParsedInput.value.minute,
+            birthLocation: form.birthLocation,
+            birthLongitude: form.birthLongitude,
+            solarTimeMode: form.solarTimeMode
         })
     }
 
@@ -2378,7 +2456,12 @@ const saveProfile = async () => {
         name: payload.name,
         gender: payload.gender,
         birth_date: payload.birth_date,
-        bazi_str: payload.bazi_str
+        adjusted_birth_date: payload.adjusted_birth_date,
+        bazi_str: payload.bazi_str,
+        birth_location: payload.birth_location,
+        birth_longitude: payload.birth_longitude,
+        solar_time_mode: payload.solar_time_mode,
+        solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes
     }]).select('id').single()
     if (error) alert(error.message) 
     else { 
@@ -2388,7 +2471,12 @@ const saveProfile = async () => {
                 name: payload.name,
                 gender: payload.gender,
                 birth_date: payload.birth_date,
+                adjusted_birth_date: payload.adjusted_birth_date,
                 bazi_str: payload.bazi_str,
+                birth_location: payload.birth_location,
+                birth_longitude: payload.birth_longitude,
+                solar_time_mode: payload.solar_time_mode,
+                solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes,
                 is_default: baziProfiles.value.length === 0
             }
             baziProfiles.value = [
@@ -2415,7 +2503,12 @@ const buildGuestProfile = (payload) => {
         name: payload.name,
         gender: payload.gender,
         birth_date: payload.birth_date,
+        adjusted_birth_date: payload.adjusted_birth_date,
         bazi_str: payload.bazi_str,
+        birth_location: payload.birth_location,
+        birth_longitude: payload.birth_longitude,
+        solar_time_mode: payload.solar_time_mode,
+        solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes,
         bazi_summary: '访客本地档案已保存。登录后可生成完整云端命理解读与日运联动。',
         is_default: true
     }
@@ -2917,6 +3010,44 @@ const getShenColor = (shen) => {
         rgba(0,0,0,0.16);
     padding: 14px;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+}
+.location-input-card {
+    border-radius: 18px;
+    border: 1px solid rgba(232,204,128,0.12);
+    background: rgba(255,255,255,0.03);
+    padding: 12px;
+}
+.location-input-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr 1fr;
+    gap: 10px;
+}
+.location-field {
+    min-width: 0;
+}
+.location-field span {
+    display: block;
+    margin-bottom: 8px;
+    color: #D8D2BF;
+    font-size: 12px;
+    font-weight: 700;
+}
+.location-field input,
+.location-field select {
+    width: 100%;
+    min-height: 42px;
+    border-radius: 14px;
+    border: 1px solid rgba(232,204,128,0.14);
+    background: rgba(6,6,14,0.62);
+    color: #F7F0E2;
+    padding: 0 12px;
+    font-size: 14px;
+    outline: none;
+}
+.location-field input:focus,
+.location-field select:focus {
+    border-color: rgba(232,204,128,0.34);
+    box-shadow: 0 0 0 1px rgba(232,204,128,0.12);
 }
 .date-input-label {
     display: block;
@@ -4000,6 +4131,7 @@ const getShenColor = (shen) => {
     .picker-form-row { grid-template-columns: 1fr 1fr; }
     .picker-save-btn { min-height: 56px; }
     .picker-topbar { flex-direction: column; align-items: stretch; }
+    .location-input-grid { grid-template-columns: 1fr; }
     .date-segment-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
     .date-input-card input { min-height: 50px; font-size: 18px; padding: 0 14px; }
     .date-segment { padding: 10px 4px; border-radius: 14px; }
