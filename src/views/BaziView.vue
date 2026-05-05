@@ -265,9 +265,14 @@
                             </span>
                         </div>
                     </div>
-                    <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary">
-                        {{ isGuest ? '访客本地档案' : (isAnalyzing ? '正在推演' : (needsUpgrade ? '生成排盘' : '重新推演')) }}
-                    </button>
+                    <div class="bazi-header-actions">
+                        <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary">
+                            {{ rerunButtonLabel }}
+                        </button>
+                        <div v-if="hasPendingContextChanges && !isGuest" class="header-action-hint">
+                            已保存新笔记，重新推演后同步到解读
+                        </div>
+                    </div>
                 </div>
 
                 <div v-if="isAnalyzing || analysisNotice" class="analysis-status" :class="{ done: analysisNotice && !isAnalyzing }">
@@ -301,10 +306,12 @@
                 <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
                     <div class="ai-header-row">
                         <div class="ai-header-title">断事笔记</div>
-                        <button class="info-button" title="功能说明" @click="showLeGuide = true">?</button>
-                        <span v-if="isCalibrated" class="calibrated-badge">
-                            已深度校准 · {{ calibratedTimeStr }}
-                        </span>
+                        <div class="context-card-top-actions">
+                            <button class="info-button" title="功能说明" @click="openLeGuide('events')">?</button>
+                            <span v-if="isCalibrated" class="calibrated-badge">
+                                已深度校准 · {{ calibratedTimeStr }}
+                            </span>
+                        </div>
                     </div>
 
                     <div v-if="sortedLifeEvents.length > 0" class="le-timeline">
@@ -407,123 +414,129 @@
                             </button>
                         </div>
                     </div>
+                </div>
 
-                    <div class="context-notes-layout">
-                        <section class="context-card">
-                            <div class="context-card-head">
-                                <div>
-                                    <div class="section-kicker">长期基调</div>
-                                    <div class="context-card-title">命主现实背景</div>
-                                </div>
-                                <button class="mini-action" @click="saveProfileContextDraft">保存基调</button>
-                            </div>
-                            <p class="context-card-desc">这部分是较稳定的人生背景，只影响月运断语落点，不参与算分。</p>
-                            <div class="context-grid">
-                                <article v-for="section in PROFILE_CONTEXT_SECTIONS" :key="section.key" class="context-panel">
-                                    <div class="context-panel-title">{{ section.title }}</div>
-                                    <div class="context-field" v-for="field in section.fields" :key="field.key">
-                                        <label>{{ field.label }}</label>
-                                        <select
-                                            v-if="field.type === 'select'"
-                                            v-model="profileContextDraft[section.storeKey][field.key]"
-                                        >
-                                            <option value="">暂不填写</option>
-                                            <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
-                                        </select>
-                                        <input
-                                            v-else-if="field.type === 'text'"
-                                            v-model.trim="profileContextDraft[section.storeKey][field.key]"
-                                            type="text"
-                                            :maxlength="field.maxlength || 80"
-                                            :placeholder="field.placeholder || ''"
-                                        >
-                                        <textarea
-                                            v-else
-                                            v-model.trim="profileContextDraft[section.storeKey][field.key]"
-                                            rows="3"
-                                            :maxlength="field.maxlength || 80"
-                                            :placeholder="field.placeholder || ''"
-                                        ></textarea>
-                                    </div>
-                                </article>
-                            </div>
-                        </section>
-
-                        <section class="context-card">
-                            <div class="context-card-head">
-                                <div>
-                                    <div class="section-kicker">月度现状</div>
-                                    <div class="context-card-title">当前月与近月背景</div>
-                                </div>
-                                <div class="context-head-actions">
-                                    <select v-model="notesMonthKey" class="context-month-select">
-                                        <option v-for="option in notesMonthOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">长期基调</div>
+                        <div class="context-card-top-actions">
+                            <button class="info-button" title="查看长期基调说明" @click="openLeGuide('profile')">?</button>
+                            <button class="btn-ghost btn-compact" :disabled="isSavingProfileContext" @click="saveProfileContextDraft">
+                                {{ isSavingProfileContext ? '保存中…' : '保存基调' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="context-card">
+                        <p class="context-card-desc">这部分是较稳定的人生背景，只影响月运断语落点，不参与算分。</p>
+                        <div class="context-grid">
+                            <article v-for="section in PROFILE_CONTEXT_SECTIONS" :key="section.key" class="context-panel">
+                                <div class="section-kicker">{{ section.title }}</div>
+                                <div class="context-field" v-for="field in section.fields" :key="field.key">
+                                    <label>{{ field.label }}</label>
+                                    <select
+                                        v-if="field.type === 'select'"
+                                        v-model="profileContextDraft[section.storeKey][field.key]"
+                                    >
+                                        <option value="">暂不填写</option>
+                                        <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
                                     </select>
-                                    <button class="mini-action" @click="copyPreviousMonthlyContext">沿用上月</button>
-                                    <button class="mini-action" @click="saveMonthlyContextDraft">保存本月</button>
+                                    <input
+                                        v-else-if="field.type === 'text'"
+                                        v-model.trim="profileContextDraft[section.storeKey][field.key]"
+                                        type="text"
+                                        :maxlength="field.maxlength || 80"
+                                        :placeholder="field.placeholder || ''"
+                                    >
+                                    <textarea
+                                        v-else
+                                        v-model.trim="profileContextDraft[section.storeKey][field.key]"
+                                        rows="3"
+                                        :maxlength="field.maxlength || 80"
+                                        :placeholder="field.placeholder || ''"
+                                    ></textarea>
+                                </div>
+                            </article>
+                        </div>
+                    </div>
+                </div>
+
+                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">月度基调</div>
+                        <div class="context-card-top-actions">
+                            <button class="info-button" title="查看月度基调说明" @click="openLeGuide('monthly')">?</button>
+                            <select v-model="notesMonthKey" class="context-month-select">
+                                <option v-for="option in notesMonthOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                            </select>
+                            <button class="mini-action mini-action--subtle" :disabled="!hasPreviousMonthlyContext || isSavingMonthlyContext" @click="copyPreviousMonthlyContext">
+                                沿用上月
+                            </button>
+                            <button class="btn-ghost btn-compact" :disabled="isSavingMonthlyContext" @click="saveMonthlyContextDraft">
+                                {{ isSavingMonthlyContext ? '保存中…' : '保存本月' }}
+                            </button>
+                        </div>
+                    </div>
+                    <div class="context-card">
+                        <p class="context-card-desc">默认会把当前月作为主基调，并参考近 3 个月记录。主维度注入完整信息，其余维度只注入状态。</p>
+                        <div class="context-field">
+                            <label>本月总说明</label>
+                            <textarea
+                                v-model.trim="monthlyContextDraft.overall_note"
+                                rows="3"
+                                maxlength="100"
+                                placeholder="例如：这个月刚换城市，工作和感情都在重建。"
+                            ></textarea>
+                        </div>
+                        <div class="context-grid">
+                            <article v-for="section in MONTHLY_CONTEXT_SECTIONS" :key="section.key" class="context-panel">
+                                <div class="section-kicker">{{ section.title }}</div>
+                                <div class="context-field">
+                                    <label>当前状态</label>
+                                    <select v-model="monthlyContextDraft[section.storeKey].status">
+                                        <option value="">暂不填写</option>
+                                        <option v-for="option in section.statusOptions" :key="option" :value="option">{{ option }}</option>
+                                    </select>
+                                </div>
+                                <div class="context-field">
+                                    <label>本月现状</label>
+                                    <textarea
+                                        v-model.trim="monthlyContextDraft[section.storeKey].summary"
+                                        rows="3"
+                                        maxlength="80"
+                                        placeholder="用一句话写清楚这个月正在经历什么。"
+                                    ></textarea>
+                                </div>
+                                <div class="context-field">
+                                    <label>本月目标</label>
+                                    <input
+                                        v-model.trim="monthlyContextDraft[section.storeKey].goal"
+                                        type="text"
+                                        maxlength="50"
+                                        placeholder="例如：拿到 offer / 稳住关系 / 控制开支"
+                                    >
+                                </div>
+                                <div class="context-field">
+                                    <label>本月最担心</label>
+                                    <input
+                                        v-model.trim="monthlyContextDraft[section.storeKey].worry"
+                                        type="text"
+                                        maxlength="50"
+                                        placeholder="例如：反馈拖延 / 情绪反复 / 现金流紧"
+                                    >
+                                </div>
+                            </article>
+                        </div>
+                        <div v-if="recentMonthlyContextRecords.length" class="context-recent-list">
+                            <div class="context-recent-title">近 3 个月记录</div>
+                            <div v-for="item in recentMonthlyContextRecords" :key="item.month_key" class="context-recent-item">
+                                <div class="context-recent-month">{{ item.month_key }}</div>
+                                <div class="context-recent-copy">
+                                    <span v-if="item.overall_note">{{ item.overall_note }}</span>
+                                    <span v-else>{{ summarizeMonthlyStatuses(item) }}</span>
                                 </div>
                             </div>
-                            <p class="context-card-desc">默认会把当前月作为主基调，并参考近 3 个月记录。主维度注入完整信息，其余维度只注入状态。</p>
-                            <div class="context-field">
-                                <label>本月总说明</label>
-                                <textarea
-                                    v-model.trim="monthlyContextDraft.overall_note"
-                                    rows="3"
-                                    maxlength="100"
-                                    placeholder="例如：这个月刚换城市，工作和感情都在重建。"
-                                ></textarea>
-                            </div>
-                            <div class="context-grid">
-                                <article v-for="section in MONTHLY_CONTEXT_SECTIONS" :key="section.key" class="context-panel">
-                                    <div class="context-panel-title">{{ section.title }}</div>
-                                    <div class="context-field">
-                                        <label>当前状态</label>
-                                        <select v-model="monthlyContextDraft[section.storeKey].status">
-                                            <option value="">暂不填写</option>
-                                            <option v-for="option in section.statusOptions" :key="option" :value="option">{{ option }}</option>
-                                        </select>
-                                    </div>
-                                    <div class="context-field">
-                                        <label>本月现状</label>
-                                        <textarea
-                                            v-model.trim="monthlyContextDraft[section.storeKey].summary"
-                                            rows="3"
-                                            maxlength="80"
-                                            placeholder="用一句话写清楚这个月正在经历什么。"
-                                        ></textarea>
-                                    </div>
-                                    <div class="context-field">
-                                        <label>本月目标</label>
-                                        <input
-                                            v-model.trim="monthlyContextDraft[section.storeKey].goal"
-                                            type="text"
-                                            maxlength="50"
-                                            placeholder="例如：拿到 offer / 稳住关系 / 控制开支"
-                                        >
-                                    </div>
-                                    <div class="context-field">
-                                        <label>本月最担心</label>
-                                        <input
-                                            v-model.trim="monthlyContextDraft[section.storeKey].worry"
-                                            type="text"
-                                            maxlength="50"
-                                            placeholder="例如：反馈拖延 / 情绪反复 / 现金流紧"
-                                        >
-                                    </div>
-                                </article>
-                            </div>
-                            <div v-if="recentMonthlyContextRecords.length" class="context-recent-list">
-                                <div class="context-recent-title">近 3 个月记录</div>
-                                <div v-for="item in recentMonthlyContextRecords" :key="item.month_key" class="context-recent-item">
-                                    <div class="context-recent-month">{{ item.month_key }}</div>
-                                    <div class="context-recent-copy">
-                                        <span v-if="item.overall_note">{{ item.overall_note }}</span>
-                                        <span v-else>{{ summarizeMonthlyStatuses(item) }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                            <div v-if="contextNotesMessage" class="context-notes-message">{{ contextNotesMessage }}</div>
-                        </section>
+                        </div>
+                        <div v-if="contextNotesMessage" class="context-notes-message">{{ contextNotesMessage }}</div>
                     </div>
                 </div>
                 <!-- ══ /命主断事笔记 ══ -->
@@ -888,38 +901,23 @@
                     <div v-if="showLeGuide" class="modal-overlay" @click="showLeGuide = false">
                         <div class="le-guide-card" @click.stop>
                             <div class="le-guide-head">
-                                <span>断事笔记是什么？</span>
+                                <span>{{ currentLeGuideContent.title }}</span>
                                 <button class="close-button" title="关闭" @click="showLeGuide = false">×</button>
                             </div>
 
                             <div class="le-guide-body">
-                                <div class="le-guide-block">
-                                    <div class="le-guide-block-title">命理初稿 vs 真实定盘</div>
-                                    <p>
-                                        AI 根据你的出生时刻推算出的喜忌，只是一份「初稿」。<br>
-                                        真正准确的定盘，需要用你亲历的人生大事来验证和修正。
-                                    </p>
-                                </div>
-
-                                <div class="le-guide-block">
-                                    <div class="le-guide-block-title">怎么用</div>
-                                    <p>
-                                        填入几个关键年份的真实大事（升职、失业、婚恋、大病、意外之财……），
-                                        AI 会分析这些事件对应的五行能量，反推出更贴近你真实命局的喜忌神，
-                                        并重新校准原局、大运、流年三段解读。
-                                    </p>
+                                <div v-for="block in currentLeGuideContent.blocks" :key="block.title" class="le-guide-block">
+                                    <div class="le-guide-block-title">{{ block.title }}</div>
+                                    <p v-html="block.copy"></p>
                                 </div>
 
                                 <div class="le-guide-example">
-                                    <div class="le-guide-example-label">举个例子</div>
-                                    <p>
-                                        初判说你喜水忌火，但你在丙午年（火旺之年）反而事业大爆发
-                                        这说明初判存在偏差。断事笔记会把这个信号告诉 AI，让它重新校准。
-                                    </p>
+                                    <div class="le-guide-example-label">{{ currentLeGuideContent.exampleTitle }}</div>
+                                    <p v-html="currentLeGuideContent.example"></p>
                                 </div>
 
                                 <div class="le-guide-tip">
-                                    填 3～5 条最佳，选吉凶最明确的年份。极端事件比平淡年份更有参考价值。
+                                    {{ currentLeGuideContent.tip }}
                                 </div>
                             </div>
                         </div>
@@ -1156,6 +1154,9 @@ const showAdd = ref(false)
 const showRename = ref(false)
 const isProfileMenuOpen = ref(false)
 const isAnalyzing = ref(false)
+const isSavingProfileContext = ref(false)
+const isSavingMonthlyContext = ref(false)
+const hasPendingContextChanges = ref(false)
 // ── 断事笔记 ──────────────────────────────────────────
 const isFormOpen = ref(false)
 const isCalibrating = ref(false)
@@ -1517,8 +1518,12 @@ watch(
             profileContextDraft.value = createEmptyProfileContextDraft()
             monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value || currentMonthKey.value)
             recentMonthlyContextRecords.value = []
+            hasPendingContextChanges.value = false
+            contextNotesMessage.value = ''
             return
         }
+        hasPendingContextChanges.value = false
+        contextNotesMessage.value = ''
         await fetchProfileContextDraft()
         await fetchMonthlyContextDraft()
     },
@@ -1528,6 +1533,7 @@ watch(
 watch(notesMonthKey, async (next) => {
     if (!next) return
     monthlyContextDraft.value = createEmptyMonthlyContextDraft(next)
+    contextNotesMessage.value = ''
     if (activeProfile.value && !isGuest.value) {
         await fetchMonthlyContextDraft()
     }
@@ -2140,6 +2146,7 @@ const fetchMonthlyContextDraft = async () => {
 
 const saveProfileContextDraft = async () => {
     if (!activeProfile.value || isGuest.value) return
+    isSavingProfileContext.value = true
     try {
         const accessToken = await getAccessToken()
         const response = await fetch('/api/context-notes', {
@@ -2157,15 +2164,19 @@ const saveProfileContextDraft = async () => {
         const payload = await response.json()
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存长期基调失败')
         profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
-        contextNotesMessage.value = '长期基调已保存'
+        hasPendingContextChanges.value = true
+        contextNotesMessage.value = '长期基调已保存，点击顶部“重新推演并应用”后会同步到最新解读'
     } catch (error) {
         console.error(error)
         contextNotesMessage.value = error.message
+    } finally {
+        isSavingProfileContext.value = false
     }
 }
 
 const saveMonthlyContextDraft = async () => {
     if (!activeProfile.value || isGuest.value) return
+    isSavingMonthlyContext.value = true
     try {
         const accessToken = await getAccessToken()
         const response = await fetch('/api/context-notes', {
@@ -2185,10 +2196,13 @@ const saveMonthlyContextDraft = async () => {
         if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存月度现状失败')
         monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
         recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
-        contextNotesMessage.value = '本月现状已保存'
+        hasPendingContextChanges.value = true
+        contextNotesMessage.value = '月度基调已保存，点击顶部“重新推演并应用”后会同步到最新解读'
     } catch (error) {
         console.error(error)
         contextNotesMessage.value = error.message
+    } finally {
+        isSavingMonthlyContext.value = false
     }
 }
 
@@ -2202,7 +2216,7 @@ const copyPreviousMonthlyContext = () => {
         ...previous,
         month_key: notesMonthKey.value,
     }))
-    contextNotesMessage.value = `已沿用 ${previous.month_key} 的月度现状`
+    contextNotesMessage.value = `已沿用 ${previous.month_key} 的月度现状，记得保存后再重新推演`
 }
 
 const handleProfileSelect = () => {
@@ -2470,7 +2484,9 @@ const requestAiSummary = async () => {
     if (!activeProfile.value) return
     const profileId = activeProfile.value.id
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
+    const applyingContextNotes = hasPendingContextChanges.value
     isAnalyzing.value = true
+    analysisNotice.value = ''
     startAnalysisMotion()
     try {
         const pd = promptDataObj.value
@@ -2491,7 +2507,9 @@ const requestAiSummary = async () => {
         if (shouldCalibrateFromEvents) {
             await triggerCalibration({ profileId })
         }
-        analysisNotice.value = '推演完成'
+        hasPendingContextChanges.value = false
+        contextNotesMessage.value = ''
+        analysisNotice.value = applyingContextNotes ? '推演完成，已应用最新笔记' : '推演完成'
     } catch (err) {
         alert("推演失败: " + err.message)
     } finally {
@@ -2619,9 +2637,77 @@ const formatXiJi = (val) => {
 
 const selectedShensha = ref(null);
 const showLeGuide = ref(false)
+const leGuideMode = ref('events')
 const showShensha = (shensha) => {
     selectedShensha.value = shensha;
 };
+
+const LE_GUIDE_CONTENT = {
+    events: {
+        title: '断事笔记是什么？',
+        blocks: [
+            {
+                title: '命理初稿 vs 真实定盘',
+                copy: 'AI 根据你的出生时刻推算出的喜忌，只是一份「初稿」。<br>真正准确的定盘，需要用你亲历的人生大事来验证和修正。',
+            },
+            {
+                title: '怎么用',
+                copy: '填入几个关键年份的真实大事（升职、失业、婚恋、大病、意外之财……），AI 会分析这些事件对应的五行能量，反推出更贴近你真实命局的喜忌神，并重新校准原局、大运、流年三段解读。',
+            },
+        ],
+        exampleTitle: '举个例子',
+        example: '初判说你喜水忌火，但你在丙午年（火旺之年）反而事业大爆发。这说明初判存在偏差。断事笔记会把这个信号告诉 AI，让它重新校准。',
+        tip: '填 3～5 条最佳，选吉凶最明确的年份。极端事件比平淡年份更有参考价值。',
+    },
+    profile: {
+        title: '长期基调是做什么的？',
+        blocks: [
+            {
+                title: '它记录的是稳定背景',
+                copy: '长期基调不是拿来判断这个月吉凶的，而是告诉系统：你现在大致处在怎样的人生阶段，比如工作状态、财务阶段、关系诉求、生活节奏。',
+            },
+            {
+                title: '它怎么影响月运断语',
+                copy: '同样一股月运，对找工作的人可能落在面试流程上，对在职的人则可能落在晋升、内耗或团队关系上。长期基调用来帮助 AI 判断这股势更可能落在哪条线上。',
+            },
+        ],
+        exampleTitle: '举个例子',
+        example: '如果你长期处于「在职观望、想转岗」阶段，那么事业月运就会更偏向解释岗位变化、上级关系和内部机会，而不是泛泛地说一句“事业有波动”。',
+        tip: '这部分更新频率不用高，半年到一年修一次通常就够了。它只影响断语落点，不参与算分。',
+    },
+    monthly: {
+        title: '月度基调是做什么的？',
+        blocks: [
+            {
+                title: '它记录的是当月应事',
+                copy: '月度基调用来写清楚「这个月到底在发生什么」：比如正在找工作、刚分手、资金有压力、睡眠很差，或者这个月最重要的目标与顾虑是什么。',
+            },
+            {
+                title: '它为什么比长期基调更优先',
+                copy: '因为月运本身就是阶段性节奏。系统会先参考当前月，再看近 3 个月是否有连续状态，这样断语才会更贴近你当下，而不是只按长期标签去解释。',
+            },
+        ],
+        exampleTitle: '举个例子',
+        example: '如果你这个月写了“正在面试中，最担心流程拖延”，那月运里出现的压力与窗口，就会更自然地落到 offer、反馈、谈判这些具体场景上。',
+        tip: '这部分建议每个月更新一次。它只参与断语解释，不会改变命理算分高低。',
+    },
+}
+
+const currentLeGuideContent = computed(() => LE_GUIDE_CONTENT[leGuideMode.value] || LE_GUIDE_CONTENT.events)
+const openLeGuide = (mode = 'events') => {
+    leGuideMode.value = mode
+    showLeGuide.value = true
+}
+const hasPreviousMonthlyContext = computed(() =>
+    recentMonthlyContextRecords.value.some(item => item.month_key && item.month_key !== notesMonthKey.value)
+)
+const rerunButtonLabel = computed(() => {
+    if (isGuest.value) return '访客本地档案'
+    if (isAnalyzing.value) return '正在推演'
+    if (needsUpgrade.value) return '生成排盘'
+    if (hasPendingContextChanges.value) return '重新推演并应用'
+    return '重新推演'
+})
 
 const SHENSHA_DESC = {
     '天乙贵人': '至尊之神，逢凶化吉，主一生多有贵人相助，遇难呈祥。',
@@ -2710,11 +2796,14 @@ const getShenColor = (shen) => {
 .icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
 .guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.mini-action { min-height: 34px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; }
+.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; white-space: nowrap; }
 .mini-action:disabled { cursor: default; color: var(--gold-light); border-color: rgba(232,204,128,0.25); background: rgba(232,204,128,0.08); }
 .mini-action.danger { color: #FF8F88; }
+.mini-action--subtle { color: rgba(216,210,191,0.88); border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
 .btn-ghost { min-height: 36px; background: rgba(212,175,55,0.12); color: var(--gold-light); border: 1px solid rgba(232,204,128,0.35); padding: 0 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; white-space: nowrap; }
 .btn-ghost:hover { background: var(--gold); color: #000; }
+.btn-ghost:disabled { opacity: .7; cursor: default; }
+.btn-compact { min-height: 34px; padding: 0 12px; font-size: 12px; }
 .btn-danger { background: rgba(255,94,87,0.1); color: #FF5E57; border: 1px solid rgba(255,94,87,0.3); border-radius: 8px; padding: 0 10px; cursor: pointer; }
 .btn-primary { background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: #08080E; border: none; padding: 8px 14px; border-radius: 10px; cursor: pointer; font-weight: 700; font-family: var(--font-body); box-shadow: 0 2px 10px rgba(212,175,55,0.26); transition: transform 0.2s; white-space: nowrap; }
 .btn-primary:active { transform: scale(0.95); }
@@ -3008,6 +3097,8 @@ const getShenColor = (shen) => {
 }
 
 .bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
+.bazi-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+.header-action-hint { color: rgba(232,204,128,0.78); font-size: 11px; line-height: 1.5; text-align: right; max-width: 180px; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
 .bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px; font-weight: bold; }
 .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 2px; }
@@ -3595,6 +3686,13 @@ const getShenColor = (shen) => {
     background: transparent;
     border: none;
 }
+.context-card-top-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    flex-wrap: wrap;
+}
 .context-card + .context-card {
     padding-top: 22px;
     border-top: 1px dashed rgba(232,204,128,0.14);
@@ -3724,6 +3822,10 @@ const getShenColor = (shen) => {
 }
 
 @media (max-width: 760px) {
+    .context-card-top-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
     .context-card-head {
         flex-direction: column;
     }
@@ -3836,6 +3938,8 @@ const getShenColor = (shen) => {
     .mini-action.danger { grid-column: span 2; }
     .form-row { flex-direction: column; gap: 10px; }
     .bazi-header { flex-direction: column; }
+    .bazi-header-actions { width: 100%; align-items: stretch; }
+    .header-action-hint { max-width: none; text-align: left; }
     .btn-primary { width: 100%; }
     .dashboard-panel { padding: 16px 10px; }
     .tabs { gap: 16px; }
