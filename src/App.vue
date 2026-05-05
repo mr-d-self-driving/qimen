@@ -37,6 +37,7 @@
 
 <script setup>
 import { computed, ref, onMounted, onUnmounted } from 'vue'
+import { useRoute } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { globalState, setCurrentUser } from './store.js'
 
@@ -44,8 +45,9 @@ const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+const route = useRoute()
 const cosmosCanvas = ref(null)
-const isBottomNavVisible = computed(() => globalState.authReady && (globalState.currentUser || globalState.isGuest))
+const isBottomNavVisible = computed(() => route.name !== 'reset-password' && globalState.authReady && (globalState.currentUser || globalState.isGuest))
 let animationId = null
 let authSubscription = null
 

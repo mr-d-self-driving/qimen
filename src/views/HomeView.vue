@@ -16,6 +16,7 @@
           </div>
           <div class="avatar-menu" :class="{ open: isAvatarMenuOpen }">
             <div class="avatar-email">{{ currentUser ? currentUser.email : '未登录' }}</div>
+            <router-link v-if="currentUser" class="avatar-menu-link" to="/reset-password" @click="isAvatarMenuOpen = false">修改密码</router-link>
             <button class="avatar-logout" @click="handleSignOut">退出登录</button>
           </div>
         </div>
@@ -74,8 +75,24 @@
           <button class="auth-submit" :disabled="authLoading" @click="handleAuth">
             <span>{{ authLoading ? '验证中...' : (isLoginMode ? '登 录' : '注 册') }}</span>
           </button>
+          <div class="auth-divider"><span>或</span></div>
+          <button class="google-submit" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
+            <span class="google-mark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" focusable="false">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
+                <path fill="#EA4335" d="M12 5.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.37 12 5.37z"/>
+              </svg>
+            </span>
+            <span>{{ googleAuthLoading ? '正在跳转...' : '使用 Google 登录' }}</span>
+          </button>
           <button class="guest-submit" @click="handleGuestEntry">访客体验</button>
           <div class="guest-note">访客可提问 1 次、添加 1 个本地八字档案、查看今日日运分数</div>
+          <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
+            {{ resetEmailLoading ? '正在发送重设邮件...' : '忘记密码？发送重设邮件' }}
+          </button>
+          <div v-if="resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
           <div class="auth-switch" @click="isLoginMode = !isLoginMode">
             {{ isLoginMode ? '没有账号？ ' : '已有账号？ ' }}<span>{{ isLoginMode ? '点击注册' : '点击登录' }}</span>
           </div>
@@ -261,6 +278,8 @@ import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
+import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
+import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -277,6 +296,9 @@ const WX_MAP = {
 const currentUser = ref(null)
 const isLoginMode = ref(true)
 const authLoading = ref(false)
+const googleAuthLoading = ref(false)
+const resetEmailLoading = ref(false)
+const resetEmailNotice = ref('')
 const authForm = reactive({ email: '', password: '' })
 
 const viewState = ref('input') 
@@ -387,6 +409,34 @@ const handleAuth = async () => {
     alert("认证失败: " + error.message)
   } finally {
     authLoading.value = false
+  }
+}
+
+const handleGoogleAuth = async () => {
+  googleAuthLoading.value = true
+  try {
+    const href = typeof window === 'undefined' ? 'https://xkbqiiwwgfzkyfhxuoev.supabase.co' : window.location.href
+    const { error } = await supabase.auth.signInWithOAuth(buildGoogleOAuthSignInArgs(href))
+    if (error) throw error
+  } catch (error) {
+    alert("Google 登录失败: " + error.message)
+    googleAuthLoading.value = false
+  }
+}
+
+const handleResetPasswordEmail = async () => {
+  if (!authForm.email) return alert('请先输入邮箱地址')
+  resetEmailLoading.value = true
+  resetEmailNotice.value = ''
+  try {
+    const href = typeof window === 'undefined' ? 'https://xkbqiiwwgfzkyfhxuoev.supabase.co' : window.location.href
+    const { error } = await supabase.auth.resetPasswordForEmail(authForm.email, buildPasswordResetEmailArgs(href))
+    if (error) throw error
+    resetEmailNotice.value = '重设密码邮件已发送，请前往邮箱查收。'
+  } catch (error) {
+    alert('重设邮件发送失败: ' + error.message)
+  } finally {
+    resetEmailLoading.value = false
   }
 }
 
@@ -731,6 +781,8 @@ const buildCardHTML = (data) => {
 .avatar-menu { position: absolute; top: calc(100% + 10px); right: 0; min-width: 180px; padding: 8px 0; background: rgba(14,14,31,0.95); border: 1px solid var(--gold-border); border-radius: 14px; backdrop-filter: blur(24px); box-shadow: 0 12px 40px rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transform: translateY(-6px); transition: all .25s var(--ease); z-index: 400; }
 .avatar-menu.open { opacity: 1; pointer-events: all; transform: translateY(0); }
 .avatar-email { padding: 10px 16px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--glass-border); word-break: break-all; }
+.avatar-menu-link { display: block; width: 100%; padding: 10px 16px; font-size: 13px; color: rgba(240,237,230,0.88); background: none; border: none; cursor: pointer; text-align: left; text-decoration: none; }
+.avatar-menu-link:hover { color: var(--gold-light); background: rgba(212,175,55,0.06); }
 .avatar-logout { display: block; width: 100%; padding: 10px 16px; font-size: 13px; color: var(--gold-light); background: none; border: none; cursor: pointer; text-align: left; }
 
 /* 抽屉 */
@@ -793,8 +845,19 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 1px rgba(21
 .field-label { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; }
 input[type="email"], input[type="password"] { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: var(--radius-item); padding: 13px 16px; color: var(--text-primary); font-size: 15px; outline: none; }
 .auth-submit { width: 100%; padding: 15px; border: none; border-radius: var(--radius-item); background: linear-gradient(135deg, #E8CC80 0%, #B38B36 45%, #C9A052 100%); color: #0a0800; font-size: 15px; font-family: var(--font-serif); font-weight: 600; cursor: pointer; }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.22); font-size: 11px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+.google-submit { width: 100%; min-height: 48px; padding: 12px 15px; border: 1px solid rgba(212,175,55,0.26); border-radius: var(--radius-item); background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.028)); color: rgba(240,237,230,0.92); font-size: 14px; font-family: var(--font-body); font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 10px 24px rgba(0,0,0,0.18); transition: transform .2s, border-color .2s, background .2s, box-shadow .2s, opacity .2s; }
+.google-submit:hover { border-color: rgba(232,204,128,0.46); background: linear-gradient(180deg, rgba(255,255,255,0.105), rgba(212,175,55,0.055)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 12px 28px rgba(0,0,0,0.22), 0 0 22px rgba(212,175,55,0.07); }
+.google-submit:active { transform: scale(0.985); }
+.google-submit:disabled { opacity: 0.58; cursor: not-allowed; box-shadow: none; }
+.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 7px; background: rgba(255,255,255,0.96); box-shadow: 0 1px 0 rgba(255,255,255,0.35), 0 6px 14px rgba(0,0,0,0.2); }
+.google-mark svg { width: 16px; height: 16px; display: block; }
 .guest-submit { width: 100%; padding: 13px; border: 1px solid var(--gold-border); border-radius: var(--radius-item); background: rgba(212,175,55,0.08); color: var(--gold-light); font-size: 14px; font-family: var(--font-serif); cursor: pointer; }
 .guest-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; text-align: center; }
+.forgot-password-link { border: none; background: transparent; color: rgba(232,204,128,0.86); font-size: 12px; cursor: pointer; text-align: center; }
+.forgot-password-link:disabled { opacity: 0.6; cursor: not-allowed; }
+.auth-notice { padding: 10px 12px; border-radius: 10px; background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; text-align: center; }
 .auth-switch { text-align: center; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .auth-switch span { color: var(--gold); text-decoration: underline; }
 
