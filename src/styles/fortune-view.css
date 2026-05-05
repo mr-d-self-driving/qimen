@@ -63,6 +63,7 @@
 .score-ganzhi { font-size:23px; color:#E8CC80; font-family:'Kaiti SC','STKaiti','KaiTi','楷体','FZKai-Z03','Noto Serif SC',serif; font-weight:500; line-height:1.42; letter-spacing:2px; text-shadow:0 0 16px rgba(232,204,128,0.14); }
 .score-insight { margin:0; font-size:15px; line-height:1.75; color:#E8CC80; font-family:var(--font-serif); text-shadow:0 0 12px rgba(232,204,128,0.15); }
 .score-insight.muted { color:var(--text-muted); opacity:0.78; text-shadow:none; }
+.daily-score-skeleton { display:grid; gap:8px; width:min(100%, 320px); }
 .warning-tag { margin-top:14px; padding:8px 12px; background:rgba(255,94,87,0.1); color:#FF5E57; border-radius:8px; font-size:12px; border:1px solid rgba(255,94,87,0.2); display:inline-block; }
 .hint-text { margin-top:10px; font-size:12px; color:var(--text-muted); }
 .hint-text.error { color:#FF8A80; }
@@ -78,6 +79,7 @@
 .grid-card-label { font-size:13px; color:var(--gold-light); font-family:var(--font-serif); letter-spacing:1px; }
 .grid-card-text { font-size:13px; line-height:1.6; color:var(--text-primary); }
 .grid-card-text.muted { color:var(--text-muted); opacity:0.7; }
+.daily-grid-skeleton { display:grid; gap:8px; }
 
 /* ═══ Guide Card ═══ */
 .info-card { padding:18px; }
@@ -92,12 +94,20 @@
 .guide-label.bad { background:rgba(255,94,87,0.15); color:#FF5E57; border:1px solid rgba(255,94,87,0.3); }
 .guide-content { flex:1; color:#D0D0D8; line-height:1.5; font-size:14px; padding-top:2px; }
 .guide-content.muted { color:var(--text-muted); opacity:0.78; }
+.daily-info-skeleton { display:grid; gap:0; }
+.daily-guide-skeleton-row { display:flex; align-items:flex-start; }
+.daily-guide-skeleton-label { width:24px; height:24px; border-radius:6px; margin-right:12px; flex-shrink:0; }
+.daily-guide-skeleton-content { flex:1; display:grid; gap:8px; padding-top:2px; }
 
 /* ═══ Timeline (Lucky Hours) ═══ */
 .guide-divider { border:none; border-top:1px dashed rgba(255,255,255,0.08); margin:18px 0; }
 .timeline-title { font-size:14px; color:var(--gold); margin-bottom:12px; display:flex; align-items:center; gap:6px; font-family:var(--font-serif); font-weight:500; }
 .timeline { position:relative; padding-left:20px; }
 .timeline::before { content:''; position:absolute; left:6px; top:4px; bottom:4px; width:1px; background:linear-gradient(to bottom, rgba(212,175,55,0.4), rgba(212,175,55,0.05)); }
+.daily-timeline-skeleton { position:relative; padding-left:20px; display:grid; gap:16px; }
+.daily-timeline-skeleton::before { content:''; position:absolute; left:6px; top:4px; bottom:4px; width:1px; background:linear-gradient(to bottom, rgba(212,175,55,0.4), rgba(212,175,55,0.05)); }
+.daily-timeline-skeleton-item { position:relative; min-height:34px; }
+.daily-timeline-skeleton-copy { display:grid; gap:8px; }
 .timeline-item { position:relative; margin-bottom:16px; }
 .timeline-item:last-child { margin-bottom:0; }
 .timeline-dot { position:absolute; left:-18px; top:5px; width:8px; height:8px; border-radius:50%; background:var(--gold); box-shadow:0 0 8px rgba(212,175,55,0.4); }
@@ -112,6 +122,7 @@
 .color-dot { width:12px; height:12px; border-radius:50%; border:1px solid rgba(255,255,255,0.2); display:inline-block; flex-shrink:0; }
 .color-display { display:flex; align-items:center; gap:6px; }
 .color-display.muted { color:var(--text-muted); opacity:0.7; }
+.daily-lucky-skeleton .lucky-cell { gap:8px; }
 
 /* ═══ Monthly Fortune ═══ */
 .monthly-chart-card { padding:15px 16px 13px; }

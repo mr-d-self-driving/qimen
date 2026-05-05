@@ -407,6 +407,124 @@
                             </button>
                         </div>
                     </div>
+
+                    <div class="context-notes-layout">
+                        <section class="context-card">
+                            <div class="context-card-head">
+                                <div>
+                                    <div class="section-kicker">长期基调</div>
+                                    <div class="context-card-title">命主现实背景</div>
+                                </div>
+                                <button class="mini-action" @click="saveProfileContextDraft">保存基调</button>
+                            </div>
+                            <p class="context-card-desc">这部分是较稳定的人生背景，只影响月运断语落点，不参与算分。</p>
+                            <div class="context-grid">
+                                <article v-for="section in PROFILE_CONTEXT_SECTIONS" :key="section.key" class="context-panel">
+                                    <div class="context-panel-title">{{ section.title }}</div>
+                                    <div class="context-field" v-for="field in section.fields" :key="field.key">
+                                        <label>{{ field.label }}</label>
+                                        <select
+                                            v-if="field.type === 'select'"
+                                            v-model="profileContextDraft[section.storeKey][field.key]"
+                                        >
+                                            <option value="">暂不填写</option>
+                                            <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
+                                        </select>
+                                        <input
+                                            v-else-if="field.type === 'text'"
+                                            v-model.trim="profileContextDraft[section.storeKey][field.key]"
+                                            type="text"
+                                            :maxlength="field.maxlength || 80"
+                                            :placeholder="field.placeholder || ''"
+                                        >
+                                        <textarea
+                                            v-else
+                                            v-model.trim="profileContextDraft[section.storeKey][field.key]"
+                                            rows="3"
+                                            :maxlength="field.maxlength || 80"
+                                            :placeholder="field.placeholder || ''"
+                                        ></textarea>
+                                    </div>
+                                </article>
+                            </div>
+                        </section>
+
+                        <section class="context-card">
+                            <div class="context-card-head">
+                                <div>
+                                    <div class="section-kicker">月度现状</div>
+                                    <div class="context-card-title">当前月与近月背景</div>
+                                </div>
+                                <div class="context-head-actions">
+                                    <select v-model="notesMonthKey" class="context-month-select">
+                                        <option v-for="option in notesMonthOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+                                    </select>
+                                    <button class="mini-action" @click="copyPreviousMonthlyContext">沿用上月</button>
+                                    <button class="mini-action" @click="saveMonthlyContextDraft">保存本月</button>
+                                </div>
+                            </div>
+                            <p class="context-card-desc">默认会把当前月作为主基调，并参考近 3 个月记录。主维度注入完整信息，其余维度只注入状态。</p>
+                            <div class="context-field">
+                                <label>本月总说明</label>
+                                <textarea
+                                    v-model.trim="monthlyContextDraft.overall_note"
+                                    rows="3"
+                                    maxlength="100"
+                                    placeholder="例如：这个月刚换城市，工作和感情都在重建。"
+                                ></textarea>
+                            </div>
+                            <div class="context-grid">
+                                <article v-for="section in MONTHLY_CONTEXT_SECTIONS" :key="section.key" class="context-panel">
+                                    <div class="context-panel-title">{{ section.title }}</div>
+                                    <div class="context-field">
+                                        <label>当前状态</label>
+                                        <select v-model="monthlyContextDraft[section.storeKey].status">
+                                            <option value="">暂不填写</option>
+                                            <option v-for="option in section.statusOptions" :key="option" :value="option">{{ option }}</option>
+                                        </select>
+                                    </div>
+                                    <div class="context-field">
+                                        <label>本月现状</label>
+                                        <textarea
+                                            v-model.trim="monthlyContextDraft[section.storeKey].summary"
+                                            rows="3"
+                                            maxlength="80"
+                                            placeholder="用一句话写清楚这个月正在经历什么。"
+                                        ></textarea>
+                                    </div>
+                                    <div class="context-field">
+                                        <label>本月目标</label>
+                                        <input
+                                            v-model.trim="monthlyContextDraft[section.storeKey].goal"
+                                            type="text"
+                                            maxlength="50"
+                                            placeholder="例如：拿到 offer / 稳住关系 / 控制开支"
+                                        >
+                                    </div>
+                                    <div class="context-field">
+                                        <label>本月最担心</label>
+                                        <input
+                                            v-model.trim="monthlyContextDraft[section.storeKey].worry"
+                                            type="text"
+                                            maxlength="50"
+                                            placeholder="例如：反馈拖延 / 情绪反复 / 现金流紧"
+                                        >
+                                    </div>
+                                </article>
+                            </div>
+                            <div v-if="recentMonthlyContextRecords.length" class="context-recent-list">
+                                <div class="context-recent-title">近 3 个月记录</div>
+                                <div v-for="item in recentMonthlyContextRecords" :key="item.month_key" class="context-recent-item">
+                                    <div class="context-recent-month">{{ item.month_key }}</div>
+                                    <div class="context-recent-copy">
+                                        <span v-if="item.overall_note">{{ item.overall_note }}</span>
+                                        <span v-else>{{ summarizeMonthlyStatuses(item) }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="contextNotesMessage" class="context-notes-message">{{ contextNotesMessage }}</div>
+                        </section>
+                    </div>
                 </div>
                 <!-- ══ /命主断事笔记 ══ -->
 
@@ -1059,6 +1177,85 @@ const IMPACT_OPTIONS = [
     { value: -1, label: '🔴 坎坷/挫折', cls: 'negative' },
 ]
 
+const PROFILE_CONTEXT_SECTIONS = [
+    {
+        key: 'career',
+        title: '事业基调',
+        storeKey: 'career_profile',
+        fields: [
+            { key: 'current_status', label: '当前状态', type: 'select', options: ['在职稳定', '在职观望', '找工作', '待业', '自由职业', '创业', '学生'] },
+            { key: 'industry', label: '行业方向', type: 'text', maxlength: 30, placeholder: '例如：互联网产品 / 教育 / 金融' },
+            { key: 'level', label: '职位层级', type: 'select', options: ['执行', '骨干', '管理', '创始人', '学生', '其他'] },
+            { key: 'years', label: '工作年限', type: 'select', options: ['0-1', '1-3', '3-5', '5-10', '10+'] },
+            { key: 'goal', label: '长期诉求', type: 'select', options: ['求职', '晋升', '转岗', '转行', '稳住', '创业扩张', '考试上岸'] },
+            { key: 'pressure', label: '主要压力', type: 'select', options: ['上级', '同事', 'KPI', '方向不明', '收入', '无明显压力', '其他'] },
+            { key: 'note', label: '补充备注', type: 'textarea', maxlength: 80, placeholder: '例如：正在评估是否离开当前团队。' },
+        ],
+    },
+    {
+        key: 'wealth',
+        title: '财务基调',
+        storeKey: 'wealth_profile',
+        fields: [
+            { key: 'income_structure', label: '收入结构', type: 'select', options: ['固定工资', '提成', '项目制', '副业', '投资', '家庭支持', '多来源'] },
+            { key: 'stage', label: '财务阶段', type: 'select', options: ['刚起步', '收支平衡', '有积蓄', '现金流紧', '负债中'] },
+            { key: 'style', label: '理财风格', type: 'select', options: ['保守', '稳健', '激进', '随缘'] },
+            { key: 'focus', label: '当前关注', type: 'select', options: ['开源', '守财', '还债', '投资', '储蓄', '副业变现'] },
+            { key: 'risk', label: '主要风险', type: 'select', options: ['冲动消费', '人情支出', '现金流不稳', '投资波动', '暂无'] },
+            { key: 'note', label: '补充备注', type: 'textarea', maxlength: 80, placeholder: '例如：今年重点在清理负债和积累安全垫。' },
+        ],
+    },
+    {
+        key: 'love',
+        title: '感情基调',
+        storeKey: 'love_profile',
+        fields: [
+            { key: 'current_status', label: '当前关系状态', type: 'select', options: ['单身', '暧昧中', '稳定交往', '已婚', '分开中', '离异', '暂不填写'] },
+            { key: 'orientation', label: '性取向（当前仅存档）', type: 'select', options: ['异性', '同性', '双性', '泛性恋', '暂不填写'] },
+            { key: 'experience_stage', label: '经历阶段', type: 'select', options: ['母胎', '1-2段', '3段以上', '长期关系为主', '短期关系为主', '暂不填写'] },
+            { key: 'goal', label: '感情诉求', type: 'select', options: ['脱单', '稳定关系', '复合', '看清关系', '暂不考虑'] },
+            { key: 'pattern', label: '关系模式', type: 'select', options: ['容易上头', '慢热', '容易回避', '容易投入过多', '暂不填写'] },
+            { key: 'note', label: '补充备注', type: 'textarea', maxlength: 80, placeholder: '例如：更在意能否长期稳定，而不是短期激情。' },
+        ],
+    },
+    {
+        key: 'health',
+        title: '健康/生活基调',
+        storeKey: 'health_profile',
+        fields: [
+            { key: 'rhythm', label: '生活节奏', type: 'select', options: ['规律', '熬夜', '高压', '休整', '混乱'] },
+            { key: 'body_state', label: '当前状态', type: 'select', options: ['稳定', '容易疲劳', '睡眠问题', '情绪波动', '慢性问题'] },
+            { key: 'focus', label: '当前重点', type: 'select', options: ['减压', '休息', '健身', '作息调整', '情绪恢复'] },
+            { key: 'drain_source', label: '主要消耗源', type: 'select', options: ['工作', '感情', '家庭', '财务', '学业', '其他'] },
+            { key: 'note', label: '补充备注', type: 'textarea', maxlength: 80, placeholder: '例如：最近主要在调整作息和恢复睡眠。' },
+        ],
+    },
+]
+
+const MONTHLY_CONTEXT_SECTIONS = [
+    { key: 'career', title: '本月事业', storeKey: 'career_monthly', statusOptions: ['找工作', '面试中', '试用期', '在职想走', '在职稳定', '创业推进', '备考中', '项目攻坚'] },
+    { key: 'wealth', title: '本月财务', storeKey: 'wealth_monthly', statusOptions: ['收入平稳', '花销增多', '资金紧', '副业推进', '大额支出月', '投资观察期', '回款等待中'] },
+    { key: 'love', title: '本月感情', storeKey: 'love_monthly', statusOptions: ['单身想认识人', '有暧昧对象', '稳定交往', '冷战中', '刚分手', '复合拉扯', '家庭催婚', '暂不关注'] },
+    { key: 'health', title: '本月健康/生活', storeKey: 'health_monthly', statusOptions: ['睡眠差', '高压', '情绪恢复期', '作息调整', '出差奔波', '身体稳定', '恢复锻炼'] },
+]
+
+const createEmptyProfileContextDraft = () => ({
+    career_profile: { current_status: '', industry: '', level: '', years: '', goal: '', pressure: '', note: '' },
+    wealth_profile: { income_structure: '', stage: '', style: '', focus: '', risk: '', note: '' },
+    love_profile: { current_status: '', orientation: '', experience_stage: '', goal: '', pattern: '', note: '' },
+    health_profile: { rhythm: '', body_state: '', focus: '', drain_source: '', note: '' },
+})
+
+const createEmptyMonthlyContextDraft = (monthKey = '') => ({
+    month_key: monthKey,
+    carry_from_previous: false,
+    overall_note: '',
+    career_monthly: { status: '', summary: '', goal: '', worry: '' },
+    wealth_monthly: { status: '', summary: '', goal: '', worry: '' },
+    love_monthly: { status: '', summary: '', goal: '', worry: '' },
+    health_monthly: { status: '', summary: '', goal: '', worry: '' },
+})
+
 const eventForm = reactive({
     year: new Date().getFullYear(),
     month: undefined,
@@ -1066,6 +1263,11 @@ const eventForm = reactive({
     impact: 1,
     description: '',
 })
+const profileContextDraft = ref(createEmptyProfileContextDraft())
+const monthlyContextDraft = ref(createEmptyMonthlyContextDraft())
+const recentMonthlyContextRecords = ref([])
+const notesMonthKey = ref('')
+const contextNotesMessage = ref('')
 const activeInfoPanel = ref(null)
 const insightTab = ref('strength')
 const renameName = ref('')
@@ -1154,6 +1356,25 @@ const pillarPreviewError = computed(() => {
 // 计算属性 (Vue 魔法：数据变化自动更新 UI)
 const activeProfile = computed(() => {
     return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
+})
+const currentMonthKey = computed(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+})
+const notesMonthOptions = computed(() => {
+    const options = []
+    const base = new Date()
+    base.setDate(1)
+    for (let offset = 2; offset >= -6; offset -= 1) {
+        const cursor = new Date(base)
+        cursor.setMonth(base.getMonth() + offset)
+        const value = `${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`
+        options.push({
+            value,
+            label: `${cursor.getFullYear()}年${cursor.getMonth() + 1}月`,
+        })
+    }
+    return options
 })
 const isGuest = computed(() => globalState.isGuest && !currentUser.value)
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
@@ -1286,6 +1507,29 @@ watch(baziEngine, async (newVal) => {
 watch(currentTab, async (tab) => {
     if (tab === 'pro') {
         await scrollActiveTransitItemsIntoView()
+    }
+})
+
+watch(
+    () => activeProfile.value?.id,
+    async () => {
+        if (!activeProfile.value || isGuest.value) {
+            profileContextDraft.value = createEmptyProfileContextDraft()
+            monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value || currentMonthKey.value)
+            recentMonthlyContextRecords.value = []
+            return
+        }
+        await fetchProfileContextDraft()
+        await fetchMonthlyContextDraft()
+    },
+    { immediate: true }
+)
+
+watch(notesMonthKey, async (next) => {
+    if (!next) return
+    monthlyContextDraft.value = createEmptyMonthlyContextDraft(next)
+    if (activeProfile.value && !isGuest.value) {
+        await fetchMonthlyContextDraft()
     }
 })
 
@@ -1803,6 +2047,7 @@ const lunarDateStr = computed(() => {
 // 生命周期
 onMounted(async () => {
     document.addEventListener('click', handleDocumentClick)
+    notesMonthKey.value = currentMonthKey.value
     const { data: { session } } = await supabase.auth.getSession()
     if (!session && globalState.isGuest) {
         loadGuestProfile()
@@ -1832,6 +2077,132 @@ const fetchProfiles = async () => {
         const defaultProfile = baziProfiles.value.find(p => p.is_default) || baziProfiles.value[0]
         selectedProfileId.value = defaultProfile?.id || ''
     }
+}
+
+const getAccessToken = async () => {
+    const { data: { session } } = await supabase.auth.getSession()
+    return session?.access_token || ''
+}
+
+const summarizeMonthlyStatuses = (item) => {
+    const labels = []
+    if (item?.career_monthly?.status) labels.push(`事业：${item.career_monthly.status}`)
+    if (item?.wealth_monthly?.status) labels.push(`财务：${item.wealth_monthly.status}`)
+    if (item?.love_monthly?.status) labels.push(`感情：${item.love_monthly.status}`)
+    if (item?.health_monthly?.status) labels.push(`健康/生活：${item.health_monthly.status}`)
+    return labels.join('；') || '本月暂无补充状态'
+}
+
+const fetchProfileContextDraft = async () => {
+    if (!activeProfile.value || isGuest.value) {
+        profileContextDraft.value = createEmptyProfileContextDraft()
+        return
+    }
+    try {
+        const accessToken = await getAccessToken()
+        const response = await fetch(`/api/context-notes?scope=profile&profile_id=${encodeURIComponent(activeProfile.value.id)}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        const payload = await response.json()
+        if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '加载长期基调失败')
+        profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
+        contextNotesMessage.value = ''
+    } catch (error) {
+        console.error(error)
+        profileContextDraft.value = createEmptyProfileContextDraft()
+        contextNotesMessage.value = error.message
+    }
+}
+
+const fetchMonthlyContextDraft = async () => {
+    if (!activeProfile.value || isGuest.value) {
+        monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value || currentMonthKey.value)
+        recentMonthlyContextRecords.value = []
+        return
+    }
+    try {
+        const accessToken = await getAccessToken()
+        const response = await fetch(`/api/context-notes?scope=monthly&profile_id=${encodeURIComponent(activeProfile.value.id)}&month_key=${encodeURIComponent(notesMonthKey.value)}`, {
+            headers: { Authorization: `Bearer ${accessToken}` },
+        })
+        const payload = await response.json()
+        if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '加载月度现状失败')
+        monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
+        recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
+        contextNotesMessage.value = ''
+    } catch (error) {
+        console.error(error)
+        monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value)
+        recentMonthlyContextRecords.value = []
+        contextNotesMessage.value = error.message
+    }
+}
+
+const saveProfileContextDraft = async () => {
+    if (!activeProfile.value || isGuest.value) return
+    try {
+        const accessToken = await getAccessToken()
+        const response = await fetch('/api/context-notes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+                scope: 'profile',
+                profile_id: activeProfile.value.id,
+                data: profileContextDraft.value,
+            }),
+        })
+        const payload = await response.json()
+        if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存长期基调失败')
+        profileContextDraft.value = payload.data || createEmptyProfileContextDraft()
+        contextNotesMessage.value = '长期基调已保存'
+    } catch (error) {
+        console.error(error)
+        contextNotesMessage.value = error.message
+    }
+}
+
+const saveMonthlyContextDraft = async () => {
+    if (!activeProfile.value || isGuest.value) return
+    try {
+        const accessToken = await getAccessToken()
+        const response = await fetch('/api/context-notes', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({
+                scope: 'monthly',
+                profile_id: activeProfile.value.id,
+                month_key: notesMonthKey.value,
+                data: monthlyContextDraft.value,
+            }),
+        })
+        const payload = await response.json()
+        if (!response.ok || payload.error) throw new Error(payload.details || payload.error || '保存月度现状失败')
+        monthlyContextDraft.value = payload.record || createEmptyMonthlyContextDraft(notesMonthKey.value)
+        recentMonthlyContextRecords.value = Array.isArray(payload.recent_records) ? payload.recent_records : []
+        contextNotesMessage.value = '本月现状已保存'
+    } catch (error) {
+        console.error(error)
+        contextNotesMessage.value = error.message
+    }
+}
+
+const copyPreviousMonthlyContext = () => {
+    const previous = recentMonthlyContextRecords.value.find(item => item.month_key && item.month_key !== notesMonthKey.value)
+    if (!previous) {
+        contextNotesMessage.value = '没有可沿用的上月记录'
+        return
+    }
+    monthlyContextDraft.value = JSON.parse(JSON.stringify({
+        ...previous,
+        month_key: notesMonthKey.value,
+    }))
+    contextNotesMessage.value = `已沿用 ${previous.month_key} 的月度现状`
 }
 
 const handleProfileSelect = () => {
@@ -3211,6 +3582,146 @@ const getShenColor = (shen) => {
     border-color: rgba(142,224,187,0.26);
     background: rgba(142,224,187,0.1);
     color: #8ee0bb;
+}
+
+.context-notes-layout {
+    display: grid;
+    gap: 16px;
+    margin-top: 18px;
+}
+.context-card {
+    padding: 16px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(232,204,128,0.08);
+}
+.context-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 8px;
+}
+.context-card-title {
+    color: var(--gold-light);
+    font-size: 18px;
+    font-family: var(--font-serif);
+}
+.context-head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+.context-month-select {
+    min-height: 34px;
+    padding: 0 12px;
+    border-radius: 10px;
+    border: 1px solid rgba(232,204,128,0.14);
+    background: rgba(14,14,24,0.86);
+    color: #F4E6C0;
+}
+.context-card-desc {
+    margin: 0 0 14px;
+    color: var(--text-muted);
+    font-size: 12px;
+    line-height: 1.7;
+}
+.context-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+.context-panel {
+    padding: 14px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(232,204,128,0.08);
+}
+.context-panel-title {
+    margin-bottom: 10px;
+    color: var(--gold-light);
+    font-size: 14px;
+    font-weight: 700;
+}
+.context-field {
+    display: grid;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+.context-field:last-child {
+    margin-bottom: 0;
+}
+.context-field label {
+    color: #D9CCA8;
+    font-size: 12px;
+}
+.context-field input,
+.context-field select,
+.context-field textarea {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(232,204,128,0.12);
+    background: rgba(10,10,18,0.84);
+    color: #F2E8D0;
+    padding: 10px 12px;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.context-field textarea {
+    resize: vertical;
+    min-height: 68px;
+}
+.context-recent-list {
+    margin-top: 14px;
+    display: grid;
+    gap: 8px;
+}
+.context-recent-title {
+    color: #D9CCA8;
+    font-size: 12px;
+}
+.context-recent-item {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(232,204,128,0.08);
+}
+.context-recent-month {
+    color: var(--gold-light);
+    font-size: 12px;
+    font-weight: 700;
+}
+.context-recent-copy {
+    color: #D8D2BF;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.context-notes-message {
+    margin-top: 12px;
+    color: #d5c495;
+    font-size: 12px;
+}
+
+@media (max-width: 760px) {
+    .context-grid {
+        grid-template-columns: 1fr;
+    }
+    .context-card-head {
+        flex-direction: column;
+    }
+    .context-head-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .context-recent-item {
+        grid-template-columns: 1fr;
+        gap: 6px;
+    }
 }
 .geju-chip.is-good {
     color: #8fe39a;

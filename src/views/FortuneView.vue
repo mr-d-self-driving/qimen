@@ -74,7 +74,13 @@
                   </div>
                   <div class="score-side">
                     <div class="score-ganzhi">{{ fortuneGanzhiText }}</div>
-                    <p :class="['score-insight', { muted: isInterpretationLoading && !hasInterpretationContent }]">
+                    <template v-if="!hasInterpretationContent && isInterpretationLoading">
+                      <div class="daily-score-skeleton" aria-live="polite">
+                        <div class="skeleton-line skeleton-highlight"></div>
+                        <div class="skeleton-line skeleton-highlight short"></div>
+                      </div>
+                    </template>
+                    <p v-else :class="['score-insight', { muted: isInterpretationLoading && !hasInterpretationContent }]">
                       {{ hasInterpretationContent ? (fortuneData.day_insight || '平稳度日，顺势而为') : interpretationPlaceholder }}
                     </p>
                     <div v-if="fortuneData.day_warning" class="warning-tag inline-warning">⚠️ {{ fortuneData.day_warning }}</div>
@@ -95,7 +101,13 @@
                     <span class="grid-card-icon">{{ item.icon }}</span>
                     <span class="grid-card-label">{{ item.label }}</span>
                   </div>
-                  <p :class="['grid-card-text', { muted: !hasInterpretationContent }]">
+                  <template v-if="!hasInterpretationContent && isInterpretationLoading">
+                    <div class="daily-grid-skeleton">
+                      <div class="skeleton-line skeleton-highlight"></div>
+                      <div class="skeleton-line skeleton-highlight short"></div>
+                    </div>
+                  </template>
+                  <p v-else :class="['grid-card-text', { muted: !hasInterpretationContent }]">
                     {{ hasInterpretationContent ? (fortuneData[item.key] || '暂无') : '生成中...' }}
                   </p>
                 </div>
@@ -104,35 +116,81 @@
               <!-- ═══ 3. Guide + Timeline ═══ -->
               <div class="glass-card info-card">
                 <h3 class="card-title"><span>🧭</span> 行事指南</h3>
-                <div class="guide-row">
-                  <span class="guide-label good">宜</span>
-                  <span :class="['guide-content', { muted: !hasInterpretationContent }]">
-                    {{ hasInterpretationContent ? formatGuide(fortuneData.day_guide, '宜') : '断语生成中...' }}
-                  </span>
-                </div>
-                <div class="guide-row mt-2">
-                  <span class="guide-label bad">忌</span>
-                  <span :class="['guide-content', { muted: !hasInterpretationContent }]">
-                    {{ hasInterpretationContent ? formatGuide(fortuneData.day_guide, '忌') : '稍后呈现' }}
-                  </span>
-                </div>
-
-                <hr class="guide-divider" />
-                <div class="timeline-title">⏰ 今日吉时</div>
-                <div class="timeline" v-if="luckyHours.length">
-                  <div v-for="(h, i) in luckyHours" :key="i" class="timeline-item">
-                    <div class="timeline-dot"></div>
-                    <div class="timeline-hour">{{ h.hour }}</div>
-                    <div class="timeline-tip">{{ h.tip }}</div>
+                <template v-if="!hasInterpretationContent && isInterpretationLoading">
+                  <div class="daily-info-skeleton">
+                    <div class="daily-guide-skeleton-row">
+                      <div class="daily-guide-skeleton-label skeleton-pill"></div>
+                      <div class="daily-guide-skeleton-content">
+                        <div class="skeleton-line skeleton-highlight"></div>
+                        <div class="skeleton-line skeleton-highlight short"></div>
+                      </div>
+                    </div>
+                    <div class="daily-guide-skeleton-row mt-2">
+                      <div class="daily-guide-skeleton-label skeleton-pill"></div>
+                      <div class="daily-guide-skeleton-content">
+                        <div class="skeleton-line skeleton-highlight"></div>
+                        <div class="skeleton-line skeleton-highlight short"></div>
+                      </div>
+                    </div>
+                    <hr class="guide-divider" />
+                    <div class="timeline-title">⏰ 今日吉时</div>
+                    <div class="daily-timeline-skeleton">
+                      <div class="daily-timeline-skeleton-item">
+                        <div class="timeline-dot"></div>
+                        <div class="daily-timeline-skeleton-copy">
+                          <div class="skeleton-line skeleton-highlight short"></div>
+                          <div class="skeleton-line skeleton-highlight"></div>
+                        </div>
+                      </div>
+                      <div class="daily-timeline-skeleton-item">
+                        <div class="timeline-dot"></div>
+                        <div class="daily-timeline-skeleton-copy">
+                          <div class="skeleton-line skeleton-highlight short"></div>
+                          <div class="skeleton-line skeleton-highlight"></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div v-else class="timeline-tip" style="padding-left:4px;">吉时信息生成中...</div>
+                </template>
+                <template v-else>
+                  <div class="guide-row">
+                    <span class="guide-label good">宜</span>
+                    <span :class="['guide-content', { muted: !hasInterpretationContent }]">
+                      {{ hasInterpretationContent ? formatGuide(fortuneData.day_guide, '宜') : '断语生成中...' }}
+                    </span>
+                  </div>
+                  <div class="guide-row mt-2">
+                    <span class="guide-label bad">忌</span>
+                    <span :class="['guide-content', { muted: !hasInterpretationContent }]">
+                      {{ hasInterpretationContent ? formatGuide(fortuneData.day_guide, '忌') : '稍后呈现' }}
+                    </span>
+                  </div>
+
+                  <hr class="guide-divider" />
+                  <div class="timeline-title">⏰ 今日吉时</div>
+                  <div class="timeline" v-if="luckyHours.length">
+                    <div v-for="(h, i) in luckyHours" :key="i" class="timeline-item">
+                      <div class="timeline-dot"></div>
+                      <div class="timeline-hour">{{ h.hour }}</div>
+                      <div class="timeline-tip">{{ h.tip }}</div>
+                    </div>
+                  </div>
+                  <div v-else class="timeline-tip" style="padding-left:4px;">吉时信息生成中...</div>
+                </template>
               </div>
 
               <!-- ═══ 4. Lucky Grid ═══ -->
               <div class="glass-card info-card">
                 <h3 class="card-title"><span>💡</span> 开运密码</h3>
-                <div class="lucky-grid">
+                <template v-if="!hasInterpretationContent && isInterpretationLoading">
+                  <div class="lucky-grid daily-lucky-skeleton">
+                    <div v-for="cell in 4" :key="cell" class="lucky-cell">
+                      <div class="skeleton-line skeleton-highlight short"></div>
+                      <div class="skeleton-line skeleton-highlight"></div>
+                    </div>
+                  </div>
+                </template>
+                <div v-else class="lucky-grid">
                   <div class="lucky-cell">
                     <span class="lucky-cell-label">幸运数字</span>
                     <span class="lucky-cell-value">{{ luckyNumberText }}</span>

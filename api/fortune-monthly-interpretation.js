@@ -12,6 +12,13 @@ const {
   parseModelJson,
   pickMonthlyInterpretationFields,
 } = require('../lib/fortuneMonthlyInterpretationCore');
+const {
+  buildContextVersionSeed,
+  createEmptyMonthlyContext,
+  createEmptyProfileContext,
+  normalizeMonthlyContextPayload,
+  normalizeProfileContextPayload,
+} = require('../lib/fortuneContextNotes');
 const { setCorsHeaders } = require('./cors');
 
 const supabase = createClient(
@@ -82,6 +89,36 @@ async function getCachedInterpretation(userId, periodKey) {
     .single();
 
   return data?.data_json || null;
+}
+
+async function getProfileContext(profileId) {
+  const { data, error } = await supabase
+    .from('profile_contexts')
+    .select('career_profile, wealth_profile, love_profile, health_profile, updated_at')
+    .eq('profile_id', profileId)
+    .single();
+
+  if (error && error.code !== 'PGRST116' && error.code !== '42P01') {
+    throw error;
+  }
+
+  return normalizeProfileContextPayload(data || createEmptyProfileContext());
+}
+
+async function getRecentMonthlyContexts(profileId, targetMonthKey) {
+  const { data, error } = await supabase
+    .from('monthly_context_logs')
+    .select('month_key, carry_from_previous, overall_note, career_monthly, wealth_monthly, love_monthly, health_monthly, updated_at')
+    .eq('profile_id', profileId)
+    .lte('month_key', targetMonthKey)
+    .order('month_key', { ascending: false })
+    .limit(3);
+
+  if (error && error.code !== '42P01') throw error;
+
+  return Array.isArray(data)
+    ? data.map(item => normalizeMonthlyContextPayload(item || {}, item?.month_key || ''))
+    : [];
 }
 
 async function upsertInterpretationCache(userId, periodKey, dataJson, expiresAt) {
@@ -174,7 +211,12 @@ export default async function handler(req, res) {
     const dimension = getRequestedDimension(req);
     const { year, month, monthKey, expiresAt } = getBeijingMonthInfo(getTargetMonth(req));
     const requestedProfileId = getRequestedProfileId(req);
-    const periodKey = buildMonthlyInterpretationPeriodKey(monthKey, requestedProfileId, dimension);
+    const profile = await getProfileForFortune(user.id, requestedProfileId);
+    const profileContext = await getProfileContext(profile.id);
+    const recentMonthlyContexts = await getRecentMonthlyContexts(profile.id, monthKey);
+    const currentMonthlyContext = recentMonthlyContexts.find(item => item.month_key === monthKey) || createEmptyMonthlyContext(monthKey);
+    const contextSeed = buildContextVersionSeed(profileContext, recentMonthlyContexts);
+    const periodKey = buildMonthlyInterpretationPeriodKey(monthKey, requestedProfileId || profile.id, dimension, contextSeed);
 
     const cached = await getCachedInterpretation(user.id, periodKey);
     if (hasReadyMonthlyInterpretation(cached)) {
@@ -182,9 +224,12 @@ export default async function handler(req, res) {
       return res.status(200).json(pickMonthlyInterpretationFields(cached));
     }
 
-    const profile = await getProfileForFortune(user.id, requestedProfileId);
     const baseJson = buildMonthlyFortunePayload(profile, year, month);
-    const prompt = buildMonthlyInterpretationPrompt(profile, baseJson, dimension);
+    const prompt = buildMonthlyInterpretationPrompt(profile, baseJson, dimension, {
+      profile_context: profileContext,
+      current_monthly_context: currentMonthlyContext,
+      recent_monthly_contexts: recentMonthlyContexts,
+    });
     const llmJson = await requestInterpretation(prompt);
     const mergedJson = mergeMonthlyInterpretation(baseJson, llmJson, dimension);
 
