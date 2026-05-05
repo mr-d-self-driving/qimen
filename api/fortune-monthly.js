@@ -2,7 +2,7 @@ const { createClient } = require('@supabase/supabase-js');
 const {
   buildFortunePeriodKey,
   buildMonthlyFortunePayload,
-  getBeijingMonthInfo,
+  getFlowMonthInfo,
 } = require('../lib/fortuneMonthlyCore');
 const { setCorsHeaders } = require('./cors');
 
@@ -98,21 +98,21 @@ export default async function handler(req, res) {
     const user = await getAuthedUser(req, res);
     if (!user) return;
 
-    const { year, month, monthKey, secondsUntilMonthEnd, expiresAt } = getBeijingMonthInfo(getTargetMonth(req));
+    const flowMonth = getFlowMonthInfo(getTargetMonth(req));
     const requestedProfileId = getRequestedProfileId(req);
-    const periodKey = buildFortunePeriodKey(monthKey, requestedProfileId);
+    const periodKey = buildFortunePeriodKey(flowMonth.period_key, requestedProfileId);
     const cached = await getCachedFortune(user.id, periodKey);
     if (cached?.monthly_score) {
       console.log(`⚡️ 命中月运基础缓存 [${user.id}] ${periodKey}`);
-      res.setHeader('Cache-Control', `s-maxage=${secondsUntilMonthEnd}, stale-while-revalidate`);
+      res.setHeader('Cache-Control', `s-maxage=${flowMonth.secondsUntilEnd}, stale-while-revalidate`);
       return res.status(200).json(cached);
     }
 
     const profile = await getProfileForFortune(user.id, requestedProfileId);
-    const monthlyJson = buildMonthlyFortunePayload(profile, year, month);
-    await upsertFortuneCache(user.id, periodKey, monthlyJson, expiresAt);
+    const monthlyJson = buildMonthlyFortunePayload(profile, flowMonth);
+    await upsertFortuneCache(user.id, periodKey, monthlyJson, flowMonth.expiresAt);
 
-    res.setHeader('Cache-Control', `s-maxage=${secondsUntilMonthEnd}, stale-while-revalidate`);
+    res.setHeader('Cache-Control', `s-maxage=${flowMonth.secondsUntilEnd}, stale-while-revalidate`);
     return res.status(200).json(monthlyJson);
   } catch (error) {
     console.error('月运基础推演异常:', error);

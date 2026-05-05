@@ -236,6 +236,7 @@
               v-for="monthItem in availableMonths"
               :key="monthItem.key"
               :class="['date-item', 'month-item', { active: selectedMonthKey === monthItem.key }]"
+              :title="monthItem.rangeText || monthItem.label"
               @click="selectMonth(monthItem.key)"
             >
               <span class="day-of-week">{{ monthItem.label }}</span>
@@ -455,6 +456,7 @@ import {
   rememberFortuneCache as rememberSharedFortuneCache,
   rememberPendingInterpretation
 } from '../fortuneCache.mjs'
+import { getFlowMonthInfo as getClientFlowMonthInfo, listFlowMonths as listClientFlowMonths } from '../utils/flowMonth.js'
 import guestFortuneData from '../../mock/fortune-daily.json'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 
@@ -574,8 +576,7 @@ const scoreRingStyle = computed(() => {
 
 const selectedMonthKey = computed(() => {
   if (selectedMonth.value) return selectedMonth.value
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  return getClientFlowMonthInfo().key
 })
 
 const visibleMonthlyData = computed(() => (
@@ -609,9 +610,9 @@ const monthlyScoreRingStyle = computed(() => {
 
 const monthlyGanzhiText = computed(() => {
   if (!visibleMonthlyData.value) return '-'
-  const monthLabel = `${visibleMonthlyData.value.year || ''}年${visibleMonthlyData.value.month || ''}月`
-  const gz = visibleMonthlyData.value.month_gz ? `${visibleMonthlyData.value.month_gz}月` : ''
-  return `${monthLabel} ${gz}`.trim()
+  const gz = visibleMonthlyData.value.flow_month_label || (visibleMonthlyData.value.month_gz ? `${visibleMonthlyData.value.month_gz}月` : '')
+  const range = visibleMonthlyData.value.flow_month_range_label || ''
+  return [gz, range].filter(Boolean).join(' · ') || '-'
 })
 
 const mapMonthlyChartPoint = (item, index, total) => {
@@ -684,14 +685,6 @@ const buildDayItem = (dateStr, label = '所选') => {
   }
 }
 
-const buildMonthKey = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
-
-const buildMonthItem = (date, label = '') => ({
-  key: buildMonthKey(date),
-  label,
-  monthText: `${date.getMonth() + 1}月`,
-})
-
 const generateDays = (preferredDate = '') => {
   const days = []
   const weekMap = ['日', '一', '二', '三', '四', '五', '六']
@@ -718,16 +711,18 @@ const generateDays = (preferredDate = '') => {
 }
 
 const generateMonths = () => {
-  const months = []
   const today = new Date()
-  const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-  for (let offset = -6; offset <= 24; offset++) {
-    const target = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + offset, 1)
-    const label = offset === 0 ? '本月' : `${target.getFullYear()}`
-    months.push(buildMonthItem(target, label))
-  }
+  const todayKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+  const months = listClientFlowMonths(todayKey, 6, 24)
+    .map((monthItem, index) => ({
+      key: monthItem.key,
+      label: index === 6 ? '本月' : monthItem.shortRangeLabel,
+      monthText: monthItem.label,
+      rangeText: monthItem.rangeLabel,
+      contextMonthKey: monthItem.contextMonthKey,
+    }))
   availableMonths.value = months
-  selectedMonth.value = buildMonthKey(currentMonth)
+  selectedMonth.value = getClientFlowMonthInfo().key
   scrollSelectedMonthIntoView()
 }
 

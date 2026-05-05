@@ -1,7 +1,7 @@
 const { createClient } = require('@supabase/supabase-js');
 const {
   buildMonthlyFortunePayload,
-  getBeijingMonthInfo,
+  getFlowMonthInfo,
 } = require('../lib/fortuneMonthlyCore');
 const {
   buildMonthlyInterpretationPeriodKey,
@@ -209,14 +209,15 @@ export default async function handler(req, res) {
     if (!user) return;
 
     const dimension = getRequestedDimension(req);
-    const { year, month, monthKey, expiresAt } = getBeijingMonthInfo(getTargetMonth(req));
+    const flowMonth = getFlowMonthInfo(getTargetMonth(req));
     const requestedProfileId = getRequestedProfileId(req);
     const profile = await getProfileForFortune(user.id, requestedProfileId);
     const profileContext = await getProfileContext(profile.id);
-    const recentMonthlyContexts = await getRecentMonthlyContexts(profile.id, monthKey);
-    const currentMonthlyContext = recentMonthlyContexts.find(item => item.month_key === monthKey) || createEmptyMonthlyContext(monthKey);
+    const recentMonthlyContexts = await getRecentMonthlyContexts(profile.id, flowMonth.context_month_key);
+    const currentMonthlyContext = recentMonthlyContexts.find(item => item.month_key === flowMonth.context_month_key)
+      || createEmptyMonthlyContext(flowMonth.context_month_key);
     const contextSeed = buildContextVersionSeed(profileContext, recentMonthlyContexts);
-    const periodKey = buildMonthlyInterpretationPeriodKey(monthKey, requestedProfileId || profile.id, dimension, contextSeed);
+    const periodKey = buildMonthlyInterpretationPeriodKey(flowMonth.period_key, requestedProfileId || profile.id, dimension, contextSeed);
 
     const cached = await getCachedInterpretation(user.id, periodKey);
     if (hasReadyMonthlyInterpretation(cached)) {
@@ -224,7 +225,7 @@ export default async function handler(req, res) {
       return res.status(200).json(pickMonthlyInterpretationFields(cached));
     }
 
-    const baseJson = buildMonthlyFortunePayload(profile, year, month);
+    const baseJson = buildMonthlyFortunePayload(profile, flowMonth);
     const prompt = buildMonthlyInterpretationPrompt(profile, baseJson, dimension, {
       profile_context: profileContext,
       current_monthly_context: currentMonthlyContext,
@@ -233,7 +234,7 @@ export default async function handler(req, res) {
     const llmJson = await requestInterpretation(prompt);
     const mergedJson = mergeMonthlyInterpretation(baseJson, llmJson, dimension);
 
-    await upsertInterpretationCache(user.id, periodKey, mergedJson, expiresAt);
+    await upsertInterpretationCache(user.id, periodKey, mergedJson, flowMonth.expiresAt);
     return res.status(200).json(pickMonthlyInterpretationFields(mergedJson));
   } catch (error) {
     console.error('月运断语生成异常:', error);

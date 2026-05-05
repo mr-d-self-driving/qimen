@@ -140,8 +140,13 @@ export const rememberMonthlyInterpretationRefresh = (storage, signal) => {
 export const peekMonthlyInterpretationRefresh = (storage, profileId, monthKey) => {
   if (!storage || !profileId) return null
   const current = readJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, [])
+  const matchesMonthKey = (signalKey) => (
+    signalKey === '*'
+    || signalKey === monthKey
+    || (signalKey && monthKey && monthKey.startsWith(`${signalKey}-`))
+  )
   const matched = current
-    .filter(item => item?.profileId === profileId && (item?.monthKey === monthKey || item?.monthKey === '*'))
+    .filter(item => item?.profileId === profileId && matchesMonthKey(item?.monthKey))
     .sort((a, b) => {
       if (a.monthKey === b.monthKey) return (b.changedAt || 0) - (a.changedAt || 0)
       return a.monthKey === monthKey ? -1 : 1
@@ -152,9 +157,14 @@ export const peekMonthlyInterpretationRefresh = (storage, profileId, monthKey) =
 export const clearMonthlyInterpretationRefresh = (storage, profileId, monthKey) => {
   if (!storage || !profileId) return
   const current = readJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, [])
+  const matchesMonthKey = (signalKey) => (
+    signalKey === '*'
+    || signalKey === monthKey
+    || (signalKey && monthKey && monthKey.startsWith(`${signalKey}-`))
+  )
   const next = current.filter(item => !(
     item?.profileId === profileId
-    && (item?.monthKey === monthKey || item?.monthKey === '*')
+    && matchesMonthKey(item?.monthKey)
   ))
   writeJsonState(storage, MONTHLY_INTERPRETATION_REFRESH_KEY, next)
 }
