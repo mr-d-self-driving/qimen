@@ -404,6 +404,79 @@
           </transition>
         </div>
 
+        </div>
+
+        <div v-else-if="currentTab === 'year'" class="tab-content">
+          <div ref="yearScrollerRef" class="date-scroll-container month-scroll-container">
+            <div
+              v-for="yearItem in availableYears"
+              :key="yearItem.key"
+              :class="['date-item', 'month-item', { active: selectedYear === yearItem.key }]"
+              @click="selectYear(yearItem.key)"
+            >
+              <span class="day-of-week">{{ yearItem.label }}年</span>
+              <span class="date-num">{{ visibleAnnualData && visibleAnnualData.year === yearItem.yearValue ? visibleAnnualData.liunian_gz : '' }}</span>
+            </div>
+          </div>
+
+          <transition name="fade" mode="out-in">
+            <div v-if="isAnnualLoading" class="glass-card loading-state">
+              <div class="bagua-ring-wrap">
+                <svg class="bagua-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="60" cy="60" r="56" stroke="rgba(212,175,55,0.15)" stroke-width="1" fill="none"/>
+                  <circle cx="60" cy="60" r="36" stroke="rgba(212,175,55,0.35)" stroke-width="1.5" fill="none" stroke-dasharray="8 6"/>
+                </svg>
+              </div>
+              <div class="loader-text-block">流年推演中...</div>
+            </div>
+
+            <div v-else-if="visibleAnnualData" class="fortune-display">
+              <div class="glass-card score-dashboard">
+                <div class="score-main">
+                  <div class="score-ring" :style="{ background: `conic-gradient(var(--gold) ${Math.min(100, Math.max(0, visibleAnnualData.annual_score || 0))}%, rgba(255,255,255,0.05) 0deg)` }">
+                    <div class="score-inner">
+                      <span class="score-value">{{ visibleAnnualData.annual_score || 0 }}</span>
+                      <span class="score-unit">分</span>
+                    </div>
+                  </div>
+                  <div class="score-side">
+                    <div class="score-ganzhi">{{ visibleAnnualData.liunian_gz }}年</div>
+                    <p class="score-insight">{{ visibleAnnualData.suiyun_relations || '平稳度日' }}</p>
+                    <div v-if="visibleAnnualData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
+                    <div v-else-if="visibleAnnualData.is_benmingnian" class="warning-tag inline-warning">本命年</div>
+                    <div v-else-if="visibleAnnualData.is_zixing" class="warning-tag inline-warning">自刑</div>
+                    <div v-else-if="visibleAnnualData.liunian_sanxing" class="warning-tag inline-warning">流年三刑</div>
+                  </div>
+                </div>
+              </div>
+              
+              <div class="glass-card info-card">
+                <div class="module-title-bar">
+                  <h3 class="card-title compact-title"><span>✦</span> 岁运简批</h3>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">流年十神</span>
+                  <span class="monthly-detail-value">{{ visibleAnnualData.liunian_gan_shishen }}</span>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">大运背景</span>
+                  <span class="monthly-detail-value">{{ visibleAnnualData.dayun_gz }}运 · {{ visibleAnnualData.dayun_qi_status }}</span>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">流年与原局</span>
+                  <span class="monthly-detail-value">{{ visibleAnnualData.year_relations || '无特殊互动' }}</span>
+                </div>
+              </div>
+              
+            </div>
+
+            <div v-else class="glass-card placeholder-content">
+              <div class="placeholder-icon">⏳</div>
+              <p>{{ annualError || '流年数据暂未生成' }}</p>
+            </div>
+          </transition>
+        </div>
+
         <div v-else class="glass-card placeholder-content">
           <div class="placeholder-icon">⏳</div>
           <p>【{{ getTabLabel(currentTab) }}运】推演引擎升级中<br>敬请期待</p>
@@ -475,22 +548,29 @@ const tabs = [
 const currentTab = ref('day')
 const availableDays = ref([])
 const availableMonths = ref([])
+const availableYears = ref([])
 const selectedDate = ref('')
 const selectedMonth = ref('')
+const selectedYear = ref('')
 const fortuneData = ref(null)
 const monthlyData = ref(null)
+const annualDataList = ref([])
 const monthlyDataKey = ref('')
 const isLoading = ref(false)
 const isMonthLoading = ref(false)
+const isAnnualLoading = ref(false)
 const isInterpretationLoading = ref(false)
 const interpretationError = ref('')
 const monthError = ref('')
+const annualError = ref('')
 const requestSerial = ref(0)
 const monthRequestSerial = ref(0)
+const annualRequestSerial = ref(0)
 const baziProfiles = ref([])
 const selectedProfileId = ref('')
 const isProfileMenuOpen = ref(false)
 const monthScrollerRef = ref(null)
+const yearScrollerRef = ref(null)
 const isGuest = computed(() => globalState.isGuest)
 
 const fortuneGridItems = [
@@ -582,6 +662,11 @@ const selectedMonthKey = computed(() => {
 const visibleMonthlyData = computed(() => (
   monthlyData.value && monthlyDataKey.value === selectedMonthKey.value ? monthlyData.value : null
 ))
+
+const visibleAnnualData = computed(() => {
+  if (!annualDataList.value || !annualDataList.value.length) return null
+  return annualDataList.value.find(y => String(y.year) === selectedYear.value) || null
+})
 
 const activeMonthlyInterpretation = computed(() => (
   monthlyInterpretations.value[selectedMonthlyDimension.value] || null
@@ -726,6 +811,36 @@ const generateMonths = () => {
   scrollSelectedMonthIntoView()
 }
 
+const generateYears = () => {
+  const currentY = new Date().getFullYear()
+  const years = []
+  for (let y = currentY - 10; y <= currentY + 10; y++) {
+    years.push({ key: String(y), label: String(y), yearValue: y })
+  }
+  availableYears.value = years
+  selectedYear.value = String(currentY)
+  scrollSelectedYearIntoView()
+}
+
+const scrollSelectedYearIntoView = () => {
+  nextTick(() => {
+    if (!yearScrollerRef.value) return
+    const activeEl = yearScrollerRef.value.querySelector('.date-item.active')
+    if (activeEl) {
+      const containerWidth = yearScrollerRef.value.clientWidth
+      const elLeft = activeEl.offsetLeft
+      const elWidth = activeEl.clientWidth
+      yearScrollerRef.value.scrollTo({ left: elLeft - containerWidth / 2 + elWidth / 2, behavior: 'smooth' })
+    }
+  })
+}
+
+const selectYear = (key) => {
+  if (selectedYear.value === key) return
+  selectedYear.value = key
+  scrollSelectedYearIntoView()
+}
+
 const getTabLabel = (val) => tabs.find(t => t.value === val)?.label
 
 const formatSolarDate = (value) => {
@@ -852,6 +967,22 @@ const fetchMonthlyFortuneFromApi = async (monthKey, accessToken, profileId) => {
   if (!response.ok) {
     const err = await response.json()
     throw new Error(err.error || '月运推演失败')
+  }
+  return response.json()
+}
+
+const fetchAnnualFortuneFromApi = async (targetYear, accessToken, profileId) => {
+  const response = await fetch('/api/fortune-annual', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ target_year: targetYear, profile_id: profileId || undefined })
+  })
+  if (!response.ok) {
+    const err = await response.json()
+    throw new Error(err.error || '年运推演失败')
   }
   return response.json()
 }
@@ -1074,6 +1205,36 @@ const fetchMonthlyFortuneData = async () => {
   }
 }
 
+const fetchAnnualFortuneData = async () => {
+  if (!activeProfile.value) return
+  const currentRequest = annualRequestSerial.value + 1
+  annualRequestSerial.value = currentRequest
+  annualError.value = ''
+  
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session && isGuest.value) {
+      annualDataList.value = []
+      annualError.value = '访客模式暂不展示年运'
+      return
+    }
+    if (!session) { alert('请先前往首页登录'); return }
+
+    isAnnualLoading.value = true
+    const profileId = currentProfileCacheKey.value
+    const data = await fetchAnnualFortuneFromApi(new Date().getFullYear(), session.access_token, profileId)
+    if (currentRequest !== annualRequestSerial.value) return
+    annualDataList.value = data || []
+  } catch (error) {
+    if (currentRequest !== annualRequestSerial.value) return
+    console.error(error)
+    annualDataList.value = []
+    annualError.value = error.message
+  } finally {
+    if (currentRequest === annualRequestSerial.value) isAnnualLoading.value = false
+  }
+}
+
 const fetchMonthlyInterpretation = async (dimension = selectedMonthlyDimension.value, options = {}) => {
   const force = Boolean(options.force)
   if (!visibleMonthlyData.value || (!force && monthlyInterpretations.value[dimension])) return
@@ -1176,6 +1337,7 @@ onMounted(async () => {
   syncMonthlyRefreshSignal()
   generateDays(String(route.query.date || ''))
   generateMonths()
+  generateYears()
   fetchFortuneData(selectedDate.value)
 })
 
@@ -1191,6 +1353,8 @@ watch(
       generateDays(normalizedDate)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()
+      } else if (currentTab.value === 'year') {
+        fetchAnnualFortuneData()
       } else {
         fetchFortuneData(normalizedDate)
       }
@@ -1202,6 +1366,8 @@ watch(
       syncMonthlyRefreshSignal(profileId, selectedMonthKey.value)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()
+      } else if (currentTab.value === 'year') {
+        fetchAnnualFortuneData()
       } else {
         fetchFortuneData(selectedDate.value || normalizedDate)
       }
@@ -1216,6 +1382,12 @@ watch(currentTab, (nextTab) => {
     fetchMonthlyFortuneData()
   }
   if (nextTab === 'month') scrollSelectedMonthIntoView()
+
+  if (nextTab === 'year' && !annualDataList.value.length && !isAnnualLoading.value) {
+    scrollSelectedYearIntoView()
+    fetchAnnualFortuneData()
+  }
+  if (nextTab === 'year') scrollSelectedYearIntoView()
 })
 </script>
 
