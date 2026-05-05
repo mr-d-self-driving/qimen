@@ -404,8 +404,6 @@
           </transition>
         </div>
 
-        </div>
-
         <div v-else-if="currentTab === 'year'" class="tab-content">
           <div ref="yearScrollerRef" class="date-scroll-container month-scroll-container">
             <div
