@@ -274,6 +274,60 @@
                   </span>
                 </div>
               </div>
+
+              <div class="glass-card monthly-interpretation-card">
+                <div class="monthly-interpretation-head">
+                  <h3 class="card-title compact-title"><span>✦</span> 月度详批</h3>
+                  <span v-if="activeMonthlyInterpretation?.interpretation_status === 'ready'" class="interpretation-ready">已生成</span>
+                </div>
+                <div class="monthly-dimension-tabs" role="tablist" aria-label="月运解读维度">
+                  <button
+                    v-for="item in monthlyInterpretationTabs"
+                    :key="item.value"
+                    type="button"
+                    :class="['monthly-dimension-btn', { active: selectedMonthlyDimension === item.value }]"
+                    @click="selectMonthlyDimension(item.value)"
+                  >
+                    {{ item.label }}
+                  </button>
+                </div>
+
+                <div v-if="isMonthlyInterpretationLoading && !activeMonthlyInterpretation" class="monthly-skeleton" aria-live="polite">
+                  <div class="skeleton-line skeleton-title"></div>
+                  <div class="skeleton-line skeleton-highlight"></div>
+                  <div class="skeleton-line skeleton-highlight short"></div>
+                  <div class="skeleton-block"></div>
+                  <div class="skeleton-advice">
+                    <div class="skeleton-pill"></div>
+                    <div class="skeleton-pill wide"></div>
+                  </div>
+                  <div class="skeleton-advice">
+                    <div class="skeleton-pill"></div>
+                    <div class="skeleton-pill wide"></div>
+                  </div>
+                </div>
+
+                <div v-else-if="activeMonthlyInterpretation" class="monthly-interpretation-body">
+                  <div class="monthly-interpretation-title">{{ activeMonthlyInterpretation.title }}</div>
+                  <p class="monthly-interpretation-highlight">{{ activeMonthlyInterpretation.highlight }}</p>
+                  <div class="monthly-interpretation-details">
+                    <p v-for="(paragraph, index) in activeMonthlyDetailsParagraphs" :key="index">{{ paragraph }}</p>
+                  </div>
+                  <div v-if="activeMonthlyTags.length" class="monthly-tags">
+                    <span v-for="tag in activeMonthlyTags" :key="tag">{{ tag }}</span>
+                  </div>
+                  <div v-if="activeMonthlyAdvice.length" class="monthly-advice-list">
+                    <div v-for="item in activeMonthlyAdvice" :key="`${item.action}-${item.description}`" class="monthly-advice-item">
+                      <span class="monthly-advice-action">{{ item.action }}</span>
+                      <span class="monthly-advice-desc">{{ item.description }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-else class="monthly-interpretation-empty">
+                  {{ monthlyInterpretationError || '选择一个维度，生成本月白话断语' }}
+                </div>
+              </div>
             </div>
 
             <div v-else class="glass-card placeholder-content">
@@ -348,6 +402,19 @@ const fortuneGridItems = [
   { key: 'health_insight', icon: '🏃', label: '健康运' },
 ]
 
+const monthlyInterpretationTabs = [
+  { label: '综合', value: 'overall' },
+  { label: '事业', value: 'career' },
+  { label: '财运', value: 'wealth' },
+  { label: '感情', value: 'love' },
+]
+
+const selectedMonthlyDimension = ref('overall')
+const monthlyInterpretations = ref({})
+const isMonthlyInterpretationLoading = ref(false)
+const monthlyInterpretationError = ref('')
+const monthlyInterpretationSerial = ref(0)
+
 const hasInterpretationFields = (data) => {
   return Boolean(
     data?.day_insight && data?.career_insight && data?.wealth_insight
@@ -386,6 +453,25 @@ const selectedMonthKey = computed(() => {
 const visibleMonthlyData = computed(() => (
   monthlyData.value && monthlyDataKey.value === selectedMonthKey.value ? monthlyData.value : null
 ))
+
+const activeMonthlyInterpretation = computed(() => (
+  monthlyInterpretations.value[selectedMonthlyDimension.value] || null
+))
+
+const activeMonthlyDetailsParagraphs = computed(() => {
+  const details = activeMonthlyInterpretation.value?.details || ''
+  return details.split(/\n{2,}/).map(item => item.trim()).filter(Boolean)
+})
+
+const activeMonthlyTags = computed(() => {
+  const tags = activeMonthlyInterpretation.value?.tags
+  return Array.isArray(tags) ? tags.slice(0, 3) : []
+})
+
+const activeMonthlyAdvice = computed(() => {
+  const advice = activeMonthlyInterpretation.value?.advice
+  return Array.isArray(advice) ? advice.slice(0, 3) : []
+})
 
 const monthlyScoreRingStyle = computed(() => {
   const score = visibleMonthlyData.value?.monthly_score || 0
@@ -643,6 +729,90 @@ const fetchMonthlyFortuneFromApi = async (monthKey, accessToken, profileId) => {
   return response.json()
 }
 
+const tryParseMonthlyInterpretation = (text) => {
+  try {
+    return JSON.parse(String(text || '').replace(/```json/g, '').replace(/```/g, '').trim())
+  } catch {
+    return null
+  }
+}
+
+const extractPartialDetails = (text) => {
+  const match = String(text || '').match(/"details"\s*:\s*"((?:\\.|[^"\\])*)/)
+  if (!match) return ''
+  try {
+    return JSON.parse(`"${match[1]}"`)
+  } catch {
+    return match[1].replace(/\\n/g, '\n').replace(/\\"/g, '"')
+  }
+}
+
+const applyMonthlyInterpretationPatch = (dimension, patch) => {
+  monthlyInterpretations.value = {
+    ...monthlyInterpretations.value,
+    [dimension]: {
+      ...(monthlyInterpretations.value[dimension] || { dimension }),
+      ...patch,
+    },
+  }
+}
+
+const parseSsePayload = (chunk) => {
+  return chunk
+    .split('\n')
+    .filter(line => line.startsWith('data:'))
+    .map(line => line.replace(/^data:\s*/, '').trim())
+    .filter(Boolean)
+}
+
+const requestMonthlyInterpretation = async (monthKey, accessToken, profileId, dimension, onDetailsChunk) => {
+  const response = await fetch('/api/fortune-monthly-interpretation', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+      'Accept': 'application/json, text/event-stream',
+    },
+    body: JSON.stringify({ target_month: monthKey, profile_id: profileId || undefined, dimension })
+  })
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}))
+    throw new Error(err.error || '月运断语生成失败')
+  }
+
+  const contentType = response.headers.get('content-type') || ''
+  if (!contentType.includes('text/event-stream')) return response.json()
+  const reader = response.body?.getReader?.()
+  if (!reader) return response.json()
+
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let fullText = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const parts = buffer.split('\n\n')
+    buffer = parts.pop() || ''
+
+    for (const eventText of parts) {
+      for (const payload of parseSsePayload(eventText)) {
+        if (payload === '[DONE]') continue
+        const parsed = tryParseMonthlyInterpretation(payload)
+        const delta = parsed?.choices?.[0]?.delta?.content || parsed?.delta || parsed?.content || payload
+        fullText += delta
+        const partialDetails = extractPartialDetails(fullText)
+        if (partialDetails) onDetailsChunk(partialDetails)
+      }
+    }
+  }
+
+  const finalJson = tryParseMonthlyInterpretation(fullText)
+  if (finalJson) return finalJson
+  return { dimension, details: fullText, title: '月度详批生成中', highlight: '断语已流式返回', tags: [], advice: [] }
+}
+
 const requestFortuneInterpretation = async (userId, dateStr, accessToken, profileId) => {
   const existingPending = getPendingInterpretation(userId, dateStr, profileId)
   if (!existingPending) {
@@ -738,6 +908,9 @@ const fetchMonthlyFortuneData = async () => {
   monthError.value = ''
   monthlyData.value = null
   monthlyDataKey.value = ''
+  monthlyInterpretations.value = {}
+  monthlyInterpretationError.value = ''
+  isMonthlyInterpretationLoading.value = false
 
   try {
     const { data: { session } } = await supabase.auth.getSession()
@@ -754,6 +927,7 @@ const fetchMonthlyFortuneData = async () => {
     if (currentRequest !== monthRequestSerial.value) return
     monthlyData.value = data
     monthlyDataKey.value = selectedMonthKey.value
+    fetchMonthlyInterpretation(selectedMonthlyDimension.value)
   } catch (error) {
     if (currentRequest !== monthRequestSerial.value) return
     console.error(error)
@@ -762,6 +936,44 @@ const fetchMonthlyFortuneData = async () => {
   } finally {
     if (currentRequest === monthRequestSerial.value) isMonthLoading.value = false
   }
+}
+
+const fetchMonthlyInterpretation = async (dimension = selectedMonthlyDimension.value) => {
+  if (!visibleMonthlyData.value || monthlyInterpretations.value[dimension]) return
+  const currentRequest = monthlyInterpretationSerial.value + 1
+  monthlyInterpretationSerial.value = currentRequest
+  isMonthlyInterpretationLoading.value = true
+  monthlyInterpretationError.value = ''
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const profileId = currentProfileCacheKey.value
+    const result = await requestMonthlyInterpretation(
+      selectedMonthKey.value,
+      session.access_token,
+      profileId,
+      dimension,
+      (details) => {
+        if (currentRequest !== monthlyInterpretationSerial.value) return
+        applyMonthlyInterpretationPatch(dimension, { details, interpretation_status: 'streaming' })
+      }
+    )
+    if (currentRequest !== monthlyInterpretationSerial.value) return
+    applyMonthlyInterpretationPatch(dimension, result)
+  } catch (error) {
+    if (currentRequest !== monthlyInterpretationSerial.value) return
+    console.error(error)
+    monthlyInterpretationError.value = '月度断语暂未生成，请稍后重试'
+  } finally {
+    if (currentRequest === monthlyInterpretationSerial.value) isMonthlyInterpretationLoading.value = false
+  }
+}
+
+const selectMonthlyDimension = (dimension) => {
+  if (selectedMonthlyDimension.value === dimension) return
+  selectedMonthlyDimension.value = dimension
+  fetchMonthlyInterpretation(dimension)
 }
 
 const fetchFortuneInterpretation = async (userId, dateStr, accessToken, profileId, requestId) => {
