@@ -3586,14 +3586,18 @@ const getShenColor = (shen) => {
 
 .context-notes-layout {
     display: grid;
-    gap: 16px;
-    margin-top: 18px;
+    gap: 24px;
+    margin-top: 22px;
 }
 .context-card {
-    padding: 16px;
-    border-radius: 16px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(232,204,128,0.08);
+    padding: 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+}
+.context-card + .context-card {
+    padding-top: 22px;
+    border-top: 1px dashed rgba(232,204,128,0.14);
 }
 .context-card-head {
     display: flex;
@@ -3604,7 +3608,7 @@ const getShenColor = (shen) => {
 }
 .context-card-title {
     color: var(--gold-light);
-    font-size: 18px;
+    font-size: 17px;
     font-family: var(--font-serif);
 }
 .context-head-actions {
@@ -3623,27 +3627,35 @@ const getShenColor = (shen) => {
     color: #F4E6C0;
 }
 .context-card-desc {
-    margin: 0 0 14px;
+    margin: 0 0 16px;
     color: var(--text-muted);
     font-size: 12px;
     line-height: 1.7;
+    max-width: 44em;
 }
 .context-grid {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    grid-template-columns: 1fr;
+    gap: 16px;
 }
 .context-panel {
-    padding: 14px;
-    border-radius: 14px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(232,204,128,0.08);
+    padding: 0 0 14px;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid rgba(232,204,128,0.08);
+}
+.context-panel:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
 }
 .context-panel-title {
     margin-bottom: 10px;
     color: var(--gold-light);
     font-size: 14px;
     font-weight: 700;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .context-field {
     display: grid;
@@ -3684,12 +3696,16 @@ const getShenColor = (shen) => {
 }
 .context-recent-item {
     display: grid;
-    grid-template-columns: 78px minmax(0, 1fr);
+    grid-template-columns: 72px minmax(0, 1fr);
     gap: 10px;
-    padding: 10px 12px;
-    border-radius: 12px;
-    background: rgba(255,255,255,0.02);
-    border: 1px solid rgba(232,204,128,0.08);
+    padding: 8px 0;
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed rgba(232,204,128,0.08);
+}
+.context-recent-item:last-child {
+    border-bottom: none;
 }
 .context-recent-month {
     color: var(--gold-light);
@@ -3708,9 +3724,6 @@ const getShenColor = (shen) => {
 }
 
 @media (max-width: 760px) {
-    .context-grid {
-        grid-template-columns: 1fr;
-    }
     .context-card-head {
         flex-direction: column;
     }
@@ -3721,6 +3734,12 @@ const getShenColor = (shen) => {
     .context-recent-item {
         grid-template-columns: 1fr;
         gap: 6px;
+    }
+}
+
+@media (min-width: 920px) {
+    .context-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 }
 .geju-chip.is-good {
