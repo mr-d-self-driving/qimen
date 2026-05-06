@@ -18,6 +18,7 @@
             <div class="avatar-email">{{ currentUser ? currentUser.email : '未登录' }}</div>
             <router-link v-if="currentUser" class="avatar-menu-link" to="/reset-password" @click="isAvatarMenuOpen = false">修改密码</router-link>
             <button class="avatar-logout" @click="handleSignOut">退出登录</button>
+            <AfdianSupportLink />
           </div>
         </div>
       </div>
@@ -358,6 +359,7 @@ import { createClient } from '@supabase/supabase-js'
 import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../store.js'
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
+import AfdianSupportLink from '../components/AfdianSupportLink.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
