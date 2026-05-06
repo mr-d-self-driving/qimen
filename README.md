@@ -261,6 +261,10 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 - 结果页应验反馈入口
 
 <p align="center">
+  <img src="https://i.imgur.com/M0O7GR3.png" width="220" alt="添加八字档案"/>
+  &nbsp;
+  <img src="https://i.imgur.com/RP92YQs.png" width="220" alt="专业排盘"/>
+  <br/>
   <img src="https://i.imgur.com/503GVir.jpeg" width="220" alt="八字断语"/>
 </p>
 
@@ -274,6 +278,8 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 
 <p align="center">
   <img src="https://i.imgur.com/Dr5tEar.jpeg" width="220" alt="日运分数"/>
+  &nbsp;
+  <img src="https://i.imgur.com/lnU5q6I.png" width="220" alt="月度分数与曲线"/>
   &nbsp;
   <img src="https://i.imgur.com/397MAVl.jpeg" width="220" alt="月运详批"/>
 </p>
