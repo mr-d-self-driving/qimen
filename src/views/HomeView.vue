@@ -59,14 +59,6 @@
                 <span>{{ item.score }}分</span>
               </div>
             </div>
-            <button
-              v-if="item.canFeedback"
-              class="d-feedback-btn"
-              :class="{ done: item.hasFeedback }"
-              @click.stop="openFeedbackDrawer(item)"
-            >
-              {{ item.hasFeedback ? '已反馈' : '反馈' }}
-            </button>
             <span class="d-hist-badge" :class="'verdict-' + getVerdictInfo(item.score).cls">{{ getVerdictInfo(item.score).label }}</span>
           </div>
         </div>
@@ -240,10 +232,20 @@
           <transition name="fade">
             <div v-show="viewState === 'result'" class="result-wrapper">
               <div v-html="resultHtml" class="html-container"></div>
-              <button class="reset-btn" @click="resetToInput">
-                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                再起一局
-              </button>
+              <div class="result-actions">
+                <button class="reset-btn" @click="resetToInput">
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  再起一局
+                </button>
+                <button
+                  v-if="activeResultRecord?.canFeedback"
+                  class="result-feedback-btn"
+                  :class="{ done: activeResultRecord.hasFeedback }"
+                  @click="openFeedbackDrawer(activeResultRecord)"
+                >
+                  {{ activeResultRecord.hasFeedback ? '已反馈' : '反馈' }}
+                </button>
+              </div>
             </div>
           </transition>
         </div>
@@ -406,6 +408,7 @@ const canUseApp = computed(() => Boolean(currentUser.value || isGuest.value))
 
 const historyRecords = ref([])
 const activeCategory = ref('all')
+const activeResultRecord = ref(null)
 const categories = [
   { label: '全部', value: 'all' },
   { label: '💼 事业', value: 'career_business' },
@@ -617,6 +620,7 @@ const resetToInput = () => {
   baziEnabled.value = false
   selectedProfileId.value = ''
   baziState.value = 'idle'
+  activeResultRecord.value = null
 }
 
 const startDivination = async () => {
@@ -643,7 +647,8 @@ const startDivination = async () => {
     })
     const data = await response.json()
     if (!response.ok || data.error) throw new Error(data.details || data.error || '推演失败')
-    await saveRecordToDatabase(input, data)
+    const savedRecord = await saveRecordToDatabase(input, data)
+    activeResultRecord.value = savedRecord
     if (!session && isGuest.value) {
       recordGuestQuestion()
       await trackGuestEvent(supabase, 'guest_qimen_asked', 'qimen', { limit_reached: true })
@@ -698,11 +703,14 @@ const loadHistory = async () => {
   }
 
   historyRecords.value = mergeQimenFeedbackIntoRecords(records, error ? [] : (feedbackRows || []), currentUser.value)
+  if (activeResultRecord.value?.id) {
+    activeResultRecord.value = historyRecords.value.find(record => record.id === activeResultRecord.value.id) || activeResultRecord.value
+  }
 }
 
 const saveRecordToDatabase = async (question, data) => {
   if (isGuest.value && !currentUser.value) {
-    historyRecords.value = [{
+    const guestRecord = {
       id: 'guest_qimen_record',
       question,
       qimen_data: data,
@@ -713,11 +721,19 @@ const saveRecordToDatabase = async (question, data) => {
       canFeedback: false,
       hasFeedback: false,
       feedback: null
-    }]
-    return
+    }
+    historyRecords.value = [guestRecord]
+    return guestRecord
   }
-  await supabase.from('qimen_records').insert([{ user_id: currentUser.value.id, question, qimen_data: data, category: data.category || 'general' }])
+  const { data: insertedRows, error } = await supabase
+    .from('qimen_records')
+    .insert([{ user_id: currentUser.value.id, question, qimen_data: data, category: data.category || 'general' }])
+    .select('*')
+
+  if (error) throw error
   await loadHistory()
+  const insertedRecordId = insertedRows?.[0]?.id
+  return historyRecords.value.find(record => record.id === insertedRecordId) || null
 }
 
 const filteredHistory = computed(() => activeCategory.value === 'all' ? historyRecords.value : historyRecords.value.filter(r => r.category === activeCategory.value))
@@ -726,6 +742,7 @@ const setCategory = (val) => { activeCategory.value = val }
 
 const loadRecord = (item) => {
   globalState.isDrawerOpen = false
+  activeResultRecord.value = item
   resultHtml.value = buildCardHTML(item.qimen_data)
   viewState.value = 'result'
   nextTick(() => {
@@ -966,9 +983,6 @@ const buildCardHTML = (data) => {
 .d-hist-info { flex: 1; overflow: hidden; }
 .d-hist-q { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
 .d-hist-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
-.d-feedback-btn { flex: 0 0 auto; padding: 3px 8px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.18); background: rgba(212,175,55,0.04); color: rgba(232,204,128,0.72); font-size: 10px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
-.d-feedback-btn:hover { border-color: rgba(232,204,128,0.42); background: rgba(212,175,55,0.1); color: var(--gold-light); }
-.d-feedback-btn.done { color: rgba(78,205,196,0.82); border-color: rgba(78,205,196,0.22); background: rgba(78,205,196,0.05); }
 .d-hist-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; border: 1px solid; }
 
 /* 页面 */
@@ -1061,7 +1075,16 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 .bagua-svg { width: 100%; height: 100%; animation: rotateBagua 8s linear infinite; }
 .loader-main-text { font-family: var(--font-serif); font-size: 13px; color: var(--gold); text-align: center; }
 
-.reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: transparent; border: 1px solid var(--glass-border); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; margin-top: 16px; }
+.result-actions { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; margin-top: 16px; }
+.reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: transparent; border: 1px solid var(--glass-border); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; }
+.result-feedback-btn { min-width: 92px; height: 50px; padding: 0 16px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.28); background: rgba(212,175,55,0.07); color: var(--gold-light); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.result-feedback-btn:hover { border-color: rgba(232,204,128,0.52); background: rgba(212,175,55,0.13); }
+.result-feedback-btn.done { color: rgba(78,205,196,0.9); border-color: rgba(78,205,196,0.28); background: rgba(78,205,196,0.06); }
+
+@media(max-width:380px) {
+  .result-actions { grid-template-columns: 1fr; }
+  .result-feedback-btn { width: 100%; }
+}
 
 .feedback-overlay { position: fixed; inset: 0; z-index: 9998; display: flex; justify-content: flex-end; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .feedback-overlay.show { opacity: 1; pointer-events: auto; }

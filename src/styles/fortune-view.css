@@ -140,7 +140,8 @@
 .monthly-detail-label { color:var(--text-muted); font-size:12px; line-height:1.6; }
 .monthly-detail-value { color:var(--text-primary); font-size:13px; line-height:1.7; min-width:0; }
 .monthly-interpretation-card { padding:16px; }
-.monthly-interpretation-head { margin-bottom:10px; }
+.monthly-interpretation-head { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; margin-bottom:10px; }
+.monthly-interpretation-head .card-title { min-width:0; white-space:nowrap; flex-wrap:nowrap; }
 .monthly-head-side { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
 .monthly-info-btn { width:22px; height:22px; border-radius:50%; border:1px solid rgba(212,175,55,0.24); background:rgba(212,175,55,0.1); color:var(--gold-light); font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
 .monthly-refresh-chip { color:var(--gold-light); font-size:11px; line-height:1.5; padding:3px 8px; border-radius:999px; border:1px solid rgba(212,175,55,0.16); background:rgba(212,175,55,0.06); }
@@ -226,7 +227,8 @@
   .monthly-chart-card { padding:14px 13px 12px; }
   .monthly-chart-meta { font-size:10.5px; }
   .monthly-interpretation-card { padding:14px 13px; }
-  .monthly-head-side { width:100%; justify-content:flex-start; }
+  .monthly-interpretation-head { grid-template-columns:minmax(0,1fr) auto; column-gap:8px; }
+  .monthly-head-side { width:auto; justify-content:flex-end; }
   .monthly-dimension-tabs { gap:5px; }
   .monthly-dimension-btn { font-size:11px; padding:7px 0; }
   .monthly-advice-item { grid-template-columns:52px minmax(0,1fr); }
