@@ -8,6 +8,7 @@ coverage/
 playwright-report/
 test-results/
 blob-report/
+*.tsbuildinfo
 
 # Environment files
 .env
@@ -35,5 +36,18 @@ Thumbs.db
 .mock/
 .dist/
 .cache/
+.turbo/
+.vercel/
 tmp/
 temp/
+
+# Codex local configuration
+.codex/
+
+# Claude Flow runtime data
+.claude-flow/data/
+.claude-flow/logs/
+.claude-flow/cache/
+.claude-flow/*.db
+.claude-flow/*.sqlite
+.claude-flow/*.sqlite3
