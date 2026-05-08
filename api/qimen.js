@@ -72,7 +72,7 @@ async function detectIntentAndGetRules(question) {
                 "Authorization": `Bearer ${API_KEY}` 
             },
             body: JSON.stringify({
-                model: 'gemini-3-flash', 
+                model: 'gemini-3-flash-preview', 
                 messages: [{ role: 'user', content: routerPrompt }],
                 response_format: { type: "json_object" },
                 temperature: 0.1 // 极低温度，保证分类稳定性
