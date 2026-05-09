@@ -50,6 +50,7 @@ test('buildSolarProfilePayload can derive bazi from birthplace solar time', () =
     hour: 23,
     minute: 20,
     birthLocation: '成都',
+    birthLatitude: 30.5728,
     birthLongitude: 104.0668,
     solarTimeMode: 'mean'
   })
@@ -58,6 +59,7 @@ test('buildSolarProfilePayload can derive bazi from birthplace solar time', () =
   assert.equal(payload.adjusted_birth_date, '1999-06-07 22:16:00')
   assert.equal(payload.bazi_str, '己卯 庚午 庚寅 丁亥')
   assert.equal(payload.birth_location, '成都')
+  assert.equal(payload.birth_latitude, 30.5728)
   assert.equal(payload.birth_longitude, 104.0668)
   assert.equal(payload.solar_time_adjustment_minutes, -64)
 })

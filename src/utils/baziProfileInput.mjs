@@ -219,6 +219,7 @@ export const buildSolarProfilePayload = ({
   hour = 0,
   minute = 0,
   birthLocation = '',
+  birthLatitude = null,
   birthLongitude = null,
   solarTimeMode = 'apparent'
 }) => {
@@ -242,6 +243,7 @@ export const buildSolarProfilePayload = ({
       mode: solarTimeMode
     }),
     birth_location: String(birthLocation || '').trim(),
+    birth_latitude: birthLatitude === '' || birthLatitude === null || birthLatitude === undefined ? null : Number(birthLatitude),
     birth_longitude: timeAdjustment.longitude,
     solar_time_mode: timeAdjustment.mode,
     solar_time_adjustment_minutes: timeAdjustment.totalMinutes

@@ -3,7 +3,10 @@
 
     <header id="siteHeader">
         <div class="site-logo">全息八字</div>
-        <OpenSourceLinks class="header-source-links" />
+        <div class="header-actions">
+            <OpenSourceLinks />
+            <AccountMenu />
+        </div>
     </header>
 
     <div class="page-wrap">
@@ -111,20 +114,25 @@
                                     <div class="location-input-card">
                                         <div class="location-input-grid">
                                             <label class="location-field">
-                                                <span>出生地</span>
-                                                <input type="text" v-model.trim="form.birthLocation" placeholder="例如：成都">
+                                                <span>国家/地区</span>
+                                                <select v-model="form.birthCountry" @change="handleBirthCountryChange">
+                                                    <option value="">不选择</option>
+                                                    <option v-for="country in birthplaceCountryOptions" :key="country" :value="country">{{ country }}</option>
+                                                </select>
                                             </label>
                                             <label class="location-field">
-                                                <span>经度</span>
-                                                <input
-                                                    type="number"
-                                                    inputmode="decimal"
-                                                    min="-180"
-                                                    max="180"
-                                                    step="0.0001"
-                                                    v-model="form.birthLongitude"
-                                                    placeholder="104.0668"
-                                                >
+                                                <span>省/州</span>
+                                                <select v-model="form.birthAdmin1" :disabled="!form.birthCountry" @change="handleBirthAdminChange">
+                                                    <option value="">请选择</option>
+                                                    <option v-for="admin in birthplaceAdminOptions" :key="admin" :value="admin">{{ admin }}</option>
+                                                </select>
+                                            </label>
+                                            <label class="location-field">
+                                                <span>城市</span>
+                                                <select v-model="form.birthCity" :disabled="!form.birthAdmin1" @change="handleBirthCityChange">
+                                                    <option value="">请选择</option>
+                                                    <option v-for="city in birthplaceCityOptions" :key="city.name" :value="city.name">{{ city.name }}</option>
+                                                </select>
                                             </label>
                                             <label class="location-field">
                                                 <span>校正方式</span>
@@ -135,7 +143,6 @@
                                                 </select>
                                             </label>
                                         </div>
-                                        <div class="date-input-hint">中国标准经度按东经 120° 计算；经度为空时按钟表时间排盘。</div>
                                     </div>
                                     <div class="date-segment-row">
                                         <div class="date-segment"><span>年</span><strong>{{ solarInputDigits.slice(0, 4) || '----' }}</strong></div>
@@ -1096,6 +1103,7 @@ import {
     rememberMonthlyInterpretationRefresh
 } from '../fortuneCache.mjs'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
+import AccountMenu from '../components/AccountMenu.vue'
 import {
     buildPillarsProfilePayload,
     buildSolarProfilePayload,
@@ -1105,10 +1113,15 @@ import {
     getAllowedMonthBranchesByStem,
     getAllowedTimeBranchesByStem,
     getSolarLunarSnapshot,
-    normalizeLongitude,
     parseCompactSolarInput,
     ZHI
 } from '../utils/baziProfileInput.mjs'
+import {
+    findBirthplaceByRegion,
+    getBirthplaceAdminOptions,
+    getBirthplaceCityOptions,
+    getBirthplaceCountries
+} from '../utils/birthplaceSearch.mjs'
 import {
     buildLocalBaziMatrix,
     getDayunByYear,
@@ -1330,7 +1343,11 @@ let toastTimer = null
 const form = reactive({
     name: '',
     gender: 'M',
+    birthCountry: '',
+    birthAdmin1: '',
+    birthCity: '',
     birthLocation: '',
+    birthLatitude: '',
     birthLongitude: '',
     solarTimeMode: 'apparent'
 })
@@ -2046,11 +2063,11 @@ const solarInputError = computed(() => {
     if (parsed.month < 1 || parsed.month > 12 || parsed.day < 1 || parsed.day > 31 || parsed.hour > 23 || parsed.minute > 59) {
         return '日期格式不正确，请检查月份、日期、小时和分钟'
     }
-    if (String(form.birthLongitude || '').trim() && normalizeLongitude(form.birthLongitude) === null) {
-        return '经度需填写 -180 到 180 之间的数字'
-    }
     return ''
 })
+const birthplaceCountryOptions = getBirthplaceCountries()
+const birthplaceAdminOptions = computed(() => getBirthplaceAdminOptions(form.birthCountry))
+const birthplaceCityOptions = computed(() => getBirthplaceCityOptions(form.birthCountry, form.birthAdmin1))
 const solarPreview = computed(() => {
     if (solarInputError.value || !solarParsedInput.value) return null
     const { year, month, day, hour, minute } = solarParsedInput.value
@@ -2353,7 +2370,11 @@ const openRenameProfile = () => {
 const resetProfileEntry = () => {
     form.name = ''
     form.gender = 'M'
+    form.birthCountry = ''
+    form.birthAdmin1 = ''
+    form.birthCity = ''
     form.birthLocation = ''
+    form.birthLatitude = ''
     form.birthLongitude = ''
     form.solarTimeMode = 'apparent'
     entryMode.value = ENTRY_MODE.SOLAR
@@ -2368,6 +2389,38 @@ const resetProfileEntry = () => {
 const handleSolarInput = (event) => {
     const digits = String(event?.target?.value || '').replace(/\D/g, '').slice(0, 12)
     solarInput.text = digits
+}
+
+const clearBirthplaceSelection = () => {
+    form.birthLocation = ''
+    form.birthLatitude = ''
+    form.birthLongitude = ''
+}
+
+const handleBirthCountryChange = () => {
+    form.birthAdmin1 = ''
+    form.birthCity = ''
+    clearBirthplaceSelection()
+}
+
+const handleBirthAdminChange = () => {
+    form.birthCity = ''
+    clearBirthplaceSelection()
+}
+
+const handleBirthCityChange = () => {
+    const place = findBirthplaceByRegion({
+        country: form.birthCountry,
+        admin1: form.birthAdmin1,
+        city: form.birthCity
+    })
+    if (!place) {
+        clearBirthplaceSelection()
+        return
+    }
+    form.birthLocation = `${place.country} ${place.admin1} ${place.name}`
+    form.birthLatitude = String(place.lat)
+    form.birthLongitude = String(place.lng)
 }
 
 const setActivePillarSlot = (slot) => {
@@ -2437,6 +2490,7 @@ const buildProfilePayloadFromEntry = () => {
             hour: solarParsedInput.value.hour,
             minute: solarParsedInput.value.minute,
             birthLocation: form.birthLocation,
+            birthLatitude: form.birthLatitude,
             birthLongitude: form.birthLongitude,
             solarTimeMode: form.solarTimeMode
         })
@@ -2478,6 +2532,7 @@ const saveProfile = async () => {
         adjusted_birth_date: payload.adjusted_birth_date,
         bazi_str: payload.bazi_str,
         birth_location: payload.birth_location,
+        birth_latitude: payload.birth_latitude,
         birth_longitude: payload.birth_longitude,
         solar_time_mode: payload.solar_time_mode,
         solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes
@@ -2493,6 +2548,7 @@ const saveProfile = async () => {
                 adjusted_birth_date: payload.adjusted_birth_date,
                 bazi_str: payload.bazi_str,
                 birth_location: payload.birth_location,
+                birth_latitude: payload.birth_latitude,
                 birth_longitude: payload.birth_longitude,
                 solar_time_mode: payload.solar_time_mode,
                 solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes,
@@ -2525,6 +2581,7 @@ const buildGuestProfile = (payload) => {
         adjusted_birth_date: payload.adjusted_birth_date,
         bazi_str: payload.bazi_str,
         birth_location: payload.birth_location,
+        birth_latitude: payload.birth_latitude,
         birth_longitude: payload.birth_longitude,
         solar_time_mode: payload.solar_time_mode,
         solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes,
@@ -2958,7 +3015,7 @@ const getShenColor = (shen) => {
 
 #siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
-.header-source-links { position: absolute; right: 20px; top: 50%; transform: translateY(-50%); }
+.header-actions { position: absolute; right: 20px; top: 50%; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
 
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
 .container { width: 100%; max-width: 520px; }
@@ -3022,11 +3079,16 @@ const getShenColor = (shen) => {
     padding: 18px;
     color: var(--text-primary);
 }
-.picker-topbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+.picker-topbar {
+    display: grid;
+    grid-template-columns: minmax(128px, 0.85fr) minmax(220px, 1.35fr) 40px;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+}
 .picker-topcopy { min-width: 0; }
 .picker-heading { color: #F4EBDD; font-size: 16px; font-weight: 700; }
 .picker-mode-tabs {
-    flex: 1;
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 4px;
@@ -3051,7 +3113,7 @@ const getShenColor = (shen) => {
     box-shadow: 0 6px 18px rgba(212,175,55,0.18);
 }
 .picker-close.dark {
-    flex-shrink: 0;
+    justify-self: end;
     background: rgba(255,255,255,0.04);
     color: #B8AF9B;
     border-color: rgba(232,204,128,0.16);
@@ -3118,11 +3180,12 @@ const getShenColor = (shen) => {
 }
 .location-input-grid {
     display: grid;
-    grid-template-columns: 1.2fr 1fr 1fr;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 10px;
 }
 .location-field {
     min-width: 0;
+    position: relative;
 }
 .location-field span {
     display: block;
@@ -4226,10 +4289,11 @@ const getShenColor = (shen) => {
     .bz-sub { line-height: 1.3; }
     .bz-shensha { font-size: 8px; line-height: 1.3; }
     .scoring-bars { grid-template-columns: 1fr; }
-    .picker-topbar { gap: 8px; }
+    .picker-topbar { grid-template-columns: 1fr 38px; gap: 8px; }
+    .picker-mode-tabs { grid-column: 1 / -1; grid-row: 2; }
+    .picker-close.dark { grid-column: 2; grid-row: 1; }
     .picker-form-row { grid-template-columns: 1fr 1fr; }
     .picker-save-btn { min-height: 56px; }
-    .picker-topbar { flex-direction: column; align-items: stretch; }
     .location-input-grid { grid-template-columns: 1fr; }
     .date-segment-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
     .date-input-card input { min-height: 50px; font-size: 18px; padding: 0 14px; }

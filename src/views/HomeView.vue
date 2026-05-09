@@ -7,20 +7,7 @@
       <div class="site-logo" @click="resetToInput" style="cursor: pointer;" title="返回首页">奇门遁甲</div>
       <div class="header-actions">
         <OpenSourceLinks />
-        <div class="avatar-wrap">
-          <div class="avatar-btn" @click="toggleAvatarMenu" title="账号">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <circle cx="8" cy="6" r="3" stroke="rgba(212,175,55,0.75)" stroke-width="1.2"/>
-              <path d="M2 15c0-3.3 2.7-5 6-5s6 1.7 6 5" stroke="rgba(212,175,55,0.75)" stroke-width="1.2" stroke-linecap="round"/>
-            </svg>
-          </div>
-          <div class="avatar-menu" :class="{ open: isAvatarMenuOpen }">
-            <div class="avatar-email">{{ currentUser ? currentUser.email : '未登录' }}</div>
-            <router-link v-if="currentUser" class="avatar-menu-link" to="/reset-password" @click="isAvatarMenuOpen = false">修改密码</router-link>
-            <button class="avatar-logout" @click="handleSignOut">退出登录</button>
-            <AfdianSupportLink />
-          </div>
-        </div>
+        <AccountMenu />
       </div>
     </header>
 
@@ -93,6 +80,9 @@
           <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
             {{ resetEmailLoading ? '正在发送重设邮件...' : '忘记密码？发送重设邮件' }}
           </button>
+          <router-link class="auth-engineering-link" to="/engineering">
+            了解术数工程化
+          </router-link>
           <div v-if="resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
           <div class="auth-switch" @click="isLoginMode = !isLoginMode">
             {{ isLoginMode ? '没有账号？ ' : '已有账号？ ' }}<span>{{ isLoginMode ? '点击注册' : '点击登录' }}</span>
@@ -195,6 +185,7 @@
                 </button>
                 <div class="cta-hint">奇门遁甲 · AI 深度推演</div>
               </div>
+
             </div>
           </transition>
 
@@ -359,7 +350,7 @@ import { createClient } from '@supabase/supabase-js'
 import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../store.js'
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
-import AfdianSupportLink from '../components/AfdianSupportLink.vue'
+import AccountMenu from '../components/AccountMenu.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
@@ -395,7 +386,6 @@ const viewState = ref('input')
 const questionInput = ref('')
 const isSubmitting = ref(false)
 const clockText = ref('载入时辰中…')
-const isAvatarMenuOpen = ref(false)
 const showBaziModal = ref(false)
 
 const baziEnabled = ref(false)
@@ -442,7 +432,6 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 onMounted(() => {
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
-  document.addEventListener('click', closeMenus)
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     handleSessionUpdate(session)
@@ -456,20 +445,10 @@ onUnmounted(() => {
   clearInterval(clockInterval)
   clearInterval(loaderInterval)
   clearInterval(scoreTimer)
-  document.removeEventListener('click', closeMenus)
 })
-
-const closeMenus = () => {
-  isAvatarMenuOpen.value = false
-}
 
 const toggleDrawer = () => {
   globalState.isDrawerOpen = !globalState.isDrawerOpen
-}
-
-const toggleAvatarMenu = (e) => {
-  e.stopPropagation()
-  isAvatarMenuOpen.value = !isAvatarMenuOpen.value
 }
 
 const handleSessionUpdate = (session) => {
@@ -546,7 +525,6 @@ const handleSignOut = async () => {
   } else {
     await supabase.auth.signOut()
   }
-  isAvatarMenuOpen.value = false
 }
 
 const handleGuestEntry = async () => {
@@ -955,14 +933,6 @@ const buildCardHTML = (data) => {
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); position: relative; }
 
 .header-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.avatar-wrap { position: relative; flex-shrink: 0; }
-.avatar-btn { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--gold-border); background: rgba(212,175,55,0.08); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all .3s; }
-.avatar-menu { position: absolute; top: calc(100% + 10px); right: 0; min-width: 180px; padding: 8px 0; background: rgba(14,14,31,0.95); border: 1px solid var(--gold-border); border-radius: 14px; backdrop-filter: blur(24px); box-shadow: 0 12px 40px rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transform: translateY(-6px); transition: all .25s var(--ease); z-index: 400; }
-.avatar-menu.open { opacity: 1; pointer-events: all; transform: translateY(0); }
-.avatar-email { padding: 10px 16px; font-size: 11px; color: var(--text-muted); border-bottom: 1px solid var(--glass-border); word-break: break-all; }
-.avatar-menu-link { display: block; width: 100%; padding: 10px 16px; font-size: 13px; color: rgba(240,237,230,0.88); background: none; border: none; cursor: pointer; text-align: left; text-decoration: none; }
-.avatar-menu-link:hover { color: var(--gold-light); background: rgba(212,175,55,0.06); }
-.avatar-logout { display: block; width: 100%; padding: 10px 16px; font-size: 13px; color: var(--gold-light); background: none; border: none; cursor: pointer; text-align: left; }
 
 /* 抽屉 */
 #historyDrawer { position: absolute; inset: 0; width: 100%; z-index: 1; display: flex; flex-direction: column; background: rgba(14,14,31,0.88); border-right: 1px solid var(--gold-border); }
@@ -1036,6 +1006,26 @@ input[type="email"], input[type="password"] { width: 100%; background: rgba(0,0,
 .guest-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; text-align: center; }
 .forgot-password-link { border: none; background: transparent; color: rgba(232,204,128,0.86); font-size: 12px; cursor: pointer; text-align: center; }
 .forgot-password-link:disabled { opacity: 0.6; cursor: not-allowed; }
+.auth-engineering-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 42px;
+  border-radius: var(--radius-item);
+  border: 1px solid rgba(78,205,196,0.32);
+  background: rgba(78,205,196,0.07);
+  color: rgba(207,255,250,0.94);
+  font-size: 13px;
+  letter-spacing: .08em;
+  text-decoration: none;
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.auth-engineering-link:hover {
+  border-color: rgba(78,205,196,0.56);
+  background: rgba(78,205,196,0.12);
+  transform: translateY(-1px);
+}
 .auth-notice { padding: 10px 12px; border-radius: 10px; background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; text-align: center; }
 .auth-switch { text-align: center; font-size: 12px; color: var(--text-muted); cursor: pointer; }
 .auth-switch span { color: var(--gold); text-decoration: underline; }

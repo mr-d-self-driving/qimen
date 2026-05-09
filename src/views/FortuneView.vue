@@ -2,7 +2,10 @@
   <div class="fortune-view">
     <header class="page-header">
       <div class="header-title">天机日运</div>
-      <OpenSourceLinks class="header-source-links" />
+      <div class="header-actions">
+        <OpenSourceLinks />
+        <AccountMenu />
+      </div>
     </header>
 
     <div class="page-wrap">
@@ -266,10 +269,30 @@
                   </div>
                   <div class="score-side">
                     <div class="score-ganzhi">{{ monthlyGanzhiText }}</div>
-                    <p class="score-insight">{{ visibleMonthlyData.month_zhi_relations || '无明显刑冲合害' }}</p>
+                    <p class="score-insight">{{ monthlyScoreSummary }}</p>
                     <div v-if="visibleMonthlyData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
                     <div v-else-if="visibleMonthlyData.has_sanxing" class="warning-tag inline-warning">三刑触发</div>
                   </div>
+                </div>
+              </div>
+
+              <div v-if="monthlyScoreHitLayers.length" class="glass-card monthly-hit-card">
+                <div class="module-title-bar">
+                  <h3 class="card-title compact-title"><span>✦</span> 三层命中</h3>
+                </div>
+                <div class="monthly-hit-layers">
+                  <section v-for="layer in monthlyScoreHitLayers" :key="layer.layer" class="monthly-hit-layer">
+                    <div class="monthly-hit-layer-head">
+                      <span class="monthly-hit-layer-title">{{ layer.title }}</span>
+                      <span class="monthly-hit-layer-score">{{ formatSignedScore(layer.score) }}</span>
+                    </div>
+                    <ul class="monthly-hit-list">
+                      <li v-for="hit in layer.hits" :key="`${layer.layer}-${hit.code}-${hit.display}`" :class="['monthly-hit-item', hit.type]">
+                        <span class="monthly-hit-dot"></span>
+                        <span class="monthly-hit-copy">{{ hit.display }}</span>
+                      </li>
+                    </ul>
+                  </section>
                 </div>
               </div>
 
@@ -528,8 +551,10 @@ import {
   rememberPendingInterpretation
 } from '../fortuneCache.mjs'
 import { getFlowMonthInfo as getClientFlowMonthInfo, listFlowMonths as listClientFlowMonths } from '../utils/flowMonth.js'
+import { getMonthlyScoreSummary, normalizeMonthlyScoreLayers } from '../utils/monthlyScoreHits.mjs'
 import guestFortuneData from '../../mock/fortune-daily.json'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
+import AccountMenu from '../components/AccountMenu.vue'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -717,6 +742,16 @@ const monthlyGanzhiText = computed(() => {
   const range = visibleMonthlyData.value.flow_month_range_label || ''
   return [gz, range].filter(Boolean).join(' · ') || '-'
 })
+
+const monthlyScoreSummary = computed(() => getMonthlyScoreSummary(visibleMonthlyData.value || {}))
+
+const monthlyScoreHitLayers = computed(() => normalizeMonthlyScoreLayers(visibleMonthlyData.value || {}))
+
+const formatSignedScore = (score) => {
+  const value = Number(score || 0)
+  if (value > 0) return `+${value}`
+  return String(value)
+}
 
 const mapMonthlyChartPoint = (item, index, total) => {
   const x = total <= 1 ? 160 : 12 + (index / (total - 1)) * 296
