@@ -34,22 +34,43 @@
         </div>
       </section>
 
+      <section class="section-header">
+        <div class="section-label">推演链路</div>
+        <h2 class="section-title">四步执行流程</h2>
+        <p class="section-sub">每一次推演从收问到校准，依次经过以下四个节点，缺一不可。</p>
+      </section>
+
       <section class="workflow-panel">
         <div class="step-rail" role="tablist" aria-label="术数工程化流程">
-          <button
+          <div
             v-for="(step, index) in engineeringSteps"
             :key="step.key"
-            class="step-button"
-            :class="{ active: activeStep === index }"
-            type="button"
-            role="tab"
-            :aria-selected="activeStep === index"
-            @click="activeStep = index"
+            class="step-item"
           >
-            <span class="step-index">{{ String(index + 1).padStart(2, '0') }}</span>
-            <span class="step-name">{{ step.title }}</span>
-            <span class="step-desc">{{ step.desc }}</span>
-          </button>
+            <button
+              class="step-button"
+              :class="{ active: activeStep === index }"
+              type="button"
+              role="tab"
+              :aria-selected="activeStep === index"
+              @click="activeStep = index"
+            >
+              <span class="step-index">{{ String(index + 1).padStart(2, '0') }}</span>
+              <span class="step-name">{{ step.title }}</span>
+              <span class="step-desc">{{ step.desc }}</span>
+            </button>
+            <!-- 手机端手风琴内容，桌面端隐藏 -->
+            <div class="step-accordion" :class="{ open: activeStep === index }" aria-live="polite">
+              <div class="accordion-inner">
+                <p class="accordion-detail">{{ step.detail }}</p>
+                <div class="check-stack accordion-checks">
+                  <div v-for="item in step.checks" :key="item" class="check-item">
+                    <span></span>{{ item }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="evidence-card">
@@ -75,6 +96,12 @@
             {{ point }}
           </div>
         </div>
+      </section>
+
+      <section class="section-header">
+        <div class="section-label">角色分工</div>
+        <h2 class="section-title">三层职责边界</h2>
+        <p class="section-sub">流程由三个角色共同托底——各司其职，互不越权。</p>
       </section>
 
       <section class="boundary-grid" aria-label="边界分工">
@@ -566,6 +593,34 @@ const boundaries = [
   transform: rotate(calc(var(--point-index) * 90deg)) translateX(116px) rotate(calc(var(--point-index) * -90deg));
 }
 
+.section-header {
+  margin-top: 56px;
+  margin-bottom: 4px;
+}
+
+.section-label {
+  color: var(--teal);
+  font-size: 10px;
+  letter-spacing: .32em;
+  margin-bottom: 8px;
+}
+
+.section-title {
+  margin: 0 0 10px;
+  font-family: var(--font-serif);
+  font-size: 26px;
+  font-weight: 500;
+  color: #F5EDD3;
+}
+
+.section-sub {
+  margin: 0;
+  color: rgba(240,237,230,0.55);
+  font-size: 13px;
+  line-height: 1.8;
+  max-width: 560px;
+}
+
 .boundary-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -599,11 +654,53 @@ const boundaries = [
   line-height: 1.72;
 }
 
+/* 手风琴：默认在桌面端隐藏 */
+.step-accordion {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .engineering-hero,
-  .workflow-panel,
   .boundary-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* 手机端三栏变单栏，evidence-card 和 orbit-card 隐藏 */
+  .workflow-panel {
+    display: block;
+  }
+
+  .evidence-card,
+  .orbit-card {
+    display: none;
+  }
+
+  /* 手风琴启用 */
+  .step-accordion {
+    display: block;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.36s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .step-accordion.open {
+    max-height: 480px;
+  }
+
+  .accordion-inner {
+    padding: 14px 13px 20px;
+    border-top: 1px solid rgba(232,204,128,0.14);
+  }
+
+  .accordion-detail {
+    margin: 0 0 16px;
+    color: rgba(240,237,230,0.76);
+    font-size: 13px;
+    line-height: 1.88;
+  }
+
+  .accordion-checks {
+    margin-top: 0;
   }
 
   .engineering-hero {
@@ -612,6 +709,11 @@ const boundaries = [
 
   .hero-instrument {
     min-height: 360px;
+  }
+
+  /* step-rail 撑满宽度 */
+  .step-rail {
+    width: 100%;
   }
 }
 
