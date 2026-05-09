@@ -1,763 +1,327 @@
 <template>
-  <div class="engineering-view">
-    <header class="engineering-header">
-      <router-link class="back-link" to="/" aria-label="返回首页">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-          <path d="M10 3 6 8l4 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
+  <div class="ev">
+    <header class="eh">
+      <router-link class="back" to="/" aria-label="返回首页">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M10 3 6 8l4 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
         返回
       </router-link>
-      <div class="engineering-title">术数工程化</div>
+      <div class="etitle">术数工程化</div>
       <AccountMenu />
     </header>
 
-    <main class="engineering-shell">
-      <section class="engineering-hero">
-        <div class="hero-copy">
-          <p class="hero-label">AI NUMEROLOGY SYSTEM</p>
-          <h1>先让规则落盘，再让模型开口</h1>
-          <p class="hero-desc">术数推演不交给语言模型自由发挥。时间、干支、九宫、强弱、喜忌、评分先由确定性引擎生成，模型只在边界内完成转译、解释和行动建议。</p>
-          <div class="hero-actions">
-            <button class="hero-primary" type="button" @click="activeStep = 1">查看防幻觉链路</button>
-            <button class="hero-secondary" type="button" @click="activeStep = 3">看反馈闭环</button>
-          </div>
-        </div>
-
-        <div class="hero-instrument" aria-hidden="true">
-          <div class="instrument-grid">
-            <span v-for="cell in palaceCells" :key="cell" :class="{ active: cell === activeStepData.mark }">{{ cell }}</span>
-          </div>
-          <div class="instrument-readout">
-            <span>{{ activeStepData.signal }}</span>
-            <strong>{{ activeStepData.core }}</strong>
+    <div class="sc">
+      <!-- S1 首屏原则 -->
+      <section class="ss">
+        <div class="si">
+          <div class="hero-grid">
+            <div class="hero-copy">
+              <p class="tag">AI NUMEROLOGY SYSTEM</p>
+              <h1>先让规则落盘<br>再让模型开口</h1>
+              <div class="p-list">
+                <div v-for="p in principles" :key="p.t" class="p-item">
+                  <span class="p-icon">{{ p.icon }}</span>
+                  <div><strong>{{ p.t }}</strong><p>{{ p.b }}</p></div>
+                </div>
+              </div>
+              <div class="btns">
+                <button class="btn-gold" @click="go(archRef)">↓ 查看系统架构</button>
+                <button class="btn-teal" @click="go(qimenRef)">↓ 了解功能模块</button>
+              </div>
+            </div>
+            <div class="instr" aria-hidden="true">
+              <div class="igrid">
+                <span v-for="c in palace" :key="c">{{ c }}</span>
+              </div>
+              <div class="iread"><span>INPUT GATE</span><strong>先问清</strong></div>
+            </div>
           </div>
         </div>
       </section>
 
-      <section class="section-header">
-        <div class="section-label">推演链路</div>
-        <h2 class="section-title">四步执行流程</h2>
-        <p class="section-sub">每一次推演从收问到校准，依次经过以下四个节点，缺一不可。</p>
+      <!-- S2 架构分工 -->
+      <section class="ss" ref="archRef">
+        <div class="si">
+          <div class="sh"><div class="tag">SYSTEM ARCHITECTURE</div><h2>三层分工，各司其职</h2><p class="sub">语言模型擅长表达，却不擅长计算。把两件事分开，结论才能被验证、被复现。</p></div>
+          <div class="arch-grid">
+            <template v-for="(card, i) in archCards" :key="i">
+              <div class="arch-card" :class="card.cls">
+                <div class="atag">{{ card.tag }}</div>
+                <h3>{{ card.title }}</h3>
+                <ul><li v-for="item in card.items" :key="item">{{ item }}</li></ul>
+              </div>
+              <div v-if="i < 2" class="aarrow">→</div>
+            </template>
+          </div>
+          <div class="fbar">
+            <template v-for="(n, i) in flowNodes" :key="i">
+              <span class="fnode">{{ n }}</span>
+              <span v-if="i < flowNodes.length - 1" class="fline"></span>
+            </template>
+          </div>
+        </div>
       </section>
 
-      <section class="workflow-panel">
-        <div class="step-rail" role="tablist" aria-label="术数工程化流程">
-          <div
-            v-for="(step, index) in engineeringSteps"
-            :key="step.key"
-            class="step-item"
-          >
-            <button
-              class="step-button"
-              :class="{ active: activeStep === index }"
-              type="button"
-              role="tab"
-              :aria-selected="activeStep === index"
-              @click="activeStep = index"
-            >
-              <span class="step-index">{{ String(index + 1).padStart(2, '0') }}</span>
-              <span class="step-name">{{ step.title }}</span>
-              <span class="step-desc">{{ step.desc }}</span>
-            </button>
-            <!-- 手机端手风琴内容，桌面端隐藏 -->
-            <div class="step-accordion" :class="{ open: activeStep === index }" aria-live="polite">
-              <div class="accordion-inner">
-                <p class="accordion-detail">{{ step.detail }}</p>
-                <div class="check-stack accordion-checks">
-                  <div v-for="item in step.checks" :key="item" class="check-item">
-                    <span></span>{{ item }}
-                  </div>
+      <!-- S3 奇门 -->
+      <section class="ss" ref="qimenRef">
+        <div class="si">
+          <div class="feat-grid">
+            <div class="fl">
+              <div class="sh"><div class="tag">QIMEN DUNJIA</div><h2>奇门遁甲</h2><p class="sub">根据提问时间自动起局，判断方位与时机。</p></div>
+              <div class="flist">
+                <div v-for="f in qimenF" :key="f.n" class="fitem"><div class="fnum">{{ f.n }}</div><div><strong>{{ f.t }}</strong><p>{{ f.b }}</p></div></div>
+              </div>
+            </div>
+            <div class="fr">
+              <div class="steps">
+                <div v-for="(s, i) in qimenS" :key="i">
+                  <div class="step"><div class="dot" :class="s.c"></div><div class="sbody"><strong>{{ s.t }}</strong><span>{{ s.b }}</span></div></div>
+                  <div v-if="i < qimenS.length - 1" class="conn"></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="evidence-card">
-          <div class="card-kicker">当前链路</div>
-          <h2>{{ activeStepData.title }}</h2>
-          <p>{{ activeStepData.detail }}</p>
-          <div class="check-stack">
-            <div v-for="item in activeStepData.checks" :key="item" class="check-item">
-              <span></span>{{ item }}
+      <!-- S4 八字 -->
+      <section class="ss">
+        <div class="si">
+          <div class="feat-grid">
+            <div class="fl">
+              <div class="sh"><div class="tag">BAZI ENGINE</div><h2>八字命盘</h2><p class="sub">根据出生时间排出四柱，结合岁运给出评分与建议。</p></div>
+              <div class="flist">
+                <div v-for="f in baziF" :key="f.n" class="fitem"><div class="fnum">{{ f.n }}</div><div><strong>{{ f.t }}</strong><p>{{ f.b }}</p></div></div>
+              </div>
+            </div>
+            <div class="fr">
+              <div class="steps">
+                <div v-for="(s, i) in baziS" :key="i">
+                  <div class="step"><div class="dot" :class="s.c"></div><div class="sbody"><strong>{{ s.t }}</strong><span>{{ s.b }}</span></div></div>
+                  <div v-if="i < baziS.length - 1" class="conn"></div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
+      </section>
 
-        <div class="orbit-card" aria-hidden="true">
-          <div class="orbit-ring"></div>
-          <div class="orbit-core">{{ activeStepData.core }}</div>
-          <div
-            v-for="(point, index) in activeStepData.points"
-            :key="point"
-            class="orbit-point"
-            :style="{ '--point-index': index }"
-          >
-            {{ point }}
+      <!-- S5 运势 -->
+      <section class="ss">
+        <div class="si">
+          <div class="sh"><div class="tag">FORTUNE ENGINE</div><h2>日运 · 月运 · 年运</h2><p class="sub">同一套评分引擎，覆盖三个时间维度。评分来自引擎，建议来自模型，互不干预。</p></div>
+          <div class="frt-grid">
+            <div v-for="f in fortuneCards" :key="f.p" class="frt-card">
+              <div class="fp">{{ f.p }}</div>
+              <div v-for="r in f.rows" :key="r.l" class="frow"><span class="flabel">{{ r.l }}</span><span>{{ r.v }}</span></div>
+            </div>
           </div>
+          <p class="enote">评分维度（三个时间维度通用）：调候 · 病药 · 通关 · 扶抑</p>
         </div>
       </section>
 
-      <section class="section-header">
-        <div class="section-label">角色分工</div>
-        <h2 class="section-title">三层职责边界</h2>
-        <p class="section-sub">流程由三个角色共同托底——各司其职，互不越权。</p>
+      <!-- S6 总结 -->
+      <section class="ss">
+        <div class="si">
+          <div class="sh"><div class="tag">SUMMARY</div><h2>一套可验证的术数推演系统</h2></div>
+          <div class="prm-row">
+            <div v-for="p in promises" :key="p.t" class="prm"><span class="pck">✓</span><div><strong>{{ p.t }}</strong><p>{{ p.b }}</p></div></div>
+          </div>
+          <div class="cmp">
+            <div class="cr hd"><span></span><span>普通 AI 算命</span><span>本系统</span></div>
+            <div v-for="r in cmpRows" :key="r.l" class="cr"><span>{{ r.l }}</span><span class="neg">{{ r.bad }}</span><span class="pos">{{ r.good }}</span></div>
+          </div>
+          <div class="sum-ctas">
+            <router-link class="btn-gold" to="/">开始使用</router-link>
+            <router-link class="btn-teal" to="/">返回首页</router-link>
+          </div>
+        </div>
       </section>
-
-      <section class="boundary-grid" aria-label="边界分工">
-        <article v-for="item in boundaries" :key="item.title" class="boundary-card">
-          <div class="boundary-key">{{ item.key }}</div>
-          <h3>{{ item.title }}</h3>
-          <p>{{ item.copy }}</p>
-        </article>
-      </section>
-    </main>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import AccountMenu from '../components/AccountMenu.vue'
 
-const activeStep = ref(0)
+const archRef = ref(null)
+const qimenRef = ref(null)
+const go = r => r.value?.scrollIntoView({ behavior: 'smooth' })
 
-const palaceCells = ['巽', '离', '坤', '震', '中', '兑', '艮', '坎', '乾']
+const palace = ['巽','离','坤','震','中','兑','艮','坎','乾']
 
-const engineeringSteps = [
-  {
-    key: 'interview',
-    title: '结构化访谈',
-    desc: '先锁定问题、时空与判断目标',
-    core: '问清',
-    mark: '巽',
-    signal: 'INPUT GATE',
-    points: ['事项', '时间', '地点', '目标'],
-    detail: '信息不完整时，链路停在追问层。起局不是装饰动作，必须先确定问什么、何时问、用什么口径判断。',
-    checks: ['模糊问题不直接给终局断语', '时间与时区保持可见', '健康、投资等主题保留现实边界']
-  },
-  {
-    key: 'calculation',
-    title: '确定性计算',
-    desc: '排盘、强弱、评分由规则引擎完成',
-    core: '算准',
-    mark: '中',
-    signal: 'RULE ENGINE',
-    points: ['排盘', '强弱', '喜忌', '评分'],
-    detail: '干支历法、奇门九宫、八字强弱与岁运评分先在代码里完成。语言模型不能临场心算，也不能改写上游数据。',
-    checks: ['干支、宫位、分数来自确定性 payload', '缓存保留计算版本', '规则失败时优先回退而非补编']
-  },
-  {
-    key: 'interpretation',
-    title: '受限解读',
-    desc: '模型只把证据翻译成行动建议',
-    core: '转译',
-    mark: '兑',
-    signal: 'LLM BOUNDARY',
-    points: ['证据', '语气', '行动', '禁区'],
-    detail: '模型的任务是把术语和结构化信号翻译成人话。每个判断都要贴着已给字段，不凭空创造日期、方位、人物或绝对结论。',
-    checks: ['十神术语转译成现实场景', '负面信号写成风险来源', '行动建议必须具体可执行']
-  },
-  {
-    key: 'feedback',
-    title: '反馈校准',
-    desc: '让应验结果进入复盘闭环',
-    core: '复盘',
-    mark: '坎',
-    signal: 'CALIBRATION',
-    points: ['记录', '反馈', '样本', '迭代'],
-    detail: '每一次推演都可以沉淀为样本：当事后反馈回到系统，规则、话术和风险边界才有持续校准的依据。',
-    checks: ['历史推演可回放', '反馈关联原始问题和结论', '隐私字段在访客事件中被过滤']
-  }
+const principles = [
+  { icon: '◈', t: '确定性优先', b: '时间、干支、宫位、评分全由规则引擎算出，不留给模型猜' },
+  { icon: '◧', t: '边界分明', b: '模型只在已验证的结构化数据内做翻译，无法改写上游结论' },
+  { icon: '↻', t: '可校准', b: '每次推演沉淀为样本，反馈闭环驱动持续迭代' },
 ]
 
-const activeStepData = computed(() => engineeringSteps[activeStep.value] || engineeringSteps[0])
+const archCards = [
+  { cls: 'uc', tag: '用户', title: '提供输入', items: ['出生时间与问题意图', '对推演结果的反馈', '调整与追问'] },
+  { cls: 'ec', tag: '规则引擎', title: '确定性计算', items: ['节气、干支、九宫排盘', '五行强弱与格局评分', '大运流年打分'] },
+  { cls: 'lc', tag: '大模型', title: '受限解读', items: ['将术语翻译成通俗建议', '不创造新的数字或结论', '在边界内组织语言'] },
+]
+const flowNodes = ['时间 & 问题', '排盘 & 评分', '结构化数据包', '行动建议']
 
-const boundaries = [
-  {
-    key: '01',
-    title: '模型做表达',
-    copy: '负责归纳意图、组织语言、降低术语门槛，把已验证信号转成可执行建议。'
-  },
-  {
-    key: '02',
-    title: '规则做底座',
-    copy: '负责节气、干支、九宫、强弱、喜忌与分数，让关键结论可复现。'
-  },
-  {
-    key: '03',
-    title: '产品做刹车',
-    copy: '对不确定信息、绝对化措辞和高风险主题设边界，不把推演伪装成命令。'
-  }
+const qimenF = [
+  { n: '01', t: '自动起局', b: '输入时间，判断阳遁/阴遁，给出值符值使' },
+  { n: '02', t: '九宫映射', b: '将时间转为宫位、奇门星、八门、八神的空间关系' },
+  { n: '03', t: '方向与时机', b: '输出趋吉方位与行动时间窗口建议' },
+]
+const qimenS = [
+  { c: '', t: '用户输入', b: '问题 + 提问时间' },
+  { c: 'e', t: '干支历法引擎', b: '排出奇门盘，确定九宫格局' },
+  { c: 'e', t: '吉凶评分', b: '判断旺衰宫位，输出结构化数据包' },
+  { c: 'l', t: '大模型解读', b: '宫位关系翻译成行动建议（禁止创造宫位）' },
+]
+
+const baziF = [
+  { n: '01', t: '四柱排盘', b: '年月日时天干地支，五行力量统计' },
+  { n: '02', t: '格局识别', b: '自动判断从强、从弱或普通格，确认喜忌' },
+  { n: '03', t: '岁运评分', b: '结合当前大运流年，从四个维度打出运势分数' },
+]
+const baziS = [
+  { c: '', t: '出生时间', b: '年月日时转为四柱干支' },
+  { c: 'e', t: '五行统计', b: '旺衰 + 喜忌 + 格局识别' },
+  { c: 'e', t: '岁运引擎', b: '大运流年评分，输出结构化数据包' },
+  { c: 'l', t: '大模型转译', b: '格局与评分翻译成建议（不判断强弱）' },
+]
+
+const fortuneCards = [
+  { p: '日运', rows: [{ l: '数据来源', v: '当天流日干支 × 八字命盘' }, { l: '输出内容', v: '当日适合的行动方向' }] },
+  { p: '月运', rows: [{ l: '数据来源', v: '流月干支 × 当前大运' }, { l: '输出内容', v: '月度趋势与注意事项' }] },
+  { p: '年运', rows: [{ l: '数据来源', v: '流年干支 × 命格喜忌' }, { l: '输出内容', v: '年度规划参考与机会窗口' }] },
+]
+
+const promises = [
+  { t: '结论有据可查', b: '每个判断都能追溯到引擎计算的原始数据' },
+  { t: '错误可被识别', b: '用户反馈与历史推演对比，偏差一目了然' },
+  { t: '边界持续收紧', b: '积累样本后规则与话术随反馈持续迭代' },
+]
+const cmpRows = [
+  { l: '排盘来源', bad: '模型自由生成', good: '确定性引擎' },
+  { l: '结论可验证', bad: '❌', good: '✅' },
+  { l: '系统可迭代', bad: '靠调 Prompt', good: '反馈 → 规则 → 迭代' },
 ]
 </script>
 
 <style scoped>
-.engineering-view {
-  min-height: 100vh;
-  color: var(--text-primary);
+/* ── Base ── */
+*,*::before,*::after{box-sizing:border-box}
+.ev{height:100vh;overflow:hidden;color:var(--text-primary);font-family:var(--font-sans,system-ui,sans-serif)}
+.eh{position:fixed;top:0;left:0;right:0;z-index:220;height:60px;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:0 20px;background:rgba(5,5,10,.72);border-bottom:1px solid rgba(255,255,255,.05);backdrop-filter:blur(24px) saturate(1.5);-webkit-backdrop-filter:blur(24px) saturate(1.5)}
+.back{justify-self:start;display:inline-flex;align-items:center;gap:7px;color:rgba(240,237,230,.78);font-size:13px;text-decoration:none;transition:color .2s}
+.back:hover{color:var(--gold-light)}
+.etitle{font-family:var(--font-serif);color:var(--gold-light);font-size:17px;letter-spacing:.18em;filter:drop-shadow(0 0 12px rgba(212,175,55,.35))}
+.eh :deep(.account-menu-wrap){justify-self:end}
+
+/* ── Snap ── */
+.sc{height:calc(100vh - 60px);margin-top:60px;overflow-y:scroll;scroll-snap-type:y mandatory;scrollbar-width:none}
+.sc::-webkit-scrollbar{display:none}
+.ss{height:100%;scroll-snap-align:start;display:flex;align-items:center;justify-content:center}
+.si{width:min(1120px,calc(100vw - 32px));margin:0 auto;position:relative;z-index:1}
+
+/* ── Shared ── */
+.tag{color:var(--teal);font-size:10px;letter-spacing:.32em;margin-bottom:8px}
+.sh h2{margin:4px 0 6px;font-family:var(--font-serif);font-size:clamp(20px,2.5vw,30px);font-weight:500;color:#F5EDD3}
+.sub{margin:0;color:rgba(240,237,230,.6);font-size:14px;line-height:1.75}
+
+/* ── S1 Hero ── */
+.hero-grid{display:grid;grid-template-columns:minmax(0,.95fr) minmax(260px,.7fr);gap:36px;align-items:center}
+.hero-copy h1{margin:4px 0 14px;font-family:var(--font-serif);font-size:clamp(32px,4vw,52px);font-weight:500;line-height:.98;color:#F8F0D8}
+.p-list{display:flex;flex-direction:column;gap:8px;margin-bottom:16px}
+.p-item{display:flex;align-items:flex-start;gap:10px}
+.p-item p{margin:1px 0 0;font-size:12px;color:rgba(240,237,230,.62);line-height:1.5}
+.p-item strong{font-size:13px;color:#F1E6C4}
+.p-icon{flex:0 0 auto;width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(232,204,128,.3);border-radius:7px;color:var(--gold-light);font-size:13px;background:rgba(232,204,128,.06)}
+.btns{display:flex;gap:12px;flex-wrap:wrap}
+.btn-gold,.btn-teal{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:12px;font-size:13px;letter-spacing:.06em;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s}
+.btn-gold{border:none;background:linear-gradient(135deg,#E8CC80,#B38B36);color:#130d00;font-weight:700;box-shadow:0 12px 30px rgba(179,139,54,.18)}
+.btn-teal{border:1px solid rgba(78,205,196,.34);background:rgba(78,205,196,.06);color:rgba(207,255,250,.94)}
+.btn-gold:hover,.btn-teal:hover{transform:translateY(-1px)}
+.instr{position:relative;min-height:300px;display:grid;place-items:center;overflow:hidden;border:1px solid rgba(232,204,128,.16);border-radius:20px;background:radial-gradient(circle at 50% 45%,rgba(232,204,128,.12),transparent 38%),linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.018));box-shadow:0 22px 80px rgba(0,0,0,.3)}
+.instr::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(232,204,128,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(232,204,128,.035) 1px,transparent 1px);background-size:31px 31px;mask-image:radial-gradient(circle,#000 18%,transparent 72%)}
+.igrid{position:relative;z-index:1;width:min(280px,72vw);display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border:1px solid rgba(232,204,128,.14);background:rgba(232,204,128,.1);border-radius:16px;overflow:hidden}
+.igrid span{aspect-ratio:1;display:grid;place-items:center;background:rgba(5,5,10,.72);color:rgba(240,237,230,.38);font-family:var(--font-serif);font-size:26px}
+.iread{position:absolute;left:20px;right:20px;bottom:20px;display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
+.iread span{color:var(--text-muted);font-size:10px;letter-spacing:.2em}
+.iread strong{color:var(--gold-light);font-family:var(--font-serif);font-size:20px;font-weight:500}
+
+/* ── S2 Architecture ── */
+.arch-grid{display:flex;align-items:stretch;gap:0;margin-top:14px}
+.arch-card{flex:1;padding:14px 16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.028);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.arch-card h3{margin:6px 0 9px;font-family:var(--font-serif);font-size:16px;font-weight:500;color:#F1E6C4}
+.arch-card ul{margin:0;padding-left:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+.arch-card ul li{font-size:12px;color:rgba(240,237,230,.68);padding-left:12px;position:relative}
+.arch-card ul li::before{content:'·';position:absolute;left:0;color:var(--teal)}
+.atag{display:inline-block;padding:2px 9px;border-radius:20px;font-size:10px;letter-spacing:.18em;font-weight:600}
+.uc .atag{background:rgba(255,255,255,.07);color:rgba(240,237,230,.7)}
+.ec .atag{background:rgba(232,204,128,.12);color:var(--gold-light)}
+.lc .atag{background:rgba(78,205,196,.1);color:rgba(130,235,228,.9)}
+.aarrow{flex:0 0 auto;width:40px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.2);font-size:20px}
+.fbar{display:flex;align-items:center;margin-top:16px}
+.fnode{padding:6px 14px;border:1px solid rgba(255,255,255,.1);border-radius:20px;font-size:12px;color:rgba(240,237,230,.72);white-space:nowrap}
+.fline{flex:1;height:1px;background:linear-gradient(90deg,rgba(232,204,128,.3),rgba(78,205,196,.3))}
+
+/* ── S3/S4 Feature screens ── */
+.feat-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.8fr);gap:48px;align-items:center}
+.flist{display:flex;flex-direction:column;gap:10px;margin-top:14px}
+.fitem{display:flex;align-items:flex-start;gap:10px}
+.fitem strong{font-size:13px;color:#F1E6C4;display:block;margin-bottom:2px}
+.fitem p{margin:0;font-size:12px;color:rgba(240,237,230,.6);line-height:1.5}
+.fnum{flex:0 0 auto;font-family:var(--font-serif);font-size:16px;color:var(--gold-light);width:26px}
+.steps{display:flex;flex-direction:column}
+.step{display:flex;align-items:flex-start;gap:14px}
+.sbody{display:flex;flex-direction:column;padding-bottom:4px}
+.sbody strong{font-size:14px;color:#F1E6C4}
+.sbody span{font-size:12px;color:rgba(240,237,230,.58);line-height:1.6;margin-top:2px}
+.dot{flex:0 0 auto;width:10px;height:10px;border-radius:50%;margin-top:5px;background:rgba(240,237,230,.3);border:2px solid rgba(255,255,255,.15)}
+.dot.e{background:rgba(232,204,128,.7);border-color:rgba(232,204,128,.4);box-shadow:0 0 8px rgba(212,175,55,.35)}
+.dot.l{background:rgba(78,205,196,.7);border-color:rgba(78,205,196,.4);box-shadow:0 0 8px rgba(78,205,196,.35)}
+.conn{width:1px;height:18px;background:rgba(255,255,255,.1);margin-left:4px}
+
+/* ── S5 Fortune ── */
+.frt-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.frt-card{padding:16px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.028);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.fp{font-family:var(--font-serif);font-size:22px;color:var(--gold-light);margin-bottom:16px}
+.frow{display:flex;flex-direction:column;gap:3px;margin-bottom:12px}
+.flabel{font-size:10px;letter-spacing:.18em;color:var(--text-muted)}
+.frow span:last-child{font-size:13px;color:rgba(240,237,230,.8)}
+.enote{margin-top:18px;font-size:12px;color:var(--text-muted);text-align:center;letter-spacing:.08em}
+
+/* ── S6 Summary ── */
+.prm-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}
+.prm{display:flex;gap:12px;padding:16px;border:1px solid rgba(255,255,255,.06);border-radius:14px;background:rgba(255,255,255,.02)}
+.prm strong{font-size:14px;color:#F1E6C4;display:block;margin-bottom:4px}
+.prm p{margin:0;font-size:12px;color:rgba(240,237,230,.58);line-height:1.6}
+.pck{flex:0 0 auto;width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:rgba(78,205,196,.15);color:var(--teal);font-size:12px;font-weight:700;margin-top:1px}
+.cmp{margin-top:12px;border:1px solid rgba(255,255,255,.07);border-radius:12px;overflow:hidden}
+.cr{display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid rgba(255,255,255,.05)}
+.cr:last-child{border-bottom:none}
+.cr span{padding:8px 14px;font-size:12px;color:rgba(240,237,230,.75)}
+.cr.hd span{font-size:10px;letter-spacing:.18em;color:var(--text-muted);padding:6px 14px;background:rgba(255,255,255,.02)}
+.cr .neg{color:rgba(240,100,100,.7)}
+.cr .pos{color:rgba(78,205,196,.9)}
+.sum-ctas{display:flex;gap:12px;margin-top:16px}
+
+/* ── Mobile ── */
+@media(max-width:900px){
+  .ev{height:auto;overflow:visible}
+  .eh{position:sticky;left:auto;right:auto}
+  .sc{height:auto;margin-top:0;overflow-y:visible;scroll-snap-type:none}
+  .ss{height:auto;display:block;padding:40px 0}
+  .si{width:min(100vw - 28px,1120px)}
+  .hero-grid,.feat-grid{grid-template-columns:1fr}
+  .instr{min-height:300px}
+  .arch-grid{flex-direction:column}
+  .aarrow{display:none}
+  .frt-grid,.prm-row{grid-template-columns:1fr}
+  .sum-ctas{flex-direction:column}
 }
-
-.engineering-header {
-  position: sticky;
-  top: 0;
-  z-index: 220;
-  height: 60px;
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
-  align-items: center;
-  padding: 12px 20px;
-  background: rgba(5,5,10,0.66);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-}
-
-.back-link {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  color: rgba(240,237,230,0.78);
-  font-size: 13px;
-  text-decoration: none;
-  transition: color .2s;
-}
-
-.back-link:hover {
-  color: var(--gold-light);
-}
-
-.engineering-title {
-  font-family: var(--font-serif);
-  color: var(--gold-light);
-  font-size: 17px;
-  letter-spacing: .18em;
-  filter: drop-shadow(0 0 12px rgba(212,175,55,0.35));
-}
-
-.engineering-header :deep(.account-menu-wrap) {
-  justify-self: end;
-}
-
-.engineering-shell {
-  width: min(1120px, calc(100vw - 32px));
-  margin: 0 auto;
-  padding: 38px 0 calc(110px + env(safe-area-inset-bottom));
-}
-
-.engineering-hero {
-  min-height: min(620px, calc(100vh - 120px));
-  display: grid;
-  grid-template-columns: minmax(0, .95fr) minmax(280px, .75fr);
-  gap: 36px;
-  align-items: center;
-}
-
-.hero-label {
-  position: relative;
-  z-index: 2;
-  margin: 0 0 16px;
-  color: var(--teal);
-  font-size: 10px;
-  letter-spacing: .32em;
-}
-
-.hero-copy {
-  position: relative;
-  z-index: 2;
-  padding: 18px 0;
-}
-
-.hero-copy h1 {
-  max-width: 680px;
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: clamp(44px, 8vw, 88px);
-  font-weight: 500;
-  line-height: .98;
-  color: #F8F0D8;
-  letter-spacing: 0;
-}
-
-.hero-desc {
-  max-width: 620px;
-  margin: 24px 0 0;
-  color: rgba(240,237,230,0.73);
-  font-size: 15px;
-  line-height: 1.9;
-}
-
-.hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin-top: 30px;
-}
-
-.hero-primary,
-.hero-secondary {
-  min-height: 46px;
-  padding: 0 18px;
-  border-radius: 12px;
-  font-size: 13px;
-  letter-spacing: .08em;
-  cursor: pointer;
-  transition: transform .2s, border-color .2s, background .2s, box-shadow .2s;
-}
-
-.hero-primary {
-  border: none;
-  background: linear-gradient(135deg, #E8CC80 0%, #B38B36 100%);
-  color: #130d00;
-  font-weight: 700;
-  box-shadow: 0 14px 34px rgba(179,139,54,0.18);
-}
-
-.hero-secondary {
-  border: 1px solid rgba(78,205,196,0.34);
-  background: rgba(78,205,196,0.06);
-  color: rgba(207,255,250,0.94);
-}
-
-.hero-primary:hover,
-.hero-secondary:hover {
-  transform: translateY(-1px);
-}
-
-.hero-instrument {
-  position: relative;
-  z-index: 1;
-  min-height: 430px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border: 1px solid rgba(232,204,128,0.16);
-  border-radius: 24px;
-  background:
-    radial-gradient(circle at 50% 45%, rgba(232,204,128,0.13), transparent 36%),
-    linear-gradient(145deg, rgba(255,255,255,0.06), rgba(255,255,255,0.018));
-  box-shadow: 0 22px 80px rgba(0,0,0,0.34);
-}
-
-.hero-instrument::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(232,204,128,0.035) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(232,204,128,0.035) 1px, transparent 1px);
-  background-size: 31px 31px;
-  mask-image: radial-gradient(circle, #000 18%, transparent 72%);
-}
-
-.instrument-grid {
-  position: relative;
-  z-index: 1;
-  width: min(310px, 76vw);
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1px;
-  border: 1px solid rgba(232,204,128,0.14);
-  background: rgba(232,204,128,0.12);
-  border-radius: 18px;
-  overflow: hidden;
-}
-
-.instrument-grid span {
-  aspect-ratio: 1;
-  display: grid;
-  place-items: center;
-  background: rgba(5,5,10,0.72);
-  color: rgba(240,237,230,0.38);
-  font-family: var(--font-serif);
-  font-size: 28px;
-  transition: color .22s, background .22s, text-shadow .22s;
-}
-
-.instrument-grid span.active {
-  color: var(--gold-light);
-  background: radial-gradient(circle, rgba(212,175,55,0.18), rgba(5,5,10,0.74));
-  text-shadow: 0 0 18px rgba(212,175,55,0.5);
-}
-
-.instrument-readout {
-  position: absolute;
-  left: 24px;
-  right: 24px;
-  bottom: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding-top: 16px;
-  border-top: 1px solid rgba(255,255,255,0.07);
-}
-
-.instrument-readout span {
-  color: var(--text-muted);
-  font-size: 10px;
-  letter-spacing: .22em;
-}
-
-.instrument-readout strong {
-  color: var(--gold-light);
-  font-family: var(--font-serif);
-  font-size: 22px;
-  font-weight: 500;
-}
-
-.workflow-panel {
-  display: grid;
-  grid-template-columns: minmax(220px, .82fr) minmax(260px, 1fr) minmax(240px, .8fr);
-  gap: 14px;
-  margin-top: 28px;
-}
-
-.step-rail,
-.evidence-card,
-.orbit-card,
-.boundary-card {
-  border: 1px solid rgba(255,255,255,0.075);
-  border-radius: 20px;
-  background: rgba(255,255,255,0.028);
-  backdrop-filter: blur(20px) saturate(1.15);
-  -webkit-backdrop-filter: blur(20px) saturate(1.15);
-}
-
-.step-rail {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-}
-
-.step-button {
-  min-height: 78px;
-  padding: 12px 13px;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: transparent;
-  color: rgba(240,237,230,0.72);
-  text-align: left;
-  cursor: pointer;
-  transition: background .22s, border-color .22s, transform .22s;
-}
-
-.step-button:hover {
-  transform: translateX(3px);
-  border-color: rgba(232,204,128,0.22);
-}
-
-.step-button.active {
-  border-color: rgba(232,204,128,0.52);
-  background: linear-gradient(135deg, rgba(212,175,55,0.16), rgba(78,205,196,0.045));
-}
-
-.step-index,
-.step-name,
-.step-desc {
-  display: block;
-}
-
-.step-index {
-  margin-bottom: 7px;
-  color: var(--gold-light);
-  font-family: var(--font-serif);
-  font-size: 16px;
-}
-
-.step-name {
-  color: #F5EDD3;
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.step-desc {
-  color: var(--text-muted);
-  font-size: 11px;
-  line-height: 1.55;
-}
-
-.evidence-card {
-  min-height: 346px;
-  padding: 22px;
-}
-
-.card-kicker {
-  color: var(--text-muted);
-  font-size: 10px;
-  letter-spacing: .22em;
-}
-
-.evidence-card h2 {
-  margin: 10px 0 14px;
-  color: var(--gold-light);
-  font-family: var(--font-serif);
-  font-size: 30px;
-  font-weight: 500;
-}
-
-.evidence-card p {
-  margin: 0;
-  color: rgba(240,237,230,0.76);
-  font-size: 14px;
-  line-height: 1.88;
-}
-
-.check-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 9px;
-  margin-top: 28px;
-}
-
-.check-item {
-  display: flex;
-  gap: 10px;
-  color: rgba(240,237,230,0.74);
-  font-size: 12px;
-  line-height: 1.6;
-}
-
-.check-item span {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  margin-top: 7px;
-  border-radius: 50%;
-  background: var(--teal);
-  box-shadow: 0 0 12px rgba(78,205,196,0.48);
-}
-
-.orbit-card {
-  position: relative;
-  min-height: 346px;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-
-.orbit-ring {
-  position: absolute;
-  width: 206px;
-  height: 206px;
-  border: 1px dashed rgba(232,204,128,0.28);
-  border-radius: 50%;
-}
-
-.orbit-ring::before,
-.orbit-ring::after {
-  content: '';
-  position: absolute;
-  inset: 26px;
-  border: 1px solid rgba(78,205,196,0.15);
-  border-radius: 50%;
-}
-
-.orbit-ring::after {
-  inset: 62px;
-  border-color: rgba(255,255,255,0.08);
-}
-
-.orbit-core {
-  position: relative;
-  z-index: 1;
-  width: 96px;
-  height: 96px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(232,204,128,0.38);
-  border-radius: 50%;
-  background: rgba(5,5,10,0.72);
-  color: var(--gold-light);
-  font-family: var(--font-serif);
-  font-size: 24px;
-  box-shadow: 0 0 32px rgba(212,175,55,0.18);
-}
-
-.orbit-point {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 46px;
-  height: 46px;
-  margin: -23px;
-  display: grid;
-  place-items: center;
-  border: 1px solid rgba(78,205,196,0.24);
-  border-radius: 50%;
-  background: rgba(78,205,196,0.08);
-  color: rgba(222,250,246,0.9);
-  font-size: 12px;
-  transform: rotate(calc(var(--point-index) * 90deg)) translateX(116px) rotate(calc(var(--point-index) * -90deg));
-}
-
-.section-header {
-  margin-top: 56px;
-  margin-bottom: 4px;
-}
-
-.section-label {
-  color: var(--teal);
-  font-size: 10px;
-  letter-spacing: .32em;
-  margin-bottom: 8px;
-}
-
-.section-title {
-  margin: 0 0 10px;
-  font-family: var(--font-serif);
-  font-size: 26px;
-  font-weight: 500;
-  color: #F5EDD3;
-}
-
-.section-sub {
-  margin: 0;
-  color: rgba(240,237,230,0.55);
-  font-size: 13px;
-  line-height: 1.8;
-  max-width: 560px;
-}
-
-.boundary-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-top: 14px;
-}
-
-.boundary-card {
-  padding: 18px;
-}
-
-.boundary-key {
-  color: rgba(78,205,196,0.82);
-  font-family: var(--font-serif);
-  font-size: 18px;
-  margin-bottom: 22px;
-}
-
-.boundary-card h3 {
-  margin: 0 0 9px;
-  color: #F1E6C4;
-  font-family: var(--font-serif);
-  font-size: 20px;
-  font-weight: 500;
-}
-
-.boundary-card p {
-  margin: 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  line-height: 1.72;
-}
-
-/* 手风琴：默认在桌面端隐藏 */
-.step-accordion {
-  display: none;
-}
-
-@media (max-width: 900px) {
-  .engineering-hero,
-  .boundary-grid {
-    grid-template-columns: 1fr;
-  }
-
-  /* 手机端三栏变单栏，evidence-card 和 orbit-card 隐藏 */
-  .workflow-panel {
-    display: block;
-  }
-
-  .evidence-card,
-  .orbit-card {
-    display: none;
-  }
-
-  /* 手风琴启用 */
-  .step-accordion {
-    display: block;
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.36s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  .step-accordion.open {
-    max-height: 480px;
-  }
-
-  .accordion-inner {
-    padding: 14px 13px 20px;
-    border-top: 1px solid rgba(232,204,128,0.14);
-  }
-
-  .accordion-detail {
-    margin: 0 0 16px;
-    color: rgba(240,237,230,0.76);
-    font-size: 13px;
-    line-height: 1.88;
-  }
-
-  .accordion-checks {
-    margin-top: 0;
-  }
-
-  .engineering-hero {
-    min-height: auto;
-  }
-
-  .hero-instrument {
-    min-height: 360px;
-  }
-
-  /* step-rail 撑满宽度 */
-  .step-rail {
-    width: 100%;
-  }
-}
-
-@media (max-width: 520px) {
-  .engineering-header {
-    grid-template-columns: auto 1fr auto;
-    padding: 12px 16px;
-  }
-
-  .back-link {
-    font-size: 0;
-    gap: 0;
-  }
-
-  .engineering-title {
-    font-size: 15px;
-    text-align: center;
-  }
-
-  .engineering-shell {
-    width: min(100vw - 28px, 1120px);
-    padding-top: 28px;
-  }
-
-  .hero-copy h1 {
-    font-size: clamp(40px, 13vw, 58px);
-  }
-
-  .hero-actions {
-    display: grid;
-    grid-template-columns: 1fr;
-  }
-
-  .hero-instrument {
-    min-height: 330px;
-  }
-
-  .orbit-point {
-    transform: rotate(calc(var(--point-index) * 90deg)) translateX(94px) rotate(calc(var(--point-index) * -90deg));
-  }
-
-  .orbit-ring {
-    width: 174px;
-    height: 174px;
-  }
+@media(max-width:520px){
+  .eh{grid-template-columns:auto 1fr auto;padding:0 16px}
+  .back{font-size:0;gap:0}
+  .etitle{font-size:15px;text-align:center}
+  .hero-copy h1{font-size:clamp(34px,12vw,52px)}
 }
 </style>
