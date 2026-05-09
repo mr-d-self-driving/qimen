@@ -268,31 +268,22 @@
                     </div>
                   </div>
                   <div class="score-side">
-                    <div class="score-ganzhi">{{ monthlyGanzhiText }}</div>
+                    <div class="monthly-score-title-row">
+                      <div class="score-ganzhi">{{ monthlyGanzhiText }}</div>
+                      <button
+                        v-if="monthlyScoreHitLayers.length"
+                        type="button"
+                        class="monthly-score-hit-trigger"
+                        @click="showMonthlyScoreHitsGuide = true"
+                        aria-label="查看三层命中"
+                      >
+                        i
+                      </button>
+                    </div>
                     <p class="score-insight">{{ monthlyScoreSummary }}</p>
                     <div v-if="visibleMonthlyData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
                     <div v-else-if="visibleMonthlyData.has_sanxing" class="warning-tag inline-warning">三刑触发</div>
                   </div>
-                </div>
-              </div>
-
-              <div v-if="monthlyScoreHitLayers.length" class="glass-card monthly-hit-card">
-                <div class="module-title-bar">
-                  <h3 class="card-title compact-title"><span>✦</span> 三层命中</h3>
-                </div>
-                <div class="monthly-hit-layers">
-                  <section v-for="layer in monthlyScoreHitLayers" :key="layer.layer" class="monthly-hit-layer">
-                    <div class="monthly-hit-layer-head">
-                      <span class="monthly-hit-layer-title">{{ layer.title }}</span>
-                      <span class="monthly-hit-layer-score">{{ formatSignedScore(layer.score) }}</span>
-                    </div>
-                    <ul class="monthly-hit-list">
-                      <li v-for="hit in layer.hits" :key="`${layer.layer}-${hit.code}-${hit.display}`" :class="['monthly-hit-item', hit.type]">
-                        <span class="monthly-hit-dot"></span>
-                        <span class="monthly-hit-copy">{{ hit.display }}</span>
-                      </li>
-                    </ul>
-                  </section>
                 </div>
               </div>
 
@@ -504,6 +495,29 @@
         </div>
 
         <Teleport to="body">
+          <div v-if="showMonthlyScoreHitsGuide" class="fortune-modal-overlay" @click="showMonthlyScoreHitsGuide = false">
+            <div class="fortune-guide-modal monthly-hit-modal" @click.stop>
+              <div class="fortune-guide-head">
+                <span>三层命中</span>
+                <button type="button" class="fortune-guide-close" @click="showMonthlyScoreHitsGuide = false">×</button>
+              </div>
+              <div class="fortune-guide-body monthly-hit-layers">
+                <section v-for="layer in monthlyScoreHitLayers" :key="layer.layer" class="monthly-hit-layer">
+                  <div class="monthly-hit-layer-head">
+                    <span class="monthly-hit-layer-title">{{ layer.title }}</span>
+                    <span class="monthly-hit-layer-score">{{ formatSignedScore(layer.score) }}</span>
+                  </div>
+                  <ul class="monthly-hit-list">
+                    <li v-for="hit in layer.hits" :key="`${layer.layer}-${hit.code}-${hit.display}`" :class="['monthly-hit-item', hit.type]">
+                      <span class="monthly-hit-dot"></span>
+                      <span class="monthly-hit-copy">{{ hit.display }}</span>
+                    </li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          </div>
+
           <div v-if="showMonthlyFactorsGuide" class="fortune-modal-overlay" @click="showMonthlyFactorsGuide = false">
             <div class="fortune-guide-modal" @click.stop>
               <div class="fortune-guide-head">
@@ -647,6 +661,7 @@ const monthlyInterpretationSerial = ref(0)
 const monthlyRefreshSignal = ref(null)
 const monthlyRefreshState = ref('idle')
 const showMonthlyFactorsGuide = ref(false)
+const showMonthlyScoreHitsGuide = ref(false)
 
 const hasInterpretationFields = (data) => {
   return Boolean(
@@ -1334,6 +1349,7 @@ const selectMonthlyDimension = (dimension) => {
 
 const openMonthlyContextNotes = () => {
   showMonthlyFactorsGuide.value = false
+  showMonthlyScoreHitsGuide.value = false
   router.push({
     name: 'bazi',
     query: {

@@ -48,5 +48,5 @@ export const normalizeMonthlyScoreLayers = (monthlyData = {}) => {
 }
 
 export const getMonthlyScoreSummary = (monthlyData = {}) => (
-  String(monthlyData?.score_hits?.summary?.display || monthlyData?.month_zhi_relations || monthlyData?.month_relations || '无明显刑冲合害').trim()
+  String(monthlyData?.score_hits?.summary?.display || '本月命中已归入详情，点开查看三层判断。').trim()
 )

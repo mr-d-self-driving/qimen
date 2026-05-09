@@ -49,3 +49,10 @@ test('getMonthlyScoreSummary prefers score hit display', () => {
     '本月宜稳中求进'
   )
 })
+
+test('getMonthlyScoreSummary hides legacy technical relation copy', () => {
+  assert.equal(
+    getMonthlyScoreSummary({ month_zhi_relations: '流月地支[巳]与命主年支[寅]六害' }),
+    '本月命中已归入详情，点开查看三层判断。'
+  )
+})

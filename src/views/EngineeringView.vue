@@ -23,10 +23,6 @@
                   <div><strong>{{ p.t }}</strong><p>{{ p.b }}</p></div>
                 </div>
               </div>
-              <div class="btns">
-                <button class="btn-gold" @click="go(archRef)">↓ 查看系统架构</button>
-                <button class="btn-teal" @click="go(qimenRef)">↓ 了解功能模块</button>
-              </div>
             </div>
             <div class="instr" aria-hidden="true">
               <div class="igrid">
@@ -39,7 +35,7 @@
       </section>
 
       <!-- S2 架构分工 -->
-      <section class="ss" ref="archRef">
+      <section class="ss">
         <div class="si">
           <div class="sh"><div class="tag">SYSTEM ARCHITECTURE</div><h2>三层分工，各司其职</h2><p class="sub">语言模型擅长表达，却不擅长计算。把两件事分开，结论才能被验证、被复现。</p></div>
           <div class="arch-grid">
@@ -62,7 +58,7 @@
       </section>
 
       <!-- S3 奇门 -->
-      <section class="ss" ref="qimenRef">
+      <section class="ss">
         <div class="si">
           <div class="feat-grid">
             <div class="fl">
@@ -141,12 +137,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
 import AccountMenu from '../components/AccountMenu.vue'
-
-const archRef = ref(null)
-const qimenRef = ref(null)
-const go = r => r.value?.scrollIntoView({ behavior: 'smooth' })
 
 const palace = ['巽','离','坤','震','中','兑','艮','坎','乾']
 
@@ -234,18 +225,41 @@ const cmpRows = [
 .p-item p{margin:1px 0 0;font-size:12px;color:rgba(240,237,230,.62);line-height:1.5}
 .p-item strong{font-size:13px;color:#F1E6C4}
 .p-icon{flex:0 0 auto;width:28px;height:28px;display:grid;place-items:center;border:1px solid rgba(232,204,128,.3);border-radius:7px;color:var(--gold-light);font-size:13px;background:rgba(232,204,128,.06)}
-.btns{display:flex;gap:12px;flex-wrap:wrap}
 .btn-gold,.btn-teal{display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:12px;font-size:13px;letter-spacing:.06em;cursor:pointer;text-decoration:none;transition:transform .2s,box-shadow .2s}
 .btn-gold{border:none;background:linear-gradient(135deg,#E8CC80,#B38B36);color:#130d00;font-weight:700;box-shadow:0 12px 30px rgba(179,139,54,.18)}
 .btn-teal{border:1px solid rgba(78,205,196,.34);background:rgba(78,205,196,.06);color:rgba(207,255,250,.94)}
 .btn-gold:hover,.btn-teal:hover{transform:translateY(-1px)}
-.instr{position:relative;min-height:300px;display:grid;place-items:center;overflow:hidden;border:1px solid rgba(232,204,128,.16);border-radius:20px;background:radial-gradient(circle at 50% 45%,rgba(232,204,128,.12),transparent 38%),linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.018));box-shadow:0 22px 80px rgba(0,0,0,.3)}
+.instr{position:relative;min-height:300px;display:grid;place-items:center;overflow:hidden;border:1px solid rgba(232,204,128,.16);border-radius:20px;background:radial-gradient(circle at 50% 45%,rgba(232,204,128,.12),transparent 38%),linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.018));box-shadow:0 22px 80px rgba(0,0,0,.3);animation:instrument-breathe 6s ease-in-out infinite}
 .instr::before{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(232,204,128,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(232,204,128,.035) 1px,transparent 1px);background-size:31px 31px;mask-image:radial-gradient(circle,#000 18%,transparent 72%)}
 .igrid{position:relative;z-index:1;width:min(280px,72vw);display:grid;grid-template-columns:repeat(3,1fr);gap:1px;border:1px solid rgba(232,204,128,.14);background:rgba(232,204,128,.1);border-radius:16px;overflow:hidden}
-.igrid span{aspect-ratio:1;display:grid;place-items:center;background:rgba(5,5,10,.72);color:rgba(240,237,230,.38);font-family:var(--font-serif);font-size:26px}
+.igrid span{aspect-ratio:1;display:grid;place-items:center;background:rgba(5,5,10,.72);color:rgba(240,237,230,.38);font-family:var(--font-serif);font-size:26px;animation:palace-pulse 7.2s ease-in-out infinite}
+.igrid span:nth-child(1){animation-delay:0s}
+.igrid span:nth-child(2){animation-delay:.8s}
+.igrid span:nth-child(3){animation-delay:1.6s}
+.igrid span:nth-child(4){animation-delay:2.4s}
+.igrid span:nth-child(5){animation-delay:3.2s}
+.igrid span:nth-child(6){animation-delay:4s}
+.igrid span:nth-child(7){animation-delay:4.8s}
+.igrid span:nth-child(8){animation-delay:5.6s}
+.igrid span:nth-child(9){animation-delay:6.4s}
 .iread{position:absolute;left:20px;right:20px;bottom:20px;display:flex;align-items:center;justify-content:space-between;padding-top:14px;border-top:1px solid rgba(255,255,255,.07)}
 .iread span{color:var(--text-muted);font-size:10px;letter-spacing:.2em}
-.iread strong{color:var(--gold-light);font-family:var(--font-serif);font-size:20px;font-weight:500}
+.iread strong{color:var(--gold-light);font-family:var(--font-serif);font-size:20px;font-weight:500;animation:gate-readout 3.6s ease-in-out infinite}
+@keyframes instrument-breathe{
+  0%,100%{border-color:rgba(232,204,128,.16);box-shadow:0 22px 80px rgba(0,0,0,.3)}
+  50%{border-color:rgba(232,204,128,.32);box-shadow:0 22px 90px rgba(212,175,55,.12)}
+}
+@keyframes palace-pulse{
+  0%,68%,100%{color:rgba(240,237,230,.38);background:rgba(5,5,10,.72);text-shadow:none}
+  12%,28%{color:#F8F0D8;background:linear-gradient(145deg,rgba(232,204,128,.14),rgba(5,5,10,.76));text-shadow:0 0 18px rgba(232,204,128,.45)}
+}
+@keyframes gate-readout{
+  0%,100%{opacity:.7;filter:drop-shadow(0 0 0 rgba(232,204,128,0))}
+  45%{opacity:1;filter:drop-shadow(0 0 12px rgba(232,204,128,.35))}
+}
+@media(prefers-reduced-motion:reduce){
+  .instr,.igrid span,.iread strong{animation:none}
+}
 
 /* ── S2 Architecture ── */
 .arch-grid{display:flex;align-items:stretch;gap:0;margin-top:14px}
