@@ -233,6 +233,145 @@
           </transition>
         </div>
 
+        <div v-else-if="currentTab === 'week'" class="tab-content">
+          <transition name="fade" mode="out-in">
+            <div v-if="isWeekLoading" class="glass-card loading-state">
+              <div class="bagua-ring-wrap">
+                <svg class="bagua-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="60" cy="60" r="56" stroke="rgba(212,175,55,0.15)" stroke-width="1" fill="none"/>
+                  <circle cx="60" cy="60" r="36" stroke="rgba(212,175,55,0.35)" stroke-width="1.5" fill="none" stroke-dasharray="8 6"/>
+                </svg>
+              </div>
+              <div class="loader-text-block">周运推演中...</div>
+            </div>
+
+            <div v-else-if="weeklyData" class="fortune-display weekly-display">
+              <div class="glass-card score-dashboard weekly-score-dashboard">
+                <div class="score-main">
+                  <div class="score-ring" :style="weeklyScoreRingStyle">
+                    <div class="score-inner">
+                      <span class="score-value">{{ weeklyData.weekly_score || 0 }}</span>
+                      <span class="score-unit">分</span>
+                    </div>
+                  </div>
+                  <div class="score-side">
+                    <div class="weekly-title-row">
+                      <div class="score-ganzhi">{{ weeklyData.weekly_tag || '本周运势' }}</div>
+                      <span v-if="weeklyData.metrics?.has_jieqi" class="weekly-chip">节气转折</span>
+                    </div>
+                    <p class="score-insight">{{ weeklySummaryText }}</p>
+                    <div class="weekly-metric-strip">
+                      <span>{{ weeklyData.metrics?.score_level || '-' }}</span>
+                      <span>{{ weeklyData.metrics?.volatility_type || '-' }}</span>
+                      <span>{{ weeklyDominantText }}</span>
+                    </div>
+                    <div v-if="weeklyData.metrics?.has_sanxing" class="warning-tag inline-warning">三刑引动</div>
+                    <div v-else-if="weeklyData.metrics?.has_kongwang" class="warning-tag inline-warning">空亡虚耗</div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="glass-card monthly-chart-card weekly-chart-card">
+                <div class="module-title-bar">
+                  <h3 class="card-title compact-title"><span>✦</span> 七日走势</h3>
+                  <span class="weekly-range-text">{{ weeklyRangeText }}</span>
+                </div>
+                <svg class="monthly-chart weekly-chart" viewBox="0 0 320 140" role="img" aria-label="本周每日分数变化曲线">
+                  <line x1="12" y1="24" x2="308" y2="24" class="monthly-chart-grid" />
+                  <line x1="12" y1="70" x2="308" y2="70" class="monthly-chart-grid" />
+                  <line x1="12" y1="116" x2="308" y2="116" class="monthly-chart-grid" />
+                  <line
+                    v-if="weeklyChartAvgLineY"
+                    x1="12"
+                    :y1="weeklyChartAvgLineY"
+                    x2="308"
+                    :y2="weeklyChartAvgLineY"
+                    class="monthly-chart-average"
+                  />
+                  <polyline
+                    v-if="weeklyChartPolyline"
+                    :points="weeklyChartPolyline"
+                    class="monthly-chart-line"
+                  />
+                  <circle
+                    v-for="point in weeklyChartPoints"
+                    :key="point.date"
+                    :cx="point.x"
+                    :cy="point.y"
+                    r="3.5"
+                    :class="['monthly-chart-dot', point.kind]"
+                  />
+                </svg>
+                <div class="weekly-day-row">
+                  <div
+                    v-for="point in weeklyChartPoints"
+                    :key="`${point.date}-label`"
+                    :class="['weekly-day-cell', point.kind]"
+                  >
+                    <span>{{ formatWeekday(point.date) }}</span>
+                    <strong>{{ point.score }}</strong>
+                  </div>
+                </div>
+              </div>
+
+              <div class="fortune-grid weekly-forecast-grid">
+                <div class="fortune-grid-card">
+                  <div class="grid-card-header">
+                    <span class="grid-card-icon">💼</span>
+                    <span class="grid-card-label">事业运</span>
+                  </div>
+                  <p class="grid-card-text">{{ weeklyData.event_forecast?.career || '暂无' }}</p>
+                </div>
+                <div class="fortune-grid-card">
+                  <div class="grid-card-header">
+                    <span class="grid-card-icon">💰</span>
+                    <span class="grid-card-label">财富运</span>
+                  </div>
+                  <p class="grid-card-text">{{ weeklyData.event_forecast?.wealth || '暂无' }}</p>
+                </div>
+                <div class="fortune-grid-card weekly-forecast-wide">
+                  <div class="grid-card-header">
+                    <span class="grid-card-icon">💕</span>
+                    <span class="grid-card-label">关系运</span>
+                  </div>
+                  <p class="grid-card-text">{{ weeklyData.event_forecast?.relationship || '暂无' }}</p>
+                </div>
+              </div>
+
+              <div class="glass-card info-card weekly-key-card">
+                <div class="module-title-bar">
+                  <h3 class="card-title compact-title"><span>✦</span> 关键节点</h3>
+                </div>
+                <div class="weekly-key-grid">
+                  <div class="weekly-key-item best">
+                    <span class="weekly-key-label">顺势日</span>
+                    <strong>{{ formatMonthDay(weeklyData.key_dates?.best_day?.date) }}</strong>
+                    <span>{{ weeklyData.key_dates?.best_day?.score || '-' }}分 · {{ weeklyData.key_dates?.best_day?.dominant_shishen || '-' }}</span>
+                  </div>
+                  <div class="weekly-key-item worst">
+                    <span class="weekly-key-label">谨慎日</span>
+                    <strong>{{ formatMonthDay(weeklyData.key_dates?.worst_day?.date) }}</strong>
+                    <span>{{ weeklyData.key_dates?.worst_day?.score || '-' }}分 · {{ formatTriggers(weeklyData.key_dates?.worst_day?.triggers) }}</span>
+                  </div>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">净值主导</span>
+                  <span class="monthly-detail-value">{{ weeklyDominantText }} · 喜用 {{ weeklyData.dominant_energy?.fav_weighted_score || 0 }} / 忌仇 {{ weeklyData.dominant_energy?.unfav_weighted_score || 0 }}</span>
+                </div>
+                <div class="monthly-detail-row">
+                  <span class="monthly-detail-label">波动极差</span>
+                  <span class="monthly-detail-value">{{ weeklyData.metrics?.extreme_diff ?? '-' }}分{{ weeklyData.metrics?.has_trough ? ' · 已触发连续低谷' : ' · 无连续低谷' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div v-else class="glass-card placeholder-content">
+              <div class="placeholder-icon">⏳</div>
+              <p>{{ weekError || '周运数据暂未生成' }}</p>
+            </div>
+          </transition>
+        </div>
+
         <div v-else-if="currentTab === 'month'" class="tab-content">
           <div ref="monthScrollerRef" class="date-scroll-container month-scroll-container">
             <div
@@ -629,17 +768,21 @@ const selectedDate = ref('')
 const selectedMonth = ref('')
 const selectedYear = ref('')
 const fortuneData = ref(null)
+const weeklyData = ref(null)
 const monthlyData = ref(null)
 const annualDataList = ref([])
 const monthlyDataKey = ref('')
 const isLoading = ref(false)
+const isWeekLoading = ref(false)
 const isMonthLoading = ref(false)
 const isAnnualLoading = ref(false)
 const isInterpretationLoading = ref(false)
 const interpretationError = ref('')
+const weekError = ref('')
 const monthError = ref('')
 const annualError = ref('')
 const requestSerial = ref(0)
+const weekRequestSerial = ref(0)
 const monthRequestSerial = ref(0)
 const annualRequestSerial = ref(0)
 const baziProfiles = ref([])
@@ -791,6 +934,30 @@ const monthlyScoreRingStyle = computed(() => {
   return { background: `conic-gradient(var(--gold) ${pct}%, rgba(255,255,255,0.05) 0deg)` }
 })
 
+const weeklyScoreRingStyle = computed(() => {
+  const score = weeklyData.value?.weekly_score || 0
+  const pct = Math.min(100, Math.max(0, score))
+  return { background: `conic-gradient(var(--gold) ${pct}%, rgba(255,255,255,0.05) 0deg)` }
+})
+
+const weeklyRangeText = computed(() => {
+  if (!weeklyData.value) return '-'
+  return `${formatMonthDay(weeklyData.value.week_start)} - ${formatMonthDay(weeklyData.value.week_end)}`
+})
+
+const weeklyDominantText = computed(() => {
+  const energy = weeklyData.value?.dominant_energy
+  if (!energy) return '-'
+  if (energy.alignment === '均衡') return '能量均衡'
+  return `${energy.alignment}${energy.class || ''}`
+})
+
+const weeklySummaryText = computed(() => {
+  if (!weeklyData.value) return ''
+  const metrics = weeklyData.value.metrics || {}
+  return `${weeklyRangeText.value} · ${metrics.score_level || '-'} · ${metrics.volatility_type || '-'}`
+})
+
 const monthlyGanzhiText = computed(() => {
   if (!visibleMonthlyData.value) return '-'
   const gz = visibleMonthlyData.value.flow_month_label || (visibleMonthlyData.value.month_gz ? `${visibleMonthlyData.value.month_gz}月` : '')
@@ -850,6 +1017,29 @@ const monthlyChartMarkers = computed(() => {
       ...point,
       kind: point.date === bestDate ? 'best' : point.date === worstDate ? 'worst' : 'normal',
     }))
+})
+
+const weeklyChartPoints = computed(() => {
+  const points = weeklyData.value?.daily_score_points
+  if (!Array.isArray(points) || points.length === 0) return []
+  const bestDate = weeklyData.value?.key_dates?.best_day?.date
+  const worstDate = weeklyData.value?.key_dates?.worst_day?.date
+  return points.map((item, index) => {
+    const point = mapMonthlyChartPoint(item, index, points.length)
+    return {
+      ...point,
+      kind: point.date === bestDate ? 'best' : point.date === worstDate ? 'worst' : 'normal',
+    }
+  })
+})
+
+const weeklyChartPolyline = computed(() => weeklyChartPoints.value.map(point => `${point.x},${point.y}`).join(' '))
+
+const weeklyChartAvgLineY = computed(() => {
+  const points = weeklyData.value?.daily_score_points
+  if (!Array.isArray(points) || !points.length) return 0
+  const avg = points.reduce((sum, item) => sum + (Number(item.score) || 0), 0) / points.length
+  return Math.round((116 - ((Math.min(98, Math.max(45, avg)) - 45) / 53) * 92) * 10) / 10
 })
 
 const luckyHours = computed(() => {
@@ -984,6 +1174,25 @@ const formatMonthDay = (dateStr) => {
   return `${Number(match[1])}月${Number(match[2])}日`
 }
 
+const formatWeekday = (dateStr) => {
+  const match = String(dateStr || '').match(/^\d{4}-\d{2}-\d{2}$/)
+  if (!match) return '-'
+  const target = new Date(`${dateStr}T12:00:00`)
+  return `周${'日一二三四五六'[target.getDay()]}`
+}
+
+const formatTriggers = (triggers = []) => {
+  const names = {
+    sanxing: '三刑',
+    kongwang: '空亡',
+    chong_rizhi: '冲日支',
+    high_shishen: '高分十神',
+  }
+  return Array.isArray(triggers) && triggers.length
+    ? triggers.map(item => names[item] || item).join('、')
+    : '纯分数低点'
+}
+
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 const syncMonthlyRefreshSignal = (profileId = currentProfileCacheKey.value, monthKey = selectedMonthKey.value) => {
   monthlyRefreshSignal.value = peekMonthlyInterpretationRefresh(getFortuneStorage(), profileId, monthKey)
@@ -1040,6 +1249,8 @@ const selectProfile = (profileId) => {
   isProfileMenuOpen.value = false
   if (currentTab.value === 'month') {
     fetchMonthlyFortuneData()
+  } else if (currentTab.value === 'week') {
+    fetchWeeklyFortuneData()
   } else {
     fetchFortuneData(selectedDate.value)
   }
@@ -1079,6 +1290,22 @@ const fetchMonthlyFortuneFromApi = async (monthKey, accessToken, profileId) => {
   if (!response.ok) {
     const err = await response.json()
     throw new Error(err.error || '月运推演失败')
+  }
+  return response.json()
+}
+
+const fetchWeeklyFortuneFromApi = async (dateStr, accessToken, profileId) => {
+  const response = await fetch('/api/fortune-weekly', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`
+    },
+    body: JSON.stringify({ target_date: dateStr, profile_id: profileId || undefined })
+  })
+  if (!response.ok) {
+    const err = await response.json()
+    throw new Error(err.error || '周运推演失败')
   }
   return response.json()
 }
@@ -1317,6 +1544,36 @@ const fetchMonthlyFortuneData = async () => {
   }
 }
 
+const fetchWeeklyFortuneData = async () => {
+  const currentRequest = weekRequestSerial.value + 1
+  weekRequestSerial.value = currentRequest
+  weekError.value = ''
+  weeklyData.value = null
+
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session && isGuest.value) {
+      weeklyData.value = null
+      weekError.value = '访客模式暂不展示周运'
+      return
+    }
+    if (!session) { alert('请先前往首页登录'); return }
+
+    isWeekLoading.value = true
+    const profileId = currentProfileCacheKey.value
+    const data = await fetchWeeklyFortuneFromApi(selectedDate.value, session.access_token, profileId)
+    if (currentRequest !== weekRequestSerial.value) return
+    weeklyData.value = data
+  } catch (error) {
+    if (currentRequest !== weekRequestSerial.value) return
+    console.error(error)
+    weeklyData.value = null
+    weekError.value = error.message
+  } finally {
+    if (currentRequest === weekRequestSerial.value) isWeekLoading.value = false
+  }
+}
+
 const fetchAnnualFortuneData = async () => {
   if (!activeProfile.value) return
   const currentRequest = annualRequestSerial.value + 1
@@ -1467,6 +1724,8 @@ watch(
       generateDays(normalizedDate)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()
+      } else if (currentTab.value === 'week') {
+        fetchWeeklyFortuneData()
       } else if (currentTab.value === 'year') {
         fetchAnnualFortuneData()
       } else {
@@ -1480,6 +1739,8 @@ watch(
       syncMonthlyRefreshSignal(profileId, selectedMonthKey.value)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()
+      } else if (currentTab.value === 'week') {
+        fetchWeeklyFortuneData()
       } else if (currentTab.value === 'year') {
         fetchAnnualFortuneData()
       } else {
@@ -1490,6 +1751,10 @@ watch(
 )
 
 watch(currentTab, (nextTab) => {
+  if (nextTab === 'week' && !isWeekLoading.value) {
+    fetchWeeklyFortuneData()
+  }
+
   if (nextTab === 'month' && !visibleMonthlyData.value && !isMonthLoading.value) {
     scrollSelectedMonthIntoView()
     syncMonthlyRefreshSignal()
