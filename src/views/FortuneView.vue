@@ -234,6 +234,19 @@
         </div>
 
         <div v-else-if="currentTab === 'week'" class="tab-content">
+          <div ref="weekScrollerRef" class="date-scroll-container week-scroll-container">
+            <div
+              v-for="weekItem in availableWeeks"
+              :key="weekItem.startDate"
+              :class="['date-item', 'week-item', { active: selectedWeekStart === weekItem.startDate }]"
+              :title="weekItem.rangeText"
+              @click="selectWeek(weekItem.startDate)"
+            >
+              <span class="day-of-week">{{ weekItem.subLabel }}</span>
+              <span class="date-num week-range-num">{{ weekItem.displayText }}</span>
+            </div>
+          </div>
+
           <transition name="fade" mode="out-in">
             <div v-if="isWeekLoading" class="glass-card loading-state">
               <div class="bagua-ring-wrap">
@@ -762,9 +775,11 @@ const tabs = [
 ]
 const currentTab = ref('day')
 const availableDays = ref([])
+const availableWeeks = ref([])
 const availableMonths = ref([])
 const availableYears = ref([])
 const selectedDate = ref('')
+const selectedWeekStart = ref('')
 const selectedMonth = ref('')
 const selectedYear = ref('')
 const fortuneData = ref(null)
@@ -788,6 +803,7 @@ const annualRequestSerial = ref(0)
 const baziProfiles = ref([])
 const selectedProfileId = ref('')
 const isProfileMenuOpen = ref(false)
+const weekScrollerRef = ref(null)
 const monthScrollerRef = ref(null)
 const yearScrollerRef = ref(null)
 const isGuest = computed(() => globalState.isGuest)
@@ -1062,6 +1078,42 @@ const normalizeDateString = (value) => {
   return match ? match[0] : ''
 }
 
+const toDateKey = (date) => {
+  const target = date instanceof Date ? date : new Date(date)
+  return [
+    target.getFullYear(),
+    String(target.getMonth() + 1).padStart(2, '0'),
+    String(target.getDate()).padStart(2, '0'),
+  ].join('-')
+}
+
+const addLocalDays = (dateStr, offset) => {
+  const target = new Date(`${dateStr}T12:00:00`)
+  target.setDate(target.getDate() + offset)
+  return toDateKey(target)
+}
+
+const getWeekStart = (dateStr = toDateKey(new Date())) => {
+  const target = new Date(`${dateStr}T12:00:00`)
+  const day = target.getDay()
+  const mondayOffset = day === 0 ? -6 : 1 - day
+  target.setDate(target.getDate() + mondayOffset)
+  return toDateKey(target)
+}
+
+const buildWeekItem = (startDate, currentWeekStart) => {
+  const endDate = addLocalDays(startDate, 6)
+  const isCurrent = startDate === currentWeekStart
+  return {
+    startDate,
+    endDate,
+    isCurrent,
+    subLabel: isCurrent ? `${formatMonthDay(startDate)} - ${formatMonthDay(endDate)}` : '周一-周日',
+    displayText: isCurrent ? '本周' : `${startDate}-${endDate}`,
+    rangeText: `${startDate}-${endDate}`,
+  }
+}
+
 const buildDayItem = (dateStr, label = '所选') => {
   const target = new Date(`${dateStr}T12:00:00`)
   const weekMap = ['日', '一', '二', '三', '四', '五', '六']
@@ -1095,6 +1147,23 @@ const generateDays = (preferredDate = '') => {
   }
   availableDays.value = days
   selectedDate.value = normalizedPreferred || days[0].fullDate
+}
+
+const generateWeeks = (preferredDate = '') => {
+  const normalizedPreferred = normalizeDateString(preferredDate)
+  const todayKey = toDateKey(new Date())
+  const currentWeekStart = getWeekStart(todayKey)
+  const baseWeekStart = getWeekStart(normalizedPreferred || todayKey)
+  const weeks = []
+  for (let i = -6; i <= 6; i++) {
+    weeks.push(buildWeekItem(addLocalDays(currentWeekStart, i * 7), currentWeekStart))
+  }
+  if (!weeks.some(week => week.startDate === baseWeekStart)) {
+    weeks.unshift(buildWeekItem(baseWeekStart, currentWeekStart))
+  }
+  availableWeeks.value = weeks.sort((a, b) => a.startDate.localeCompare(b.startDate))
+  selectedWeekStart.value = baseWeekStart
+  scrollSelectedWeekIntoView()
 }
 
 const generateMonths = () => {
@@ -1561,7 +1630,7 @@ const fetchWeeklyFortuneData = async () => {
 
     isWeekLoading.value = true
     const profileId = currentProfileCacheKey.value
-    const data = await fetchWeeklyFortuneFromApi(selectedDate.value, session.access_token, profileId)
+    const data = await fetchWeeklyFortuneFromApi(selectedWeekStart.value || selectedDate.value, session.access_token, profileId)
     if (currentRequest !== weekRequestSerial.value) return
     weeklyData.value = data
   } catch (error) {
@@ -1695,6 +1764,20 @@ const selectMonth = (monthKey) => {
   fetchMonthlyFortuneData()
 }
 
+const selectWeek = (weekStart) => {
+  if (!weekStart || selectedWeekStart.value === weekStart) return
+  selectedWeekStart.value = weekStart
+  scrollSelectedWeekIntoView()
+  fetchWeeklyFortuneData()
+}
+
+const scrollSelectedWeekIntoView = () => {
+  nextTick(() => {
+    const activeItem = weekScrollerRef.value?.querySelector('.week-item.active')
+    activeItem?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' })
+  })
+}
+
 const scrollSelectedMonthIntoView = () => {
   nextTick(() => {
     const activeItem = monthScrollerRef.value?.querySelector('.month-item.active')
@@ -1707,6 +1790,7 @@ onMounted(async () => {
   await fetchProfiles()
   syncMonthlyRefreshSignal()
   generateDays(String(route.query.date || ''))
+  generateWeeks(String(route.query.date || ''))
   generateMonths()
   generateYears()
   fetchFortuneData(selectedDate.value)
@@ -1722,6 +1806,7 @@ watch(
     const normalizedDate = normalizeDateString(nextDate)
     if (normalizedDate && normalizedDate !== selectedDate.value) {
       generateDays(normalizedDate)
+      generateWeeks(normalizedDate)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()
       } else if (currentTab.value === 'week') {
@@ -1752,6 +1837,7 @@ watch(
 
 watch(currentTab, (nextTab) => {
   if (nextTab === 'week' && !isWeekLoading.value) {
+    scrollSelectedWeekIntoView()
     fetchWeeklyFortuneData()
   }
 
