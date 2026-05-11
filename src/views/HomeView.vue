@@ -57,36 +57,69 @@
       <div class="container">
 
         <div v-if="!canUseApp" class="glass-card auth-card">
-          <div class="field-label">{{ isLoginMode ? '身份认证 (登录)' : '创建账号 (注册)' }}</div>
-          <input type="email" v-model="authForm.email" placeholder="请输入邮箱地址"/>
-          <input type="password" v-model="authForm.password" placeholder="请输入密码 (至少6位)"/>
-          <button class="auth-submit" :disabled="authLoading" @click="handleAuth">
-            <span>{{ authLoading ? '验证中...' : (isLoginMode ? '登 录' : '注 册') }}</span>
-          </button>
-          <div class="auth-divider"><span>或</span></div>
-          <button class="google-submit" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
-            <span class="google-mark" aria-hidden="true">
-              <svg viewBox="0 0 24 24" focusable="false">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
-                <path fill="#EA4335" d="M12 5.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.37 12 5.37z"/>
-              </svg>
-            </span>
-            <span>{{ googleAuthLoading ? '正在跳转...' : '使用 Google 登录' }}</span>
-          </button>
-          <button class="guest-submit" @click="handleGuestEntry">访客体验</button>
-          <div class="guest-note">访客可提问 1 次、添加 1 个本地八字档案、查看今日日运分数</div>
-          <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
-            {{ resetEmailLoading ? '正在发送重设邮件...' : '忘记密码？发送重设邮件' }}
-          </button>
-          <router-link class="auth-engineering-link" to="/engineering">
-            了解术数工程化
-          </router-link>
-          <div v-if="resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
-          <div class="auth-switch" @click="isLoginMode = !isLoginMode">
-            {{ isLoginMode ? '没有账号？ ' : '已有账号？ ' }}<span>{{ isLoginMode ? '点击注册' : '点击登录' }}</span>
+          <div class="auth-card-glow" aria-hidden="true"></div>
+          <div class="auth-head">
+            <div class="auth-kicker">{{ isLoginMode ? 'RETURNING SEEKER' : 'NEW SEEKER' }}</div>
+            <h1>{{ isLoginMode ? '进入推演台' : '创建推演身份' }}</h1>
+            <p>{{ isLoginMode ? '同步历史记录、八字档案与运势缓存。' : '保存你的提问、档案与后续应验反馈。' }}</p>
           </div>
+
+          <div class="auth-oauth-row">
+            <button class="google-submit" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
+              <span class="google-mark" aria-hidden="true">
+                <svg viewBox="0 0 24 24" focusable="false">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                  <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
+                  <path fill="#EA4335" d="M12 5.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.37 12 5.37z"/>
+                </svg>
+              </span>
+              <span>{{ googleAuthLoading ? '正在跳转...' : 'Google 继续' }}</span>
+            </button>
+            <button class="guest-submit" @click="handleGuestEntry">访客体验</button>
+          </div>
+
+          <div class="auth-divider"><span>或使用邮箱</span></div>
+
+          <div class="auth-fields">
+            <label class="auth-field">
+              <span>邮箱</span>
+              <input type="email" v-model="authForm.email" placeholder="name@example.com" autocomplete="email"/>
+            </label>
+            <label class="auth-field">
+              <span>密码</span>
+              <input
+                type="password"
+                v-model="authForm.password"
+                placeholder="至少 6 位"
+                :autocomplete="isLoginMode ? 'current-password' : 'new-password'"
+              />
+            </label>
+          </div>
+
+          <button class="auth-submit" :disabled="authLoading" @click="handleAuth">
+            <span>{{ authLoading ? '验证中...' : (isLoginMode ? '登录' : '注册') }}</span>
+          </button>
+
+          <div class="auth-inline-actions">
+            <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
+              {{ resetEmailLoading ? '正在发送...' : '忘记密码' }}
+            </button>
+            <router-link class="auth-engineering-link" to="/engineering">术数工程化</router-link>
+          </div>
+
+          <div v-if="resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
+
+          <div class="auth-terms">
+            继续即表示同意
+            <router-link to="/terms">《用户协议》</router-link>
+            与
+            <router-link to="/privacy">《隐私政策》</router-link>。
+          </div>
+
+          <button class="auth-switch" type="button" @click="isLoginMode = !isLoginMode">
+            {{ isLoginMode ? '没有账号？创建一个' : '已有账号？返回登录' }}
+          </button>
         </div>
 
         <div v-else class="app-section">
@@ -990,45 +1023,140 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 1px rgba(21
 .cta-text { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 500; color: #1a1000; letter-spacing: .15em; }
 .cta-hint { font-size: 11px; color: rgba(255,255,255,0.2); }
 
-.auth-card { display: flex; flex-direction: column; gap: 14px; padding: 22px; margin-bottom: 16px; animation: riseIn 1s cubic-bezier(.22,1,.36,1) both; }
-.field-label { font-size: 10px; color: var(--text-muted); letter-spacing: 2px; }
-input[type="email"], input[type="password"] { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: var(--radius-item); padding: 13px 16px; color: var(--text-primary); font-size: 15px; outline: none; }
-.auth-submit { width: 100%; padding: 15px; border: none; border-radius: var(--radius-item); background: linear-gradient(135deg, #E8CC80 0%, #B38B36 45%, #C9A052 100%); color: #0a0800; font-size: 15px; font-family: var(--font-serif); font-weight: 600; cursor: pointer; }
-.auth-divider { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.22); font-size: 11px; }
-.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
-.google-submit { width: 100%; min-height: 48px; padding: 12px 15px; border: 1px solid rgba(212,175,55,0.26); border-radius: var(--radius-item); background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.028)); color: rgba(240,237,230,0.92); font-size: 14px; font-family: var(--font-body); font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 11px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 10px 24px rgba(0,0,0,0.18); transition: transform .2s, border-color .2s, background .2s, box-shadow .2s, opacity .2s; }
-.google-submit:hover { border-color: rgba(232,204,128,0.46); background: linear-gradient(180deg, rgba(255,255,255,0.105), rgba(212,175,55,0.055)); box-shadow: inset 0 1px 0 rgba(255,255,255,0.09), 0 12px 28px rgba(0,0,0,0.22), 0 0 22px rgba(212,175,55,0.07); }
-.google-submit:active { transform: scale(0.985); }
-.google-submit:disabled { opacity: 0.58; cursor: not-allowed; box-shadow: none; }
-.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 7px; background: rgba(255,255,255,0.96); box-shadow: 0 1px 0 rgba(255,255,255,0.35), 0 6px 14px rgba(0,0,0,0.2); }
-.google-mark svg { width: 16px; height: 16px; display: block; }
-.guest-submit { width: 100%; padding: 13px; border: 1px solid var(--gold-border); border-radius: var(--radius-item); background: rgba(212,175,55,0.08); color: var(--gold-light); font-size: 14px; font-family: var(--font-serif); cursor: pointer; }
-.guest-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; text-align: center; }
-.forgot-password-link { border: none; background: transparent; color: rgba(232,204,128,0.86); font-size: 12px; cursor: pointer; text-align: center; }
-.forgot-password-link:disabled { opacity: 0.6; cursor: not-allowed; }
-.auth-engineering-link {
+.auth-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 28px;
+  margin-bottom: 16px;
+  animation: riseIn 1s cubic-bezier(.22,1,.36,1) both;
+}
+.auth-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(232,204,128,0.08);
+  pointer-events: none;
+}
+.auth-card-glow {
+  position: absolute;
+  top: -140px;
+  right: -120px;
+  width: 260px;
+  height: 260px;
+  background: radial-gradient(circle, rgba(232,204,128,0.14), transparent 66%);
+  pointer-events: none;
+}
+.auth-head { position: relative; display: flex; flex-direction: column; gap: 8px; padding-bottom: 4px; }
+.auth-kicker { font-size: 10px; color: rgba(78,205,196,0.78); letter-spacing: .2em; font-weight: 700; }
+.auth-head h1 { margin: 0; font-family: var(--font-serif); font-size: 26px; font-weight: 500; letter-spacing: .08em; color: var(--gold-light); }
+.auth-head p { margin: 0; color: rgba(240,237,230,0.56); font-size: 13px; line-height: 1.7; }
+.auth-oauth-row { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(118px,.75fr); gap: 10px; }
+.google-submit,
+.guest-submit,
+.auth-submit {
+  min-height: 48px;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: transform .2s, border-color .2s, background .2s, box-shadow .2s, opacity .2s;
+}
+.google-submit {
+  width: 100%;
+  padding: 12px 15px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.055);
+  color: rgba(240,237,230,0.92);
+  font-size: 14px;
+  font-family: var(--font-body);
+  font-weight: 650;
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 10px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 10px 24px rgba(0,0,0,0.16);
+}
+.google-submit:hover { border-color: rgba(232,204,128,0.36); background: rgba(255,255,255,0.082); }
+.google-submit:active, .guest-submit:active, .auth-submit:active, .auth-switch:active { transform: scale(0.985); }
+.google-submit:disabled, .auth-submit:disabled { opacity: 0.58; cursor: not-allowed; box-shadow: none; }
+.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 8px; background: rgba(255,255,255,0.96); box-shadow: 0 1px 0 rgba(255,255,255,0.35), 0 6px 14px rgba(0,0,0,0.2); }
+.google-mark svg { width: 16px; height: 16px; display: block; }
+.guest-submit {
   width: 100%;
-  min-height: 42px;
-  border-radius: var(--radius-item);
+  padding: 12px 14px;
   border: 1px solid rgba(78,205,196,0.32);
   background: rgba(78,205,196,0.07);
   color: rgba(207,255,250,0.94);
   font-size: 13px;
-  letter-spacing: .08em;
+  font-family: var(--font-body);
+  font-weight: 650;
+}
+.guest-submit:hover { border-color: rgba(78,205,196,0.52); background: rgba(78,205,196,0.11); }
+.auth-divider { display: flex; align-items: center; gap: 12px; color: rgba(255,255,255,0.26); font-size: 11px; }
+.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.08); }
+.auth-fields { display: flex; flex-direction: column; gap: 12px; }
+.auth-field { display: flex; flex-direction: column; gap: 7px; }
+.auth-field span { color: rgba(240,237,230,0.5); font-size: 11px; letter-spacing: .12em; }
+input[type="email"], input[type="password"] {
+  width: 100%;
+  min-height: 48px;
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  padding: 13px 15px;
+  color: var(--text-primary);
+  font-size: 15px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+input[type="email"]:focus, input[type="password"]:focus {
+  background: rgba(0,0,0,0.3);
+  border-color: rgba(232,204,128,0.45);
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.08);
+}
+input::placeholder { color: rgba(255,255,255,0.25); }
+.auth-submit {
+  width: 100%;
+  padding: 14px 16px;
+  border: none;
+  background: linear-gradient(135deg, #F0D98F 0%, #C69A42 46%, #E3C36B 100%);
+  color: #0a0800;
+  font-size: 15px;
+  font-family: var(--font-serif);
+  font-weight: 700;
+  letter-spacing: .16em;
+  box-shadow: 0 14px 28px rgba(179,139,54,0.2), inset 0 1px 0 rgba(255,255,255,0.38);
+}
+.auth-inline-actions { display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 20px; }
+.forgot-password-link,
+.auth-engineering-link {
+  border: none;
+  background: transparent;
+  color: rgba(232,204,128,0.72);
+  font-size: 12px;
+  line-height: 1.4;
+  cursor: pointer;
+  text-align: center;
   text-decoration: none;
-  transition: border-color .2s, background .2s, transform .2s;
 }
-.auth-engineering-link:hover {
-  border-color: rgba(78,205,196,0.56);
-  background: rgba(78,205,196,0.12);
-  transform: translateY(-1px);
+.forgot-password-link:disabled { opacity: 0.6; cursor: not-allowed; }
+.forgot-password-link:hover, .auth-engineering-link:hover { color: var(--gold-light); }
+.auth-notice { padding: 10px 12px; border-radius: 12px; background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; text-align: center; }
+.auth-terms { color: rgba(240,237,230,0.38); font-size: 11px; line-height: 1.7; text-align: center; }
+.auth-terms a { color: rgba(232,204,128,0.78); text-decoration: none; }
+.auth-terms a:hover { color: var(--gold-light); text-decoration: underline; text-underline-offset: 3px; }
+.auth-switch {
+  width: 100%;
+  min-height: 40px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.025);
+  color: rgba(240,237,230,0.72);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, color .2s, transform .2s;
 }
-.auth-notice { padding: 10px 12px; border-radius: 10px; background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; text-align: center; }
-.auth-switch { text-align: center; font-size: 12px; color: var(--text-muted); cursor: pointer; }
-.auth-switch span { color: var(--gold); text-decoration: underline; }
+.auth-switch:hover { border-color: rgba(232,204,128,0.28); background: rgba(212,175,55,0.055); color: var(--gold-light); }
 
 .bazi-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: var(--radius-item); border: 1px solid var(--glass-border); cursor: pointer; background: rgba(0,0,0,0.15); }
 .bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
@@ -1108,6 +1236,10 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
   .feedback-overlay { align-items: flex-end; justify-content: center; }
   .feedback-drawer { width: 100%; height: auto; max-height: 88vh; border-left: none; border-top: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; transform: translateY(24px); }
   .feedback-overlay.show .feedback-drawer { transform: translateY(0); }
+  .auth-card { padding: 22px; gap: 16px; }
+  .auth-head h1 { font-size: 23px; }
+  .auth-oauth-row { grid-template-columns: 1fr; }
+  .auth-inline-actions { justify-content: space-between; gap: 12px; }
 }
 
 .bazi-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .3s; }

@@ -4,6 +4,7 @@ const C = require('../lib/QimenConstants');
 const U = require('../lib/QimenUtils');
 const Calc = require('../lib/QimenCalculations');
 const { setCorsHeaders } = require('./cors');
+const { buildScoreAuditPromptSection } = require('../lib/qimenPromptSections');
 
 // ==========================================
 // ⚡️ 云端内存缓存 (基于 时辰 + 问题)
@@ -304,6 +305,7 @@ module.exports = async function handler(req, res) {
         // 🚀 核心改动点：在这里调用 Router，获取动态规则
         // ==========================================
         const { domainRules: dynamicDomainRules, category: detectedCategory } = await detectIntentAndGetRules(userQuestion);
+        const scoreAuditPromptSection = buildScoreAuditPromptSection();
 
         const finalPrompt = `你是一位精通“时家奇门拆补转盘法”的奇门遁甲预测大师。
 起局时间：${timestamp_solar}(${timestamp_lunar})。
@@ -332,6 +334,8 @@ ${baziInfo}
 4. **给建议（心理关怀的边界）**：
    - 在 advice 中给予有温度的行动建议。真实的关怀 = 提前预警风险 + 给出应对方案（包含如何利用破局时辰），而非回避风险。
 
+${scoreAuditPromptSection}
+
 **【Output Format (JSON Schema)】**
 请严格按照以下 JSON 结构返回数据：
 {
@@ -345,6 +349,18 @@ ${baziInfo}
       "score_logic": "简述吉凶权重如何得出此分数"
     },
     "keyword": "关键信号 (如: 财气通门户，马星催动)"
+  },
+  "score_audit": {
+    "base_score": 50,
+    "adjustments": [
+      {
+        "signal": "盘面信号 (必须对应具体宫位/门星神干/空亡马星等)",
+        "effect": "+8",
+        "reason": "详尽说明盘面依据、现实映射、推导边界"
+      }
+    ],
+    "final_score": 85,
+    "confidence": "low|medium|high"
   },
   "analysis": {
     "tensor": "时空能量 (如: 阳遁三局，金水相生)",
