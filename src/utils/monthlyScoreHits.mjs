@@ -12,8 +12,10 @@ const normalizeHit = (hit = {}) => ({
   delta_raw: hit.delta_raw ?? null,
 })
 
-export const normalizeMonthlyScoreLayers = (monthlyData = {}) => {
-  const layers = monthlyData?.score_hits?.layers
+export const normalizeScoreHitLayers = (data = {}, options = {}) => {
+  const defaultLayerLabels = options.defaultLayerLabels || DEFAULT_LAYER_LABELS
+  const legacyCopy = String(options.legacyCopy || '').trim()
+  const layers = data?.score_hits?.layers
   if (Array.isArray(layers) && layers.length) {
     return layers
       .map(layer => {
@@ -23,7 +25,7 @@ export const normalizeMonthlyScoreLayers = (monthlyData = {}) => {
           : []
         return {
           layer: layerKey,
-          title: String(layer?.label || DEFAULT_LAYER_LABELS[layerKey] || '命中层'),
+          title: String(layer?.label || defaultLayerLabels[layerKey] || '命中层'),
           score: Number(layer?.score || 0),
           hits,
         }
@@ -31,14 +33,14 @@ export const normalizeMonthlyScoreLayers = (monthlyData = {}) => {
       .filter(layer => layer.hits.length > 0)
   }
 
-  const legacy = String(monthlyData?.month_zhi_relations || monthlyData?.month_relations || '').trim()
+  const legacy = legacyCopy
   if (!legacy) return []
   return [{
     layer: 'legacy',
-    title: '干支摘要',
-    score: Number(monthlyData?.layer1_score || 0),
+    title: options.legacyTitle || '干支摘要',
+    score: Number(data?.layer1_score || 0),
     hits: [{
-      code: 'legacy_month_relation',
+      code: options.legacyCode || 'legacy_relation',
       type: 'neutral',
       display: legacy,
       debug: legacy,
@@ -47,6 +49,27 @@ export const normalizeMonthlyScoreLayers = (monthlyData = {}) => {
   }]
 }
 
+export const normalizeMonthlyScoreLayers = (monthlyData = {}) => normalizeScoreHitLayers(monthlyData, {
+  legacyCopy: monthlyData?.month_zhi_relations || monthlyData?.month_relations || '',
+  legacyTitle: '干支摘要',
+  legacyCode: 'legacy_month_relation',
+})
+
+export const normalizeAnnualScoreLayers = (annualData = {}) => normalizeScoreHitLayers(annualData, {
+  defaultLayerLabels: {
+    layer1: '大运底色层',
+    layer2: '流年太岁层',
+    layer3: '岁运神煞层',
+  },
+  legacyCopy: annualData?.suiyun_relations || annualData?.year_relations || '',
+  legacyTitle: '岁运摘要',
+  legacyCode: 'legacy_annual_relation',
+})
+
 export const getMonthlyScoreSummary = (monthlyData = {}) => (
   String(monthlyData?.score_hits?.summary?.display || '本月命中已归入详情，点开查看三层判断。').trim()
+)
+
+export const getAnnualScoreSummary = (annualData = {}) => (
+  String(annualData?.score_hits?.summary?.display || annualData?.suiyun_relations || '今年命中已归入详情，点开查看三层判断。').trim()
 )

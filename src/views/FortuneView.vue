@@ -452,8 +452,19 @@
                     </div>
                   </div>
                   <div class="score-side">
-                    <div class="score-ganzhi">{{ visibleAnnualData.liunian_gz }}年</div>
-                    <p class="score-insight">{{ visibleAnnualData.suiyun_relations || '平稳度日' }}</p>
+                    <div class="monthly-score-title-row">
+                      <div class="score-ganzhi">{{ visibleAnnualData.liunian_gz }}年</div>
+                      <button
+                        v-if="annualScoreHitLayers.length"
+                        type="button"
+                        class="monthly-score-hit-trigger"
+                        @click="showAnnualScoreHitsGuide = true"
+                        aria-label="查看年运三层命中"
+                      >
+                        i
+                      </button>
+                    </div>
+                    <p class="score-insight">{{ annualScoreSummary }}</p>
                     <div v-if="visibleAnnualData.is_kongwang" class="warning-tag inline-warning">空亡封顶</div>
                     <div v-else-if="visibleAnnualData.is_benmingnian" class="warning-tag inline-warning">本命年</div>
                     <div v-else-if="visibleAnnualData.is_zixing" class="warning-tag inline-warning">自刑</div>
@@ -518,6 +529,29 @@
             </div>
           </div>
 
+          <div v-if="showAnnualScoreHitsGuide" class="fortune-modal-overlay" @click="showAnnualScoreHitsGuide = false">
+            <div class="fortune-guide-modal monthly-hit-modal" @click.stop>
+              <div class="fortune-guide-head">
+                <span>年运三层命中</span>
+                <button type="button" class="fortune-guide-close" @click="showAnnualScoreHitsGuide = false">×</button>
+              </div>
+              <div class="fortune-guide-body monthly-hit-layers">
+                <section v-for="layer in annualScoreHitLayers" :key="layer.layer" class="monthly-hit-layer">
+                  <div class="monthly-hit-layer-head">
+                    <span class="monthly-hit-layer-title">{{ layer.title }}</span>
+                    <span class="monthly-hit-layer-score">{{ formatSignedScore(layer.score) }}</span>
+                  </div>
+                  <ul class="monthly-hit-list">
+                    <li v-for="hit in layer.hits" :key="`${layer.layer}-${hit.code}-${hit.display}`" :class="['monthly-hit-item', hit.type]">
+                      <span class="monthly-hit-dot"></span>
+                      <span class="monthly-hit-copy">{{ hit.display }}</span>
+                    </li>
+                  </ul>
+                </section>
+              </div>
+            </div>
+          </div>
+
           <div v-if="showMonthlyFactorsGuide" class="fortune-modal-overlay" @click="showMonthlyFactorsGuide = false">
             <div class="fortune-guide-modal" @click.stop>
               <div class="fortune-guide-head">
@@ -565,7 +599,12 @@ import {
   rememberPendingInterpretation
 } from '../fortuneCache.mjs'
 import { getFlowMonthInfo as getClientFlowMonthInfo, listFlowMonths as listClientFlowMonths } from '../utils/flowMonth.js'
-import { getMonthlyScoreSummary, normalizeMonthlyScoreLayers } from '../utils/monthlyScoreHits.mjs'
+import {
+  getAnnualScoreSummary,
+  getMonthlyScoreSummary,
+  normalizeAnnualScoreLayers,
+  normalizeMonthlyScoreLayers
+} from '../utils/monthlyScoreHits.mjs'
 import guestFortuneData from '../../mock/fortune-daily.json'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import AccountMenu from '../components/AccountMenu.vue'
@@ -662,6 +701,7 @@ const monthlyRefreshSignal = ref(null)
 const monthlyRefreshState = ref('idle')
 const showMonthlyFactorsGuide = ref(false)
 const showMonthlyScoreHitsGuide = ref(false)
+const showAnnualScoreHitsGuide = ref(false)
 
 const hasInterpretationFields = (data) => {
   return Boolean(
@@ -761,6 +801,10 @@ const monthlyGanzhiText = computed(() => {
 const monthlyScoreSummary = computed(() => getMonthlyScoreSummary(visibleMonthlyData.value || {}))
 
 const monthlyScoreHitLayers = computed(() => normalizeMonthlyScoreLayers(visibleMonthlyData.value || {}))
+
+const annualScoreSummary = computed(() => getAnnualScoreSummary(visibleAnnualData.value || {}))
+
+const annualScoreHitLayers = computed(() => normalizeAnnualScoreLayers(visibleAnnualData.value || {}))
 
 const formatSignedScore = (score) => {
   const value = Number(score || 0)
@@ -1350,6 +1394,7 @@ const selectMonthlyDimension = (dimension) => {
 const openMonthlyContextNotes = () => {
   showMonthlyFactorsGuide.value = false
   showMonthlyScoreHitsGuide.value = false
+  showAnnualScoreHitsGuide.value = false
   router.push({
     name: 'bazi',
     query: {
