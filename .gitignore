@@ -5,10 +5,13 @@ node_modules/
 dist/
 .vite/
 coverage/
+htmlcov/
+.nyc_output/
 playwright-report/
 test-results/
 blob-report/
 *.tsbuildinfo
+*.lcov
 
 # Environment files
 .env
@@ -24,6 +27,14 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 
+# Package manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+
 # Editor and OS files
 .DS_Store
 Thumbs.db
@@ -36,8 +47,14 @@ Thumbs.db
 .mock/
 .dist/
 .cache/
+.eslintcache
+.vitest/
 .turbo/
 .vercel/
+.netlify/
+.parcel-cache/
+.swc/
+.ruflo/
 tmp/
 temp/
 

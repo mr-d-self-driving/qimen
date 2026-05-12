@@ -841,6 +841,7 @@ const buildCardHTML = (data) => {
 
   const strategyItems = advice.strategy || []
   const primaryStrategies = strategyItems.slice(0, 3)
+  const domainView = data.domain_view
   const detailInsights = [
     { label: '时空能量', value: analysis.tensor, cls: 'accent-indigo' },
     { label: '用神分析', value: analysis.yong_shen, cls: 'accent-gold' },
@@ -852,6 +853,50 @@ const buildCardHTML = (data) => {
   const actionHTML = primaryStrategies.length
     ? primaryStrategies.map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${s}</div></div>`).join('')
     : `<div class="action-step reveal"><div class="action-index">01</div><div class="action-copy">${summary.conclusion}</div></div>`
+
+  // 领域判断：职业、婚姻、财运等问题域的专属结构化展示
+  let domainViewHTML = ''
+  if (domainView && Array.isArray(domainView.axes) && domainView.axes.length) {
+    const toneLabel = { positive: '顺', mixed: '参', warning: '慎' }
+    const axisHTML = domainView.axes.map(axis => `
+      <div class="domain-axis-card tone-${axis.tone || 'mixed'}">
+        <div class="domain-axis-top">
+          <span class="domain-axis-label">${axis.label || '-'}</span>
+          <span class="domain-axis-symbol">${axis.symbol || '-'}</span>
+        </div>
+        <div class="domain-axis-verdict">${axis.verdict || '-'}</div>
+        <div class="domain-axis-evidence">${axis.evidence || '-'}</div>
+        <span class="domain-axis-tone">${toneLabel[axis.tone] || toneLabel.mixed}</span>
+      </div>
+    `).join('')
+    const processSymbols = Array.isArray(domainView.process?.symbols) ? domainView.process.symbols.join('、') : ''
+    const processHTML = domainView.process ? `
+      <div class="domain-mini-card">
+        <div class="domain-mini-label">${domainView.process.label || '过程判断'}${processSymbols ? `<span>${processSymbols}</span>` : ''}</div>
+        <div class="domain-mini-body">${domainView.process.verdict || '-'}</div>
+        ${domainView.process.evidence ? `<div class="domain-mini-evidence">${domainView.process.evidence}</div>` : ''}
+      </div>
+    ` : ''
+    const timingHTML = domainView.timing ? `
+      <div class="domain-mini-card">
+        <div class="domain-mini-label">${domainView.timing.label || '应期'}${domainView.timing.trigger ? `<span>${domainView.timing.trigger}</span>` : ''}</div>
+        <div class="domain-mini-body">${domainView.timing.verdict || '-'}</div>
+        ${domainView.timing.favorable_window ? `<div class="domain-mini-evidence">${domainView.timing.favorable_window}</div>` : ''}
+      </div>
+    ` : ''
+    const decisionHTML = domainView.decision ? `
+      <div class="domain-decision">
+        <div><span>宜</span>${domainView.decision.recommended_action || '-'}</div>
+        <div><span>避</span>${domainView.decision.avoid || '-'}</div>
+      </div>
+    ` : ''
+    domainViewHTML = `<section class="result-module domain-view-module reveal">
+      <div class="ai-header-title">${domainView.title || '领域判断'}</div>
+      <div class="domain-axis-grid">${axisHTML}</div>
+      <div class="domain-section-grid">${processHTML}${timingHTML}</div>
+      ${decisionHTML}
+    </section>`
+  }
 
   // 风险预警
   let riskHTML = ''
@@ -911,6 +956,8 @@ const buildCardHTML = (data) => {
       <div class="ai-header-title">行动建议</div>
       <div class="action-grid">${actionHTML}</div>
     </section>
+
+    ${domainViewHTML}
 
     ${chartHTML}
 
@@ -1352,6 +1399,30 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 :deep(.action-step) { min-width:0; padding:13px 13px 14px; border-radius:14px; background:linear-gradient(180deg,rgba(232,204,128,0.055),rgba(255,255,255,0.018)); border:1px solid rgba(232,204,128,0.12); }
 :deep(.action-index) { font-family:var(--font-serif); font-size:20px; color:var(--theme-color,#B38B36); margin-bottom:8px; }
 :deep(.action-copy) { font-size:13px; color:#D7D1C4; line-height:1.65; overflow-wrap:anywhere; }
+/* 领域判断 */
+:deep(.domain-view-module) { border-color:rgba(232,204,128,0.14); background:linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)); }
+:deep(.domain-axis-grid) { display:grid; grid-template-columns:repeat(auto-fit,minmax(148px,1fr)); gap:10px; }
+:deep(.domain-axis-card) { position:relative; min-width:0; min-height:148px; padding:13px 13px 34px; border-radius:12px; background:rgba(0,0,0,0.18); border:1px solid rgba(255,255,255,0.065); overflow:hidden; overflow-wrap:anywhere; }
+:deep(.domain-axis-card::before) { content:''; position:absolute; inset:0 auto 0 0; width:3px; background:var(--theme-color,#B38B36); opacity:.75; }
+:deep(.domain-axis-card.tone-positive::before) { background:#00D26A; }
+:deep(.domain-axis-card.tone-warning::before) { background:#FF5E57; }
+:deep(.domain-axis-top) { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:10px; }
+:deep(.domain-axis-label) { font-size:11px; color:var(--text-muted); letter-spacing:1.2px; }
+:deep(.domain-axis-symbol) { flex-shrink:0; font-family:var(--font-serif); font-size:15px; color:var(--gold-light); }
+:deep(.domain-axis-verdict) { font-size:13px; color:#F0EDE6; line-height:1.55; margin-bottom:8px; }
+:deep(.domain-axis-evidence) { font-size:12px; color:#8F8FA3; line-height:1.6; }
+:deep(.domain-axis-tone) { position:absolute; right:10px; bottom:9px; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-size:11px; color:#05050A; background:var(--theme-color,#B38B36); font-weight:700; }
+:deep(.domain-axis-card.tone-positive .domain-axis-tone) { background:#00D26A; }
+:deep(.domain-axis-card.tone-warning .domain-axis-tone) { background:#FF5E57; color:#fff; }
+:deep(.domain-section-grid) { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; margin-top:10px; }
+:deep(.domain-mini-card) { min-width:0; padding:12px 13px; border-radius:12px; background:rgba(255,255,255,0.025); border:1px solid rgba(255,255,255,0.055); overflow-wrap:anywhere; }
+:deep(.domain-mini-label) { display:flex; justify-content:space-between; gap:8px; margin-bottom:8px; font-size:11px; color:var(--gold-light); letter-spacing:1px; }
+:deep(.domain-mini-label span) { color:var(--text-muted); letter-spacing:0; text-align:right; }
+:deep(.domain-mini-body) { font-size:13px; color:#D7D1C4; line-height:1.65; }
+:deep(.domain-mini-evidence) { margin-top:7px; font-size:12px; color:#8F8FA3; line-height:1.55; }
+:deep(.domain-decision) { display:grid; gap:8px; margin-top:10px; }
+:deep(.domain-decision div) { display:flex; gap:9px; align-items:flex-start; padding:10px 12px; border-radius:10px; background:rgba(0,0,0,0.16); color:#D7D1C4; font-size:13px; line-height:1.65; overflow-wrap:anywhere; }
+:deep(.domain-decision span) { flex:0 0 auto; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:rgba(232,204,128,0.12); color:var(--gold-light); font-size:11px; font-weight:700; }
 /* 九宫格 */
 :deep(.pan-wrapper) { background:rgba(0,0,0,0.25); border:1px solid var(--gold-border); border-radius:16px; padding:14px; position:relative; overflow:hidden; }
 :deep(.pan-wrapper)::before { content:''; position:absolute; inset:0; background:radial-gradient(circle at 50% 50%,rgba(212,175,55,0.03) 0%,transparent 70%); pointer-events:none; }

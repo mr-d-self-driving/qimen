@@ -4,7 +4,19 @@ const C = require('../lib/QimenConstants');
 const U = require('../lib/QimenUtils');
 const Calc = require('../lib/QimenCalculations');
 const { setCorsHeaders } = require('./cors');
-const { buildScoreAuditPromptSection } = require('../lib/qimenPromptSections');
+const {
+    buildScoreAuditPromptSection,
+    buildSummaryPromptSection
+} = require('../lib/qimenPromptSections');
+const {
+    buildDomainViewPromptSection,
+    buildYongshenPromptSection,
+    getYongshenRule
+} = require('../lib/qimenYongshenRules');
+const {
+    buildTimingAnalysis,
+    buildTimingPromptSection
+} = require('../lib/qimenTimingRules');
 
 // ==========================================
 // ⚡️ 云端内存缓存 (基于 时辰 + 问题)
@@ -33,6 +45,17 @@ const zhiToPalace = {
     "子": 7, "丑": 6, "寅": 6, "卯": 3, "辰": 0, "巳": 0,
     "午": 1, "未": 2, "申": 2, "酉": 5, "戌": 8, "亥": 8
 };
+const palaceBranches = {
+    0: ["辰", "巳"],
+    1: ["午"],
+    2: ["未", "申"],
+    3: ["卯"],
+    4: [],
+    5: ["酉"],
+    6: ["丑", "寅"],
+    7: ["子"],
+    8: ["戌", "亥"]
+};
 
 function getKongIndices(kongStr) {
     let indices = [];
@@ -43,10 +66,10 @@ function getKongIndices(kongStr) {
 }
 
 // ==========================================
-// 🧠 新增：轻量级意图识别路由器 (Router)
-// 目的：使用极速模型 (Flash) 秒级判断问题类型，并返回该领域的专属取用神规则
+// 🧠 轻量级意图识别路由器 (Router)
+// 目的：使用极速模型 (Flash) 秒级判断问题类型，规则注入交给结构化用神字典完成
 // ==========================================
-async function detectIntentAndGetRules(question) {
+async function detectIntent(question) {
     const API_KEY = process.env.GEMINI_API_KEY; 
     const API_URL = 'https://yinli.one/v1/chat/completions'; // 使用你的中转接口
 
@@ -61,9 +84,16 @@ async function detectIntentAndGetRules(question) {
 5. "item_transaction" (找回失物、寻人、买卖二手物品、房屋租赁/交易、合同文书真伪判定)
 6. "general" (日常出行、今日运势、时机选择、或者极其模糊无法归入以上分类的杂事)
 
+可选子类 subcategory：
+- career_business: "job_search" 找工作/面试/应聘；"current_job_change" 辞职/跳槽/调动/革职；"promotion_title" 晋升/职称/领导评价；"project_business" 项目推进/客户谈判/合作落地。
+- finance_wealth: "general_wealth" 笼统问财；"service_brokerage" 中介撮合/佣金/空手求财；"trade_buy_sell" 买卖交易/商品流通；"investment_business" 投资/开店/办厂/实体经营；"debt_repayment" 借贷/讨债/催收/朋友欠钱还款；"real_estate_trade" 房产买卖/地皮交易。
+- relationship: "single_romance" 单身寻缘/何时有对象；"pursuit_dating" 追求/相亲/能否发展；"love_conflict" 恋爱纠葛/第三者/多角关系；"marriage_existing" 已婚/婚姻危机/同居；"online_romance" 网恋真假/线上关系。
+- 其他分类暂未细分时，subcategory 返回空字符串。
+
 用户提问："${question}"
 
-严格要求：只返回 JSON 格式，不要包含任何 markdown 标记或其他解释文本。返回格式必须为：{"category": "分类英文名"}`;
+严格要求：只返回 JSON 格式，不要包含任何 markdown 标记或其他解释文本。返回格式必须为：
+{"category": "分类英文名", "subcategory": "可选子类英文名或空字符串", "confidence": "low|medium|high"}`;
 
     try {
         const response = await fetch(API_URL, {
@@ -86,79 +116,15 @@ async function detectIntentAndGetRules(question) {
         let resultText = apiData.choices[0].message.content.replace(/```json/g, "").replace(/```/g, "").trim();
         const parsed = JSON.parse(resultText);
         const category = parsed.category || "general";
-
-
-    // 根据分类挂载专属奇门规则
-        let domainRules = "";
-        switch (category) {
-            case "career_business": // 事业职场、谈判创业
-                domainRules = `
-   - 【必看用神】：『值使门』(执行过程)、『日干』(我方)、『开门』(事业竞争)、『时干』(所问之事)、『天辅星/六合』(贵人合作)。
-   - 【吉凶判定】：
-     ① 值使门旺相=顺畅，休囚=迟滞需找破局时辰。
-     ② 开门生助日干=谋事得力，克制日干=竞争大受制于人。
-     ③ 杜门逢空亡=此路不通，旺相=有关卡但可破。休门在此主"保守等待"，若日干喜水反为吉。
-     ④ 重点看贵人(天辅/六合)与日干关系。
-   - 【融合输出】：请将竞争者压力、贵人方位等洞察，自然融入 JSON 的 \`analysis.yong_shen\` 与 \`advice.strategy\` 字段中。`;
-                break;
-
-            case "finance_wealth": // 求财、投资、生意
-                domainRules = `
-   - 【必看用神】：『生门』(财路入口)、『戊』(资本/主财)、『日干』(对财的把握)、『景门』(合同文书)。
-   - 【吉凶判定】：
-     ① 生门旺相+生助日干=财来找人(最吉)；戊落空亡=财气虚浮有变数。
-     ② 若问投资：时干克日干=当心对方设局；死门临生门宫=财源有断裂风险。
-     ③ 景门临玄武/腾蛇/空亡=合同有猫腻，文书存隐患。
-     ④ 驿马星若冲动生门或戊，为资金加速/到账信号。
-   - 【融合输出】：请将财源方位、破财风险、资金到账应期，自然融入 JSON 的 \`analysis.pattern\` 与 \`advice\` 字段中。`;
-                break;
-
-            case "relationship": // 感情、婚姻、人际
-                domainRules = `
-   - 【必看用神】：『日干』(我方)、『应宫』(对方状态，即日干对冲宫或所指之人)、『六合』(感情黏性)、『庚/丙』(阻力/桃花)。
-   - 【吉凶判定】：
-     ① 六合旺且生日干=对方有意；逢空亡/击刑=虚情假意或内有暗流。
-     ② 应宫克日干=对方主导我方被动；日干克应宫=我方给对方压力大。
-     ③ 庚若克六合或日干=有第三方介入或阻力；死门/玄武临应宫=对方有隐瞒。
-   - 【融合输出】：感情问题需有同理心，请将对方真实心意、主要阻力，融入 JSON 的 \`analysis.yong_shen\`，并在 \`advice.strategy\` 中给出破冰建议。`;
-                break;
-
-            case "health_action": // 疾病、竞技、高强度运动
-                domainRules = `
-   - 【必看用神】：『天芮星』(疾病/隐患)、『伤门/白虎』(消耗/爆发力)、『日干』(生命力)。
-   - 【核心辩证】(先判断是测病还是竞技)：
-     ① [测病/手术]：天芮旺相或临死门为大凶，空亡防误诊；生门/开门生日干向好。
-     ② [竞技/高强度训练]：逻辑反转！伤门旺相+白虎=极致爆发力，属大吉！天英星临日干=斗志旺盛。唯需警惕天芮临日干且空亡(带伤且虚耗)。
-   - 【融合输出】：请明确判断场景极性，将风险部位(五行)与最佳行动时机，写入 JSON 的 \`analysis.dynamic_timing\` 中。`;
-                break;
-
-            case "item_transaction": // 买卖、合同、找失物
-                domainRules = `
-   - 【必看用神】：『日干』(买方/我方)、『时干』(卖方/物品)、『景门』(真实性)、『生门/死门』(盈亏)。
-   - 【吉凶判定】：
-     ① 日时生克定买卖主导权。
-     ② 景门验证真伪(最核心)：逢空亡/玄武/腾蛇=信息虚浮、有隐瞒、货不对板。
-     ③ 找失物：看时干落宫方位，逢空亡难找回，临马星则在移动中。
-   - 【融合输出】：请将买卖主导权、物品真伪风险、盈亏评判，清晰地融入 JSON 的 \`analysis.tensor\` 与 \`advice.risk\` 中。`;
-                break;
-
-            default: // 日常出行与杂事
-                domainRules = `
-   - 【必看用神】：『值使门』(执行过程)、『日干』(自身状态)、『时干』(事情走向)、『驿马星』(加速信号)。
-   - 【吉凶判定】：
-     ① 值使旺相=行事顺利，休囚=宜守。日时相生为顺。
-     ② 驿马被时辰冲动=出行/变动最佳窗口。
-   - 【融合输出】：无需过度解读格局，请直接给出当天可执行的行动建议和时间窗口。`;
-        }
+        const subcategory = parsed.subcategory || "";
+        const confidence = parsed.confidence || "medium";
         
-        console.log(`[Router] 识别类别: ${category}`);
-        return { domainRules, category };
+        console.log(`[Router] 识别类别: ${category}${subcategory ? `/${subcategory}` : ""}`);
+        return { category, subcategory, confidence };
 
     } catch (e) {
         console.warn("[Router] 意图识别失败，降级使用通用规则:", e.message);
-        return { domainRules: ` 
-   - 【必看用神】：以日干为求测人，时干为所问之事，值使门为执行过程。
-   - 【吉凶判定】：对比日时生克综合判断。`, category: "general" };
+        return { category: "general", subcategory: "", confidence: "low" };
 
     }
 }
@@ -300,11 +266,59 @@ module.exports = async function handler(req, res) {
         const timestamp_solar = `${year}年${month}月${day}日 ${hour}:${minute}`;
         const timestamp_lunar = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
         const qimen_structure = `${juResult.yinYang}遁${juResult.gameNumber}局`;
+        const dayStem = U.extractTianGan(ganzhiDay);
+        const hourStem = U.extractTianGan(ganzhiHour);
 
         // ==========================================
         // 🚀 核心改动点：在这里调用 Router，获取动态规则
         // ==========================================
-        const { domainRules: dynamicDomainRules, category: detectedCategory } = await detectIntentAndGetRules(userQuestion);
+        const detectedIntent = await detectIntent(userQuestion);
+        const yongshenRule = getYongshenRule(detectedIntent.category, detectedIntent.subcategory);
+        const hasBaziInfo = baziInfo !== "未提供八字信息";
+        const timingTargetSymbols = [
+            ...(yongshenRule.yongshen?.primary || []),
+            ...(yongshenRule.yongshen?.secondary || [])
+        ]
+            .filter(item => hasBaziInfo || !item.requiresBazi)
+            .map(item => ({ symbol: item.symbol, role: item.role, weight: item.layer || 'core' }));
+        const timingPalaces = Array.from({ length: 9 }, (_, i) => ({
+            index: i,
+            name: `${palaceNames[i]}${palaceNumbers[i]}宫`,
+            branches: palaceBranches[i],
+            door: eightDoors[i],
+            star: nineStars[i],
+            god: eightGods[i],
+            sky: tianPanGan[i],
+            earth: diPan[i],
+            isKong: dayKongIndices.includes(i) || hourKongIndices.includes(i),
+            hasMa: i === maXingMap[dayMa] || i === maXingMap[hourMa],
+            isZhiShi: eightDoors[i] === zhiShiDoor,
+            isDayStem: tianPanGan[i] === dayStem || diPan[i] === dayStem,
+            isHourStem: tianPanGan[i] === hourStem || diPan[i] === hourStem
+        }));
+        const timingAnalysis = buildTimingAnalysis({
+            generatedAt: bjTime,
+            chart: {
+                dayKongBranches: String(dayKongObj || '').split(''),
+                hourKongBranches: String(hourKongObj || '').split(''),
+                dayMa,
+                hourMa,
+                palaces: timingPalaces
+            },
+            targetSymbols: timingTargetSymbols,
+            eventMode: 'success',
+            scanDays: 30,
+            scanMaxHits: 12,
+            recheckLimit: 5
+        });
+        const yongshenPromptSection = buildYongshenPromptSection({
+            intent: detectedIntent,
+            rule: yongshenRule,
+            hasBaziInfo
+        });
+        const domainViewPromptSection = buildDomainViewPromptSection(yongshenRule);
+        const timingPromptSection = buildTimingPromptSection(timingAnalysis);
+        const summaryPromptSection = buildSummaryPromptSection();
         const scoreAuditPromptSection = buildScoreAuditPromptSection();
 
         const finalPrompt = `你是一位精通“时家奇门拆补转盘法”的奇门遁甲预测大师。
@@ -317,7 +331,7 @@ ${palacesText}
 ${baziInfo}
 
 **【核心推演逻辑】**
-1. **精准定用神（基于系统路由判定）**：${dynamicDomainRules}
+1. ${yongshenPromptSection}
    - **补充限制**：如果上文提供了“求测人八字/命理信息”，请务必提取其出生年的天干作为“年命”落宫，结合日干落宫综合判断；若未提供，直接以“日干”代表求测人。
 
 2. **断吉凶（注重静态盘面）**：
@@ -335,6 +349,12 @@ ${baziInfo}
    - 在 advice 中给予有温度的行动建议。真实的关怀 = 提前预警风险 + 给出应对方案（包含如何利用破局时辰），而非回避风险。
 
 ${scoreAuditPromptSection}
+
+${summaryPromptSection}
+
+${domainViewPromptSection}
+
+${timingPromptSection}
 
 **【Output Format (JSON Schema)】**
 请严格按照以下 JSON 结构返回数据：
@@ -380,6 +400,43 @@ ${scoreAuditPromptSection}
       "time": "有利时间",
       "action": "助运行行为"
     }
+  },
+  "domain_view": {
+    "type": "career_business|relationship|finance_wealth",
+    "title": "领域判断标题",
+    "axes": [
+      {
+        "key": "self",
+        "label": "本人状态",
+        "symbol": "日干",
+        "verdict": "该轴的判断结论",
+        "evidence": "对应具体宫位/门星神干/空亡马星的依据",
+        "tone": "positive|mixed|warning"
+      }
+    ],
+    "process": {
+      "label": "流程/阻力/风险",
+      "symbols": ["值使门", "时干"],
+      "verdict": "过程判断",
+      "evidence": "过程依据"
+    },
+    "timing": {
+      "label": "应期",
+      "verdict": "应期判断",
+      "favorable_window": "有利窗口",
+      "trigger": "触发条件"
+    },
+    "decision": {
+      "recommended_action": "建议做法",
+      "avoid": "应避免事项"
+    }
+  },
+  "timing_analysis": {
+    "method": "qimen-timing-v1",
+    "summary": "用一句话概括应期判断，必须基于系统提供的 timing_analysis 候选",
+    "primary_window": "最值得观察的时间窗口",
+    "primary_trigger": "触发规则，如空亡填实/冲空/马星动/冲墓/逢合逢冲",
+    "confidence": "low|medium|high"
   }
 }
 
@@ -452,7 +509,13 @@ ${scoreAuditPromptSection}
         const finalOutput = {
             ...aiJsonData,
             question: userQuestion,
-            category: detectedCategory,
+            category: detectedIntent.category,
+            subcategory: detectedIntent.subcategory,
+            yongshen_ruleset: yongshenRule.ruleset,
+            timing_analysis: {
+                ...timingAnalysis,
+                llm_summary: aiJsonData.timing_analysis || null
+            },
             qimen_data: {
                 status: "success",
                 pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
