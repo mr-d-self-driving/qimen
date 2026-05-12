@@ -242,7 +242,7 @@
               :title="weekItem.rangeText"
               @click="selectWeek(weekItem.startDate)"
             >
-              <span class="day-of-week">{{ weekItem.subLabel }}</span>
+              <span v-if="weekItem.subLabel" class="day-of-week">{{ weekItem.subLabel }}</span>
               <span class="date-num week-range-num">{{ weekItem.displayText }}</span>
             </div>
           </div>
@@ -752,6 +752,11 @@ import {
 } from '../fortuneCache.mjs'
 import { getFlowMonthInfo as getClientFlowMonthInfo, listFlowMonths as listClientFlowMonths } from '../utils/flowMonth.js'
 import {
+  listFortuneWeeks,
+  normalizeDateString,
+  toDateKey
+} from '../utils/fortuneWeeks.mjs'
+import {
   getAnnualScoreSummary,
   getMonthlyScoreSummary,
   normalizeAnnualScoreLayers,
@@ -1073,47 +1078,6 @@ const luckyDirectionShort = computed(() => {
   return dir.split('——')[0] || '-'
 })
 
-const normalizeDateString = (value) => {
-  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  return match ? match[0] : ''
-}
-
-const toDateKey = (date) => {
-  const target = date instanceof Date ? date : new Date(date)
-  return [
-    target.getFullYear(),
-    String(target.getMonth() + 1).padStart(2, '0'),
-    String(target.getDate()).padStart(2, '0'),
-  ].join('-')
-}
-
-const addLocalDays = (dateStr, offset) => {
-  const target = new Date(`${dateStr}T12:00:00`)
-  target.setDate(target.getDate() + offset)
-  return toDateKey(target)
-}
-
-const getWeekStart = (dateStr = toDateKey(new Date())) => {
-  const target = new Date(`${dateStr}T12:00:00`)
-  const day = target.getDay()
-  const mondayOffset = day === 0 ? -6 : 1 - day
-  target.setDate(target.getDate() + mondayOffset)
-  return toDateKey(target)
-}
-
-const buildWeekItem = (startDate, currentWeekStart) => {
-  const endDate = addLocalDays(startDate, 6)
-  const isCurrent = startDate === currentWeekStart
-  return {
-    startDate,
-    endDate,
-    isCurrent,
-    subLabel: isCurrent ? `${formatMonthDay(startDate)} - ${formatMonthDay(endDate)}` : '周一-周日',
-    displayText: isCurrent ? '本周' : `${startDate}-${endDate}`,
-    rangeText: `${startDate}-${endDate}`,
-  }
-}
-
 const buildDayItem = (dateStr, label = '所选') => {
   const target = new Date(`${dateStr}T12:00:00`)
   const weekMap = ['日', '一', '二', '三', '四', '五', '六']
@@ -1150,19 +1114,10 @@ const generateDays = (preferredDate = '') => {
 }
 
 const generateWeeks = (preferredDate = '') => {
-  const normalizedPreferred = normalizeDateString(preferredDate)
   const todayKey = toDateKey(new Date())
-  const currentWeekStart = getWeekStart(todayKey)
-  const baseWeekStart = getWeekStart(normalizedPreferred || todayKey)
-  const weeks = []
-  for (let i = -6; i <= 6; i++) {
-    weeks.push(buildWeekItem(addLocalDays(currentWeekStart, i * 7), currentWeekStart))
-  }
-  if (!weeks.some(week => week.startDate === baseWeekStart)) {
-    weeks.unshift(buildWeekItem(baseWeekStart, currentWeekStart))
-  }
-  availableWeeks.value = weeks.sort((a, b) => a.startDate.localeCompare(b.startDate))
-  selectedWeekStart.value = baseWeekStart
+  const weekList = listFortuneWeeks(todayKey, preferredDate)
+  availableWeeks.value = weekList.weeks
+  selectedWeekStart.value = weekList.selectedWeekStart
   scrollSelectedWeekIntoView()
 }
 

@@ -19,14 +19,15 @@
           <div class="drawer-title-txt">推演回溯</div>
         </div>
         <div class="drawer-filter">
-          <div class="filter-label">分类查阅</div>
-          <div class="filter-caps">
-          <div v-for="cat in categories" :key="cat.value" 
-               class="f-cap" :class="{ active: activeCategory === cat.value }" 
-               @click="setCategory(cat.value)">
-            {{ cat.label }}
+          <label class="filter-select-label" for="historyCategorySelect">分类查阅</label>
+          <div class="filter-select-wrap">
+            <select id="historyCategorySelect" v-model="activeCategory" class="filter-select" aria-label="分类查阅">
+              <option v-for="cat in categories" :key="cat.value" :value="cat.value">
+                {{ cat.label }}
+              </option>
+            </select>
+            <span class="filter-select-arrow" aria-hidden="true">⌄</span>
           </div>
-        </div>
         </div>
         <div class="drawer-body" id="drawerBody">
           <div v-if="filteredHistory.length === 0" class="drawer-empty">
@@ -751,8 +752,6 @@ const saveRecordToDatabase = async (question, data) => {
 
 const filteredHistory = computed(() => activeCategory.value === 'all' ? historyRecords.value : historyRecords.value.filter(r => r.category === activeCategory.value))
 
-const setCategory = (val) => { activeCategory.value = val }
-
 const loadRecord = (item) => {
   globalState.isDrawerOpen = false
   activeResultRecord.value = item
@@ -1019,11 +1018,38 @@ const buildCardHTML = (data) => {
 .drawer-head { padding: 64px 22px 18px; border-bottom: 1px solid var(--glass-border); }
 .drawer-label { font-size: 10px; color: var(--text-muted); letter-spacing: .25em; margin-bottom: 4px; font-family: var(--font-serif); }
 .drawer-title-txt { font-size: 20px; font-weight: 300; letter-spacing: .05em; }
-.drawer-filter { padding: 12px 16px 10px; border-bottom: 1px solid var(--glass-border); }
-.filter-label { font-size: 10px; color: var(--text-muted); letter-spacing: .2em; margin-bottom: 8px; }
-.filter-caps { display: flex; flex-wrap: wrap; gap: 6px; }
-.f-cap { font-size: 11px; padding: 4px 11px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); background: rgba(255,255,255,0.03); color: var(--text-muted); cursor: pointer; transition: all .2s; }
-.f-cap.active { background: rgba(212,175,55,0.12); border-color: rgba(212,175,55,0.5); color: var(--gold-light); }
+.drawer-filter { padding: 12px 16px 14px; border-bottom: 1px solid var(--glass-border); }
+.filter-select-label { display: block; font-size: 10px; color: var(--text-muted); letter-spacing: .2em; margin-bottom: 8px; }
+.filter-select-wrap { position: relative; width: 100%; }
+.filter-select {
+  width: 100%;
+  height: 38px;
+  appearance: none;
+  border: 1px solid rgba(212,175,55,0.22);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.045);
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 38px;
+  padding: 0 38px 0 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color .2s, background .2s, box-shadow .2s;
+}
+.filter-select:focus {
+  border-color: rgba(212,175,55,0.62);
+  background: rgba(255,255,255,0.065);
+  box-shadow: 0 0 0 3px rgba(212,175,55,0.1);
+}
+.filter-select-arrow {
+  position: absolute;
+  right: 13px;
+  top: 50%;
+  transform: translateY(-53%);
+  color: var(--gold-light);
+  font-size: 16px;
+  pointer-events: none;
+}
 .drawer-body { flex: 1; overflow-y: auto; padding: 8px 0; }
 .drawer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; gap: 14px; text-align: center; color: var(--text-muted); font-size: 12px; }
 .d-hist-item { padding: 13px 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,0.03); transition: background .2s; }

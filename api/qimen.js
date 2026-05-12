@@ -17,6 +17,10 @@ const {
     buildTimingAnalysis,
     buildTimingPromptSection
 } = require('../lib/qimenTimingRules');
+const {
+    buildPolarityPromptSection,
+    detectPolarityOverrides
+} = require('../lib/qimenPolarityRules');
 
 // ==========================================
 // ⚡️ 云端内存缓存 (基于 时辰 + 问题)
@@ -82,12 +86,22 @@ async function detectIntent(question) {
 3. "relationship" (感情桃花、婚姻关系、合伙人纠纷、人际交往)
 4. "health_action" (身体健康、疾病预测、高强度运动/比赛表现评估、寻医问药、手术吉凶)
 5. "item_transaction" (找回失物、寻人、买卖二手物品、房屋租赁/交易、合同文书真伪判定)
-6. "general" (日常出行、今日运势、时机选择、或者极其模糊无法归入以上分类的杂事)
+6. "exam_study" (求学考试、升学录取、考研高考、公务员考试、成绩发挥)
+7. "lawsuit_legal" (官司诉讼、民事纠纷、刑事风险、胜败诉、证据律师)
+8. "fengshui_house" (阳宅阴宅、家宅风水、祖坟、房屋气场、搬迁择宅)
+9. "pregnancy_birth" (受孕怀孕、胎儿母体、生产分娩、母子安危)
+10. "general" (日常出行、今日运势、时机选择、或者极其模糊无法归入以上分类的杂事)
 
 可选子类 subcategory：
 - career_business: "job_search" 找工作/面试/应聘；"current_job_change" 辞职/跳槽/调动/革职；"promotion_title" 晋升/职称/领导评价；"project_business" 项目推进/客户谈判/合作落地。
 - finance_wealth: "general_wealth" 笼统问财；"service_brokerage" 中介撮合/佣金/空手求财；"trade_buy_sell" 买卖交易/商品流通；"investment_business" 投资/开店/办厂/实体经营；"debt_repayment" 借贷/讨债/催收/朋友欠钱还款；"real_estate_trade" 房产买卖/地皮交易。
 - relationship: "single_romance" 单身寻缘/何时有对象；"pursuit_dating" 追求/相亲/能否发展；"love_conflict" 恋爱纠葛/第三者/多角关系；"marriage_existing" 已婚/婚姻危机/同居；"online_romance" 网恋真假/线上关系。
+- health_action: "medical_diagnosis" 病情诊断/疾病发展；"treatment_effect" 治疗效果/医生药物；"surgery_risk" 手术/急症/风险；"sports_competition" 搏击散打/格斗竞技/高强度运动比赛表现。
+- item_transaction: "lost_found" 普通失物；"stolen_item" 被盗/偷窃；"vehicle_lost" 车辆/机械丢失。
+- exam_study: "admission_exam" 升学录取；"exam_performance" 考试发挥/成绩；"interview_review" 复试面试/评审。
+- lawsuit_legal: "civil_lawsuit" 民事诉讼；"criminal_case" 刑事风险；"settlement_evidence" 调解/证据/律师。
+- fengshui_house: "yang_house" 阳宅家宅；"yin_house" 阴宅祖坟；"moving_house" 搬迁择宅。
+- pregnancy_birth: "conception" 受孕；"pregnancy_health" 孕期母子；"delivery_birth" 分娩生产。
 - 其他分类暂未细分时，subcategory 返回空字符串。
 
 用户提问："${question}"
@@ -311,6 +325,10 @@ module.exports = async function handler(req, res) {
             scanMaxHits: 12,
             recheckLimit: 5
         });
+        const polarityOverrides = detectPolarityOverrides({
+            intent: detectedIntent,
+            palaces: timingPalaces
+        });
         const yongshenPromptSection = buildYongshenPromptSection({
             intent: detectedIntent,
             rule: yongshenRule,
@@ -318,6 +336,7 @@ module.exports = async function handler(req, res) {
         });
         const domainViewPromptSection = buildDomainViewPromptSection(yongshenRule);
         const timingPromptSection = buildTimingPromptSection(timingAnalysis);
+        const polarityPromptSection = buildPolarityPromptSection(polarityOverrides);
         const summaryPromptSection = buildSummaryPromptSection();
         const scoreAuditPromptSection = buildScoreAuditPromptSection();
 
@@ -339,6 +358,7 @@ ${baziInfo}
    - ① 先列出所有"凶象/警示信号"（空亡、伏吟、死门、凶星、击刑等），如实呈现，不得美化。
    - ② 再分析吉象与支撑力。
    - ③ **禁止：**不得因求测者问题为正向就盲目倾向高分。
+   - ④ 若下方出现“格局极性翻转表命中”，必须按覆盖后的问题域语义判分；若未出现该段，则按常规吉凶规则判断。
 
 3. **抓应期与动态破局（核心！必须执行）**：
    - **绝不能死守静态凶象！** 如果盘面出现“杜门(堵塞)”、“九地(慢)”、“空亡”等阻碍，必须向后推演当天的**十二时辰**。
@@ -353,6 +373,8 @@ ${scoreAuditPromptSection}
 ${summaryPromptSection}
 
 ${domainViewPromptSection}
+
+${polarityPromptSection}
 
 ${timingPromptSection}
 
@@ -402,7 +424,7 @@ ${timingPromptSection}
     }
   },
   "domain_view": {
-    "type": "career_business|relationship|finance_wealth",
+    "type": "career_business|relationship|finance_wealth|health_action|item_transaction|exam_study|lawsuit_legal|fengshui_house|pregnancy_birth",
     "title": "领域判断标题",
     "axes": [
       {
@@ -512,6 +534,7 @@ ${timingPromptSection}
             category: detectedIntent.category,
             subcategory: detectedIntent.subcategory,
             yongshen_ruleset: yongshenRule.ruleset,
+            polarity_overrides: polarityOverrides,
             timing_analysis: {
                 ...timingAnalysis,
                 llm_summary: aiJsonData.timing_analysis || null
