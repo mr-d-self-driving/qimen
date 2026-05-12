@@ -65,13 +65,14 @@
 
 ### 运势评分系统
 
-运势页已经从单一日运升级为 **日 / 月 / 年** 三层结构：
+运势页已经从单一日运升级为 **日 / 周 / 月 / 年** 四层结构：
 
-| 维度 | 能力 | 说明 |
-|------|------|------|
-| 日运 | `calculateDailyScore` | 流日十神、地支刑冲合害、十二神与空亡降维，输出 45-98 分。并展示 4 宫格洞察卡片、运势时间线及基于结果的化解 (Resolve/Hook) 方案 |
-| 月运 | `calculateMonthlyScore` + 节气流月 | 按节气边界计算流月，不按自然月硬切；展示月度曲线、高低分日、低谷期 |
-| 年运 | `calculateAnnualScore` | 生成目标年前后 10 年年运区间，叠加大运、流年、原局关系与神煞信号 |
+| 维度 | 能力                               | 说明                                                                                                                           |
+| ---- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| 日运 | `calculateDailyScore`              | 流日十神、地支刑冲合害、十二神与空亡降维，输出 45-98 分。并展示 4 宫格洞察卡片、运势时间线及基于结果的化解 (Resolve/Hook) 方案 |
+| 周运 | `fortuneWeeklyCore`                | 结合本周范围进行周运程推演，生成周度评分与趋势指导                                                                             |
+| 月运 | `calculateMonthlyScore` + 节气流月 | 按节气边界计算流月，不按自然月硬切；展示月度曲线、高低分日、低谷期                                                             |
+| 年运 | `calculateAnnualScore`             | 生成目标年前后 10 年年运区间，叠加大运、流年、原局关系与神煞信号                                                               |
 
 月运详批支持综合、事业、财运、感情四个维度。用户可以填写长期基调与本月现实背景，系统会把这些上下文注入月运解读；当基调明显更新时，前端会标记并自动刷新对应详批。
 
@@ -80,7 +81,7 @@
 - **全局角色协同**：将复杂命理推演工作流拆解，提供基于清晰角色的全屏滚动式 (Scroll-snap) 操作界面
 - **系统状态总览**：为高级用户或管理员提供一站式的命理规则、数据缓存和引擎状态分析监控视图
 
-### 访客与认证
+### 访客、认证与商业化
 
 - 支持邮箱登录、Google OAuth、密码重设页
 - 访客模式可体验 1 次奇门提问、添加 1 个本地八字档案、查看今日日运分数
@@ -205,10 +206,12 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 │   ├── bazi-calibrate.js                # 八字反馈校准与再生成
 │   ├── fortune-daily.js                 # 日运基础评分与缓存
 │   ├── fortune-daily-interpretation.js  # 日运 LLM 解读
+│   ├── fortune-weekly.js                # 周运区间评分与缓存
 │   ├── fortune-monthly.js               # 节气流月基础评分
 │   ├── fortune-monthly-interpretation.js # 月运分维度详批
 │   ├── fortune-annual.js                # 年运区间评分
 │   ├── context-notes.js                 # 长期基调 / 本月背景读写
+│   ├── afdian-webhook.js                # 爱发电赞助事件回调
 │   └── cors.js                          # CORS 白名单
 │
 ├── lib/
@@ -217,6 +220,7 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 │   ├── calculateMonthlyScore.js         # 月运算分
 │   ├── calculateAnnualScore.js          # 年运算分
 │   ├── fortuneDailyCore.js              # 日运 payload / prompt / merge
+│   ├── fortuneWeeklyCore.js             # 周运 payload 与核心逻辑
 │   ├── fortuneMonthlyCore.js            # 流月 payload 与缓存 key
 │   ├── fortuneMonthlyInterpretationCore.js # 月运详批 prompt 与结果合并
 │   ├── fortuneAnnualCore.js             # 年运区间 payload
@@ -240,8 +244,9 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 │   └── views/
 │       ├── HomeView.vue                 # 奇门首页、登录、访客、历史、反馈
 │       ├── BaziView.vue                 # 八字档案、排盘、真太阳时、校准
-│       ├── FortuneView.vue              # 日/月/年运势
+│       ├── FortuneView.vue              # 日/周/月/年运势
 │       ├── EngineeringView.vue          # 命理工程化看板
+│       ├── LegalView.vue                # 服务条款与隐私政策
 │       └── ResetPasswordView.vue        # 密码重设
 │
 ├── docs/sql/                            # Supabase 迁移脚本
