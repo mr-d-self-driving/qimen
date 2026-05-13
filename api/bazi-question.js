@@ -1,5 +1,5 @@
 const { createClient } = require('@supabase/supabase-js');
-const { setCorsHeaders } = require('./cors');
+const { setCorsHeaders } = require('../lib/cors');
 const { normalizeDivinationRoute } = require('../lib/divinationCategories');
 const {
   buildBaziQuestionPrompt,

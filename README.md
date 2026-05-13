@@ -210,11 +210,11 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 │   ├── fortune-monthly.js               # 节气流月基础评分
 │   ├── fortune-monthly-interpretation.js # 月运分维度详批
 │   ├── fortune-annual.js                # 年运区间评分
-│   ├── context-notes.js                 # 长期基调 / 本月背景读写
-│   └── cors.js                          # CORS 白名单
+│   └── context-notes.js                 # 长期基调 / 本月背景读写
 │
 ├── lib/
 │   ├── BaziRuleEngine.js                # 子平规则引擎
+│   ├── cors.js                          # CORS 白名单
 │   ├── calculateDailyScore.js           # 日运算分
 │   ├── calculateMonthlyScore.js         # 月运算分
 │   ├── calculateAnnualScore.js          # 年运算分

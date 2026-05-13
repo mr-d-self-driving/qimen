@@ -2,7 +2,7 @@ const { Solar, Lunar } = require('lunar-javascript');
 const { createClient } = require('@supabase/supabase-js');
 const { BaziRuleEngine, getDiShi, getShen } = require('../lib/BaziRuleEngine');
 const { buildSiziSummaryKey, getSiziSummary } = require('../lib/siziSummary');
-const { setCorsHeaders } = require('./cors');
+const { setCorsHeaders } = require('../lib/cors');
 
 const memoryCache = {};
 const supabase = createClient(

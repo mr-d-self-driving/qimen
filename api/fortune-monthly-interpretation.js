@@ -19,7 +19,7 @@ const {
   normalizeMonthlyContextPayload,
   normalizeProfileContextPayload,
 } = require('../lib/fortuneContextNotes');
-const { setCorsHeaders } = require('./cors');
+const { setCorsHeaders } = require('../lib/cors');
 
 const supabase = createClient(
   process.env.SUPABASE_URL,

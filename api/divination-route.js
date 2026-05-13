@@ -1,4 +1,4 @@
-const { setCorsHeaders } = require('./cors');
+const { setCorsHeaders } = require('../lib/cors');
 const { classifyDivinationQuestion } = require('../lib/divinationRouter');
 
 module.exports = async function handler(req, res) {

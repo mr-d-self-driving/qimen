@@ -3,7 +3,7 @@ const { createClient } = require('@supabase/supabase-js'); // 引入 Supabase
 const C = require('../lib/QimenConstants');
 const U = require('../lib/QimenUtils');
 const Calc = require('../lib/QimenCalculations');
-const { setCorsHeaders } = require('./cors');
+const { setCorsHeaders } = require('../lib/cors');
 const {
     buildScoreAuditPromptSection,
     buildSummaryPromptSection
