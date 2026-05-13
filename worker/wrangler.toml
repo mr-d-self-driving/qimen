@@ -5,12 +5,9 @@ compatibility_flags = ["nodejs_compat"]
 workers_dev = true
 preview_urls = true
 
-[vars]
-FRONTEND_URL = "https://qimendao.com,https://www.qimendao.com"
-
 [secrets]
 required = [
   "GEMINI_API_KEY",
-  "WHITELIST_EMAILS",
   "SUPABASE_SERVICE_KEY"
 ]
+
