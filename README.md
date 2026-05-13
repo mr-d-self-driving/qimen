@@ -211,7 +211,6 @@ VITE_GITHUB_URL=https://github.com/oceanjustinlin/qimen
 │   ├── fortune-monthly-interpretation.js # 月运分维度详批
 │   ├── fortune-annual.js                # 年运区间评分
 │   ├── context-notes.js                 # 长期基调 / 本月背景读写
-│   ├── afdian-webhook.js                # 爱发电赞助事件回调
 │   └── cors.js                          # CORS 白名单
 │
 ├── lib/

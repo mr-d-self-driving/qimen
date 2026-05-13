@@ -438,6 +438,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const API_URL = "/api/qimen"
 const ROUTE_API_URL = "/api/divination-route"
+const BAZI_QUESTION_API_URL = "/api/bazi-question"
 const router = useRouter()
 
 const WX_MAP = {
@@ -715,8 +716,46 @@ const startDivination = async () => {
     }
 
     if (routeData.branch === 'bazi') {
-      alert('这个问题更适合走八字命盘分析，请先进入八字档案页查看或完善命主资料。')
-      router.push({ name: 'bazi', query: { question: input } })
+      if (!session) {
+        alert('这个问题更适合走八字命盘分析，请先登录并建立八字档案。')
+        router.push({ name: 'bazi', query: { question: input } })
+        return
+      }
+
+      if (!baziProfiles.value.length) await fetchBaziProfiles()
+      const profileId = selectedProfileId.value || baziProfiles.value.find(p => p.is_default)?.id || baziProfiles.value[0]?.id || ''
+      if (!profileId) {
+        alert('这个问题需要八字档案才能分析，请先进入八字页建立命主资料。')
+        router.push({ name: 'bazi', query: { question: input } })
+        return
+      }
+
+      const response = await fetch(BAZI_QUESTION_API_URL, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          question: input,
+          profileId,
+          route: routeData
+        })
+      })
+      const data = await response.json()
+      if (!response.ok || data.error) {
+        if (data.code === 'BAZI_PROFILE_INCOMPLETE') {
+          alert('该档案还没有完整排盘数据，请先进入八字页完成命盘推演。')
+          router.push({ name: 'bazi', query: { profileId, question: input } })
+          return
+        }
+        throw new Error(data.details || data.error || '八字问答失败')
+      }
+      const savedRecord = await saveRecordToDatabase(input, data)
+      activeResultRecord.value = savedRecord
+      resultHtml.value = buildCardHTML(data)
+      viewState.value = 'result'
+      nextTick(() => {
+        animateScore(data.summary?.score || 0)
+        setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
+      })
       return
     }
 
