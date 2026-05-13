@@ -1266,8 +1266,7 @@ async function routeRequest(request, env) {
   if (url.pathname === '/api/bazi-question') return handleBaziQuestion(request, env);
   if (url.pathname === '/api/bazi-calibrate') return handleBaziCalibrate(request, env);
   if (url.pathname === '/api/fortune-daily-interpretation') return handleFortuneDailyInterpretation(request, env);
-  if (url.pathname === '/api/fortune-monthly-interpretation',
-      '/api/qimen', '/api/bazi') return handleFortuneMonthlyInterpretation(request, env);
+  if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
   if (url.pathname === '/api/qimen') return handleQimen(request, env);
   if (url.pathname === '/api/bazi') return handleBazi(request, env);
 

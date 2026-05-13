@@ -23,6 +23,7 @@ blob-report/
 
 # Cloudflare Workers
 .wrangler/
+worker/.wrangler/
 
 # Logs
 *.log
@@ -72,3 +73,6 @@ temp/
 .claude-flow/*.db
 .claude-flow/*.sqlite
 .claude-flow/*.sqlite3
+
+# Deprecated / archived code (Vercel era)
+archive/
