@@ -194,13 +194,13 @@ Already migrated:
 8. /api/bazi-calibrate
 9. /api/fortune-daily-interpretation
 10. /api/fortune-monthly-interpretation
+11. /api/qimen
+12. /api/bazi
 ```
 
 Recommended next steps:
 
 ```text
-11. /api/qimen
-12. /api/bazi
 ```
 
 Migrate one route at a time and verify each route before moving on.
