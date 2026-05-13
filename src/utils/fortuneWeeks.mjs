@@ -44,7 +44,7 @@ export const formatCompactWeekRange = (startDate, endDate) => {
   const start = String(startDate || '').match(DATE_PATTERN)
   const end = String(endDate || '').match(DATE_PATTERN)
   if (!start || !end) return ''
-  return `${start[2]}/${start[3]}-${end[2]}${end[3]}`
+  return `${start[2]}/${start[3]}-${end[2]}/${end[3]}`
 }
 
 export const buildWeekItem = (startDate, currentWeekStart) => {

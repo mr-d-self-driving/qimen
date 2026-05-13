@@ -13,11 +13,11 @@ test('current week button only displays 本周', () => {
   assert.equal(item.subLabel, '')
 })
 
-test('non-current week button displays compact MM/dd-MMdd range', () => {
-  assert.equal(formatCompactWeekRange('2026-05-04', '2026-05-10'), '05/04-0510')
+test('non-current week button displays compact MM/dd-MM/dd range', () => {
+  assert.equal(formatCompactWeekRange('2026-05-04', '2026-05-10'), '05/04-05/10')
 
   const item = buildWeekItem('2026-05-04', '2026-05-11')
-  assert.equal(item.displayText, '05/04-0510')
+  assert.equal(item.displayText, '05/04-05/10')
 })
 
 test('week selector spans three months back through one year ahead', () => {

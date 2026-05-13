@@ -132,7 +132,10 @@
               </div>
 
               <div class="glass-card input-card">
-                <div class="input-label">叩问天机</div>
+                <div class="input-label">
+                  <span>叩问天机</span>
+                  <button class="route-info-trigger" type="button" @click.stop="showRouteInfoModal = true" aria-label="查看八字与奇门分流说明">i</button>
+                </div>
                 <textarea v-model="questionInput" placeholder="在心中默念所求之事，写下您的羁绊与心中所惑……"></textarea>
                 <div class="time-row">
                   <div class="time-display">
@@ -375,11 +378,45 @@
         </div>
       </div>
     </div>
+
+    <div class="route-info-overlay" :class="{ show: showRouteInfoModal }" @click="showRouteInfoModal = false">
+      <div class="route-info-card" @click.stop>
+        <div class="route-info-title">
+          <span>系统如何自动判断</span>
+          <button class="route-info-close" type="button" @click="showRouteInfoModal = false" aria-label="关闭分流说明">&times;</button>
+        </div>
+        <div class="route-info-grid">
+          <div class="route-info-row">
+            <div class="route-tool">八字</div>
+            <div>
+              <div class="route-focus">长期格局</div>
+              <p>看命局、大运流年、行业适配、财官婚健的长期趋势。</p>
+            </div>
+          </div>
+          <div class="route-info-row">
+            <div class="route-tool">奇门</div>
+            <div>
+              <div class="route-focus">具体事件</div>
+              <p>看成败、应期、方位、A/B 选择和短期行动策略。</p>
+            </div>
+          </div>
+          <div class="route-info-row">
+            <div class="route-tool">综合</div>
+            <div>
+              <div class="route-focus">宏观定调，微观决策</div>
+              <p>先看八字底色，再用奇门判断眼前这件事怎么动。</p>
+            </div>
+          </div>
+        </div>
+        <div class="route-info-note">你只需自然提问；系统会先识别问题类型，自动选择八字、奇门或综合路径，并注入对应规则。</div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../store.js'
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
@@ -400,6 +437,8 @@ const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const API_URL = "/api/qimen"
+const ROUTE_API_URL = "/api/divination-route"
+const router = useRouter()
 
 const WX_MAP = {
     '甲':'wx-mu', '乙':'wx-mu', '丙':'wx-huo', '丁':'wx-huo', '戊':'wx-tu', '己':'wx-tu',
@@ -421,6 +460,7 @@ const questionInput = ref('')
 const isSubmitting = ref(false)
 const clockText = ref('载入时辰中…')
 const showBaziModal = ref(false)
+const showRouteInfoModal = ref(false)
 
 const baziEnabled = ref(false)
 const baziState = ref('idle')
@@ -647,17 +687,58 @@ const startDivination = async () => {
   if (!session && !isGuest.value) return alert("请先登录")
   if (!session && isGuest.value && !guestState.canAskQuestion) return alert("访客模式仅可提问 1 次，请登录后继续推演")
 
+  const headers = session
+    ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
+    : { 'Content-Type': 'application/json', 'X-Guest-Id': guestState.guestId }
+  let routeData = null
+
   isSubmitting.value = true
   viewState.value = 'loading'
   startLoaderCycle()
 
   try {
+    const routeResponse = await fetch(ROUTE_API_URL, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        question: input,
+        hasBaziProfile: Boolean(selectedProfileId.value || baziProfiles.value.length)
+      })
+    })
+    routeData = await routeResponse.json()
+    if (!routeResponse.ok || routeData.error) throw new Error(routeData.details || routeData.error || '分类失败')
+
+    if (routeData.branch === 'clarify') {
+      alert(routeData.followupQuestion || '请补充你想看长期趋势，还是判断眼前某一件具体事情。')
+      viewState.value = 'input'
+      return
+    }
+
+    if (routeData.branch === 'bazi') {
+      alert('这个问题更适合走八字命盘分析，请先进入八字档案页查看或完善命主资料。')
+      router.push({ name: 'bazi', query: { question: input } })
+      return
+    }
+
+    if (routeData.branch === 'hybrid' && !currentBaziString.value) {
+      const useQimenOnly = window.confirm('这个问题更适合结合八字命局与奇门事件盘。当前未注入八字档案，是否先仅用奇门判断眼前这件事？')
+      if (!useQimenOnly) {
+        viewState.value = 'input'
+        baziEnabled.value = true
+        await fetchBaziProfiles()
+        return
+      }
+      routeData = { ...routeData, branch: 'qimen', reason: `${routeData.reason || ''}；用户选择跳过八字，仅用奇门。` }
+    }
+
     const response = await fetch(API_URL, {
       method: 'POST',
-      headers: session
-        ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
-        : { 'Content-Type': 'application/json', 'X-Guest-Id': guestState.guestId },
-      body: JSON.stringify({ question: input, baziInfo: baziEnabled.value ? currentBaziString.value : null })
+      headers,
+      body: JSON.stringify({
+        question: input,
+        route: routeData,
+        baziInfo: baziEnabled.value ? currentBaziString.value : null
+      })
     })
     const data = await response.json()
     if (!response.ok || data.error) throw new Error(data.details || data.error || '推演失败')
@@ -1081,6 +1162,8 @@ const buildCardHTML = (data) => {
 .input-card { padding: 22px; margin-bottom: 16px; }
 .input-label { font-family: var(--font-serif); font-size: 11px; letter-spacing: .2em; color: var(--text-muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .input-label::before, .input-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent); }
+.route-info-trigger { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(232,204,128,0.42); background: rgba(232,204,128,0.08); color: var(--gold-light); font-size: 11px; font-family: ui-serif, Georgia, serif; font-weight: 700; line-height: 1; cursor: pointer; transition: border-color .2s, background .2s, color .2s; flex-shrink: 0; letter-spacing: 0; }
+.route-info-trigger:hover { border-color: rgba(232,204,128,0.8); background: rgba(232,204,128,0.16); color: #fff; }
 textarea { width: 100%; min-height: 130px; background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: var(--radius-item); padding: 16px; color: var(--text-primary); font-family: 'Noto Serif SC', serif; font-size: 15px; line-height: 1.8; resize: none; outline: none; transition: all .4s; }
 textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 1px rgba(212,175,55,0.12), 0 0 24px rgba(212,175,55,0.07); }
 .time-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
@@ -1334,6 +1417,18 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
 .bazi-summary-box { margin-top: 4px; padding: 14px 16px; background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02)); border: 1px solid rgba(212,175,55,0.2); border-radius: 12px; border-left: 3px solid var(--gold); }
 .summary-box-label { font-size: 11px; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; font-weight: 500; }
 .summary-box-content { font-size: 13px; color: #F1E6C4; line-height: 1.6; }
+.route-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.58); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .25s; }
+.route-info-overlay.show { display: flex; opacity: 1; }
+.route-info-card { width: min(420px, 100%); background: rgba(14,14,31,0.96); border: 1px solid rgba(232,204,128,0.22); border-radius: 18px; padding: 20px; box-shadow: 0 24px 64px rgba(0,0,0,0.72); }
+.route-info-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid rgba(232,204,128,0.14); color: var(--gold-light); font-family: var(--font-serif); font-size: 15px; }
+.route-info-close { border: none; background: transparent; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 2px; }
+.route-info-close:hover { color: var(--gold); }
+.route-info-grid { display: flex; flex-direction: column; gap: 10px; }
+.route-info-row { display: grid; grid-template-columns: 58px minmax(0, 1fr); gap: 12px; padding: 12px; border: 1px solid var(--glass-border); border-radius: 12px; background: rgba(0,0,0,0.18); }
+.route-tool { color: var(--gold); font-weight: 700; font-size: 13px; letter-spacing: 1px; }
+.route-focus { color: #F2E8C8; font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.route-info-row p { margin: 0; color: #CFCAD8; font-size: 12px; line-height: 1.55; }
+.route-info-note { margin-top: 12px; padding: 11px 12px; border-left: 3px solid var(--gold); border-radius: 10px; background: rgba(212,175,55,0.08); color: #E8DDC0; font-size: 12px; line-height: 1.55; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }
 .fade-enter-from, .fade-leave-to { opacity: 0; }
