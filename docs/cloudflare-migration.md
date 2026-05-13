@@ -186,14 +186,14 @@ Already migrated:
 ```text
 1. /api/divination-route
 2. /api/fortune-annual
+3. /api/fortune-weekly
+4. /api/fortune-monthly
+5. /api/fortune-daily
 ```
 
 Recommended next steps:
 
 ```text
-3. /api/fortune-weekly
-4. /api/fortune-monthly
-5. /api/fortune-daily
 6. /api/context-notes
 7. /api/bazi-question
 8. /api/bazi-calibrate
