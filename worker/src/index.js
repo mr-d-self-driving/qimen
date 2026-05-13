@@ -1,6 +1,9 @@
 import divinationRouter from '../../lib/divinationRouter.js';
+import { createClient } from '@supabase/supabase-js';
+import fortuneAnnualCore from '../../lib/fortuneAnnualCore.js';
 
 const { buildGeminiRoutePrompt, classifyDivinationQuestion } = divinationRouter;
+const { buildAnnualRangePayload } = fortuneAnnualCore;
 
 const LLM_API_URL = 'https://yinli.one/v1/chat/completions';
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -112,6 +115,98 @@ async function handleDivinationRoute(request, env) {
   return json(route, { status: 200 }, request, env);
 }
 
+function createSupabaseClient(env) {
+  if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
+    throw new Error('Supabase credentials are not configured');
+  }
+  return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+}
+
+async function getAuthedUser(request, env) {
+  const authHeader = request.headers.get('Authorization');
+  if (!authHeader) {
+    const err = new Error('未登录，请先登录');
+    err.status = 401;
+    throw err;
+  }
+
+  const token = authHeader.replace('Bearer ', '');
+  const supabase = createSupabaseClient(env);
+  const { data: { user }, error } = await supabase.auth.getUser(token);
+  
+  if (error || !user) {
+    const err = new Error('登录状态已过期，请重新登录');
+    err.status = 401;
+    throw err;
+  }
+
+  return user;
+}
+
+function getRequestedProfileId(url, body) {
+  return body?.profile_id || url.searchParams.get('profile_id') || '';
+}
+
+function getTargetYear(url, body) {
+  return parseInt(body?.target_year || url.searchParams.get('target_year') || new Date().getFullYear(), 10);
+}
+
+async function getProfileForFortune(userId, profileId, env) {
+  const supabase = createSupabaseClient(env);
+  let query = supabase
+    .from('bazi_profiles')
+    .select('id, name, gender, birth_date, bazi_str, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
+    .eq('user_id', userId);
+
+  if (profileId) {
+    query = query.eq('id', profileId);
+  } else {
+    query = query.order('is_default', { ascending: false }).order('created_at', { ascending: false }).limit(1);
+  }
+
+  const { data: profile, error } = await query.single();
+
+  if (error || !profile) {
+    const err = new Error('未找到八字档案，请先创建命主档案');
+    err.status = 404;
+    throw err;
+  }
+
+  return profile;
+}
+
+async function handleFortuneAnnual(request, env) {
+  if (request.method !== 'GET' && request.method !== 'POST') {
+    return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  }
+
+  const url = new URL(request.url);
+  let body = {};
+  if (request.method === 'POST') {
+    body = await readJson(request);
+  }
+
+  try {
+    const user = await getAuthedUser(request, env);
+    const targetYear = getTargetYear(url, body);
+    const requestedProfileId = getRequestedProfileId(url, body);
+
+    const profile = await getProfileForFortune(user.id, requestedProfileId, env);
+    const annualRangeJson = buildAnnualRangePayload(profile, targetYear, 10);
+
+    const response = json(annualRangeJson, { status: 200 }, request, env);
+    response.headers.set('Cache-Control', 's-maxage=86400, stale-while-revalidate');
+    return response;
+  } catch (error) {
+    console.error('[qimen-api] fortune-annual error:', error);
+    const status = error.status || 500;
+    return json({
+      error: '云端年运推演失败',
+      details: error.message,
+    }, { status }, request, env);
+  }
+}
+
 async function routeRequest(request, env) {
   const url = new URL(request.url);
 
@@ -130,10 +225,14 @@ async function routeRequest(request, env) {
     return handleDivinationRoute(request, env);
   }
 
+  if (url.pathname === '/api/fortune-annual') {
+    return handleFortuneAnnual(request, env);
+  }
+
   return json({
     error: 'Not Found',
     path: url.pathname,
-    migrated: ['/api/health', '/api/divination-route'],
+    migrated: ['/api/health', '/api/divination-route', '/api/fortune-annual'],
   }, { status: 404 }, request, env);
 }
 
