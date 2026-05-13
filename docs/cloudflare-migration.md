@@ -189,16 +189,16 @@ Already migrated:
 3. /api/fortune-weekly
 4. /api/fortune-monthly
 5. /api/fortune-daily
-```
-
-Recommended next steps:
-
-```text
 6. /api/context-notes
 7. /api/bazi-question
 8. /api/bazi-calibrate
 9. /api/fortune-daily-interpretation
 10. /api/fortune-monthly-interpretation
+```
+
+Recommended next steps:
+
+```text
 11. /api/qimen
 12. /api/bazi
 ```

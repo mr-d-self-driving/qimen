@@ -4,12 +4,19 @@ import fortuneAnnualCore from '../../lib/fortuneAnnualCore.js';
 import fortuneWeeklyCore from '../../lib/fortuneWeeklyCore.js';
 import fortuneMonthlyCore from '../../lib/fortuneMonthlyCore.js';
 import fortuneDailyCore from '../../lib/fortuneDailyCore.js';
+import { normalizeDivinationRoute } from '../../lib/divinationCategories.js';
+import baziQuestionCore from '../../lib/baziQuestionCore.js';
+import contextNotesCore from '../../lib/fortuneContextNotes.js';
+import monthlyInterpretationCore from '../../lib/fortuneMonthlyInterpretationCore.js';
 
 const { buildGeminiRoutePrompt, classifyDivinationQuestion } = divinationRouter;
 const { buildAnnualRangePayload } = fortuneAnnualCore;
 const { buildFortunePeriodKey: buildWeeklyPeriodKey, buildWeeklyFortunePayload, getSecondsUntilWeeklyExpiry, getWeekRange, getWeeklyExpiry } = fortuneWeeklyCore;
 const { buildFortunePeriodKey: buildMonthlyPeriodKey, buildMonthlyFortunePayload, getFlowMonthInfo } = fortuneMonthlyCore;
-const { getBeijingDayInfo, buildFortunePeriodKey: buildDailyPeriodKey, buildFortuneContext, buildBaseFortunePayload } = fortuneDailyCore;
+const { getBeijingDayInfo, buildFortunePeriodKey: buildDailyPeriodKey, buildFortuneContext, buildBaseFortunePayload, buildInterpretationPrompt, parseModelJson, pickInterpretationFields, mergeInterpretation, hasReadyInterpretation } = fortuneDailyCore;
+const { buildBaziQuestionPrompt, normalizeBaziQuestionOutput } = baziQuestionCore;
+const { createEmptyMonthlyContext, createEmptyProfileContext, normalizeMonthlyContextPayload, normalizeProfileContextPayload, buildContextVersionSeed } = contextNotesCore;
+const { buildMonthlyInterpretationPeriodKey, buildMonthlyInterpretationPrompt, hasReadyMonthlyInterpretation, mergeMonthlyInterpretation, normalizeDimension, pickMonthlyInterpretationFields } = monthlyInterpretationCore;
 
 const LLM_API_URL = 'https://yinli.one/v1/chat/completions';
 const DEFAULT_ALLOWED_ORIGINS = [
@@ -252,6 +259,86 @@ async function enforceQuota(user, env) {
   }
 }
 
+async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.5) {
+  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  
+  const response = await fetch('https://yinli.one/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      response_format: { type: 'json_object' },
+      temperature
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    const err = new Error('上游大模型接口故障');
+    err.status = 502;
+    err.details = `HTTP ${response.status}: ${errText.substring(0, 120)}`;
+    throw err;
+  }
+
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  
+  const rawContent = data.choices?.[0]?.message?.content || '{}';
+  const cleaned = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
+  return JSON.parse(cleaned);
+}
+
+async function assertProfileOwnership(userId, profileId, env) {
+  const supabase = createSupabaseClient(env);
+  const { data, error } = await supabase.from('bazi_profiles').select('id').eq('id', profileId).eq('user_id', userId).single();
+  if (error || !data) { const err = new Error('未找到命主档案'); err.status = 404; throw err; }
+}
+
+async function getProfileContext(profileId, env) {
+  const supabase = createSupabaseClient(env);
+  const { data, error } = await supabase.from('profile_contexts').select('profile_id, career_profile, wealth_profile, love_profile, health_profile, updated_at').eq('profile_id', profileId).single();
+  if (error && error.code !== 'PGRST116' && error.code !== '42P01') throw error;
+  return normalizeProfileContextPayload(data || createEmptyProfileContext());
+}
+
+async function upsertProfileContext(profileId, payload, env) {
+  const normalized = normalizeProfileContextPayload(payload);
+  const supabase = createSupabaseClient(env);
+  const { error } = await supabase.from('profile_contexts').upsert({
+    profile_id: profileId, ...normalized, updated_at: new Date().toISOString()
+  }, { onConflict: 'profile_id' });
+  if (error && error.code === '42P01') { const err = new Error('断事笔记数据表尚未初始化'); err.status = 503; throw err; }
+  if (error) throw error;
+  return getProfileContext(profileId, env);
+}
+
+async function getMonthlyContext(profileId, monthKey, env) {
+  const supabase = createSupabaseClient(env);
+  const { data, error } = await supabase.from('monthly_context_logs').select('profile_id, month_key, carry_from_previous, overall_note, career_monthly, wealth_monthly, love_monthly, health_monthly, updated_at').eq('profile_id', profileId).eq('month_key', monthKey).single();
+  if (error && error.code !== 'PGRST116' && error.code !== '42P01') throw error;
+  const record = normalizeMonthlyContextPayload(data || createEmptyMonthlyContext(monthKey), monthKey);
+  
+  const { data: recentData, error: recentError } = await supabase.from('monthly_context_logs').select('month_key, carry_from_previous, overall_note, career_monthly, wealth_monthly, love_monthly, health_monthly, updated_at').eq('profile_id', profileId).lte('month_key', monthKey).order('month_key', { ascending: false }).limit(3);
+  if (recentError && recentError.code === '42P01') return { record, recent_records: [] };
+  if (recentError) throw recentError;
+  return { record, recent_records: Array.isArray(recentData) ? recentData.map(item => normalizeMonthlyContextPayload(item || {}, item?.month_key || '')) : [] };
+}
+
+async function upsertMonthlyContext(profileId, monthKey, payload, env) {
+  const normalized = normalizeMonthlyContextPayload(payload, monthKey);
+  const supabase = createSupabaseClient(env);
+  const { error } = await supabase.from('monthly_context_logs').upsert({
+    profile_id: profileId, ...normalized, updated_at: new Date().toISOString()
+  }, { onConflict: 'profile_id,month_key' });
+  if (error && error.code === '42P01') { const err = new Error('断事笔记数据表尚未初始化'); err.status = 503; throw err; }
+  if (error) throw error;
+  return getMonthlyContext(profileId, monthKey, env);
+}
+
 async function handleFortuneAnnual(request, env) {
   if (request.method !== 'GET' && request.method !== 'POST') {
     return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
@@ -398,6 +485,183 @@ async function handleFortuneDaily(request, env) {
   }
 }
 
+async function handleContextNotes(request, env) {
+  const url = new URL(request.url);
+  let body = {};
+  if (request.method === 'POST') body = await readJson(request);
+  
+  try {
+    const user = await getAuthedUser(request, env);
+    const profileId = body?.profile_id || url.searchParams.get('profile_id') || '';
+    if (!profileId) return json({ error: '缺少 profile_id' }, { status: 400 }, request, env);
+    await assertProfileOwnership(user.id, profileId, env);
+
+    const scope = String(body?.scope || url.searchParams.get('scope') || 'profile').trim().toLowerCase();
+    if (scope !== 'profile' && scope !== 'monthly') return json({ error: '不支持的断事笔记范围' }, { status: 400 }, request, env);
+
+    if (request.method === 'GET') {
+      if (scope === 'profile') return json({ scope, data: await getProfileContext(profileId, env) }, { status: 200 }, request, env);
+      const monthKey = String(body?.month_key || url.searchParams.get('month_key') || '').trim();
+      if (!monthKey) return json({ error: '缺少 month_key' }, { status: 400 }, request, env);
+      return json({ scope, ...(await getMonthlyContext(profileId, monthKey, env)) }, { status: 200 }, request, env);
+    }
+    
+    if (request.method === 'POST') {
+      if (scope === 'profile') return json({ scope, data: await upsertProfileContext(profileId, body?.data || {}, env) }, { status: 200 }, request, env);
+      const monthKey = String(body?.month_key || url.searchParams.get('month_key') || '').trim();
+      if (!monthKey) return json({ error: '缺少 month_key' }, { status: 400 }, request, env);
+      return json({ scope, ...(await upsertMonthlyContext(profileId, monthKey, body?.data || {}, env)) }, { status: 200 }, request, env);
+    }
+    
+    return json({ error: 'Method Not Allowed' }, { status: 405 }, request, env);
+  } catch (error) {
+    console.error('[qimen-api] context-notes error:', error);
+    return json({ error: '断事笔记处理失败', details: error.message }, { status: error.status || 500 }, request, env);
+  }
+}
+
+async function handleBaziQuestion(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  try {
+    const user = await getAuthedUser(request, env);
+    const body = await readJson(request);
+    const question = String(body.question || '').trim();
+    const profileId = String(body.profileId || '').trim();
+    const route = normalizeDivinationRoute(body.route || { branch: 'bazi', category: 'general' });
+    
+    if (!question) return json({ error: '问题不能为空' }, { status: 400 }, request, env);
+    if (!profileId) return json({ error: '缺少八字档案 ID' }, { status: 400 }, request, env);
+
+    const supabase = createSupabaseClient(env);
+    const { data: profile, error } = await supabase.from('bazi_profiles').select('*').eq('id', profileId).single();
+    if (error || !profile) return json({ error: '档案不存在' }, { status: 404 }, request, env);
+    if (profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
+    if (!profile.bazi_detail || !profile.bazi_str) return json({ error: '该档案缺少完整八字排盘数据，请先在八字页完成命盘推演', code: 'BAZI_PROFILE_INCOMPLETE' }, { status: 400 }, request, env);
+
+    const prompt = buildBaziQuestionPrompt({ profile, question, route });
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.65);
+    const output = normalizeBaziQuestionOutput(llmJson, { question, route });
+    
+    return json(output, { status: 200 }, request, env);
+  } catch (error) {
+    console.error('[qimen-api] bazi-question error:', error);
+    return json({ error: '八字问答生成失败', details: error.message }, { status: error.status || 500 }, request, env);
+  }
+}
+
+async function handleBaziCalibrate(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  try {
+    const user = await getAuthedUser(request, env);
+    const body = await readJson(request);
+    const { profileId, prompt } = body;
+    if (!profileId || !prompt) return json({ error: '缺少 profileId 或 prompt' }, { status: 400 }, request, env);
+
+    const supabase = createSupabaseClient(env);
+    const { data: profile } = await supabase.from('bazi_profiles').select('id, user_id').eq('id', profileId).single();
+    if (!profile || profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
+
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.2);
+    if (!llmJson.yuanju_core || !llmJson.current_dayun || !llmJson.current_liunian) {
+      return json({ error: 'LLM 返回格式不符预期' }, { status: 500 }, request, env);
+    }
+
+    const { error: dbError } = await supabase.from('bazi_profiles').update({
+      calibrated_yuanju_core: llmJson.yuanju_core,
+      calibrated_current_dayun: llmJson.current_dayun,
+      calibrated_current_liunian: llmJson.current_liunian,
+      calibrated_at: new Date().toISOString(),
+    }).eq('id', profileId);
+
+    if (dbError) throw dbError;
+
+    return json({
+      yuanju_core: llmJson.yuanju_core,
+      current_dayun: llmJson.current_dayun,
+      current_liunian: llmJson.current_liunian,
+    }, { status: 200 }, request, env);
+  } catch (error) {
+    console.error('[qimen-api] bazi-calibrate error:', error);
+    return json({ error: error.message || '深度校准失败' }, { status: error.status || 500 }, request, env);
+  }
+}
+
+async function handleFortuneDailyInterpretation(request, env) {
+  if (request.method !== 'GET' && request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  const url = new URL(request.url);
+  let body = {};
+  if (request.method === 'POST') body = await readJson(request);
+
+  try {
+    const user = await getAuthedUser(request, env);
+    const targetDate = getTargetDate(url, body);
+    const { bjTime, todayKey, expiresAt } = getBeijingDayInfo(targetDate);
+    const requestedProfileId = getRequestedProfileId(url, body);
+    const periodKey = buildDailyPeriodKey(todayKey, requestedProfileId);
+
+    const cached = await getCachedFortune(user.id, 'day', periodKey, env);
+    if (hasReadyInterpretation(cached)) return json(pickInterpretationFields(cached), { status: 200 }, request, env);
+
+    if (!cached) await enforceQuota(user, env);
+
+    const profile = await getProfileForFortune(user.id, requestedProfileId, env, true);
+    const context = buildFortuneContext(profile, bjTime, todayKey);
+    const latestBaseJson = buildBaseFortunePayload(context);
+    const baseJson = cached ? { ...cached, ...latestBaseJson } : latestBaseJson;
+    
+    const prompt = buildInterpretationPrompt(context);
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5);
+    const mergedJson = mergeInterpretation(baseJson, llmJson);
+
+    await upsertFortuneCache(user.id, 'day', periodKey, mergedJson, expiresAt, env);
+    return json(pickInterpretationFields(mergedJson), { status: 200 }, request, env);
+  } catch (error) {
+    console.error('[qimen-api] fortune-daily-interpretation error:', error);
+    const isQuota = error.message.includes('额度');
+    return json({ error: isQuota ? error.message : '云端日运断语生成失败', details: error.message }, { status: error.status || (isQuota ? 403 : 500) }, request, env);
+  }
+}
+
+async function handleFortuneMonthlyInterpretation(request, env) {
+  if (request.method !== 'GET' && request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  const url = new URL(request.url);
+  let body = {};
+  if (request.method === 'POST') body = await readJson(request);
+
+  try {
+    const user = await getAuthedUser(request, env);
+    const targetMonth = getTargetMonth(url, body);
+    const dimension = normalizeDimension(body?.dimension || url.searchParams.get('dimension') || 'overall');
+    const flowMonth = getFlowMonthInfo(targetMonth);
+    const requestedProfileId = getRequestedProfileId(url, body);
+    const profile = await getProfileForFortune(user.id, requestedProfileId, env);
+    
+    const profileContext = await getProfileContext(profile.id, env);
+    const { record: currentMonthlyContext, recent_records: recentMonthlyContexts } = await getMonthlyContext(profile.id, flowMonth.context_month_key, env);
+    const contextSeed = buildContextVersionSeed(profileContext, recentMonthlyContexts);
+    const periodKey = buildMonthlyInterpretationPeriodKey(flowMonth.period_key, profile.id, dimension, contextSeed);
+
+    const cached = await getCachedFortune(user.id, 'month_interpretation', periodKey, env);
+    if (hasReadyMonthlyInterpretation(cached)) return json(pickMonthlyInterpretationFields(cached), { status: 200 }, request, env);
+
+    const baseJson = buildMonthlyFortunePayload(profile, flowMonth);
+    const prompt = buildMonthlyInterpretationPrompt(profile, baseJson, dimension, {
+      profile_context: profileContext,
+      current_monthly_context: currentMonthlyContext,
+      recent_monthly_contexts: recentMonthlyContexts,
+    });
+    
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5);
+    const mergedJson = mergeMonthlyInterpretation(baseJson, llmJson, dimension);
+
+    await upsertFortuneCache(user.id, 'month_interpretation', periodKey, mergedJson, flowMonth.expiresAt, env);
+    return json(pickMonthlyInterpretationFields(mergedJson), { status: 200 }, request, env);
+  } catch (error) {
+    console.error('[qimen-api] fortune-monthly-interpretation error:', error);
+    return json({ error: '云端月运断语生成失败', details: error.message }, { status: error.status || 500 }, request, env);
+  }
+}
+
 async function routeRequest(request, env) {
   const url = new URL(request.url);
 
@@ -424,12 +688,20 @@ async function routeRequest(request, env) {
   if (url.pathname === '/api/fortune-monthly') return handleFortuneMonthly(request, env);
   if (url.pathname === '/api/fortune-daily') return handleFortuneDaily(request, env);
 
+  if (url.pathname === '/api/context-notes') return handleContextNotes(request, env);
+  if (url.pathname === '/api/bazi-question') return handleBaziQuestion(request, env);
+  if (url.pathname === '/api/bazi-calibrate') return handleBaziCalibrate(request, env);
+  if (url.pathname === '/api/fortune-daily-interpretation') return handleFortuneDailyInterpretation(request, env);
+  if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
+
   return json({
     error: 'Not Found',
     path: url.pathname,
     migrated: [
       '/api/health', '/api/divination-route', '/api/fortune-annual',
-      '/api/fortune-weekly', '/api/fortune-monthly', '/api/fortune-daily'
+      '/api/fortune-weekly', '/api/fortune-monthly', '/api/fortune-daily',
+      '/api/context-notes', '/api/bazi-question', '/api/bazi-calibrate',
+      '/api/fortune-daily-interpretation', '/api/fortune-monthly-interpretation'
     ],
   }, { status: 404 }, request, env);
 }
