@@ -1,0 +1,12 @@
+name = "qimen-api"
+main = "src/index.js"
+compatibility_date = "2026-05-13"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[secrets]
+required = [
+  "GEMINI_API_KEY",
+  "SUPABASE_URL",
+  "SUPABASE_SERVICE_KEY"
+]
