@@ -739,7 +739,7 @@
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
-import { globalState } from '../store.js'
+import { globalState, resolveSelectedBaziProfileId, setSelectedBaziProfileId } from '../store.js'
 import { getGuestState, recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
 import {
   clearMonthlyInterpretationRefresh,
@@ -1239,6 +1239,7 @@ const loadGuestProfile = () => {
   const profile = getGuestState().baziProfile
   baziProfiles.value = profile ? [profile] : []
   selectedProfileId.value = profile?.id || ''
+  setSelectedBaziProfileId(profile?.id || '')
 }
 
 const fetchProfiles = async () => {
@@ -1250,13 +1251,12 @@ const fetchProfiles = async () => {
   const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
   baziProfiles.value = data || []
   const requestedProfileId = String(route.query.profileId || '')
-  const matchedRequestedProfile = requestedProfileId && baziProfiles.value.find(profile => profile.id === requestedProfileId)
-  if (matchedRequestedProfile) {
-    selectedProfileId.value = matchedRequestedProfile.id
-  } else if (!selectedProfileId.value && baziProfiles.value.length > 0) {
-    const defaultProfile = baziProfiles.value.find(profile => profile.is_default) || baziProfiles.value[0]
-    selectedProfileId.value = defaultProfile.id
-  }
+  const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {
+    requestedProfileId,
+    currentProfileId: selectedProfileId.value
+  })
+  selectedProfileId.value = resolvedProfileId
+  setSelectedBaziProfileId(resolvedProfileId)
 }
 
 const toggleProfileMenu = () => {
@@ -1270,6 +1270,7 @@ const selectProfile = (profileId) => {
     return
   }
   selectedProfileId.value = profileId
+  setSelectedBaziProfileId(profileId)
   isProfileMenuOpen.value = false
   if (currentTab.value === 'month') {
     fetchMonthlyFortuneData()
@@ -1756,6 +1757,25 @@ onUnmounted(() => {
 })
 
 watch(
+  () => globalState.selectedBaziProfileId,
+  (profileId) => {
+    if (!profileId || profileId === selectedProfileId.value) return
+    if (!baziProfiles.value.some(profile => profile.id === profileId)) return
+    selectedProfileId.value = profileId
+    syncMonthlyRefreshSignal(profileId, selectedMonthKey.value)
+    if (currentTab.value === 'month') {
+      fetchMonthlyFortuneData()
+    } else if (currentTab.value === 'week') {
+      fetchWeeklyFortuneData()
+    } else if (currentTab.value === 'year') {
+      fetchAnnualFortuneData()
+    } else {
+      fetchFortuneData(selectedDate.value)
+    }
+  }
+)
+
+watch(
   () => [route.query.date, route.query.profileId],
   ([nextDate, nextProfileId]) => {
     const normalizedDate = normalizeDateString(nextDate)
@@ -1776,6 +1796,7 @@ watch(
     const profileId = String(nextProfileId || '')
     if (profileId && profileId !== selectedProfileId.value && baziProfiles.value.some(profile => profile.id === profileId)) {
       selectedProfileId.value = profileId
+      setSelectedBaziProfileId(profileId)
       syncMonthlyRefreshSignal(profileId, selectedMonthKey.value)
       if (currentTab.value === 'month') {
         fetchMonthlyFortuneData()

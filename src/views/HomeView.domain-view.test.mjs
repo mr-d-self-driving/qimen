@@ -26,3 +26,20 @@ test('领域判断模块包含核心轴、流程、应期和决策样式', () =>
   assert.match(source, /\.domain-axis-card/)
   assert.match(source, /overflow-wrap:\s*anywhere/)
 })
+
+test('奇门页使用顶部档案筛选器并移除旧八字注入开关', () => {
+  assert.match(source, /qimen-profile-panel/)
+  assert.match(source, /profile-switch-trigger/)
+  assert.match(source, /添加八字档案/)
+  assert.match(source, /goToBaziProfiles/)
+  assert.doesNotMatch(source, /注入命主八字分析/)
+  assert.doesNotMatch(source, /bazi-toggle/)
+  assert.doesNotMatch(source, /v-model="baziEnabled"/)
+})
+
+test('奇门占卜提交不再强制要求八字档案但会自动携带已选档案摘要', () => {
+  assert.doesNotMatch(source, /baziEnabled\.value && baziState\.value !== 'ready'/)
+  assert.doesNotMatch(source, /window\.confirm\('这个问题更适合结合八字命局与奇门事件盘/)
+  assert.match(source, /baziInfo:\s*currentBaziString\.value \|\| null/)
+  assert.match(source, /hasBaziProfile:\s*Boolean\(selectedProfileId\.value \|\| baziProfiles\.value\.length\)/)
+})

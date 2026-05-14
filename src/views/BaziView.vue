@@ -1202,7 +1202,7 @@ import { ref, reactive, computed, nextTick, onMounted, onUnmounted, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
-import { globalState } from '../store.js'
+import { globalState, resolveSelectedBaziProfileId, setSelectedBaziProfileId } from '../store.js'
 import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
 import {
     loadCachedFortune as loadSharedCachedFortune,
@@ -1750,6 +1750,16 @@ watch(
         }
     },
     { immediate: true }
+)
+
+watch(
+    () => globalState.selectedBaziProfileId,
+    (profileId) => {
+        if (!profileId || profileId === selectedProfileId.value) return
+        if (!baziProfiles.value.some(profile => profile.id === profileId)) return
+        selectedProfileId.value = profileId
+        handleProfileSelect()
+    }
 )
 
 watch(notesMonthKey, async (next) => {
@@ -2408,16 +2418,12 @@ const fetchProfiles = async () => {
     const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
     baziProfiles.value = data || []
     const requestedProfileId = String(route.query.profileId || '')
-    const matchedRequestedProfile = requestedProfileId && baziProfiles.value.find(profile => profile.id === requestedProfileId)
-    if (matchedRequestedProfile) {
-        selectedProfileId.value = matchedRequestedProfile.id
-        return
-    }
-    const hasActiveSelection = baziProfiles.value.some(profile => profile.id === selectedProfileId.value)
-    if (!hasActiveSelection) {
-        const defaultProfile = baziProfiles.value.find(p => p.is_default) || baziProfiles.value[0]
-        selectedProfileId.value = defaultProfile?.id || ''
-    }
+    const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {
+        requestedProfileId,
+        currentProfileId: selectedProfileId.value
+    })
+    selectedProfileId.value = resolvedProfileId
+    setSelectedBaziProfileId(resolvedProfileId)
 }
 
 const getAccessToken = async () => {
@@ -2581,6 +2587,7 @@ const selectProfile = (profileId) => {
         return
     }
     selectedProfileId.value = profileId
+    setSelectedBaziProfileId(profileId)
     isProfileMenuOpen.value = false
     handleProfileSelect()
 }
@@ -2760,6 +2767,7 @@ const saveProfile = async () => {
         saveGuestBaziProfile(undefined, profile)
         baziProfiles.value = [profile]
         selectedProfileId.value = profile.id
+        setSelectedBaziProfileId(profile.id)
         showAdd.value = false
         resetProfileEntry()
         await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
@@ -2805,6 +2813,7 @@ const saveProfile = async () => {
                 ...baziProfiles.value.filter(profile => profile.id !== data.id)
             ]
             selectedProfileId.value = data.id
+            setSelectedBaziProfileId(data.id)
         }
         showAdd.value = false
         resetProfileEntry()
@@ -2816,6 +2825,7 @@ const loadGuestProfile = () => {
     const profile = getGuestState().baziProfile
     baziProfiles.value = profile ? [profile] : []
     selectedProfileId.value = profile?.id || ''
+    setSelectedBaziProfileId(profile?.id || '')
 }
 
 const buildGuestProfile = (payload) => {
@@ -2857,6 +2867,7 @@ const setDefaultProfile = async () => {
     if (error) alert(error.message)
     else {
         selectedProfileId.value = profileId
+        setSelectedBaziProfileId(profileId)
         await fetchProfiles()
     }
 }
@@ -2866,7 +2877,9 @@ const deleteProfile = async () => {
         const deletedId = selectedProfileId.value
         await supabase.from('bazi_profiles').delete().eq('id', deletedId)
         baziProfiles.value = baziProfiles.value.filter(profile => profile.id !== deletedId)
-        selectedProfileId.value = ''
+        const nextProfileId = resolveSelectedBaziProfileId(baziProfiles.value)
+        selectedProfileId.value = nextProfileId
+        setSelectedBaziProfileId(nextProfileId)
         await fetchProfiles() 
     }
 }

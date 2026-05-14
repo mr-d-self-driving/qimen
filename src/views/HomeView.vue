@@ -131,6 +131,32 @@
                 <div class="tagline-sub">洞察天机，决胜千里</div>
               </div>
 
+              <div class="glass-card qimen-profile-panel">
+                <div v-if="showProfileSwitcher" class="profile-switcher" :class="{ open: isProfileMenuOpen }">
+                  <button class="profile-switch-trigger" type="button" @click="toggleProfileMenu">
+                    <span class="profile-switch-name">{{ activeProfileName }}</span>
+                    <span class="profile-switch-symbol" aria-hidden="true">⇄</span>
+                  </button>
+                  <div v-if="isProfileMenuOpen" class="profile-flyout">
+                    <button
+                      v-for="profile in baziProfiles"
+                      :key="profile.id"
+                      class="profile-flyout-item"
+                      :class="{ active: profile.id === selectedProfileId }"
+                      type="button"
+                      @click="selectProfile(profile.id)"
+                    >
+                      <span class="profile-item-main">{{ profile.name }}</span>
+                      <span class="profile-item-date">{{ formatSolarDate(profile.birth_date) }}</span>
+                      <span class="profile-item-meta">{{ profileMetaText(profile) }}</span>
+                    </button>
+                  </div>
+                </div>
+                <button v-else class="add-bazi-profile-btn" type="button" @click="goToBaziProfiles">
+                  添加八字档案
+                </button>
+              </div>
+
               <div class="glass-card input-card">
                 <div class="input-label">
                   <span>叩问天机</span>
@@ -143,68 +169,6 @@
                     <span>{{ clockText }}</span>
                   </div>
                   <div class="time-note">以当下时辰起局</div>
-                </div>
-              </div>
-
-              <div class="input-box" style="padding:16px">
-                <label class="bazi-toggle">
-                  <div class="bazi-toggle-text">
-                    <span>🧬</span> 注入命主八字分析
-                    <span class="info-icon" @click.stop="showBaziModal = true">?</span>
-                  </div>
-                  <div class="switch">
-                    <input type="checkbox" v-model="baziEnabled" @change="handleBaziToggle">
-                    <span class="slider"></span>
-                  </div>
-                </label>
-
-                <div v-show="baziEnabled" class="bazi-workspace">
-                  <div class="profile-selector">
-                    <select v-model="selectedProfileId" class="profile-select" @change="handleProfileSelect">
-                      <option value="">{{ baziProfiles.length ? '-- 请选择命主档案 --' : '加载档案中...' }}</option>
-                      <option v-for="p in baziProfiles" :key="p.id" :value="p.id">
-                        {{ p.name }} ({{ p.gender === 'M' ? '男' : '女' }})
-                      </option>
-                    </select>
-                  </div>
-
-                  <div v-show="baziState === 'ready'" style="margin-top:16px;padding:16px;background:rgba(255,255,255,0.025);border-radius:12px;border:1px solid var(--gold-border);">
-                    <div v-if="activeBaziProfile?.bazi_detail?.matrix?.pillars" class="bazi-table-wrap" style="margin-bottom: 14px;">
-                      <table class="bazi-table">
-                        <thead>
-                          <tr>
-                            <th>柱位</th>
-                            <th v-for="col in activeBaziProfile.bazi_detail.matrix.pillars" :key="col.name">{{ col.name }}柱</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td class="bz-label">主星</td>
-                            <td v-for="(col, i) in activeBaziProfile.bazi_detail.matrix.pillars" :key="'star'+i" class="bz-sub">{{ col.star || '-' }}</td>
-                          </tr>
-                          <tr>
-                            <td class="bz-label">天干</td>
-                            <td v-for="(col, i) in activeBaziProfile.bazi_detail.matrix.pillars" :key="'gan'+i" class="bz-char" :class="WX_MAP[col.gan]">{{ col.gan || '-' }}</td>
-                          </tr>
-                          <tr>
-                            <td class="bz-label">地支</td>
-                            <td v-for="(col, i) in activeBaziProfile.bazi_detail.matrix.pillars" :key="'zhi'+i" class="bz-char" :class="WX_MAP[col.zhi]">{{ col.zhi || '-' }}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-
-                    <details class="bazi-details" open>
-                      <summary>✨ 命理基底已锁定</summary>
-                      <div class="bazi-summary-text">{{ currentBaziSummary }}</div>
-                    </details>
-                  </div>
-
-                  <div v-show="baziState === 'warning'" style="margin-top:16px;padding:16px;background:rgba(255,94,87,0.05);border-radius:12px;border:1px solid rgba(255,94,87,0.2);">
-                    <div style="font-size:12px;color:#FF5E57;line-height:1.6;">
-                      ⚠️ 该档案暂无云端排盘数据。<br>请先前往底部 <b>「八字」</b> 模块点击推演，生成命理基底后再行注入。
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -352,33 +316,6 @@
       </aside>
     </div>
 
-    <div class="bazi-info-overlay" :class="{ show: showBaziModal }" @click="showBaziModal = false">
-      <div class="bazi-info-card" @click.stop>
-        <div class="bazi-info-title"><span>何时需要注入八字？</span><span class="bazi-info-close" @click="showBaziModal = false">&times;</span></div>
-        <div class="bazi-info-text">
-          <div class="info-block">
-            <div class="info-block-title">标准解卦 <span>(无需八字)</span></div>
-            <p>单纯预测<span class="highlight">具体事件走向</span>（如今日出行、近期合同、求财结果等），奇门局本身能量已足够推演。</p>
-          </div>
-          
-          <div class="info-block">
-            <div class="info-block-title">深度解卦 <span>(需要八字)</span></div>
-            <ul class="info-list">
-              <li><span class="list-label">判断个人旺衰</span>涉及健康、婚姻前途、命运走向，需用日干印证。</li>
-              <li><span class="list-label">流年大运配合</span>结合八字大运判断具体年份变化。</li>
-              <li><span class="list-label">六亲宫位对应</span>判断婚姻、子嗣等，用八字强弱印证局盘信息。</li>
-              <li><span class="list-label">精准应期定位</span>两套体系交接点吻合，应验概率更高。</li>
-            </ul>
-          </div>
-          
-          <div class="bazi-summary-box">
-            <div class="summary-box-label">✧ 一句话总结</div>
-            <div class="summary-box-content">凡涉及<span class="highlight">"这个人能不能成事"</span>，引入八字让两套体系互为印证，准确率大幅提升！</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="route-info-overlay" :class="{ show: showRouteInfoModal }" @click="showRouteInfoModal = false">
       <div class="route-info-card" @click.stop>
         <div class="route-info-title">
@@ -415,10 +352,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
-import { enterGuestMode, globalState, leaveGuestMode, setCurrentUser } from '../store.js'
+import {
+  enterGuestMode,
+  globalState,
+  leaveGuestMode,
+  resolveSelectedBaziProfileId,
+  setCurrentUser,
+  setSelectedBaziProfileId
+} from '../store.js'
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import AccountMenu from '../components/AccountMenu.vue'
@@ -441,13 +385,6 @@ const ROUTE_API_URL = "/api/divination-route"
 const BAZI_QUESTION_API_URL = "/api/bazi-question"
 const router = useRouter()
 
-const WX_MAP = {
-    '甲':'wx-mu', '乙':'wx-mu', '丙':'wx-huo', '丁':'wx-huo', '戊':'wx-tu', '己':'wx-tu',
-    '庚':'wx-jin', '辛':'wx-jin', '壬':'wx-shui', '癸':'wx-shui',
-    '寅':'wx-mu', '卯':'wx-mu', '巳':'wx-huo', '午':'wx-huo', '申':'wx-jin', '酉':'wx-jin',
-    '亥':'wx-shui', '子':'wx-shui', '辰':'wx-tu', '戌':'wx-tu', '丑':'wx-tu', '未':'wx-tu'
-}
-
 const currentUser = ref(null)
 const isLoginMode = ref(true)
 const authLoading = ref(false)
@@ -460,16 +397,15 @@ const viewState = ref('input')
 const questionInput = ref('')
 const isSubmitting = ref(false)
 const clockText = ref('载入时辰中…')
-const showBaziModal = ref(false)
 const showRouteInfoModal = ref(false)
 
-const baziEnabled = ref(false)
-const baziState = ref('idle')
 const baziProfiles = ref([])
 const selectedProfileId = ref('')
-const currentBaziSummary = ref('')
+const isProfileMenuOpen = ref(false)
 const currentBaziString = ref('')
 const activeBaziProfile = computed(() => baziProfiles.value.find(p => p.id === selectedProfileId.value))
+const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
+const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
 const isGuest = computed(() => globalState.isGuest)
 const canUseApp = computed(() => Boolean(currentUser.value || isGuest.value))
 
@@ -507,6 +443,7 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 onMounted(() => {
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
+  document.addEventListener('click', handleDocumentClick)
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     handleSessionUpdate(session)
@@ -517,6 +454,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  document.removeEventListener('click', handleDocumentClick)
   clearInterval(clockInterval)
   clearInterval(loaderInterval)
   clearInterval(scoreTimer)
@@ -531,6 +469,7 @@ const handleSessionUpdate = (session) => {
   if (session) {
     currentUser.value = session.user
     loadHistory()
+    fetchBaziProfiles()
     warmFortuneCacheFromSupabase({
       supabase,
       storage: getFortuneStorage(),
@@ -606,6 +545,7 @@ const handleGuestEntry = async () => {
   enterGuestMode()
   currentUser.value = null
   historyRecords.value = []
+  await fetchBaziProfiles()
   await trackGuestEvent(supabase, 'guest_started', 'auth')
 }
 
@@ -620,44 +560,92 @@ const updateClock = () => {
   clockText.value = `${h}:${m}\u2002${TIAN_GAN[stemIdx]}日 ${DI_ZHI[shichenIdx]}时`
 }
 
-const handleBaziToggle = async () => {
-  if (baziEnabled.value && baziProfiles.value.length === 0) {
-    await fetchBaziProfiles()
-  }
-  if (!baziEnabled.value) {
-    selectedProfileId.value = ""
-    baziState.value = 'idle'
-    currentBaziString.value = ""
-  }
+const formatSolarDate = (value) => {
+  if (!value) return '阳历待确认'
+  const p = String(value).match(/\d+/g)
+  if (!p || p.length < 3) return '阳历待确认'
+  const time = p.length >= 5 ? ` ${p[3].padStart(2, '0')}:${p[4].padStart(2, '0')}` : ''
+  return `${p[0]}.${p[1].padStart(2, '0')}.${p[2].padStart(2, '0')}${time}`
+}
+
+const profileMetaText = (profile) => {
+  const parts = [profile.gender === 'M' ? '乾造' : '坤造']
+  if (profile.birth_location) parts.push(profile.birth_location)
+  if (profile.is_default) parts.push('默认')
+  return parts.join(' · ')
 }
 
 const fetchBaziProfiles = async () => {
   if (isGuest.value && !currentUser.value) {
     const profile = getGuestState().baziProfile
     baziProfiles.value = profile ? [profile] : []
+    selectedProfileId.value = profile?.id || ''
+    if (profile?.id) setSelectedBaziProfileId(profile.id)
+    handleProfileSelect()
     return
   }
   if (!currentUser.value) return
   const { data, error } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
-  if (!error && data) baziProfiles.value = data
+  if (!error && data) {
+    baziProfiles.value = data
+    const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {
+      currentProfileId: selectedProfileId.value
+    })
+    selectedProfileId.value = resolvedProfileId
+    setSelectedBaziProfileId(resolvedProfileId)
+    handleProfileSelect()
+  }
 }
 
 const handleProfileSelect = () => {
   if (!selectedProfileId.value) {
-    baziState.value = 'idle'
     currentBaziString.value = ''
     return
   }
+  setSelectedBaziProfileId(selectedProfileId.value)
   const profile = baziProfiles.value.find(p => p.id === selectedProfileId.value)
   if (profile?.bazi_summary) {
-    baziState.value = 'ready'
-    currentBaziSummary.value = profile.bazi_summary
     const baziStr = profile.bazi_str || "未知"
     currentBaziString.value = `命主：${profile.name}\n性别：${profile.gender === 'M' ? '男' : '女'}\n八字结构：${baziStr}\n断语：${profile.bazi_summary}`
   } else {
-    baziState.value = 'warning'
+    currentBaziString.value = ''
   }
 }
+
+const toggleProfileMenu = () => {
+  if (!showProfileSwitcher.value) return
+  isProfileMenuOpen.value = !isProfileMenuOpen.value
+}
+
+const selectProfile = (profileId) => {
+  if (!profileId || profileId === selectedProfileId.value) {
+    isProfileMenuOpen.value = false
+    return
+  }
+  selectedProfileId.value = profileId
+  isProfileMenuOpen.value = false
+  handleProfileSelect()
+}
+
+const handleDocumentClick = (event) => {
+  const target = event.target
+  if (!(target instanceof Element)) return
+  if (!target.closest('.profile-switcher')) isProfileMenuOpen.value = false
+}
+
+const goToBaziProfiles = () => {
+  router.push({ name: 'bazi' })
+}
+
+watch(
+  () => globalState.selectedBaziProfileId,
+  (profileId) => {
+    if (!profileId || profileId === selectedProfileId.value) return
+    if (!baziProfiles.value.some(profile => profile.id === profileId)) return
+    selectedProfileId.value = profileId
+    handleProfileSelect()
+  }
+)
 
 const startLoaderCycle = () => {
   let idx = 0
@@ -672,15 +660,11 @@ const stopLoaderCycle = () => { clearInterval(loaderInterval) }
 const resetToInput = () => {
   viewState.value = 'input'
   questionInput.value = ''
-  baziEnabled.value = false
-  selectedProfileId.value = ''
-  baziState.value = 'idle'
   activeResultRecord.value = null
 }
 
 const startDivination = async () => {
   const input = questionInput.value.trim()
-  if (baziEnabled.value && baziState.value !== 'ready') return alert("✋ 请先选择命主档案！")
   if (!input) return alert("问题不能为空！")
 
   const { data: { session } } = await supabase.auth.getSession()
@@ -760,14 +744,7 @@ const startDivination = async () => {
     }
 
     if (routeData.branch === 'hybrid' && !currentBaziString.value) {
-      const useQimenOnly = window.confirm('这个问题更适合结合八字命局与奇门事件盘。当前未注入八字档案，是否先仅用奇门判断眼前这件事？')
-      if (!useQimenOnly) {
-        viewState.value = 'input'
-        baziEnabled.value = true
-        await fetchBaziProfiles()
-        return
-      }
-      routeData = { ...routeData, branch: 'qimen', reason: `${routeData.reason || ''}；用户选择跳过八字，仅用奇门。` }
+      routeData = { ...routeData, branch: 'qimen', reason: `${routeData.reason || ''}；当前未选择完整八字档案，自动仅用奇门。` }
     }
 
     const response = await fetch(API_URL, {
@@ -776,7 +753,7 @@ const startDivination = async () => {
       body: JSON.stringify({
         question: input,
         route: routeData,
-        baziInfo: baziEnabled.value ? currentBaziString.value : null
+        baziInfo: currentBaziString.value || null
       })
     })
     const data = await response.json()
@@ -1353,36 +1330,46 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 }
 .auth-switch:hover { border-color: rgba(232,204,128,0.28); background: rgba(212,175,55,0.055); color: var(--gold-light); }
 
-.bazi-toggle { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: var(--radius-item); border: 1px solid var(--glass-border); cursor: pointer; background: rgba(0,0,0,0.15); }
-.bazi-toggle-text { font-size: 14px; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
-.switch { position: relative; display: inline-block; width: 44px; height: 24px; }
-.switch input { opacity: 0; width: 0; height: 0; }
-.slider { position: absolute; cursor: pointer; inset: 0; background: rgba(255,255,255,0.08); border-radius: 24px; transition: .4s; }
-.slider:before { position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px; background: var(--text-muted); border-radius: 50%; transition: .4s; }
-input:checked + .slider { background: var(--gold); }
-input:checked + .slider:before { transform: translateX(20px); background: #fff; }
-.profile-selector { display: flex; gap: 10px; }
-.profile-select { flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--gold); color: #fff; padding: 10px; border-radius: 8px; outline: none; font-size: 14px; }
-.info-icon { display: inline-flex; justify-content: center; align-items: center; width: 16px; height: 16px; border-radius: 50%; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 11px; margin-left: 8px; }
-
-/* 注入的八字简表样式复刻自 BaziView */
-.bazi-table-wrap { width: 100%; overflow: hidden; }
-.bazi-table { table-layout: fixed; width: 100%; border-collapse: collapse; text-align: center; }
-.bazi-table th, .bazi-table td { padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; word-wrap: break-word; }
-.bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
-
-.bz-label { color: var(--text-muted); font-weight: 500; font-size: 10px; }
-.bz-char { font-size: 16px; font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
-.bz-sub { font-size: 10px; color: #aaa; line-height: 1.4; }
-
-.wx-jin { color: #E8CC80 !important; } .wx-mu { color: #81C784 !important; } .wx-shui { color: #64B5F6 !important; } .wx-huo { color: #E57373 !important; } .wx-tu { color: #DCE775 !important; }
-
-.bazi-details { margin-top: 14px; }
-.bazi-details summary { font-size: 13px; color: var(--gold); font-weight: 600; cursor: pointer; outline: none; list-style: none; display: flex; align-items: center; }
-.bazi-details summary::-webkit-details-marker { display: none; }
-.bazi-details summary::after { content: '▼'; font-size: 10px; margin-left: 6px; transition: transform .3s; }
-.bazi-details[open] summary::after { transform: rotate(180deg); }
-.bazi-summary-text { font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; opacity: .85; margin-top: 8px; border-top: 1px dashed rgba(255,255,255,0.1); padding-top: 10px; }
+.qimen-profile-panel { position: relative; z-index: 42; padding: 14px 16px; overflow: visible; }
+.profile-switcher { position: relative; z-index: 60; }
+.profile-switch-trigger {
+  width: 100%;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06));
+  color: var(--gold-light);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(212,175,55,0.14);
+}
+.profile-switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 24px; letter-spacing: 1px; line-height: 1; }
+.profile-switch-symbol { color: var(--gold-light); font-size: 24px; line-height: 1; opacity: .92; }
+.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
+.profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
+.profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
+.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
+.profile-item-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
+.profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.add-bazi-profile-btn {
+  width: 100%;
+  min-height: 56px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06));
+  color: var(--gold-light);
+  cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(212,175,55,0.14);
+  font-family: var(--font-serif);
+  font-size: 22px;
+  letter-spacing: 1px;
+}
+.add-bazi-profile-btn:hover { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.26), 0 0 20px rgba(212,175,55,0.08); }
 
 /* 动画和结果页 */
 #loader { display: flex; flex-direction: column; align-items: center; gap: 24px; padding: 32px 0; }
@@ -1435,27 +1422,16 @@ input:checked + .slider:before { transform: translateX(20px); background: #fff; 
   .auth-head h1 { font-size: 23px; }
   .auth-oauth-row { grid-template-columns: 1fr; }
   .auth-inline-actions { justify-content: space-between; gap: 12px; }
+  .qimen-profile-panel { padding: 12px 14px; }
+  .profile-switch-trigger,
+  .add-bazi-profile-btn { min-height: 52px; }
+  .profile-switch-name { font-size: 20px; }
+  .profile-switch-symbol { font-size: 21px; }
+  .profile-flyout-item { grid-template-columns: minmax(0, 1fr) auto auto; gap: 8px; padding: 11px 12px; }
+  .profile-item-date,
+  .profile-item-meta { font-size: 11px; }
 }
 
-.bazi-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.72); backdrop-filter: blur(6px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .3s; }
-.bazi-info-overlay.show { display: flex; opacity: 1; }
-.bazi-info-card { background: rgba(14,14,31,0.95); border: 1px solid var(--gold-border); border-radius: var(--radius-card); padding: 26px 24px; max-width: 400px; width: 100%; box-shadow: 0 24px 60px rgba(0,0,0,0.8); }
-.bazi-info-title { font-family: var(--font-serif); font-size: 16px; font-weight: 500; color: var(--gold-light); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(212,175,55,0.15); padding-bottom: 14px; }
-.bazi-info-close { cursor: pointer; color: var(--text-muted); font-size: 22px; font-weight: 300; transition: color .2s; line-height: 1; display: flex; align-items: center; }
-.bazi-info-close:hover { color: var(--gold); }
-.bazi-info-text { display: flex; flex-direction: column; gap: 16px; }
-.info-block { background: rgba(0,0,0,0.2); border: 1px solid var(--glass-border); border-radius: 12px; padding: 16px; }
-.info-block-title { font-size: 14px; color: var(--gold); margin-bottom: 10px; font-family: var(--font-serif); display: flex; align-items: center; gap: 6px; }
-.info-block-title span { font-size: 11px; color: var(--text-muted); font-family: sans-serif; font-weight: normal; }
-.info-block p { font-size: 13px; color: #D0D0D8; line-height: 1.65; margin: 0; }
-.highlight { color: var(--gold-light); font-weight: 500; }
-.info-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
-.info-list li { position: relative; padding-left: 14px; font-size: 13px; color: #D0D0D8; line-height: 1.6; }
-.info-list li::before { content: "•"; position: absolute; left: 0; top: 0; color: var(--gold); font-size: 14px; line-height: 1.6; }
-.list-label { color: #FFF; font-weight: 500; margin-right: 6px; }
-.bazi-summary-box { margin-top: 4px; padding: 14px 16px; background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.02)); border: 1px solid rgba(212,175,55,0.2); border-radius: 12px; border-left: 3px solid var(--gold); }
-.summary-box-label { font-size: 11px; color: var(--gold); letter-spacing: 1px; margin-bottom: 6px; font-weight: 500; }
-.summary-box-content { font-size: 13px; color: #F1E6C4; line-height: 1.6; }
 .route-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.58); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .25s; }
 .route-info-overlay.show { display: flex; opacity: 1; }
 .route-info-card { width: min(420px, 100%); background: rgba(14,14,31,0.96); border: 1px solid rgba(232,204,128,0.22); border-radius: 18px; padding: 20px; box-shadow: 0 24px 64px rgba(0,0,0,0.72); }
