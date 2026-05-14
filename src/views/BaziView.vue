@@ -292,7 +292,7 @@
                                 @click="openInsightPanel('geju')"
                                 @keydown.enter.prevent="openInsightPanel('geju')"
                                 @keydown.space.prevent="openInsightPanel('geju')"
-                            >{{ activeProfile.geju }}</span>
+                            >{{ patternFinalName }}</span>
                         </div>
                         <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
                         <div class="bazi-meta">阳历：{{ solarDateStr }}</div>
@@ -842,8 +842,17 @@
                                     <p class="geju-block-copy">{{ gejuPanelContent.judgeBase }}</p>
                                     <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
                                 </div>
+                                <div v-if="gejuPanelContent.extractionSteps.length" class="geju-modal-block">
+                                    <div class="geju-block-title">取格步骤</div>
+                                    <div class="pattern-step-list">
+                                        <div v-for="step in gejuPanelContent.extractionSteps" :key="step.key" class="pattern-step-item">
+                                            <span>{{ step.label }}</span>
+                                            <p>{{ step.value }}</p>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="geju-modal-block">
-                                    <div class="geju-block-title">成格依据</div>
+                                    <div class="geju-block-title">顺逆与成败</div>
                                     <div class="geju-block-main">{{ gejuPanelContent.chengGeStatus }}</div>
                                     <p class="geju-block-copy">{{ gejuPanelContent.chengGeReason }}</p>
                                     <div v-if="gejuPanelContent.showChengGe" class="geju-inline-pairs geju-inline-pairs-top">
@@ -851,6 +860,14 @@
                                         <span>用神：{{ gejuPanelContent.yongShen }}</span>
                                         <span>相神：{{ gejuPanelContent.xianShen }}</span>
                                     </div>
+                                    <div v-if="gejuPanelContent.evaluationPairs.length" class="geju-inline-pairs">
+                                        <span v-for="item in gejuPanelContent.evaluationPairs" :key="item.label">{{ item.label }}：{{ item.value }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="gejuPanelContent.climateAdjustment" class="geju-modal-block">
+                                    <div class="geju-block-title">调候影响</div>
+                                    <div class="geju-block-main">{{ gejuPanelContent.climateAdjustment.title }}</div>
+                                    <p class="geju-block-copy">{{ gejuPanelContent.climateAdjustment.text }}</p>
                                 </div>
                                 <div v-if="gejuPanelContent.personality.length" class="geju-modal-block">
                                     <div class="geju-block-title">格局气质</div>
@@ -862,6 +879,12 @@
                                     <div class="geju-block-title">适合方向</div>
                                     <div class="geju-bullet-list">
                                         <span v-for="item in gejuPanelContent.goodFor" :key="item" class="geju-list-chip">{{ item }}</span>
+                                    </div>
+                                </div>
+                                <div v-if="gejuPanelContent.relationshipHealth.length" class="geju-modal-block">
+                                    <div class="geju-block-title">关系与身心节奏</div>
+                                    <div class="geju-bullet-list">
+                                        <span v-for="item in gejuPanelContent.relationshipHealth" :key="item" class="geju-list-chip">{{ item }}</span>
                                     </div>
                                 </div>
                                 <div v-if="gejuPanelContent.watchOut.length" class="geju-modal-block">
@@ -1037,14 +1060,14 @@
                                     @keydown.enter.prevent="openStrengthPanel"
                                     @keydown.space.prevent="openStrengthPanel"
                                 >{{ activeProfile.strong_weak }}</span>
-                                <span class="tag-gold">{{ activeProfile.geju }}</span>
+                                <span class="tag-gold">{{ patternFinalName }}</span>
                                 <span v-if="showChengGeText" class="tag-gold tag-emerald">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
                             </div>
                         </div>
                         <div v-if="strengthSummaryLine" class="geju-summary-line">{{ strengthSummaryLine }}</div>
                         <div v-if="gejuSummaryLine" class="geju-summary-line secondary">{{ gejuSummaryLine }}</div>
                         <p>
-                            {{ getGejuDesc(activeProfile.geju) }}
+                            {{ getGejuDesc(patternFinalName) }}
                         </p>
                     </div>
 
@@ -1226,7 +1249,7 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 
 // 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
-const BAZI_ENGINE_VERSION = '1.2.0'
+const BAZI_ENGINE_VERSION = '1.4.0'
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
@@ -1257,7 +1280,40 @@ const GEJU_BASIS_LABELS = {
     '月支合化': '月支合化',
     '月令透干': '月令透干',
     '月令本气': '月令本气',
-    '特判': '特判'
+    '特判': '特判',
+    'SPECIAL_FORCE': '特殊气势优先',
+    'YANGREN_SPECIAL': '羊刃特判',
+    'JIANLU_SPECIAL': '建禄特判',
+    'MONTH_COMBINATION_TRANSFORMED': '月支合化',
+    'MONTH_COMBINATION_TIED': '合而未化',
+    'MONTH_HIDDEN_STEM_REVEALED': '月令透干',
+    'MONTH_MAIN_QI': '月令本气'
+}
+
+const PATTERN_STATUS_LABELS = {
+    FORMED: '成格',
+    BROKEN: '败格',
+    PARTIAL: '半成',
+    PENDING: '待定',
+    DRY_COLD_IMBALANCED: '偏枯'
+}
+
+const PATTERN_GOD_TYPE_LABELS = {
+    GOOD_GOD: '善神',
+    EVIL_GOD: '恶神',
+    NEUTRAL: '中性'
+}
+
+const PATTERN_STRATEGY_LABELS = {
+    SHUN_YONG: '顺用',
+    NI_YONG: '逆用'
+}
+
+const TIAOHOU_STATUS_LABELS = {
+    NOT_NEEDED: '调候普通',
+    NEEDED_RESOLVED: '调候已纳入',
+    NEEDED_UNRESOLVED: '调候未解',
+    OVERRIDES_PATTERN: '调候优先'
 }
 
 const getScoreColor = (score) => {
@@ -1965,42 +2021,77 @@ const openStrengthPanel = () => {
     openInsightPanel('strength')
 }
 
+const patternFinalName = computed(() => {
+    const pattern = activeProfile.value?.bazi_detail?.pattern_analysis
+    return pattern?.extraction?.final_pattern?.name || activeProfile.value?.geju || '格局'
+})
+
+const normalizeTraitItems = (value, fallback = []) => {
+    if (Array.isArray(value) && value.length) return value
+    if (typeof value === 'string' && value.trim()) return [value.trim()]
+    return Array.isArray(fallback) ? fallback : []
+}
+
 const gejuPanelContent = computed(() => {
     const profile = activeProfile.value
     if (!profile?.bazi_detail) return null
     const detail = profile.bazi_detail
+    const pattern = detail.pattern_analysis || null
+    const extraction = pattern?.extraction || null
+    const evaluation = pattern?.evaluation || null
     const gejuDetail = detail.geju_detail || {}
     const chenggeDetail = detail.chengge_detail || {}
     const info = detail.geju_info || {}
     const mergeInfo = gejuDetail.monthMergeInfo || null
-    const chengGeResult = chenggeDetail.chengGeResult || '待定'
-    const chengGeStatus = chengGeResult === '待定' ? '未成格' : chengGeResult
-    const showChengGe = !!chenggeDetail.chengGe && chenggeDetail.chengGe !== (profile.geju || gejuDetail.geju) && chengGeResult !== '待定'
+    const finalPattern = extraction?.final_pattern || null
+    const finalPatternName = finalPattern?.name || profile.geju || gejuDetail.geju || '未定格'
+    const chengGeResult = evaluation?.overall_status || chenggeDetail.chengGeResult || '待定'
+    const chengGeStatus = PATTERN_STATUS_LABELS[chengGeResult] || (chengGeResult === '待定' ? '未成格' : chengGeResult)
+    const showChengGe = !!chenggeDetail.chengGe && chenggeDetail.chengGe !== finalPatternName && chengGeResult !== 'PENDING' && chengGeResult !== '待定'
     const yongShenTenGod = chenggeDetail.yongShenTenGod || info.yongShenTypical || ''
     const yongShenStem = chenggeDetail.yongShen || ''
     const yongShen = yongShenStem && yongShenTenGod ? `${yongShenTenGod}（${yongShenStem}）` : (yongShenStem || yongShenTenGod || info.yongShenTypical || '待定')
     const xianShen = chenggeDetail.xianShen || info.xianShenTypical || '待定'
-    const fallbackReason = `未成格，当前先按${profile.geju || gejuDetail.geju || '主格'}常法参考，仍需结合全局配合与岁运再定。`
+    const fallbackReason = `未成格，当前先按${finalPatternName || '主格'}常法参考，仍需结合全局配合与岁运再定。`
+    const goodEvil = evaluation?.good_evil_flow || null
+    const affection = evaluation?.affection_and_power || null
+    const diseaseMedicine = evaluation?.disease_medicine || null
+    const climate = evaluation?.climate_adjustment || null
+    const climateAdjustment = climate && climate.status !== 'NOT_NEEDED'
+        ? {
+            title: TIAOHOU_STATUS_LABELS[climate.status] || climate.status,
+            text: climate.explanation || climate.special_pattern_warning || '此局调候已纳入格局评估。'
+        }
+        : null
     return {
-        title: showChengGe ? `${profile.geju || gejuDetail.geju || '格局'} · ${chenggeDetail.chengGe}` : (profile.geju || gejuDetail.geju || '格局'),
+        title: showChengGe ? `${finalPatternName} · ${chenggeDetail.chengGe}` : finalPatternName,
         strongWeak: profile.strong_weak || '未定',
-        baseGeju: profile.geju || gejuDetail.geju || '未定格',
-        chengGe: chenggeDetail.chengGe || profile.geju || '待定',
+        baseGeju: finalPatternName,
+        chengGe: chenggeDetail.chengGe || finalPatternName || '待定',
         chengGeResult,
         chengGeStatus,
         showChengGe,
-        resultClass: chengGeResult === '成格' ? 'is-good' : (chengGeResult === '败格' ? 'is-bad' : 'is-wait'),
-        gejuBasis: GEJU_BASIS_LABELS[gejuDetail.basis] || gejuDetail.basis || '月令取格',
+        resultClass: chengGeResult === 'FORMED' || chengGeResult === '成格' ? 'is-good' : (chengGeResult === 'BROKEN' || chengGeResult === '败格' ? 'is-bad' : 'is-wait'),
+        gejuBasis: GEJU_BASIS_LABELS[extraction?.basis] || GEJU_BASIS_LABELS[gejuDetail.basis] || gejuDetail.basis || '月令取格',
         gejuReason: gejuDetail.note || getGejuDesc(profile.geju),
-        judgeBase: info.judgeBase || gejuDetail.note || getGejuDesc(profile.geju),
+        judgeBase: finalPattern?.description || info.judgeBase || gejuDetail.note || getGejuDesc(finalPatternName),
         monthMergeLine: mergeInfo ? `${mergeInfo.originalZhi}参与${mergeInfo.mergeType}，化${mergeInfo.resultElement}，以${mergeInfo.resultGan}为月令主气。` : '',
-        chengGeReason: chengGeResult === '待定' ? fallbackReason : (chenggeDetail.chengGeReason || fallbackReason),
+        extractionSteps: Array.isArray(extraction?.steps) ? extraction.steps : [],
+        chengGeReason: chengGeResult === 'PENDING' || chengGeResult === '待定' ? fallbackReason : (affection?.text || chenggeDetail.chengGeReason || fallbackReason),
+        evaluationPairs: [
+            goodEvil?.god_type ? { label: '善恶', value: PATTERN_GOD_TYPE_LABELS[goodEvil.god_type] || goodEvil.god_type } : null,
+            goodEvil?.strategy ? { label: '用法', value: PATTERN_STRATEGY_LABELS[goodEvil.strategy] || goodEvil.strategy } : null,
+            diseaseMedicine?.medicine ? { label: '药神', value: diseaseMedicine.medicine } : null,
+            diseaseMedicine?.disease ? { label: '病处', value: diseaseMedicine.disease } : null,
+        ].filter(Boolean),
+        climateAdjustment,
         yongShen,
         xianShen,
         verdict: detail.favorable_verdict || '需结合全盘喜忌继续细断。',
-        personality: Array.isArray(info.personality) ? info.personality : [],
-        goodFor: Array.isArray(info.goodFor) ? info.goodFor : [],
-        watchOut: Array.isArray(info.watchOut) ? info.watchOut : []
+        personality: normalizeTraitItems(pattern?.traits?.personality, info.personality),
+        goodFor: normalizeTraitItems(pattern?.traits?.career_wealth, info.goodFor),
+        relationshipHealth: normalizeTraitItems(pattern?.traits?.relationship_health),
+        watchOut: normalizeTraitItems(pattern?.traits?.failure_warning, info.watchOut)
     }
 })
 
@@ -2097,7 +2188,7 @@ const openInsightPanel = (tab = 'strength') => {
 
 const showChengGeText = computed(() => {
     if (!activeProfile.value?.bazi_detail?.chengge_detail?.chengGe) return false
-    return activeProfile.value.bazi_detail.chengge_detail.chengGe !== activeProfile.value.geju
+    return activeProfile.value.bazi_detail.chengge_detail.chengGe !== patternFinalName.value
         && activeProfile.value.bazi_detail.chengge_detail.chengGeResult !== '待定'
 })
 
@@ -4524,6 +4615,28 @@ const getShenColor = (shen) => {
 .geju-inline-note {
     margin-top: 9px;
     color: #9ec7ff;
+    font-size: 12px;
+    line-height: 1.6;
+}
+.pattern-step-list {
+    display: grid;
+    gap: 9px;
+}
+.pattern-step-item {
+    padding: 9px 10px;
+    border-radius: 8px;
+    background: rgba(0,0,0,0.16);
+    border: 1px solid rgba(255,255,255,0.055);
+}
+.pattern-step-item span {
+    display: block;
+    margin-bottom: 4px;
+    color: #f0d58f;
+    font-size: 12px;
+    font-weight: 700;
+}
+.pattern-step-item p {
+    color: #d8d2bf;
     font-size: 12px;
     line-height: 1.6;
 }

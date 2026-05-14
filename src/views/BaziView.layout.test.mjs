@@ -25,3 +25,13 @@ test('身强身弱弹窗展示仪表盘并优先使用用户说明', () => {
   assert.match(source, /detail\?\.user_sections\?\.length/)
   assert.match(source, /scoreLabel:\s*''/)
 })
+
+test('格局弹窗优先展示结构化 pattern_analysis', () => {
+  assert.match(source, /pattern_analysis/)
+  assert.match(source, /取格步骤/)
+  assert.match(source, /顺逆与成败/)
+  assert.match(source, /climateAdjustment/)
+  assert.match(source, /patternFinalName/)
+  assert.match(source, /relationshipHealth/)
+  assert.match(source, /normalizeTraitItems/)
+})
