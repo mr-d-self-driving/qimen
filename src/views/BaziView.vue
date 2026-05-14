@@ -973,6 +973,45 @@
                 </Teleport>
 
                 <Teleport to="body">
+                    <div v-if="activeInfoPanel === 'tiaohou' && tiaohouPanelContent" class="modal-overlay" @click="activeInfoPanel = null">
+                        <div class="detail-drawer insight-detail-drawer" @click.stop>
+                            <div class="drawer-head">
+                                <div>
+                                    <div class="section-kicker">调候诊断</div>
+                                    <h4>{{ tiaohouPanelContent.climateState }}</h4>
+                                </div>
+                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
+                            </div>
+                            <div class="tiaohou-modal-urgency-row">
+                                <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
+                                <span class="tiaohou-urgency-label">调候紧迫度</span>
+                            </div>
+                            <div class="tiaohou-god-grid tiaohou-modal-grid">
+                                <div class="tiaohou-god-cell">
+                                    <span>第一调候</span>
+                                    <strong>{{ tiaohouPanelContent.primary }}</strong>
+                                </div>
+                                <div class="tiaohou-god-cell">
+                                    <span>辅助调候</span>
+                                    <strong>{{ tiaohouPanelContent.secondary }}</strong>
+                                </div>
+                                <div class="tiaohou-god-cell">
+                                    <span>慎见</span>
+                                    <strong>{{ tiaohouPanelContent.avoid }}</strong>
+                                </div>
+                            </div>
+                            <div class="geju-modal-block">
+                                <div class="geju-block-title">调候说明</div>
+                                <p class="geju-block-copy">{{ tiaohouPanelContent.explanation }}</p>
+                            </div>
+                            <div v-if="tiaohouPanelContent.warning" class="tiaohou-warning tiaohou-modal-warning">
+                                {{ tiaohouPanelContent.warning }}
+                            </div>
+                        </div>
+                    </div>
+                </Teleport>
+
+                <Teleport to="body">
                     <div v-if="showCenteredToast" class="screen-toast">
                         <div class="screen-toast-card" :class="`is-${toastKind}`">{{ toastMessage }}</div>
                     </div>
@@ -1015,7 +1054,10 @@
                                 <div class="section-kicker">调候诊断</div>
                                 <h4>{{ tiaohouPanelContent.climateState }}</h4>
                             </div>
-                            <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
+                            <div class="tiaohou-card-head-right">
+                                <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
+                                <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
+                            </div>
                         </div>
                         <div class="tiaohou-god-grid">
                             <div class="tiaohou-god-cell">
@@ -3701,6 +3743,29 @@ const getShenColor = (shen) => {
     color: #f0c0b8;
     font-size: 12px;
     line-height: 1.6;
+}
+.tiaohou-card-head-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.tiaohou-modal-urgency-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.tiaohou-urgency-label {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+.tiaohou-modal-grid {
+    margin-bottom: 16px;
+}
+.tiaohou-modal-warning {
+    margin-top: 12px;
 }
 .feedback-correction-block {
     margin-top: 12px;
