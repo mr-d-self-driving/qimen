@@ -1211,14 +1211,17 @@ import {
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import AccountMenu from '../components/AccountMenu.vue'
 import {
+    buildBaziProfileInsertPayload,
     buildPillarsProfilePayload,
     buildSolarProfilePayload,
+    canRetryLegacyBaziProfileInsert,
     ENTRY_MODE,
     GAN,
     findDatesByBazi,
     getAllowedMonthBranchesByStem,
     getAllowedTimeBranchesByStem,
     getSolarLunarSnapshot,
+    isMissingBaziProfileSolarTimeColumnError,
     parseCompactSolarInput,
     ZHI
 } from '../utils/baziProfileInput.mjs'
@@ -1497,7 +1500,7 @@ const form = reactive({
 
 const entryMode = ref(ENTRY_MODE.SOLAR)
 const solarInput = reactive({
-    text: '199001010000'
+    text: ''
 })
 const pillarInput = reactive({
     yearPillar: '庚午',
@@ -2616,7 +2619,7 @@ const resetProfileEntry = () => {
     form.birthLongitude = ''
     form.solarTimeMode = 'apparent'
     entryMode.value = ENTRY_MODE.SOLAR
-    solarInput.text = '199001010000'
+    solarInput.text = ''
     pillarInput.yearPillar = '庚午'
     pillarInput.monthPillar = '戊寅'
     pillarInput.dayPillar = '乙丑'
@@ -2762,20 +2765,25 @@ const saveProfile = async () => {
         await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
         return
     }
-    const { data, error } = await supabase.from('bazi_profiles').insert([{ 
-        user_id: currentUser.value.id, 
-        name: payload.name,
-        gender: payload.gender,
-        birth_date: payload.birth_date,
-        adjusted_birth_date: payload.adjusted_birth_date,
-        bazi_str: payload.bazi_str,
-        birth_location: payload.birth_location,
-        birth_latitude: payload.birth_latitude,
-        birth_longitude: payload.birth_longitude,
-        solar_time_mode: payload.solar_time_mode,
-        solar_time_adjustment_minutes: payload.solar_time_adjustment_minutes
-    }]).select('id').single()
-    if (error) alert(error.message) 
+    let { data, error } = await supabase
+        .from('bazi_profiles')
+        .insert([buildBaziProfileInsertPayload(currentUser.value.id, payload)])
+        .select('id')
+        .single()
+    if (isMissingBaziProfileSolarTimeColumnError(error) && canRetryLegacyBaziProfileInsert(payload)) {
+        ;({ data, error } = await supabase
+            .from('bazi_profiles')
+            .insert([buildBaziProfileInsertPayload(currentUser.value.id, payload, { includeSolarTimeColumns: false })])
+            .select('id')
+            .single())
+    }
+    if (error) {
+        if (isMissingBaziProfileSolarTimeColumnError(error)) {
+            alert('数据库缺少出生地/真太阳时字段，请先执行 docs/sql/bazi-birthplace-solar-time-migration.sql 后再保存带出生地校正的档案。')
+        } else {
+            alert(error.message)
+        }
+    }
     else { 
         if (data?.id) {
             const optimisticProfile = {
@@ -3304,11 +3312,18 @@ const getShenColor = (shen) => {
 .form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; outline: none; font-family: var(--font-body); }
 .form-actions { display:flex; justify-content:flex-end; gap:8px; }
 
-.picker-overlay { padding: 14px; align-items: flex-end; }
+.picker-overlay {
+    box-sizing: border-box;
+    padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
+    align-items: flex-end;
+}
 .profile-picker-modal {
+    box-sizing: border-box;
+    position: relative;
     width: min(100%, 620px);
-    max-height: min(92vh, 760px);
+    max-height: min(92dvh, 760px);
     overflow: auto;
+    overscroll-behavior: contain;
     border-radius: 24px;
     border: 1px solid rgba(232,204,128,0.16);
     background:
@@ -3352,6 +3367,8 @@ const getShenColor = (shen) => {
     box-shadow: 0 6px 18px rgba(212,175,55,0.18);
 }
 .picker-close.dark {
+    position: relative;
+    z-index: 2;
     justify-self: end;
     background: rgba(255,255,255,0.04);
     color: #B8AF9B;
@@ -4675,6 +4692,15 @@ const getShenColor = (shen) => {
 }
 
 @media (max-width: 420px) {
+    .picker-overlay {
+        padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+    }
+    .profile-picker-modal {
+        width: 100%;
+        max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+        border-radius: 22px;
+        padding: 14px;
+    }
     .profile-actions { grid-template-columns: 1fr 1fr; }
     .profile-filter-row { grid-template-columns: minmax(0, 1fr) 46px; gap: 6px; }
     .profile-switch-trigger { min-height: 46px; padding: 7px 10px; }
@@ -4706,9 +4732,21 @@ const getShenColor = (shen) => {
     .tiaohou-urgency { align-self: flex-start; }
     .tiaohou-god-grid { grid-template-columns: 1fr; }
     .scoring-bars { grid-template-columns: 1fr; }
-    .picker-topbar { grid-template-columns: 1fr 38px; gap: 8px; }
+    .picker-topbar {
+        grid-template-columns: minmax(0, 1fr) 38px;
+        gap: 10px;
+        align-items: start;
+        margin-bottom: 12px;
+    }
     .picker-mode-tabs { grid-column: 1 / -1; grid-row: 2; }
-    .picker-close.dark { grid-column: 2; grid-row: 1; }
+    .picker-close.dark {
+        grid-column: 2;
+        grid-row: 1;
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        font-size: 24px;
+    }
     .picker-form-row { grid-template-columns: 1fr 1fr; }
     .picker-save-btn { min-height: 56px; }
     .location-input-grid { grid-template-columns: 1fr; }

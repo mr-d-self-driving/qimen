@@ -250,6 +250,53 @@ export const buildSolarProfilePayload = ({
   }
 }
 
+export const BAZI_PROFILE_SOLAR_TIME_COLUMNS = [
+  'adjusted_birth_date',
+  'birth_location',
+  'birth_latitude',
+  'birth_longitude',
+  'solar_time_mode',
+  'solar_time_adjustment_minutes'
+]
+
+export const buildBaziProfileInsertPayload = (userId, payload, options = {}) => {
+  const includeSolarTimeColumns = options.includeSolarTimeColumns !== false
+  const insertPayload = {
+    user_id: userId,
+    name: payload.name,
+    gender: payload.gender,
+    birth_date: payload.birth_date,
+    bazi_str: payload.bazi_str
+  }
+
+  if (includeSolarTimeColumns) {
+    insertPayload.adjusted_birth_date = payload.adjusted_birth_date
+    insertPayload.birth_location = payload.birth_location
+    insertPayload.birth_latitude = payload.birth_latitude
+    insertPayload.birth_longitude = payload.birth_longitude
+    insertPayload.solar_time_mode = payload.solar_time_mode
+    insertPayload.solar_time_adjustment_minutes = payload.solar_time_adjustment_minutes
+  }
+
+  return insertPayload
+}
+
+export const isMissingBaziProfileSolarTimeColumnError = (error) => {
+  const message = String(error?.message || '')
+  return BAZI_PROFILE_SOLAR_TIME_COLUMNS.some((column) => (
+    message.includes(`'${column}'`) &&
+    message.includes("'bazi_profiles'") &&
+    message.includes('schema cache')
+  ))
+}
+
+export const canRetryLegacyBaziProfileInsert = (payload) => (
+  !String(payload.birth_location || '').trim() &&
+  (payload.birth_latitude === null || payload.birth_latitude === undefined || payload.birth_latitude === '') &&
+  (payload.birth_longitude === null || payload.birth_longitude === undefined || payload.birth_longitude === '') &&
+  (!Number.isFinite(Number(payload.solar_time_adjustment_minutes)) || Number(payload.solar_time_adjustment_minutes) === 0)
+)
+
 export const buildLunarProfilePayload = ({ name, gender, year, month, day, hour = 0, minute = 0 }) => {
   const lunar = Lunar.fromYmdHms(year, month, day, hour, minute, 0)
   const solar = lunar.getSolar()

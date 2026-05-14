@@ -3,11 +3,14 @@ import assert from 'node:assert/strict'
 
 import {
   buildLunarProfilePayload,
+  buildBaziProfileInsertPayload,
   buildPillarsProfilePayload,
   buildSolarProfilePayload,
+  canRetryLegacyBaziProfileInsert,
   getAllowedMonthBranchesByStem,
   getAllowedTimeBranchesByStem,
   getSolarTimeAdjustment,
+  isMissingBaziProfileSolarTimeColumnError,
   getMonthStemByYearStem,
   getTimeStemByDayStem,
   normalizeLongitude,
@@ -62,6 +65,64 @@ test('buildSolarProfilePayload can derive bazi from birthplace solar time', () =
   assert.equal(payload.birth_latitude, 30.5728)
   assert.equal(payload.birth_longitude, 104.0668)
   assert.equal(payload.solar_time_adjustment_minutes, -64)
+})
+
+test('bazi profile insert payload can omit new solar-time columns for legacy schemas', () => {
+  const payload = buildSolarProfilePayload({
+    name: '测试',
+    gender: 'M',
+    year: 1998,
+    month: 10,
+    day: 8,
+    hour: 15,
+    minute: 30
+  })
+
+  assert.deepEqual(buildBaziProfileInsertPayload('user-1', payload, { includeSolarTimeColumns: false }), {
+    user_id: 'user-1',
+    name: '测试',
+    gender: 'M',
+    birth_date: '1998-10-08 15:30:00',
+    bazi_str: '戊寅 辛酉 戊子 庚申'
+  })
+})
+
+test('legacy profile retry is limited to profiles without solar-time correction', () => {
+  const clockPayload = buildSolarProfilePayload({
+    name: '测试',
+    gender: 'M',
+    year: 1998,
+    month: 10,
+    day: 8,
+    hour: 15,
+    minute: 30
+  })
+  const correctedPayload = buildSolarProfilePayload({
+    name: '测试',
+    gender: 'M',
+    year: 1999,
+    month: 6,
+    day: 7,
+    hour: 23,
+    minute: 20,
+    birthLocation: '成都',
+    birthLatitude: 30.5728,
+    birthLongitude: 104.0668,
+    solarTimeMode: 'mean'
+  })
+
+  assert.equal(canRetryLegacyBaziProfileInsert(clockPayload), true)
+  assert.equal(canRetryLegacyBaziProfileInsert(correctedPayload), false)
+})
+
+test('missing bazi profile solar-time column errors are detected from Supabase schema cache messages', () => {
+  assert.equal(
+    isMissingBaziProfileSolarTimeColumnError({
+      message: "Could not find the 'birth_latitude' column of 'bazi_profiles' in the schema cache"
+    }),
+    true
+  )
+  assert.equal(isMissingBaziProfileSolarTimeColumnError({ message: 'permission denied' }), false)
 })
 
 test('solar time adjustment supports apparent time and longitude validation', () => {
