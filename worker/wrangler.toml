@@ -7,10 +7,26 @@ preview_urls = true
 
 [vars]
 FRONTEND_URL = "https://qimendao.com,https://www.qimendao.com"
+SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
+WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com"
 
 [secrets]
 required = [
   "GEMINI_API_KEY",
-  "WHITELIST_EMAILS",
   "SUPABASE_SERVICE_KEY"
 ]
+
+[observability]
+enabled = false
+head_sampling_rate = 1
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
