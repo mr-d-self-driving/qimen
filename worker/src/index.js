@@ -19,7 +19,7 @@ import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/q
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import baziCore from '../../lib/baziCore.js';
 
-const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache } = baziCore;
+const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache, hasLatestEngineCache, hasExistingLlm } = baziCore;
 
 
 const { buildGeminiRoutePrompt, classifyDivinationQuestion } = divinationRouter;
@@ -1054,7 +1054,13 @@ async function handleBazi(request, env) {
         }
     }
 
-    if (hasCompleteLlmCache(existingProfile)) {
+    const forceRegenerate = promptData.force === true;
+    const engineUpToDate = hasLatestEngineCache(existingProfile);
+    const llmExists = hasExistingLlm(existingProfile);
+
+    // ── 模式 1：完全命中缓存 ──────────────────────────────────────────────────
+    // 引擎版本匹配 + LLM 已有 → 直接返回，不做任何计算
+    if (!forceRegenerate && engineUpToDate && llmExists) {
         return json({
             result: existingProfile.bazi_summary || '',
             bazi_detail: existingProfile.bazi_detail || {},
@@ -1062,18 +1068,7 @@ async function handleBazi(request, env) {
         }, { status: 200 }, request, env);
     }
 
-    const cacheKey = `${promptData.baziStr}_${promptData.gender}_${promptData.daYunStr}`;
-    if (baziMemoryCache[cacheKey]) {
-        const cachedOutput = baziMemoryCache[cacheKey];
-        if (cachedOutput.dbUpdatePayload) {
-            const { error: dbError } = await supabase.from('bazi_profiles').update(cachedOutput.dbUpdatePayload).eq('id', promptData.profileId);
-            if (dbError) console.error("缓存命中数据库写入失败:", dbError);
-            return json(cachedOutput.outputPayload, { status: 200 }, request, env);
-        } else {
-            delete baziMemoryCache[cacheKey];
-        }
-    }
-
+    // ── 公共：解析出生信息、运行引擎 ──────────────────────────────────────────
     const dateParts = promptData.birthStr ? promptData.birthStr.match(/\d+/g) : null;
     if (!dateParts || dateParts.length < 3) return json({ error: "缺少确切的出生时间" }, { status: 400 }, request, env);
 
@@ -1084,14 +1079,8 @@ async function handleBazi(request, env) {
     const baZi = solarObj.getLunar().getEightChar();
     const isMale = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造');
     const yun = baZi.getYun(isMale ? 1 : 0);
-
     const currentYear = new Date().getFullYear();
-    const baziDetail = buildCompleteBaziDetail({
-        baZi,
-        yun,
-        isMale,
-        currentYear
-    });
+    const baziDetail = buildCompleteBaziDetail({ baZi, yun, isMale, currentYear });
     const geJu = baziDetail.geju;
     const currentDaYunText = `${baziDetail.matrix.current_dayun?.gan || ''}${baziDetail.matrix.current_dayun?.zhi || ''}`;
     const currentLiuNianText = `${baziDetail.matrix.current_liunian?.gan || ''}${baziDetail.matrix.current_liunian?.zhi || ''}`;
@@ -1101,6 +1090,57 @@ async function handleBazi(request, env) {
         current_liunian: baziDetail.engine_current_liunian
     };
 
+    // ── 模式 2：版本过期但 LLM 已有 → 仅更新引擎数据，保留旧 LLM 断语 ────────
+    if (!forceRegenerate && !engineUpToDate && llmExists) {
+        console.log('[bazi] 引擎版本升级，仅更新运算数据，保留 LLM 断语');
+        const existingLlmData = {
+            yuanju_core: existingProfile.llm_yuanju_core,
+            current_dayun: existingProfile.llm_current_dayun,
+            current_liunian: existingProfile.llm_current_liunian,
+        };
+        const qualitative = buildQualitativeSections({
+            llmSucceeded: true,
+            llmQualitativeData: existingLlmData,
+            engineQualitativeData
+        });
+        const finalBaziDetail = {
+            ...baziDetail,
+            llm_yuanju_core: existingLlmData.yuanju_core,
+            llm_current_dayun: existingLlmData.current_dayun,
+            llm_current_liunian: existingLlmData.current_liunian,
+            engine_yuanju_core: qualitative.engine.yuanju_core,
+            engine_current_dayun: qualitative.engine.current_dayun,
+            engine_current_liunian: qualitative.engine.current_liunian,
+            qualitative
+        };
+        const combinedResultText = existingProfile.bazi_summary || '';
+        const dbUpdatePayload = {
+            bazi_detail: finalBaziDetail,
+            strong_weak: finalBaziDetail.strong_weak,
+            geju: finalBaziDetail.geju,
+            shensha: JSON.stringify(finalBaziDetail.shensha),
+            engine_yuanju_core: qualitative.engine.yuanju_core,
+            engine_current_dayun: qualitative.engine.current_dayun,
+            engine_current_liunian: qualitative.engine.current_liunian,
+            favorable_elements: finalBaziDetail.favorable_gods,
+            unfavorable_elements: finalBaziDetail.unfavorable_gods,
+            day_zhi: finalBaziDetail.day_zhi,
+            year_zhi: finalBaziDetail.year_zhi,
+            month_zhi: finalBaziDetail.month_zhi,
+            ri_zhu: finalBaziDetail.ri_zhu
+        };
+        const { error: dbError } = await supabase.from('bazi_profiles').update(dbUpdatePayload).eq('id', promptData.profileId);
+        if (dbError) console.error('[bazi] 引擎刷新写入失败:', dbError);
+        return json({
+            result: combinedResultText,
+            bazi_detail: finalBaziDetail,
+            favorable_elements: dbUpdatePayload.favorable_elements,
+            unfavorable_elements: dbUpdatePayload.unfavorable_elements,
+            engine_refreshed: true,
+        }, { status: 200 }, request, env);
+    }
+
+    // ── 模式 3：全量重推（force=true 或首次无 LLM）→ 引擎 + LLM 全跑 ─────────
     const promptText = `你是最顶尖的八字命理大师... 
 
 ` +
@@ -1124,11 +1164,10 @@ ${promptData.daYunStr}
         `请返回如下结构的JSON：{"summary":"整体评语", "yuanju_core": "原局核心", "current_dayun": "当前大运", "current_liunian": "当前流年", "favorable_elements": "喜用神", "unfavorable_elements": "忌神"}`;
 
     const llmJson = await requestLLM(promptText, env, 'gemini-3.1-pro-preview', 0.65);
-    
     const qualitative = buildQualitativeSections({
         llmSucceeded: true,
         llmQualitativeData: llmJson,
-        engineQualitativeData: engineQualitativeData
+        engineQualitativeData
     });
     const finalBaziDetail = {
         ...baziDetail,

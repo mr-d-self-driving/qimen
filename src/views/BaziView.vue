@@ -303,7 +303,7 @@
                         </div>
                     </div>
                     <div class="bazi-header-actions">
-                        <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary">
+                        <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary({ force: true })">
                             {{ rerunButtonLabel }}
                         </button>
                     </div>
@@ -1224,6 +1224,10 @@ const router = useRouter()
 const route = useRoute()
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
+// 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
+// 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
+const BAZI_ENGINE_VERSION = '1.2.0'
+
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
 const GAN_WUXING = { '甲':'甲木', '乙':'乙木', '丙':'丙火', '丁':'丁火', '戊':'戊土', '己':'己土', '庚':'庚金', '辛':'辛金', '壬':'壬水', '癸':'癸水' }
@@ -1671,6 +1675,20 @@ watch(
         }
         await fetchProfileContextDraft()
         await fetchMonthlyContextDraft()
+
+        // 引擎版本检查：若档案的 bazi_detail.engine_version 不是最新，
+        // 静默触发引擎刷新（force=false 保留 LLM，只更新运算数据）
+        const profileEngineVersion = activeProfile.value?.bazi_detail?.engine_version
+        const hasLlm = Boolean(
+            activeProfile.value?.llm_yuanju_core &&
+            activeProfile.value?.llm_current_dayun &&
+            activeProfile.value?.llm_current_liunian
+        )
+        const hasBaziStr = Boolean(activeProfile.value?.bazi_str)
+        if (hasBaziStr && hasLlm && profileEngineVersion && profileEngineVersion !== BAZI_ENGINE_VERSION) {
+            console.log(`[bazi] 检测到引擎版本旧 (${profileEngineVersion} → ${BAZI_ENGINE_VERSION})，自动刷新运算数据…`)
+            requestAiSummary({ force: false })
+        }
     },
     { immediate: true }
 )
@@ -2774,7 +2792,8 @@ const stopAnalysisMotion = () => {
     }
 }
 
-const requestAiSummary = async () => {
+// force=true 时引擎 + LLM 全量重推；force=false（默认）只在版本过期时刷新引擎，保留 LLM 断语
+const requestAiSummary = async ({ force = false } = {}) => {
     if (!activeProfile.value) return
     const profileId = activeProfile.value.id
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
@@ -2789,7 +2808,7 @@ const requestAiSummary = async () => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({ 
-                promptData: { profileId, gender: pd.gender, birthStr: pd.birthStr, baziStr: pd.baziStr, daYunStr: "当前大运" }
+                promptData: { profileId, gender: pd.gender, birthStr: pd.birthStr, baziStr: pd.baziStr, daYunStr: "当前大运", force }
             })
         })
 
