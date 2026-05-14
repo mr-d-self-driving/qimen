@@ -805,6 +805,21 @@
                                 <button class="insight-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
                             </div>
                             <template v-if="insightTab === 'strength' && strengthPanelContent">
+                                <div v-if="strengthPanelContent.meter" class="strength-meter-card">
+                                    <div class="strength-meter-top">
+                                        <span class="strength-meter-label">{{ strengthPanelContent.meter.verdict }}</span>
+                                        <span class="strength-meter-band">{{ strengthPanelContent.meter.label }}</span>
+                                    </div>
+                                    <div class="strength-meter-track" aria-label="日主旺衰仪表盘">
+                                        <div class="strength-meter-fill" :style="{ width: `${strengthPanelContent.meter.percent}%` }"></div>
+                                        <div class="strength-meter-thumb" :style="{ left: `${strengthPanelContent.meter.percent}%` }"></div>
+                                    </div>
+                                    <div class="strength-meter-axis">
+                                        <span>弱</span>
+                                        <span>中</span>
+                                        <span>强</span>
+                                    </div>
+                                </div>
                                 <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
                                     <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
                                         <div class="strength-section-head">
@@ -992,6 +1007,32 @@
                         <p>
                             {{ getGejuDesc(activeProfile.geju) }}
                         </p>
+                    </div>
+
+                    <div class="insight-card tiaohou-card" v-if="tiaohouPanelContent">
+                        <div class="tiaohou-card-head">
+                            <div>
+                                <div class="section-kicker">调候诊断</div>
+                                <h4>{{ tiaohouPanelContent.climateState }}</h4>
+                            </div>
+                            <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
+                        </div>
+                        <div class="tiaohou-god-grid">
+                            <div class="tiaohou-god-cell">
+                                <span>第一调候</span>
+                                <strong>{{ tiaohouPanelContent.primary }}</strong>
+                            </div>
+                            <div class="tiaohou-god-cell">
+                                <span>辅助调候</span>
+                                <strong>{{ tiaohouPanelContent.secondary }}</strong>
+                            </div>
+                            <div class="tiaohou-god-cell">
+                                <span>慎见</span>
+                                <strong>{{ tiaohouPanelContent.avoid }}</strong>
+                            </div>
+                        </div>
+                        <p>{{ tiaohouPanelContent.explanation }}</p>
+                        <div v-if="tiaohouPanelContent.warning" class="tiaohou-warning">{{ tiaohouPanelContent.warning }}</div>
                     </div>
 
                     <!-- 2. 五行能量占比条 -->
@@ -1811,9 +1852,29 @@ const strengthPanelContent = computed(() => {
     if (!activeProfile.value) return null
     const detail = activeProfile.value.strength_detail || activeProfile.value.bazi_detail?.strength_detail || null
     const rawBasis = activeProfile.value.strength_basis || activeProfile.value.bazi_detail?.strength_basis || ''
+    const meter = detail?.meter
+        ? {
+            verdict: detail.meter.verdict || detail.verdict || activeProfile.value.strong_weak || '未定',
+            label: detail.meter.label || detail.band || '',
+            percent: Math.max(0, Math.min(100, ((Number(detail.meter.value) || 0) / (Number(detail.meter.max) || 10)) * 100)),
+        }
+        : null
+
+    if (detail?.user_sections?.length) {
+        return {
+            meter,
+            sections: detail.user_sections.map(section => ({
+                key: section.key,
+                title: section.title,
+                text: section.text,
+                scoreLabel: '',
+            })),
+        }
+    }
 
     if (detail?.sections?.length) {
         return {
+            meter,
             sections: detail.sections.map(section => ({
                 key: section.key,
                 title: section.title,
@@ -1826,6 +1887,7 @@ const strengthPanelContent = computed(() => {
     if (!rawBasis) return null
 
     return {
+        meter,
         sections: rawBasis
             .split(/(?<=[。；])/)
             .map(part => part.trim())
@@ -1887,6 +1949,31 @@ const gejuSummaryLine = computed(() => {
     const parts = [gejuPanelContent.value.gejuBasis, `成格：${gejuPanelContent.value.chengGeStatus}`]
     if (gejuPanelContent.value.showChengGe) parts.push(`小格：${gejuPanelContent.value.chengGe}`)
     return parts.join(' · ')
+})
+
+const formatTiaohouGods = (items = []) => {
+    if (!Array.isArray(items) || items.length === 0) return '未触发'
+    return items.map(item => {
+        const stem = item.gan || ''
+        const shen = item.shen ? `·${item.shen}` : ''
+        return `${stem}${shen}`
+    }).filter(Boolean).join('、') || '未触发'
+}
+
+const tiaohouPanelContent = computed(() => {
+    const detail = activeProfile.value?.bazi_detail?.tiaohou_detail
+    if (!detail) return null
+    const urgency = detail.urgency || '普通'
+    return {
+        climateState: detail.climate_state || '气候未定',
+        urgency,
+        urgencyClass: urgency === '极急' ? 'is-high' : (urgency === '偏急' ? 'is-mid' : 'is-low'),
+        primary: formatTiaohouGods(detail.primary_gods),
+        secondary: formatTiaohouGods(detail.secondary_gods),
+        avoid: formatTiaohouGods(detail.avoid_gods),
+        explanation: detail.explanation || '当前调候信息不足，需结合月令、透干与原局寒暖燥湿继续细看。',
+        warning: detail.special_pattern_warning || ''
+    }
 })
 
 const strengthSummaryLine = computed(() => {
@@ -3540,6 +3627,81 @@ const getShenColor = (shen) => {
 .insight-card { background: linear-gradient(180deg, rgba(232,204,128,0.06) 0%, rgba(255,255,255,0.015) 100%); border: 1px solid rgba(232,204,128,0.12); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
 .insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
+.tiaohou-card {
+    border-color: rgba(111, 188, 186, 0.22);
+    background: linear-gradient(180deg, rgba(111, 188, 186, 0.08) 0%, rgba(232,204,128,0.035) 100%);
+}
+.tiaohou-card-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+}
+.tiaohou-card-head h4 {
+    margin: 0;
+}
+.tiaohou-urgency {
+    flex: 0 0 auto;
+    min-width: 44px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 4px 9px;
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid rgba(255,255,255,0.12);
+}
+.tiaohou-urgency.is-high {
+    color: #ffb5a6;
+    background: rgba(229, 115, 115, 0.12);
+    border-color: rgba(229, 115, 115, 0.28);
+}
+.tiaohou-urgency.is-mid {
+    color: #f1dfae;
+    background: rgba(232, 204, 128, 0.12);
+    border-color: rgba(232, 204, 128, 0.25);
+}
+.tiaohou-urgency.is-low {
+    color: #9fd3c7;
+    background: rgba(111, 188, 186, 0.12);
+    border-color: rgba(111, 188, 186, 0.24);
+}
+.tiaohou-god-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.tiaohou-god-cell {
+    min-width: 0;
+    padding: 9px 10px;
+    border-radius: 10px;
+    background: rgba(0,0,0,0.16);
+    border: 1px solid rgba(255,255,255,0.07);
+}
+.tiaohou-god-cell span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--text-muted);
+    font-size: 10px;
+}
+.tiaohou-god-cell strong {
+    display: block;
+    color: #eef1df;
+    font-size: 12px;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+.tiaohou-warning {
+    margin-top: 10px;
+    padding: 9px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(229, 115, 115, 0.2);
+    background: rgba(229, 115, 115, 0.08);
+    color: #f0c0b8;
+    font-size: 12px;
+    line-height: 1.6;
+}
 .feedback-correction-block {
     margin-top: 12px;
     padding: 11px 12px;
@@ -3818,6 +3980,61 @@ const getShenColor = (shen) => {
     font-family: var(--font-serif);
     font-weight: 500;
 }
+.strength-meter-card {
+    padding: 14px;
+    margin-bottom: 12px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(232,204,128,0.12);
+}
+.strength-meter-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.strength-meter-label {
+    color: var(--gold-light);
+    font-size: 16px;
+    font-weight: 700;
+}
+.strength-meter-band {
+    color: #BDB39A;
+    font-size: 12px;
+}
+.strength-meter-track {
+    position: relative;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(91,141,239,0.42), rgba(232,204,128,0.28), rgba(218,87,72,0.44));
+    border: 1px solid rgba(255,255,255,0.08);
+}
+.strength-meter-fill {
+    height: 100%;
+    min-width: 4px;
+    border-radius: 999px;
+    background: rgba(232,204,128,0.72);
+    box-shadow: 0 0 14px rgba(232,204,128,0.22);
+}
+.strength-meter-thumb {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: #F2D889;
+    border: 2px solid #201A10;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 3px rgba(242,216,137,0.18);
+}
+.strength-meter-axis {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 8px;
+    color: #8F846D;
+    font-size: 11px;
+}
 .strength-section-list {
     display: flex;
     flex-direction: column;
@@ -3825,7 +4042,7 @@ const getShenColor = (shen) => {
 }
 .strength-section-card {
     padding: 13px 14px;
-    border-radius: 12px;
+    border-radius: 8px;
     background: rgba(255,255,255,0.025);
     border: 1px solid rgba(232,204,128,0.1);
 }
@@ -4288,6 +4505,9 @@ const getShenColor = (shen) => {
     .bazi-table th:first-child, .bazi-table td:first-child { width: 40px; }
     .bz-sub { line-height: 1.3; }
     .bz-shensha { font-size: 8px; line-height: 1.3; }
+    .tiaohou-card-head { align-items: stretch; flex-direction: column; }
+    .tiaohou-urgency { align-self: flex-start; }
+    .tiaohou-god-grid { grid-template-columns: 1fr; }
     .scoring-bars { grid-template-columns: 1fr; }
     .picker-topbar { grid-template-columns: 1fr 38px; gap: 8px; }
     .picker-mode-tabs { grid-column: 1 / -1; grid-row: 2; }

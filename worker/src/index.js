@@ -18,9 +18,8 @@ import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTi
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import baziCore from '../../lib/baziCore.js';
-import { buildSiziSummaryKey, getSiziSummary } from '../../lib/siziSummary.js';
 
-const { BaziEngine, GE_JU_INFO, buildQualitativeSections, getChengGe, hasCompleteLlmCache } = baziCore;
+const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache } = baziCore;
 
 
 const { buildGeminiRoutePrompt, classifyDivinationQuestion } = divinationRouter;
@@ -1086,92 +1085,20 @@ async function handleBazi(request, env) {
     const isMale = (promptData.gender === '男' || promptData.gender === 'M' || promptData.gender === '乾造');
     const yun = baZi.getYun(isMale ? 1 : 0);
 
-    const baziObj = {
-        year: baZi.getYear().split(''), month: baZi.getMonth().split(''),
-        day: baZi.getDay().split(''), time: baZi.getTime().split('')
-    };
-
-    const shenshaResult = BaziEngine.calculateShenSha(baziObj);
-    const geJuInfo = BaziEngine.getGeJu(baziObj);
-    const geJu = geJuInfo.geju;
-    const specialPatterns = BaziEngine.extractSpecialPatterns(baziObj);
-    const siziSummaryKey = buildSiziSummaryKey(baZi.getDayGan(), baZi.getTime());
-    const siziSummaryText = getSiziSummary(siziSummaryKey);
-
-    const dayGan = baZi.getDayGan(), yearZhi = baZi.getYearZhi(), dayZhi = baZi.getDayZhi();
-    const xunKong = baZi.getDayXunKong() || "";
-
-    const buildPillar = (name, gan, zhi, star) => ({
-        name, gan, zhi, star,
-        hidden_stems: BaziEngine.ZHI_HIDE[zhi] || [],
-        shi: BaziEngine.getDiShi(dayGan, zhi),
-        zizuo: BaziEngine.getDiShi(gan, zhi),
-        nayin: BaziEngine.NAYIN[gan + zhi] || '-',
-        is_kong: xunKong.includes(zhi),
-        shensha: BaziEngine.getShenShaArray(zhi, dayGan, yearZhi, dayZhi)
-    });
-
-    const pillarsData = [
-        buildPillar('年', baZi.getYearGan(), baZi.getYearZhi(), baZi.getYearShiShenGan()),
-        buildPillar('月', baZi.getMonthGan(), baZi.getMonthZhi(), baZi.getMonthShiShenGan()),
-        buildPillar('日', baZi.getDayGan(), baZi.getDayZhi(), isMale ? '元男' : '元女'),
-        buildPillar('时', baZi.getTimeGan(), baZi.getTimeZhi(), baZi.getTimeShiShenGan())
-    ];
-
     const currentYear = new Date().getFullYear();
-    const daYunList = yun.getDaYun().slice(0, 10).map(dy => {
-        const gan = dy.getGanZhi().charAt(0);
-        const zhi = dy.getGanZhi().charAt(1);
-        return {
-            start_year: dy.getStartYear(),
-            start_age: dy.getStartAge(),
-            gan: gan,
-            zhi: zhi,
-            shi_shen: BaziEngine.ShiShen[dayGan][gan] || '-'
-        };
+    const baziDetail = buildCompleteBaziDetail({
+        baZi,
+        yun,
+        isMale,
+        currentYear
     });
-
-    const currentDaYunObj = yun.getDaYun().find(dy => currentYear >= dy.getStartYear() && currentYear <= dy.getEndYear()) || yun.getDaYun()[0];
-    const liuNianList = currentDaYunObj.getLiuNian().map(ln => {
-        const gan = ln.getGanZhi().charAt(0);
-        const zhi = ln.getGanZhi().charAt(1);
-        return {
-            year: ln.getYear(),
-            age: ln.getAge(),
-            gan: gan,
-            zhi: zhi,
-            shi_shen: BaziEngine.ShiShen[dayGan][gan] || '-'
-        };
-    });
-
+    const geJu = baziDetail.geju;
+    const currentDaYunText = `${baziDetail.matrix.current_dayun?.gan || ''}${baziDetail.matrix.current_dayun?.zhi || ''}`;
+    const currentLiuNianText = `${baziDetail.matrix.current_liunian?.gan || ''}${baziDetail.matrix.current_liunian?.zhi || ''}`;
     const engineQualitativeData = {
-        yuanju_core: "【命局提要】" + (geJuInfo.note || "") + (siziSummaryText ? "\n" + siziSummaryText : ""),
-        current_dayun: "当前大运：" + currentDaYunObj.getGanZhi() + "，" + currentDaYunObj.getStartYear() + " - " + currentDaYunObj.getEndYear(),
-        current_liunian: "当前流年：" + currentYear + "，流年走势分析以全局结合大运论断。"
-    };
-
-    const baziDetail = {
-        pillars: pillarsData,
-        da_yun: daYunList,
-        liu_nian: liuNianList,
-        shensha: shenshaResult,
-        sizi_summary: {
-            key: siziSummaryKey,
-            text: siziSummaryText
-        },
-        geju: {
-            geju: geJuInfo.geju,
-            month_main_gan: geJuInfo.monthMainGan,
-            note: geJuInfo.note,
-            shun_ni: GE_JU_INFO[geJuInfo.geju]?.shunNi || '未知'
-        },
-        chengGe: getChengGe({
-            geju: geJuInfo.geju, dayGan, allStems: [baZi.getYearGan(), baZi.getMonthGan(), baZi.getDayGan(), baZi.getTimeGan()],
-            allBranches: [baZi.getYearZhi(), baZi.getMonthZhi(), baZi.getDayZhi(), baZi.getTimeZhi()],
-            tenGodMap: BaziEngine.ShiShen[dayGan], monthZhi: baZi.getMonthZhi()
-        }),
-        special_patterns: specialPatterns,
-        day_zhi: dayZhi, year_zhi: yearZhi, month_zhi: baZi.getMonthZhi(), ri_zhu: `${dayGan}${dayZhi}`
+        yuanju_core: baziDetail.engine_yuanju_core,
+        current_dayun: baziDetail.engine_current_dayun,
+        current_liunian: baziDetail.engine_current_liunian
     };
 
     const promptText = `你是最顶尖的八字命理大师... 
@@ -1187,6 +1114,11 @@ ${promptData.baziStr}
 ${promptData.daYunStr}
 ` +
         `【格局推断】${geJu}
+【日主强弱】${baziDetail.strong_weak}
+【喜用神】${(baziDetail.favorable_gods || []).join('、')}
+【忌仇神】${(baziDetail.unfavorable_gods || []).join('、')}
+【当前大运】${currentDaYunText}
+【当前流年】${currentLiuNianText}
 
 ` +
         `请返回如下结构的JSON：{"summary":"整体评语", "yuanju_core": "原局核心", "current_dayun": "当前大运", "current_liunian": "当前流年", "favorable_elements": "喜用神", "unfavorable_elements": "忌神"}`;
@@ -1198,31 +1130,48 @@ ${promptData.daYunStr}
         llmQualitativeData: llmJson,
         engineQualitativeData: engineQualitativeData
     });
-
-    const dbUpdatePayload = {
-        bazi_str: promptData.baziStr,
-        bazi_detail: baziDetail,
-        bazi_summary: llmJson.summary || '',
+    const finalBaziDetail = {
+        ...baziDetail,
         llm_yuanju_core: qualitative.llm.yuanju_core,
         llm_current_dayun: qualitative.llm.current_dayun,
         llm_current_liunian: qualitative.llm.current_liunian,
         engine_yuanju_core: qualitative.engine.yuanju_core,
         engine_current_dayun: qualitative.engine.current_dayun,
         engine_current_liunian: qualitative.engine.current_liunian,
-        favorable_elements: Array.isArray(llmJson.favorable_elements) ? llmJson.favorable_elements.join('，') : llmJson.favorable_elements,
-        unfavorable_elements: Array.isArray(llmJson.unfavorable_elements) ? llmJson.unfavorable_elements.join('，') : llmJson.unfavorable_elements,
-        day_zhi: baziDetail.day_zhi,
-        year_zhi: baziDetail.year_zhi,
-        month_zhi: baziDetail.month_zhi,
-        ri_zhu: baziDetail.ri_zhu
+        qualitative
+    };
+    const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${qualitative.display.yuanju_core}\n\n当前大运：\n${qualitative.display.current_dayun}\n\n当前流年：\n${qualitative.display.current_liunian}`;
+
+    const dbUpdatePayload = {
+        bazi_str: promptData.baziStr,
+        bazi_detail: finalBaziDetail,
+        bazi_summary: combinedResultText,
+        strong_weak: finalBaziDetail.strong_weak,
+        geju: finalBaziDetail.geju,
+        shensha: JSON.stringify(finalBaziDetail.shensha),
+        display_yuanju_core: qualitative.display.yuanju_core,
+        display_current_dayun: qualitative.display.current_dayun,
+        display_current_liunian: qualitative.display.current_liunian,
+        llm_yuanju_core: qualitative.llm.yuanju_core,
+        llm_current_dayun: qualitative.llm.current_dayun,
+        llm_current_liunian: qualitative.llm.current_liunian,
+        engine_yuanju_core: qualitative.engine.yuanju_core,
+        engine_current_dayun: qualitative.engine.current_dayun,
+        engine_current_liunian: qualitative.engine.current_liunian,
+        favorable_elements: finalBaziDetail.favorable_gods,
+        unfavorable_elements: finalBaziDetail.unfavorable_gods,
+        day_zhi: finalBaziDetail.day_zhi,
+        year_zhi: finalBaziDetail.year_zhi,
+        month_zhi: finalBaziDetail.month_zhi,
+        ri_zhu: finalBaziDetail.ri_zhu
     };
 
     const { error: dbError } = await supabase.from('bazi_profiles').update(dbUpdatePayload).eq('id', promptData.profileId);
     if (dbError) throw dbError;
 
     const outputPayload = {
-        result: llmJson.summary || '',
-        bazi_detail: { ...baziDetail, qualitative },
+        result: combinedResultText,
+        bazi_detail: finalBaziDetail,
         favorable_elements: dbUpdatePayload.favorable_elements,
         unfavorable_elements: dbUpdatePayload.unfavorable_elements
     };

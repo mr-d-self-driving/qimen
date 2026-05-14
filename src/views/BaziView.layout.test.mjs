@@ -18,3 +18,10 @@ test('专业联动区包含流日与日运跳转入口', () => {
   assert.match(source, /查看每日运势/)
   assert.doesNotMatch(source, />看日运</)
 })
+
+test('身强身弱弹窗展示仪表盘并优先使用用户说明', () => {
+  assert.match(source, /strength-meter-card/)
+  assert.match(source, /aria-label="日主旺衰仪表盘"/)
+  assert.match(source, /detail\?\.user_sections\?\.length/)
+  assert.match(source, /scoreLabel:\s*''/)
+})
