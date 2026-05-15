@@ -2,6 +2,8 @@
 
 The app uses a local WGS84 birthplace list at `src/data/birthplaces.mjs` for private, offline city selection in the Bazi profile picker. User selection does not call a geocoding API.
 
+China mainland records are kept at county/district granularity and are derived from [`sfyc23/China-zip-code-latitude-and-longitude`](https://github.com/sfyc23/China-zip-code-latitude-and-longitude), licensed under MIT. Overseas seed records are maintained locally.
+
 ## Updating From GeoNames
 
 Download these GeoNames dump files into `.cache/geonames/`:

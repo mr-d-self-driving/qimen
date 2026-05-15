@@ -66,9 +66,9 @@
                 <Teleport to="body">
                     <div v-if="showAdd" class="modal-overlay picker-overlay" @click="showAdd = false">
                         <div class="profile-picker-modal" @click.stop>
+                            <div class="picker-sheet-handle" aria-hidden="true"></div>
                             <div class="picker-topbar">
                                 <div class="picker-topcopy">
-                                    <div class="section-kicker">命主档案</div>
                                     <div class="picker-heading">新增排盘资料</div>
                                 </div>
                                 <div class="picker-mode-tabs">
@@ -87,11 +87,17 @@
                             </div>
 
                             <div class="picker-form-row">
-                                <input type="text" v-model.trim="form.name" placeholder="命主姓名">
-                                <select v-model="form.gender">
-                                    <option value="M">男 (乾造)</option>
-                                    <option value="F">女 (坤造)</option>
-                                </select>
+                                <label class="picker-text-field">
+                                    <span>姓名</span>
+                                    <input type="text" v-model.trim="form.name" placeholder="请输入姓名">
+                                </label>
+                                <div class="picker-gender-field">
+                                    <span>性别</span>
+                                    <div class="gender-segment">
+                                        <button :class="{ active: form.gender === 'M' }" @click="form.gender = 'M'">男</button>
+                                        <button :class="{ active: form.gender === 'F' }" @click="form.gender = 'F'">女</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <div v-if="entryMode === ENTRY_MODE.SOLAR" class="picker-panel">
@@ -111,36 +117,49 @@
                                         >
                                         <div class="date-input-hint">仅支持数字输入，格式为 YYYYMMDDHHmm，也可只输入到日期或小时。</div>
                                     </div>
-                                    <div class="location-input-card">
-                                        <div class="location-input-grid">
-                                            <label class="location-field">
-                                                <span>国家/地区</span>
-                                                <select v-model="form.birthCountry" @change="handleBirthCountryChange">
-                                                    <option value="">不选择</option>
-                                                    <option v-for="country in birthplaceCountryOptions" :key="country" :value="country">{{ country }}</option>
-                                                </select>
+                                    <div class="location-search-card">
+                                        <label class="location-search-field">
+                                            <span>出生地址</span>
+                                            <div class="location-search-input-wrap">
+                                                <svg viewBox="0 0 24 24" aria-hidden="true">
+                                                    <circle cx="11" cy="11" r="7"></circle>
+                                                    <path d="m16.5 16.5 3.5 3.5"></path>
+                                                </svg>
+                                                <input
+                                                    type="search"
+                                                    v-model.trim="birthplaceQuery"
+                                                    autocomplete="off"
+                                                    placeholder="搜索省市区县，如 福建省厦门市思明区"
+                                                    @focus="isBirthplaceSearchOpen = true"
+                                                >
+                                                <button
+                                                    v-if="birthplaceQuery || form.birthLocation"
+                                                    class="location-clear-btn"
+                                                    title="清除地址"
+                                                    @click="resetBirthplaceSearch"
+                                                >×</button>
+                                            </div>
+                                        </label>
+                                        <div v-if="isBirthplaceSearchOpen" class="location-result-list">
+                                            <button
+                                                v-for="place in birthplaceSearchResults"
+                                                :key="place.id + place.label"
+                                                class="location-result-item"
+                                                @click="selectBirthplace(place)"
+                                            >
+                                                <span>{{ place.label }}</span>
+                                                <small>北纬{{ place.lat }} 东经{{ place.lng }}</small>
+                                            </button>
+                                            <div v-if="birthplaceQuery && !birthplaceSearchResults.length" class="location-empty">未找到匹配地址</div>
+                                        </div>
+                                        <div class="time-toggle-row">
+                                            <label class="time-check" :class="{ active: form.solarTimeMode === 'apparent', disabled: !form.birthLocation }">
+                                                <input type="checkbox" :checked="form.solarTimeMode === 'apparent'" :disabled="!form.birthLocation" @change="toggleApparentSolarTime">
+                                                <span>真太阳时</span>
                                             </label>
-                                            <label class="location-field">
-                                                <span>省/州</span>
-                                                <select v-model="form.birthAdmin1" :disabled="!form.birthCountry" @change="handleBirthAdminChange">
-                                                    <option value="">请选择</option>
-                                                    <option v-for="admin in birthplaceAdminOptions" :key="admin" :value="admin">{{ admin }}</option>
-                                                </select>
-                                            </label>
-                                            <label class="location-field">
-                                                <span>城市</span>
-                                                <select v-model="form.birthCity" :disabled="!form.birthAdmin1" @change="handleBirthCityChange">
-                                                    <option value="">请选择</option>
-                                                    <option v-for="city in birthplaceCityOptions" :key="city.name" :value="city.name">{{ city.name }}</option>
-                                                </select>
-                                            </label>
-                                            <label class="location-field">
-                                                <span>校正方式</span>
-                                                <select v-model="form.solarTimeMode">
-                                                    <option value="clock">不校正</option>
-                                                    <option value="mean">平太阳时</option>
-                                                    <option value="apparent">真太阳时</option>
-                                                </select>
+                                            <label class="time-check" :class="{ active: daylightSavingAutoActive, disabled: true }">
+                                                <input type="checkbox" :checked="daylightSavingAutoActive" disabled>
+                                                <span>夏令时</span>
                                             </label>
                                         </div>
                                     </div>
@@ -303,11 +322,26 @@
                         </div>
                     </div>
                     <div class="bazi-header-actions">
-                        <button class="btn-primary" :disabled="isAnalyzing || isGuest" @click="requestAiSummary({ force: true })">
+                        <button class="btn-primary" :disabled="isAnalyzing" @click="requestAiSummary({ force: true })">
                             {{ rerunButtonLabel }}
                         </button>
                     </div>
                 </div>
+
+                <Teleport to="body">
+                    <div v-if="showGuestLoginGuide" class="modal-overlay" @click="showGuestLoginGuide = false">
+                        <div class="guest-login-modal" @click.stop>
+                            <button class="close-button guest-login-close" title="关闭" @click="showGuestLoginGuide = false">×</button>
+                            <div class="guest-login-kicker">访客模式</div>
+                            <h3>登录后生成完整云端排盘</h3>
+                            <p>
+                                访客本地档案已保存。
+                                <router-link :to="{ path: '/', query: { auth: 'login' } }" @click="showGuestLoginGuide = false">登录</router-link>
+                                后可补全格局、喜忌、断语与岁运细解。
+                            </p>
+                        </div>
+                    </div>
+                </Teleport>
 
                 <div v-if="isAnalyzing || analysisNotice" class="analysis-status" :class="{ done: analysisNotice && !isAnalyzing }">
                     <div class="loader-orbit" v-if="isAnalyzing">
@@ -1226,10 +1260,7 @@ import {
     ZHI
 } from '../utils/baziProfileInput.mjs'
 import {
-    findBirthplaceByRegion,
-    getBirthplaceAdminOptions,
-    getBirthplaceCityOptions,
-    getBirthplaceCountries
+    searchBirthplaces
 } from '../utils/birthplaceSearch.mjs'
 import {
     buildLocalBaziMatrix,
@@ -1349,6 +1380,7 @@ const currentTab = ref('basic')
 const showAdd = ref(false)
 const showRename = ref(false)
 const isProfileMenuOpen = ref(false)
+const showGuestLoginGuide = ref(false)
 const isAnalyzing = ref(false)
 const isSavingProfileContext = ref(false)
 const isSavingMonthlyContext = ref(false)
@@ -1492,16 +1524,19 @@ const form = reactive({
     birthCountry: '',
     birthAdmin1: '',
     birthCity: '',
+    birthCounty: '',
     birthLocation: '',
     birthLatitude: '',
     birthLongitude: '',
-    solarTimeMode: 'apparent'
+    solarTimeMode: 'clock'
 })
 
 const entryMode = ref(ENTRY_MODE.SOLAR)
 const solarInput = reactive({
     text: ''
 })
+const birthplaceQuery = ref('')
+const isBirthplaceSearchOpen = ref(false)
 const pillarInput = reactive({
     yearPillar: '庚午',
     monthPillar: '戊寅',
@@ -2316,17 +2351,20 @@ const solarInputError = computed(() => {
     }
     return ''
 })
-const birthplaceCountryOptions = getBirthplaceCountries()
-const birthplaceAdminOptions = computed(() => getBirthplaceAdminOptions(form.birthCountry))
-const birthplaceCityOptions = computed(() => getBirthplaceCityOptions(form.birthCountry, form.birthAdmin1))
+const birthplaceSearchResults = computed(() => (
+    birthplaceQuery.value ? searchBirthplaces(birthplaceQuery.value, 12) : []
+))
 const solarPreview = computed(() => {
     if (solarInputError.value || !solarParsedInput.value) return null
     const { year, month, day, hour, minute } = solarParsedInput.value
     return getSolarLunarSnapshot(year, month, day, hour, minute, {
         longitude: form.birthLongitude,
+        country: form.birthCountry,
+        admin1: form.birthAdmin1,
         mode: form.solarTimeMode
     })
 })
+const daylightSavingAutoActive = computed(() => Boolean(solarPreview.value?.timeAdjustment?.daylightSavingActive))
 const solarTimeAdjustmentText = computed(() => {
     const adjustment = solarPreview.value?.timeAdjustment
     if (!adjustment || !adjustment.totalMinutes) return ''
@@ -2621,10 +2659,13 @@ const resetProfileEntry = () => {
     form.birthCountry = ''
     form.birthAdmin1 = ''
     form.birthCity = ''
+    form.birthCounty = ''
     form.birthLocation = ''
     form.birthLatitude = ''
     form.birthLongitude = ''
-    form.solarTimeMode = 'apparent'
+    form.solarTimeMode = 'clock'
+    birthplaceQuery.value = ''
+    isBirthplaceSearchOpen.value = false
     entryMode.value = ENTRY_MODE.SOLAR
     solarInput.text = ''
     pillarInput.yearPillar = '庚午'
@@ -2640,35 +2681,41 @@ const handleSolarInput = (event) => {
 }
 
 const clearBirthplaceSelection = () => {
+    form.birthCountry = ''
+    form.birthAdmin1 = ''
+    form.birthCity = ''
+    form.birthCounty = ''
     form.birthLocation = ''
     form.birthLatitude = ''
     form.birthLongitude = ''
+    form.solarTimeMode = 'clock'
 }
 
-const handleBirthCountryChange = () => {
-    form.birthAdmin1 = ''
-    form.birthCity = ''
+const resetBirthplaceSearch = () => {
+    birthplaceQuery.value = ''
+    isBirthplaceSearchOpen.value = false
     clearBirthplaceSelection()
 }
 
-const handleBirthAdminChange = () => {
-    form.birthCity = ''
-    clearBirthplaceSelection()
-}
-
-const handleBirthCityChange = () => {
-    const place = findBirthplaceByRegion({
-        country: form.birthCountry,
-        admin1: form.birthAdmin1,
-        city: form.birthCity
-    })
-    if (!place) {
-        clearBirthplaceSelection()
-        return
-    }
-    form.birthLocation = `${place.country} ${place.admin1} ${place.name}`
+const selectBirthplace = (place) => {
+    form.birthCountry = place.country || ''
+    form.birthAdmin1 = place.admin1 || ''
+    form.birthCity = place.city || place.name || ''
+    form.birthCounty = place.county || place.name || ''
+    form.birthLocation = place.label || `${place.country} ${place.admin1} ${place.name}`
     form.birthLatitude = String(place.lat)
     form.birthLongitude = String(place.lng)
+    form.solarTimeMode = 'apparent'
+    birthplaceQuery.value = place.label || form.birthLocation
+    isBirthplaceSearchOpen.value = false
+}
+
+const toggleApparentSolarTime = (event) => {
+    if (!form.birthLocation) {
+        form.solarTimeMode = 'clock'
+        return
+    }
+    form.solarTimeMode = event?.target?.checked ? 'apparent' : 'clock'
 }
 
 const setActivePillarSlot = (slot) => {
@@ -2738,6 +2785,8 @@ const buildProfilePayloadFromEntry = () => {
             hour: solarParsedInput.value.hour,
             minute: solarParsedInput.value.minute,
             birthLocation: form.birthLocation,
+            birthCountry: form.birthCountry,
+            birthAdmin1: form.birthAdmin1,
             birthLatitude: form.birthLatitude,
             birthLongitude: form.birthLongitude,
             solarTimeMode: form.solarTimeMode
@@ -2907,6 +2956,10 @@ const stopAnalysisMotion = () => {
 // force=true 时引擎 + LLM 全量重推；force=false（默认）只在版本过期时刷新引擎，保留 LLM 断语
 const requestAiSummary = async ({ force = false } = {}) => {
     if (!activeProfile.value) return
+    if (isGuest.value) {
+        showGuestLoginGuide.value = true
+        return
+    }
     const profileId = activeProfile.value.id
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
     isAnalyzing.value = true
@@ -3213,9 +3266,9 @@ const hasPreviousMonthlyContext = computed(() =>
     recentMonthlyContextRecords.value.some(item => item.month_key && item.month_key !== notesMonthKey.value)
 )
 const rerunButtonLabel = computed(() => {
-    if (isGuest.value) return '访客本地档案'
     if (isAnalyzing.value) return '正在推演'
     if (needsUpgrade.value) return '生成排盘'
+    if (isGuest.value) return '生成排盘'
     return '重新推演'
 })
 
@@ -3329,6 +3382,7 @@ const getShenColor = (shen) => {
     box-sizing: border-box;
     padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left));
     align-items: flex-end;
+    justify-content: center;
 }
 .profile-picker-modal {
     box-sizing: border-box;
@@ -3345,10 +3399,18 @@ const getShenColor = (shen) => {
     box-shadow: 0 24px 72px rgba(0,0,0,0.45);
     padding: 18px;
     color: var(--text-primary);
+    animation: pickerSheetIn .24s ease both;
+}
+.picker-sheet-handle {
+    width: 42px;
+    height: 4px;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.2);
+    margin: 0 auto 14px;
 }
 .picker-topbar {
     display: grid;
-    grid-template-columns: minmax(128px, 0.85fr) minmax(220px, 1.35fr) 40px;
+    grid-template-columns: minmax(118px, .8fr) minmax(190px, 1.2fr) 40px;
     align-items: center;
     gap: 12px;
     margin-bottom: 16px;
@@ -3389,21 +3451,54 @@ const getShenColor = (shen) => {
 }
 .picker-form-row {
     display: grid;
-    grid-template-columns: 1.5fr 1fr;
-    gap: 10px;
+    grid-template-columns: minmax(0, 1.3fr) minmax(150px, .7fr);
+    gap: 14px;
     margin-bottom: 14px;
 }
-.picker-form-row input,
-.picker-form-row select {
+.picker-text-field,
+.picker-gender-field {
+    min-width: 0;
+}
+.picker-text-field span,
+.picker-gender-field > span {
+    display: block;
+    margin-bottom: 8px;
+    color: #D8D2BF;
+    font-size: 12px;
+    font-weight: 700;
+}
+.picker-text-field input {
     width: 100%;
     min-height: 44px;
-    border-radius: 14px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background: rgba(255,255,255,0.05);
+    border: none;
+    border-bottom: 1px solid rgba(232,204,128,0.18);
+    border-radius: 0;
+    background: transparent;
     color: #F4EBDD;
-    padding: 0 14px;
+    padding: 0 2px;
     font-size: 14px;
     outline: none;
+}
+.picker-text-field input:focus {
+    border-color: rgba(232,204,128,0.5);
+}
+.gender-segment {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    min-height: 44px;
+    border-bottom: 1px solid rgba(232,204,128,0.18);
+}
+.gender-segment button {
+    border: none;
+    background: transparent;
+    color: #AFA79A;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+}
+.gender-segment button.active {
+    color: #F4EBDD;
+    box-shadow: inset 0 -2px 0 var(--gold-light);
 }
 .picker-panel {
     border-top: 1px solid rgba(232,204,128,0.1);
@@ -3441,44 +3536,127 @@ const getShenColor = (shen) => {
     padding: 14px;
     box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
-.location-input-card {
-    border-radius: 18px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background: rgba(255,255,255,0.03);
-    padding: 12px;
-}
-.location-input-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 10px;
-}
-.location-field {
+.location-search-card {
     min-width: 0;
     position: relative;
+    border-top: 1px solid rgba(232,204,128,0.1);
+    border-bottom: 1px solid rgba(232,204,128,0.1);
+    padding: 13px 0 12px;
 }
-.location-field span {
+.location-search-field span {
     display: block;
     margin-bottom: 8px;
     color: #D8D2BF;
     font-size: 12px;
     font-weight: 700;
 }
-.location-field input,
-.location-field select {
-    width: 100%;
-    min-height: 42px;
-    border-radius: 14px;
+.location-search-input-wrap {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    min-height: 48px;
     border: 1px solid rgba(232,204,128,0.14);
+    border-radius: 999px;
     background: rgba(6,6,14,0.62);
-    color: #F7F0E2;
     padding: 0 12px;
+}
+.location-search-input-wrap svg {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    color: #AFA79A;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+.location-search-input-wrap input {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    color: #F7F0E2;
     font-size: 14px;
     outline: none;
 }
-.location-field input:focus,
-.location-field select:focus {
+.location-search-input-wrap:focus-within {
     border-color: rgba(232,204,128,0.34);
     box-shadow: 0 0 0 1px rgba(232,204,128,0.12);
+}
+.location-clear-btn {
+    width: 28px;
+    height: 28px;
+    border: none;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    color: #D8D2BF;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+}
+.location-result-list {
+    margin-top: 10px;
+    max-height: 252px;
+    overflow: auto;
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.location-result-item {
+    width: 100%;
+    display: grid;
+    gap: 3px;
+    padding: 13px 2px;
+    border: none;
+    border-bottom: 1px solid rgba(255,255,255,0.055);
+    background: transparent;
+    color: #F4EBDD;
+    text-align: left;
+    cursor: pointer;
+}
+.location-result-item:last-child { border-bottom: none; }
+.location-result-item span {
+    font-size: 15px;
+    font-weight: 700;
+}
+.location-result-item small {
+    color: #928A7C;
+    font-size: 11px;
+}
+.location-result-item:hover {
+    color: var(--gold-light);
+}
+.location-empty {
+    padding: 16px 2px;
+    color: #8D9098;
+    font-size: 13px;
+}
+.time-toggle-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 13px;
+}
+.time-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 30px;
+    color: #AFA79A;
+    font-size: 13px;
+    font-weight: 700;
+}
+.time-check input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--gold);
+}
+.time-check.active {
+    color: #F4EBDD;
+}
+.time-check.disabled {
+    opacity: .62;
 }
 .date-input-label {
     display: block;
@@ -3657,6 +3835,39 @@ const getShenColor = (shen) => {
     font-size: 18px;
     font-weight: 800;
     cursor: pointer;
+    position: sticky;
+    bottom: 0;
+    z-index: 3;
+}
+@keyframes pickerSheetIn {
+    from { transform: translateY(18px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@media (min-width: 780px) {
+    .picker-overlay {
+        align-items: stretch;
+        justify-content: flex-end;
+        padding: 0;
+    }
+    .profile-picker-modal {
+        width: min(520px, 44vw);
+        max-height: 100dvh;
+        min-height: 100dvh;
+        border-radius: 24px 0 0 24px;
+        border-top: none;
+        border-right: none;
+        border-bottom: none;
+        padding: 22px 22px 24px;
+        animation: pickerDrawerIn .24s ease both;
+    }
+    .picker-sheet-handle {
+        display: none;
+    }
+}
+@keyframes pickerDrawerIn {
+    from { transform: translateX(22px); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
 }
 
 .bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
@@ -3783,9 +3994,27 @@ const getShenColor = (shen) => {
 .clickable-shensha { display: inline-block; cursor: pointer; padding: 2px 4px; border-radius: 4px; transition: background 0.2s; margin: 1px 0; }
 .clickable-shensha:hover { background: rgba(212,175,55,0.2); color: var(--gold-light); }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+.modal-overlay.picker-overlay {
+    align-items: flex-end;
+    justify-content: center;
+}
+@media (min-width: 780px) {
+    .modal-overlay.picker-overlay {
+        align-items: stretch;
+        justify-content: flex-end;
+        padding: 0;
+    }
+}
 .shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 320px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: riseIn 0.3s ease; }
 .shensha-modal h4 { color: var(--gold-light); font-size: 16px; margin-bottom: 10px; font-family: var(--font-serif); border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 8px;}
 .shensha-modal p { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.24); background: linear-gradient(135deg, rgba(18,18,34,0.98), rgba(11,11,24,0.98)); box-shadow: 0 18px 48px rgba(0,0,0,0.58); animation: riseIn 0.3s ease; }
+.guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
+.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold-light); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
+.guest-login-modal p { margin: 0; color: rgba(240,237,230,0.84); font-size: 13px; line-height: 1.8; }
+.guest-login-modal a { color: #9DB7FF; text-decoration: none; border-bottom: 1px solid rgba(157,183,255,0.46); }
+.guest-login-modal a:hover { color: #C8D5FF; border-bottom-color: rgba(200,213,255,0.82); }
+.guest-login-close { position: absolute; right: 12px; top: 12px; }
 
 /* 关系可视化面板已经移除旧版CSS */
 
@@ -4710,9 +4939,9 @@ const getShenColor = (shen) => {
     }
     .profile-picker-modal {
         width: 100%;
-        max-height: calc(100dvh - max(16px, env(safe-area-inset-top)) - max(16px, env(safe-area-inset-bottom)));
+        max-height: calc(100dvh - max(48px, env(safe-area-inset-top)) - max(18px, env(safe-area-inset-bottom)));
         border-radius: 22px;
-        padding: 14px;
+        padding: 14px 14px max(18px, env(safe-area-inset-bottom));
     }
     .profile-actions { grid-template-columns: 1fr 1fr; }
     .profile-filter-row { grid-template-columns: minmax(0, 1fr) 46px; gap: 6px; }
@@ -4760,9 +4989,9 @@ const getShenColor = (shen) => {
         border-radius: 12px;
         font-size: 24px;
     }
-    .picker-form-row { grid-template-columns: 1fr 1fr; }
+    .picker-form-row { grid-template-columns: 1fr 1fr; gap: 12px; }
     .picker-save-btn { min-height: 56px; }
-    .location-input-grid { grid-template-columns: 1fr; }
+    .location-result-list { max-height: 214px; }
     .date-segment-row { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
     .date-input-card input { min-height: 50px; font-size: 18px; padding: 0 14px; }
     .date-segment { padding: 10px 4px; border-radius: 14px; }

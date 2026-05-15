@@ -9,6 +9,7 @@ import {
   canRetryLegacyBaziProfileInsert,
   getAllowedMonthBranchesByStem,
   getAllowedTimeBranchesByStem,
+  getChinaDaylightSavingAdjustment,
   getSolarTimeAdjustment,
   isMissingBaziProfileSolarTimeColumnError,
   getMonthStemByYearStem,
@@ -147,6 +148,60 @@ test('solar time adjustment supports apparent time and longitude validation', ()
     hour: 22,
     minute: 18
   })
+})
+
+test('mainland China daylight saving time subtracts one hour before solar-time correction', () => {
+  const daylightSaving = getChinaDaylightSavingAdjustment({
+    year: 1990,
+    month: 6,
+    day: 1,
+    hour: 6,
+    minute: 30,
+    country: '中国',
+    admin1: '北京'
+  })
+
+  assert.equal(daylightSaving.minutes, -60)
+
+  const adjustment = getSolarTimeAdjustment({
+    year: 1990,
+    month: 6,
+    day: 1,
+    hour: 6,
+    minute: 30,
+    longitude: 116.4074,
+    mode: 'mean',
+    country: '中国',
+    admin1: '北京'
+  })
+
+  assert.equal(adjustment.daylightSavingMinutes, -60)
+  assert.ok(Math.abs(adjustment.longitudeMinutes - -14.3704) < 0.0001)
+  assert.equal(adjustment.totalMinutes, -74)
+  assert.deepEqual(adjustment.adjusted, {
+    year: 1990,
+    month: 6,
+    day: 1,
+    hour: 5,
+    minute: 16
+  })
+})
+
+test('China daylight saving auto mode excludes Hong Kong, Macau, and Taiwan', () => {
+  const base = { year: 1990, month: 6, day: 1, hour: 6, minute: 30, country: '中国' }
+
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, admin1: '香港' }).minutes, 0)
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, admin1: '澳门' }).minutes, 0)
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, admin1: '台湾' }).minutes, 0)
+})
+
+test('China daylight saving respects transition-day clock boundaries', () => {
+  const base = { year: 1990, country: '中国', admin1: '北京' }
+
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, month: 4, day: 15, hour: 1, minute: 30 }).minutes, 0)
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, month: 4, day: 15, hour: 3, minute: 0 }).minutes, -60)
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, month: 9, day: 16, hour: 1, minute: 30 }).minutes, -60)
+  assert.equal(getChinaDaylightSavingAdjustment({ ...base, month: 9, day: 16, hour: 2, minute: 0 }).minutes, 0)
 })
 
 test('buildLunarProfilePayload converts lunar birth into solar birth_date', () => {

@@ -353,7 +353,7 @@
 
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import {
   enterGuestMode,
@@ -384,6 +384,7 @@ const API_URL = "/api/qimen"
 const ROUTE_API_URL = "/api/divination-route"
 const BAZI_QUESTION_API_URL = "/api/bazi-question"
 const router = useRouter()
+const route = useRoute()
 
 const currentUser = ref(null)
 const isLoginMode = ref(true)
@@ -407,7 +408,8 @@ const activeBaziProfile = computed(() => baziProfiles.value.find(p => p.id === s
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
 const isGuest = computed(() => globalState.isGuest)
-const canUseApp = computed(() => Boolean(currentUser.value || isGuest.value))
+const isAuthLanding = computed(() => ['login', 'register'].includes(route.query.auth))
+const canUseApp = computed(() => Boolean(currentUser.value || (isGuest.value && !isAuthLanding.value)))
 
 const historyRecords = ref([])
 const activeCategory = ref('all')
@@ -440,7 +442,12 @@ let loaderInterval = null
 let clockInterval = null
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
+const syncAuthModeFromRoute = () => {
+  isLoginMode.value = route.query.auth !== 'register'
+}
+
 onMounted(() => {
+  syncAuthModeFromRoute()
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
   document.addEventListener('click', handleDocumentClick)
@@ -452,6 +459,8 @@ onMounted(() => {
     handleSessionUpdate(session)
   })
 })
+
+watch(() => route.query.auth, syncAuthModeFromRoute)
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)

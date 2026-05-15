@@ -45,6 +45,15 @@ const WU_SHU_DUN_START = {
 
 const pad2 = (value) => String(value).padStart(2, '0')
 const STANDARD_MERIDIAN = 120
+const CHINA_DAYLIGHT_SAVING_PERIODS = {
+  1986: { start: [5, 4], end: [9, 14] },
+  1987: { start: [4, 12], end: [9, 13] },
+  1988: { start: [4, 10], end: [9, 11] },
+  1989: { start: [4, 16], end: [9, 17] },
+  1990: { start: [4, 15], end: [9, 16] },
+  1991: { start: [4, 14], end: [9, 15] }
+}
+const CHINA_NON_MAINLAND_ADMINS = new Set(['香港', '澳门', '澳門', '台湾', '臺灣'])
 
 const getDayOfYear = (year, month, day) => {
   const start = Date.UTC(year, 0, 1)
@@ -76,6 +85,52 @@ const addMinutesToLocalDatetime = ({ year, month, day, hour = 0, minute = 0 }, d
   }
 }
 
+const isSameOrAfterMonthDay = (month, day, [targetMonth, targetDay]) => (
+  month > targetMonth || (month === targetMonth && day >= targetDay)
+)
+
+const isSameOrBeforeMonthDay = (month, day, [targetMonth, targetDay]) => (
+  month < targetMonth || (month === targetMonth && day <= targetDay)
+)
+
+const isSameMonthDay = (month, day, [targetMonth, targetDay]) => (
+  month === targetMonth && day === targetDay
+)
+
+const isMainlandChinaLocation = ({ country, admin1 }) => {
+  const normalizedCountry = String(country || '').trim()
+  const normalizedAdmin = String(admin1 || '').trim()
+  if (normalizedCountry && normalizedCountry !== '中国' && normalizedCountry.toUpperCase() !== 'CN') return false
+  if (CHINA_NON_MAINLAND_ADMINS.has(normalizedAdmin)) return false
+  return normalizedCountry === '中国' || normalizedCountry.toUpperCase() === 'CN'
+}
+
+export const getChinaDaylightSavingAdjustment = ({
+  year,
+  month,
+  day,
+  hour = 0,
+  country = '',
+  admin1 = ''
+}) => {
+  const period = CHINA_DAYLIGHT_SAVING_PERIODS[Number(year)]
+  if (!period || !isMainlandChinaLocation({ country, admin1 })) {
+    return {
+      minutes: 0,
+      active: false
+    }
+  }
+
+  const withinDateRange = isSameOrAfterMonthDay(month, day, period.start) && isSameOrBeforeMonthDay(month, day, period.end)
+  const afterStartBoundary = !isSameMonthDay(month, day, period.start) || Number(hour) >= 3
+  const beforeEndBoundary = !isSameMonthDay(month, day, period.end) || Number(hour) < 2
+  const active = withinDateRange && afterStartBoundary && beforeEndBoundary
+  return {
+    minutes: active ? -60 : 0,
+    active
+  }
+}
+
 export const getSolarTimeAdjustment = ({
   year,
   month,
@@ -83,30 +138,37 @@ export const getSolarTimeAdjustment = ({
   hour = 0,
   minute = 0,
   longitude,
+  country = '',
+  admin1 = '',
   mode = 'apparent',
   standardMeridian = STANDARD_MERIDIAN
 }) => {
   const normalizedLongitude = normalizeLongitude(longitude)
   const clock = { year, month, day, hour, minute }
+  const daylightSaving = getChinaDaylightSavingAdjustment({ year, month, day, hour, minute, country, admin1 })
   if (normalizedLongitude === null || mode === 'clock') {
     return {
       longitude: normalizedLongitude,
       mode: 'clock',
       standardMeridian,
+      daylightSavingMinutes: daylightSaving.minutes,
+      daylightSavingActive: daylightSaving.active,
       longitudeMinutes: 0,
       equationMinutes: 0,
-      totalMinutes: 0,
-      adjusted: clock
+      totalMinutes: daylightSaving.minutes,
+      adjusted: addMinutesToLocalDatetime(clock, daylightSaving.minutes)
     }
   }
 
   const longitudeMinutes = (normalizedLongitude - standardMeridian) * 4
   const equationMinutes = mode === 'mean' ? 0 : getEquationOfTimeMinutes(year, month, day)
-  const totalMinutes = Math.round(longitudeMinutes + equationMinutes)
+  const totalMinutes = Math.round(daylightSaving.minutes + longitudeMinutes + equationMinutes)
   return {
     longitude: normalizedLongitude,
     mode: mode === 'mean' ? 'mean' : 'apparent',
     standardMeridian,
+    daylightSavingMinutes: daylightSaving.minutes,
+    daylightSavingActive: daylightSaving.active,
     longitudeMinutes,
     equationMinutes,
     totalMinutes,
@@ -219,6 +281,8 @@ export const buildSolarProfilePayload = ({
   hour = 0,
   minute = 0,
   birthLocation = '',
+  birthCountry = '',
+  birthAdmin1 = '',
   birthLatitude = null,
   birthLongitude = null,
   solarTimeMode = 'apparent'
@@ -230,6 +294,8 @@ export const buildSolarProfilePayload = ({
     hour,
     minute,
     longitude: birthLongitude,
+    country: birthCountry,
+    admin1: birthAdmin1,
     mode: solarTimeMode
   })
   const adjusted = timeAdjustment.adjusted
@@ -240,6 +306,8 @@ export const buildSolarProfilePayload = ({
     adjusted_birth_date: formatBirthDate(adjusted.year, adjusted.month, adjusted.day, adjusted.hour, adjusted.minute),
     bazi_str: getEightCharString(year, month, day, hour, minute, {
       longitude: birthLongitude,
+      country: birthCountry,
+      admin1: birthAdmin1,
       mode: solarTimeMode
     }),
     birth_location: String(birthLocation || '').trim(),

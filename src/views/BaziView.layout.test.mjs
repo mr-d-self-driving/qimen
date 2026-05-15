@@ -47,3 +47,10 @@ test('格局弹窗优先展示结构化 pattern_analysis', () => {
   assert.match(source, /relationshipHealth/)
   assert.match(source, /normalizeTraitItems/)
 })
+
+test('访客添加档案后生成排盘按钮可点击并触发登录引导', () => {
+  assert.match(source, /:disabled="isAnalyzing"/)
+  assert.match(source, /showGuestLoginGuide\.value = true/)
+  assert.match(source, /登录后可生成完整云端命理解读与日运联动/)
+  assert.doesNotMatch(source, /:disabled="isAnalyzing \|\| isGuest"/)
+})

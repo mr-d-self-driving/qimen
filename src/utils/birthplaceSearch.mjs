@@ -8,13 +8,34 @@ const normalize = (value) => String(value || '')
 const searchableText = (place) => [
   place.name,
   place.admin1,
+  place.city,
+  place.county,
   place.country,
+  [place.admin1, place.city, place.county || place.name].filter(Boolean).join(''),
+  [place.admin1, place.city, place.county || place.name].filter(Boolean).join('-'),
+  [place.aliases?.[0], place.city, place.county || place.name].filter(Boolean).join(''),
   ...(place.aliases || [])
 ].map(normalize).filter(Boolean)
 
+const trimChinaSuffix = (value) => String(value || '').replace(/(壮族自治区|回族自治区|维吾尔自治区|自治区|特别行政区|省|市)$/u, '')
+
+const formatPlaceLabel = (place) => {
+  if (place.country === '中国') {
+    const province = place.admin1 || trimChinaSuffix(place.province)
+    const city = place.city || ''
+    const county = place.county || place.name || ''
+    const parts = [province, city, county]
+      .map((part) => String(part || '').trim())
+      .filter(Boolean)
+      .filter((part, index, list) => list.indexOf(part) === index)
+    return parts.join(' - ')
+  }
+  return `${place.name} · ${place.admin1} · ${place.country}`
+}
+
 const index = BIRTHPLACES.map((place) => ({
   ...place,
-  label: `${place.name} · ${place.admin1} · ${place.country}`,
+  label: formatPlaceLabel(place),
   searchTokens: searchableText(place)
 }))
 
@@ -70,7 +91,12 @@ export const getBirthplaceCityOptions = (country, admin1) => {
   return sortByPopulation(index.filter((place) => place.country === country && place.admin1 === admin1))
 }
 
-export const findBirthplaceByRegion = ({ country, admin1, city }) => {
+export const findBirthplaceByRegion = ({ country, admin1, city, county }) => {
   if (!country || !admin1 || !city) return null
-  return index.find((place) => place.country === country && place.admin1 === admin1 && place.name === city) || null
+  return index.find((place) => (
+    place.country === country &&
+    place.admin1 === admin1 &&
+    (place.city === city || place.name === city) &&
+    (!county || place.county === county || place.name === county)
+  )) || null
 }

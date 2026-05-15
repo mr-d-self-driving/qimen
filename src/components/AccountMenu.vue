@@ -15,7 +15,13 @@
       <router-link v-if="globalState.currentUser" class="account-menu-link" to="/reset-password" @click="closeMenu">
         修改密码
       </router-link>
-      <button v-if="globalState.currentUser || globalState.isGuest" class="account-menu-action" type="button" @click="handleSignOut">
+      <router-link v-if="!globalState.currentUser" class="account-menu-link" :to="{ path: '/', query: { auth: 'login' } }" @click="closeMenu">
+        登录
+      </router-link>
+      <router-link v-if="!globalState.currentUser" class="account-menu-link" :to="{ path: '/', query: { auth: 'register' } }" @click="closeMenu">
+        注册
+      </router-link>
+      <button v-if="globalState.currentUser" class="account-menu-action" type="button" @click="handleSignOut">
         退出登录
       </button>
       <AfdianSupportLink />
@@ -27,7 +33,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
-import { globalState, leaveGuestMode } from '../store.js'
+import { globalState } from '../store.js'
 import AfdianSupportLink from './AfdianSupportLink.vue'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
@@ -55,13 +61,6 @@ const closeOnDocumentClick = () => {
 }
 
 const handleSignOut = async () => {
-  if (globalState.isGuest && !globalState.currentUser) {
-    leaveGuestMode()
-    closeMenu()
-    router.push('/')
-    return
-  }
-
   await supabase.auth.signOut()
   closeMenu()
   router.push('/')
