@@ -16,6 +16,7 @@ import { buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../l
 import { buildDomainViewPromptSection, buildYongshenPromptSection, getYongshenRule } from '../../lib/qimenYongshenRules.js';
 import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTimingRules.js';
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
+import { calculateQimenScore } from '../../lib/qimenScoringEngine.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import baziCore from '../../lib/baziCore.js';
 
@@ -815,6 +816,7 @@ async function handleQimen(request, env) {
     const timingPalaces = Array.from({ length: 9 }, (_, i) => ({
         index: i,
         name: `${palaceNames[i]}${palaceNumbers[i]}宫`,
+        element: ["木", "火", "土", "木", "土", "金", "土", "水", "金"][i],
         branches: palaceBranches[i],
         door: eightDoors[i],
         star: nineStars[i],
@@ -848,6 +850,12 @@ async function handleQimen(request, env) {
         intent: detectedIntent,
         palaces: timingPalaces
     });
+    const backendScoreAudit = calculateQimenScore({
+        intent: detectedIntent,
+        palaces: timingPalaces,
+        yongshenRule,
+        polarityOverrides
+    });
     const yongshenPromptSection = buildYongshenPromptSection({
         intent: detectedIntent,
         rule: yongshenRule,
@@ -857,7 +865,7 @@ async function handleQimen(request, env) {
     const timingPromptSection = buildTimingPromptSection(timingAnalysis);
     const polarityPromptSection = buildPolarityPromptSection(polarityOverrides);
     const summaryPromptSection = buildSummaryPromptSection();
-    const scoreAuditPromptSection = buildScoreAuditPromptSection();
+    const scoreAuditPromptSection = buildScoreAuditPromptSection(backendScoreAudit);
 
     const finalPrompt = `你是一位精通“时家奇门拆补转盘法”的奇门遁甲预测大师。
 起局时间：${timestamp_solar}(${timestamp_lunar})。
@@ -912,7 +920,8 @@ ${timingPromptSection}
     "keyword": "关键信号 (如: 财气通门户，马星催动)"
   },
   "score_audit": {
-    "base_score": 50,
+    "version": "qimen-score-v1",
+    "base_score": 60,
     "adjustments": [
       {
         "signal": "盘面信号 (必须对应具体宫位/门星神干/空亡马星等)",
@@ -922,6 +931,16 @@ ${timingPromptSection}
     ],
     "final_score": 85,
     "confidence": "low|medium|high"
+  },
+  "model_review": {
+    "verdict": "aligned|needs_attention|insufficient_context",
+    "correction_suggestions": [
+      {
+        "missed_signal": "模型认为后端后续可补充的教材信号",
+        "suggested_rule_change": "建议如何调整规则库，不得改变本次分数"
+      }
+    ],
+    "boundary": "说明本次仍以后端 score_audit.final_score 为准"
   },
   "analysis": {
     "tensor": "时空能量 (如: 阳遁三局，金水相生)",
@@ -985,6 +1004,17 @@ ${timingPromptSection}
 问题：${userQuestion}`;
 
     const aiJsonData = await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7);
+    aiJsonData.score_audit = backendScoreAudit;
+    aiJsonData.summary = {
+        ...(aiJsonData.summary || {}),
+        score: backendScoreAudit.final_score,
+        score_basis: backendScoreAudit.summary?.score_basis || {
+            positive_signals: [],
+            negative_signals: [],
+            score_logic: `后端按 qimen-score-v1 得出 ${backendScoreAudit.final_score} 分。`
+        },
+        model_score_basis: (aiJsonData.summary || {}).score_basis || null
+    };
 
     let qimenPalaces = [];
     for (let i = 0; i < 9; i++) {
@@ -1009,6 +1039,7 @@ ${timingPromptSection}
         subcategory: detectedIntent.subcategory,
         route: detectedIntent,
         yongshen_ruleset: yongshenRule.ruleset,
+        backend_score_audit: backendScoreAudit,
         polarity_overrides: polarityOverrides,
         timing_analysis: {
             ...timingAnalysis,

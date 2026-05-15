@@ -8,7 +8,7 @@ preview_urls = true
 [vars]
 FRONTEND_URL = "https://qimendao.com,https://www.qimendao.com"
 SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
-WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com"
+WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com"
 
 [secrets]
 required = [
