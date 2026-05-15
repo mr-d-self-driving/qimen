@@ -381,7 +381,6 @@
             alt="奇门推演结果图"
           />
         </div>
-        <div class="share-img-hint">📱 手机：长按图片存入相册 &nbsp;·&nbsp; 💻 电脑：右键另存为</div>
       </div>
     </div>
   </div>
@@ -1621,7 +1620,7 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 
 /* 分享图弹窗 */
 .share-img-overlay {
-  position: fixed; inset: 0; z-index: 10000;
+  position: fixed; inset: 0; z-index: 99999;
   display: flex; align-items: center; justify-content: center;
   background: rgba(0,0,0,0.82);
   backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
@@ -1671,14 +1670,7 @@ input::placeholder { color: rgba(255,255,255,0.25); }
   -webkit-user-select: none;
   user-select: none;
 }
-.share-img-hint {
-  padding: 11px 18px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  font-size: 11px; color: var(--text-muted);
-  text-align: center; line-height: 1.6;
-  flex-shrink: 0;
-  background: rgba(0,0,0,0.2);
-}
+
 
 @media(max-width:380px) {
   .result-actions { grid-template-columns: 1fr 1fr; }
