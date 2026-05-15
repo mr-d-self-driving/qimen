@@ -1555,7 +1555,7 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 }
 .auth-switch:hover { border-color: rgba(232,204,128,0.28); background: rgba(212,175,55,0.055); color: var(--gold-light); }
 
-.qimen-profile-panel { position: relative; z-index: 42; padding: 14px 16px; overflow: visible; }
+.qimen-profile-panel { position: relative; z-index: 42; padding: 14px 16px; overflow: visible; margin-bottom: 16px; }
 .profile-switcher { position: relative; z-index: 60; }
 .profile-switch-trigger {
   width: 100%;
