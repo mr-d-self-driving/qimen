@@ -231,6 +231,22 @@
                   再起一局
                 </button>
                 <button
+                  class="result-save-img-btn"
+                  :class="{ saving: isSavingImage }"
+                  @click="saveAsImage"
+                  :disabled="isSavingImage"
+                  title="保存为图片分享"
+                >
+                  <svg v-if="!isSavingImage" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <path d="M7 1v8M4 6l3 3 3-3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+                    <path d="M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+                  </svg>
+                  <svg v-else class="spin-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                    <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.3" stroke-dasharray="10 8" stroke-linecap="round"/>
+                  </svg>
+                  {{ isSavingImage ? '生成中' : '保存' }}
+                </button>
+                <button
                   v-if="activeResultRecord?.canFeedback"
                   class="result-feedback-btn"
                   :class="{ done: activeResultRecord.hasFeedback }"
@@ -348,6 +364,26 @@
         <div class="route-info-note">你只需自然提问；系统会先识别问题类型，自动选择八字、奇门或综合路径，并注入对应规则。</div>
       </div>
     </div>
+
+    <!-- 长图预览弹窗 -->
+    <div class="share-img-overlay" :class="{ show: shareImgUrl }" @click="closeShareModal">
+      <div class="share-img-modal" @click.stop>
+        <div class="share-img-header">
+          <span class="share-img-kicker">SHARE IMAGE</span>
+          <span class="share-img-title">长按图片保存</span>
+          <button class="share-img-close" @click="closeShareModal" aria-label="关闭">×</button>
+        </div>
+        <div class="share-img-body">
+          <img
+            v-if="shareImgUrl"
+            :src="shareImgUrl"
+            class="share-img-preview"
+            alt="奇门推演结果图"
+          />
+        </div>
+        <div class="share-img-hint">📱 手机：长按图片存入相册 &nbsp;·&nbsp; 💻 电脑：右键另存为</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -432,8 +468,127 @@ const feedbackForm = reactive(buildDefaultFeedbackForm())
 const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data?.summary?.conclusion || '')
 
 const resultHtml = ref('')
-const currentScore = ref(0) 
+const currentScore = ref(0)
 let scoreTimer = null
+
+// 保存长图
+const isSavingImage = ref(false)
+const shareImgUrl = ref('')
+
+const closeShareModal = () => {
+  shareImgUrl.value = ''
+}
+
+const loadHtml2Canvas = () => {
+  return new Promise((resolve, reject) => {
+    if (window.html2canvas) { resolve(window.html2canvas); return }
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'
+    script.onload = () => resolve(window.html2canvas)
+    script.onerror = () => reject(new Error('html2canvas 加载失败，请检查网络'))
+    document.head.appendChild(script)
+  })
+}
+
+const saveAsImage = async () => {
+  if (isSavingImage.value) return
+  isSavingImage.value = true
+  try {
+    const h2c = await loadHtml2Canvas()
+    const captureEl = document.querySelector('.html-container')
+    if (!captureEl) { alert('未找到推演结果，请重新推演'); return }
+
+    const canvas = await h2c(captureEl, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: false,
+      backgroundColor: '#05050A',
+      logging: false,
+      scrollX: 0,
+      scrollY: -window.scrollY,
+      windowWidth: document.documentElement.scrollWidth,
+      onclone: (clonedDoc) => {
+        // 在克隆文档中确保所有 reveal 元素可见
+        clonedDoc.querySelectorAll('.reveal').forEach(el => {
+          el.style.opacity = '1'
+          el.style.transform = 'none'
+        })
+      }
+    })
+
+    // 叠加水印
+    const finalCanvas = addWatermark(canvas)
+    const imgData = finalCanvas.toDataURL('image/png')
+
+    // PC 端自动下载
+    const isPC = !('ontouchstart' in window || navigator.maxTouchPoints > 0)
+    if (isPC) {
+      const link = document.createElement('a')
+      const now = new Date()
+      const dateStr = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`
+      link.download = `奇门推演_${dateStr}.png`
+      link.href = imgData
+      link.click()
+    }
+    // 移动端弹窗长按保存
+    shareImgUrl.value = imgData
+  } catch (err) {
+    console.error('生成图片失败:', err)
+    alert('图片生成失败：' + (err.message || '未知错误'))
+  } finally {
+    isSavingImage.value = false
+  }
+}
+
+const addWatermark = (sourceCanvas) => {
+  const wCanvas = document.createElement('canvas')
+  const padding = 48
+  wCanvas.width = sourceCanvas.width
+  wCanvas.height = sourceCanvas.height + padding
+  const ctx = wCanvas.getContext('2d')
+
+  // 背景
+  ctx.fillStyle = '#05050A'
+  ctx.fillRect(0, 0, wCanvas.width, wCanvas.height)
+
+  // 原图
+  ctx.drawImage(sourceCanvas, 0, 0)
+
+  // 水印条
+  const wmY = sourceCanvas.height
+  const wmH = padding
+  const grad = ctx.createLinearGradient(0, wmY, 0, wmY + wmH)
+  grad.addColorStop(0, 'rgba(5,5,10,0.9)')
+  grad.addColorStop(1, 'rgba(10,8,3,1)')
+  ctx.fillStyle = grad
+  ctx.fillRect(0, wmY, wCanvas.width, wmH)
+
+  // 分割线
+  ctx.strokeStyle = 'rgba(212,175,55,0.25)'
+  ctx.lineWidth = 1
+  ctx.beginPath()
+  ctx.moveTo(24, wmY + 1)
+  ctx.lineTo(wCanvas.width - 24, wmY + 1)
+  ctx.stroke()
+
+  // 品牌字
+  const scale = sourceCanvas.width / 375 // 基于 375px 基准
+  const fontSize = Math.round(13 * scale)
+  ctx.font = `500 ${fontSize}px 'PingFang SC', 'Hiragino Sans GB', sans-serif`
+  ctx.fillStyle = 'rgba(212,175,55,0.85)'
+  ctx.textBaseline = 'middle'
+  ctx.fillText('奇门遁甲 AI 推演', 24, wmY + wmH / 2)
+
+  // 域名
+  const domainFontSize = Math.round(12 * scale)
+  ctx.font = `400 ${domainFontSize}px 'SF Mono', 'Fira Code', monospace`
+  ctx.fillStyle = 'rgba(255,255,255,0.32)'
+  const domainText = 'qimendao.com'
+  const domainWidth = ctx.measureText(domainText).width
+  ctx.fillText(domainText, wCanvas.width - 24 - domainWidth, wmY + wmH / 2)
+
+  return wCanvas
+}
 
 const LOADER_MESSAGES = ['正在接通云端超算矩阵...','推演时空坐标与节气数据...','计算奇门九宫落盘...','分析值符、值使与神助...','生成决策指引与应期推演...']
 const currentLoaderMessage = ref(LOADER_MESSAGES[0])
@@ -1386,15 +1541,95 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 .bagua-svg { width: 100%; height: 100%; animation: rotateBagua 8s linear infinite; }
 .loader-main-text { font-family: var(--font-serif); font-size: 13px; color: var(--gold); text-align: center; }
 
-.result-actions { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; margin-top: 16px; }
-.reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: transparent; border: 1px solid var(--glass-border); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; }
-.result-feedback-btn { min-width: 92px; height: 50px; padding: 0 16px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.28); background: rgba(212,175,55,0.07); color: var(--gold-light); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.result-actions { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 10px; margin-top: 16px; align-items: center; }
+.reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: transparent; border: 1px solid var(--glass-border); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.reset-btn:hover { border-color: rgba(255,255,255,0.14); color: rgba(240,237,230,0.75); }
+.result-save-img-btn {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 76px; height: 50px; padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(107,140,255,0.3);
+  background: rgba(107,140,255,0.07);
+  color: rgba(170,185,255,0.9);
+  font-size: 13px; cursor: pointer;
+  transition: border-color .2s, background .2s, color .2s, transform .15s;
+  flex-shrink: 0;
+}
+.result-save-img-btn:hover { border-color: rgba(107,140,255,0.55); background: rgba(107,140,255,0.14); color: #fff; }
+.result-save-img-btn:active { transform: scale(0.96); }
+.result-save-img-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.result-save-img-btn.saving { color: rgba(170,185,255,0.7); }
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin-icon { animation: spin 0.8s linear infinite; }
+.result-feedback-btn { min-width: 76px; height: 50px; padding: 0 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.28); background: rgba(212,175,55,0.07); color: var(--gold-light); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; flex-shrink: 0; }
 .result-feedback-btn:hover { border-color: rgba(232,204,128,0.52); background: rgba(212,175,55,0.13); }
 .result-feedback-btn.done { color: rgba(78,205,196,0.9); border-color: rgba(78,205,196,0.28); background: rgba(78,205,196,0.06); }
 
+/* 分享图弹窗 */
+.share-img-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,0.82);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+  opacity: 0; pointer-events: none;
+  transition: opacity .25s ease;
+  padding: 16px;
+}
+.share-img-overlay.show { opacity: 1; pointer-events: auto; }
+.share-img-modal {
+  width: min(460px, 100%);
+  max-height: 90dvh;
+  display: flex; flex-direction: column;
+  background: rgba(12,12,22,0.98);
+  border: 1px solid rgba(212,175,55,0.22);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,0.72);
+  transform: translateY(12px) scale(0.98);
+  transition: transform .28s cubic-bezier(.22,1,.36,1);
+}
+.share-img-overlay.show .share-img-modal { transform: none; }
+.share-img-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(212,175,55,0.1);
+  flex-shrink: 0;
+}
+.share-img-kicker { font-size: 9px; color: var(--text-muted); letter-spacing: .2em; }
+.share-img-title { flex: 1; font-family: var(--font-serif); font-size: 15px; color: var(--gold-light); }
+.share-img-close {
+  width: 30px; height: 30px; border-radius: 50%;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: var(--text-muted); font-size: 20px; line-height: 1;
+  cursor: pointer; transition: color .2s, background .2s;
+}
+.share-img-close:hover { color: #fff; background: rgba(255,255,255,0.07); }
+.share-img-body {
+  flex: 1; overflow-y: auto;
+  padding: 14px;
+  display: flex; align-items: flex-start; justify-content: center;
+}
+.share-img-preview {
+  width: 100%; border-radius: 10px;
+  display: block;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+  -webkit-user-select: none;
+  user-select: none;
+}
+.share-img-hint {
+  padding: 11px 18px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px; color: var(--text-muted);
+  text-align: center; line-height: 1.6;
+  flex-shrink: 0;
+  background: rgba(0,0,0,0.2);
+}
+
 @media(max-width:380px) {
-  .result-actions { grid-template-columns: 1fr; }
-  .result-feedback-btn { width: 100%; }
+  .result-actions { grid-template-columns: 1fr 1fr; }
+  .reset-btn { grid-column: 1 / -1; }
+  .result-save-img-btn, .result-feedback-btn { width: 100%; }
 }
 
 .feedback-overlay { position: fixed; inset: 0; z-index: 9998; display: flex; justify-content: flex-end; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
