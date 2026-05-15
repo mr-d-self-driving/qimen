@@ -1140,6 +1140,7 @@ const buildCardHTML = (data) => {
   const advice = data.advice || { lucky_tips: {} }
   const question = data.question || ''
   const scoreBasis = data.summary?.score_basis || null
+  const displayBlocks = data.display_blocks || null
   const chartData = data.qimen_data || data
   const palaces = chartData.palaces || []
   const pillars = chartData.pillars || {}
@@ -1155,13 +1156,20 @@ const buildCardHTML = (data) => {
   const strategyItems = advice.strategy || []
   const primaryStrategies = strategyItems.slice(0, 3)
   const domainView = data.domain_view
-  const detailInsights = [
-    { label: '时空能量', value: analysis.tensor, cls: 'accent-indigo' },
-    { label: '用神分析', value: analysis.yong_shen, cls: 'accent-gold' },
-    { label: '特殊格局', value: analysis.pattern, cls: 'accent-violet' },
-    { label: '神助指引', value: analysis.god_help, cls: 'accent-teal' },
-    { label: '动态应期', value: analysis.dynamic_timing, cls: 'accent-amber' }
-  ].filter(item => item.value?.trim())
+  const detailInsights = displayBlocks
+    ? [
+        { label: '局势判断', value: displayBlocks.situation, cls: 'accent-indigo' },
+        { label: '有利条件', value: displayBlocks.support, cls: 'accent-gold' },
+        { label: '阻力风险', value: displayBlocks.risk, cls: 'accent-violet' },
+        { label: '时间窗口', value: displayBlocks.timing, cls: 'accent-amber' }
+      ].filter(item => item.value?.trim())
+    : [
+        { label: '时空能量', value: analysis.tensor, cls: 'accent-indigo' },
+        { label: '用神分析', value: analysis.yong_shen, cls: 'accent-gold' },
+        { label: '特殊格局', value: analysis.pattern, cls: 'accent-violet' },
+        { label: '神助指引', value: analysis.god_help, cls: 'accent-teal' },
+        { label: '动态应期', value: analysis.dynamic_timing, cls: 'accent-amber' }
+      ].filter(item => item.value?.trim())
 
   const actionHTML = primaryStrategies.length
     ? primaryStrategies.map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${s}</div></div>`).join('')
@@ -1222,10 +1230,10 @@ const buildCardHTML = (data) => {
   // 评分依据
   let scoreBasisHTML = ''
   if (scoreBasis) {
-    const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">吉象支撑</div><div class="sb-tags">${scoreBasis.positive_signals.map(s => `<span class="sb-tag positive">${s}</span>`).join('')}</div></div>` : ''
-    const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">风险信号</div><div class="sb-tags">${scoreBasis.negative_signals.map(s => `<span class="sb-tag negative">${s}</span>`).join('')}</div></div>` : ''
+    const pos = (scoreBasis.positive_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">有利依据</div><ul class="sb-list">${scoreBasis.positive_signals.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''
+    const neg = (scoreBasis.negative_signals || []).length ? `<div class="sb-row"><div class="sb-row-title">谨慎因素</div><ul class="sb-list">${scoreBasis.negative_signals.map(s => `<li>${s}</li>`).join('')}</ul></div>` : ''
     const logic = scoreBasis.score_logic ? `<div class="sb-logic">${scoreBasis.score_logic}</div>` : ''
-    if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">评分拆解</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
+    if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">分数依据</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
   }
 
   // 九宫格排盘

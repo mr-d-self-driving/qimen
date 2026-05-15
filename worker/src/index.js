@@ -44,6 +44,18 @@ function normalizeOrigin(origin) {
   return String(origin || '').trim().replace(/\/+$/, '');
 }
 
+function clampNumber(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.min(max, Math.max(min, n));
+}
+
+function parseAuditDelta(value) {
+  if (typeof value === 'number') return Math.round(clampNumber(value, -20, 20));
+  const match = String(value || '').match(/[+-]?\d+/);
+  return Math.round(clampNumber(match ? Number(match[0]) : 0, -20, 20));
+}
+
 function getAllowedOrigins(env) {
   const configuredOrigins = String(env.FRONTEND_URL || '')
     .split(',')
@@ -879,6 +891,7 @@ ${effectiveBaziInfo}
 **【核心推演逻辑】**
 1. ${yongshenPromptSection}
    - **补充限制**：如果上文提供了“求测人八字/命理信息”，请务必提取其出生年的天干作为“年命”落宫，结合日干落宫综合判断；若未提供，直接以“日干”代表求测人。
+   - **审计要求**：你必须把当前 category/subcategory 对应的取用神规则作为审计依据。若你认为上游分类或子分类不贴合用户问题，必须在 intent_audit 中说明，并评估这是否导致后端初分偏差。
 
 2. **断吉凶（注重静态盘面）**：
    - 分析五行生克、吉凶格、空亡（能量减半/待填实）、马星（变动/加速），对比核心用神宫位的生克关系。
@@ -910,37 +923,36 @@ ${timingPromptSection}
 {
   "summary": {
     "title": "短标题 (如: 大客户谈判预测)",
-    "conclusion": "核心结论 (如: ✅ 极大概率成功)",
+    "conclusion": "核心结论，克制表达，不要绝对化",
     "score": 85,
     "score_basis": {
-      "positive_signals": ["列举支撑高分的吉象，每条需对应具体宫位"],
-      "negative_signals": ["列举压低分数的凶象，每条需对应具体宫位"],
-      "score_logic": "简述吉凶权重如何得出此分数"
+      "positive_signals": ["用户能听懂的有利因素，不要直接写后端技术标签"],
+      "negative_signals": ["用户能听懂的风险因素，不要直接写后端技术标签"],
+      "score_logic": "说明后端初分经过你审计后为什么落在这个区间"
     },
     "keyword": "关键信号 (如: 财气通门户，马星催动)"
   },
-  "score_audit": {
-    "version": "qimen-score-v1",
-    "base_score": 60,
-    "adjustments": [
-      {
-        "signal": "盘面信号 (必须对应具体宫位/门星神干/空亡马星等)",
-        "effect": "+8",
-        "reason": "详尽说明盘面依据、现实映射、推导边界"
-      }
-    ],
-    "final_score": 85,
-    "confidence": "low|medium|high"
+  "intent_audit": {
+    "route_confidence": "${detectedIntent.confidence}",
+    "is_route_acceptable": true,
+    "suggested_category": "",
+    "suggested_subcategory": "",
+    "reason": "审计上游分类、subcategory 与取用神规则是否贴合用户问题；若 route_confidence 为 low，必须重点说明"
   },
-  "model_review": {
-    "verdict": "aligned|needs_attention|insufficient_context",
-    "correction_suggestions": [
+  "score_audit": {
+    "backend_pre_score": ${backendScoreAudit.final_score},
+    "audit_delta": 0,
+    "final_score_suggestion": ${backendScoreAudit.final_score},
+    "confidence": "low|medium|high",
+    "missed_or_overweighted_factors": [
       {
-        "missed_signal": "模型认为后端后续可补充的教材信号",
-        "suggested_rule_change": "建议如何调整规则库，不得改变本次分数"
+        "factor": "后端漏判/误判/过重/过轻的因素",
+        "type": "missed|overweighted|underweighted|misread",
+        "impact": "+0",
+        "reason": "说明教材依据、现实映射和为什么影响 audit_delta"
       }
     ],
-    "boundary": "说明本次仍以后端 score_audit.final_score 为准"
+    "audit_reason": "用自然语言说明你为什么保留或修正后端初分"
   },
   "analysis": {
     "tensor": "时空能量 (如: 阳遁三局，金水相生)",
@@ -997,6 +1009,12 @@ ${timingPromptSection}
     "primary_window": "最值得观察的时间窗口",
     "primary_trigger": "触发规则，如空亡填实/冲空/马星动/冲墓/逢合逢冲",
     "confidence": "low|medium|high"
+  },
+  "display_blocks": {
+    "situation": "给用户看的局势拆解，隐藏后端技术标签",
+    "support": "有利条件，用人话表达",
+    "risk": "阻力与不确定性，用人话表达",
+    "timing": "时间窗口，只说明可能启动/观察，不保证结果"
   }
 }
 
@@ -1004,16 +1022,27 @@ ${timingPromptSection}
 问题：${userQuestion}`;
 
     const aiJsonData = await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7);
-    aiJsonData.score_audit = backendScoreAudit;
+    const rawLlmScoreAudit = aiJsonData.score_audit || {};
+    const auditDelta = parseAuditDelta(rawLlmScoreAudit.audit_delta);
+    const finalScore = Math.round(clampNumber(backendScoreAudit.final_score + auditDelta, 0, 100));
+    aiJsonData.score_audit = {
+        backend_pre_score: backendScoreAudit.final_score,
+        audit_delta: auditDelta,
+        final_score_suggestion: finalScore,
+        confidence: ['low', 'medium', 'high'].includes(rawLlmScoreAudit.confidence) ? rawLlmScoreAudit.confidence : backendScoreAudit.confidence,
+        missed_or_overweighted_factors: Array.isArray(rawLlmScoreAudit.missed_or_overweighted_factors)
+            ? rawLlmScoreAudit.missed_or_overweighted_factors
+            : [],
+        audit_reason: rawLlmScoreAudit.audit_reason || '模型未给出额外修正理由，本次沿用后端初算。'
+    };
     aiJsonData.summary = {
         ...(aiJsonData.summary || {}),
-        score: backendScoreAudit.final_score,
-        score_basis: backendScoreAudit.summary?.score_basis || {
+        score: finalScore,
+        score_basis: (aiJsonData.summary || {}).score_basis || {
             positive_signals: [],
             negative_signals: [],
-            score_logic: `后端按 qimen-score-v1 得出 ${backendScoreAudit.final_score} 分。`
-        },
-        model_score_basis: (aiJsonData.summary || {}).score_basis || null
+            score_logic: `后端初分 ${backendScoreAudit.final_score}，模型审计修正 ${auditDelta >= 0 ? '+' : ''}${auditDelta}，最终为 ${finalScore} 分。`
+        }
     };
 
     let qimenPalaces = [];
@@ -1040,6 +1069,7 @@ ${timingPromptSection}
         route: detectedIntent,
         yongshen_ruleset: yongshenRule.ruleset,
         backend_score_audit: backendScoreAudit,
+        preliminary_score_audit: backendScoreAudit,
         polarity_overrides: polarityOverrides,
         timing_analysis: {
             ...timingAnalysis,
