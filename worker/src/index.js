@@ -56,6 +56,22 @@ function parseAuditDelta(value) {
   return Math.round(clampNumber(match ? Number(match[0]) : 0, -20, 20));
 }
 
+function sanitizeUserText(value) {
+  return String(value || '')
+    .replace(/后端初分\s*\d+[^，。；,.]*[，。；,.]?/g, '')
+    .replace(/后端[^，。；,.]*?(?:下调|上调|审计|初算|初分|preliminary|backend|audit)[^，。；,.]*[，。；,.]?/gi, '')
+    .replace(/(?:LLM|模型)?审计修正\s*[+-]?\d+[^，。；,.]*[，。；,.]?/gi, '')
+    .replace(/audit_delta|backend_pre_score|final_score_suggestion|preliminary_score_audit|qimen-score-v1/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function sanitizeSignalList(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .map(sanitizeUserText)
+    .filter(Boolean);
+}
+
 function getAllowedOrigins(env) {
   const configuredOrigins = String(env.FRONTEND_URL || '')
     .split(',')
@@ -1035,13 +1051,19 @@ ${timingPromptSection}
             : [],
         audit_reason: rawLlmScoreAudit.audit_reason || '模型未给出额外修正理由，本次沿用后端初算。'
     };
+    const rawScoreBasis = (aiJsonData.summary || {}).score_basis || {};
+    const sanitizedPositiveSignals = sanitizeSignalList(rawScoreBasis.positive_signals);
+    const sanitizedNegativeSignals = sanitizeSignalList(rawScoreBasis.negative_signals);
+    const sanitizedScoreLogic = sanitizeUserText(rawScoreBasis.score_logic)
+        || `综合用神状态、主客关系、空亡与应期后，本局落在${finalScore >= 75 ? '偏有利' : finalScore >= 60 ? '中等可观察' : finalScore >= 40 ? '偏谨慎' : '明显谨慎'}区间。`;
+
     aiJsonData.summary = {
         ...(aiJsonData.summary || {}),
         score: finalScore,
-        score_basis: (aiJsonData.summary || {}).score_basis || {
-            positive_signals: [],
-            negative_signals: [],
-            score_logic: `后端初分 ${backendScoreAudit.final_score}，模型审计修正 ${auditDelta >= 0 ? '+' : ''}${auditDelta}，最终为 ${finalScore} 分。`
+        score_basis: {
+            positive_signals: sanitizedPositiveSignals,
+            negative_signals: sanitizedNegativeSignals,
+            score_logic: sanitizedScoreLogic
         }
     };
 
