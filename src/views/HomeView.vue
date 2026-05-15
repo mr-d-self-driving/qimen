@@ -762,7 +762,7 @@ const startDivination = async () => {
       body: JSON.stringify({
         question: input,
         route: routeData,
-        baziInfo: currentBaziString.value || null
+        baziInfo: (routeData.branch === 'qimen') ? null : (currentBaziString.value || null)
       })
     })
     const data = await response.json()

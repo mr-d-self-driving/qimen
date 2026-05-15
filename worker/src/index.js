@@ -799,9 +799,12 @@ async function handleQimen(request, env) {
     const detectedIntent = body.route
         ? normalizeDivinationRoute(body.route)
         : await classifyDivinationQuestion({ question: userQuestion, forceBranch: 'qimen', llmFallback: true, llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env) });
-        
+
+    // 纯奇门分支：屏蔽命主八字信息，只用盘面推演，不引入命局偏倚
+    const effectiveBaziInfo = detectedIntent.branch === 'qimen' ? "未提供八字信息" : baziInfo;
+
     const yongshenRule = getYongshenRule(detectedIntent.category, detectedIntent.subcategory);
-    const hasBaziInfo = baziInfo !== "未提供八字信息";
+    const hasBaziInfo = effectiveBaziInfo !== "未提供八字信息";
     const timingTargetSymbols = [
         ...(yongshenRule.yongshen?.primary || []),
         ...(yongshenRule.yongshen?.secondary || [])
@@ -863,7 +866,7 @@ async function handleQimen(request, env) {
 ${palacesText}
 
 求测人命理信息(可选，若为空表示未提供)
-${baziInfo}
+${effectiveBaziInfo}
 
 **【核心推演逻辑】**
 1. ${yongshenPromptSection}
