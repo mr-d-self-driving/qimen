@@ -498,23 +498,77 @@ const saveAsImage = async () => {
     const captureEl = document.querySelector('.html-container')
     if (!captureEl) { alert('未找到推演结果，请重新推演'); return }
 
-    const canvas = await h2c(captureEl, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: false,
-      backgroundColor: '#05050A',
-      logging: false,
-      scrollX: 0,
-      scrollY: -window.scrollY,
-      windowWidth: document.documentElement.scrollWidth,
-      onclone: (clonedDoc) => {
-        // 在克隆文档中确保所有 reveal 元素可见
-        clonedDoc.querySelectorAll('.reveal').forEach(el => {
-          el.style.opacity = '1'
-          el.style.transform = 'none'
-        })
+    // 截图前向真实 document 注入兼容补丁（覆盖 color-mix 属性）
+    // Vite dev 模式用 adoptedStyleSheets，onclone 内替换无效，需在源 doc 提前覆盖
+    const h2cPatch = document.createElement('style')
+    h2cPatch.id = 'h2c-compat-patch'
+    h2cPatch.textContent = `
+      [data-h2c-target] .summary-score-bubble {
+        background: linear-gradient(180deg, rgba(179,139,54,0.15), rgba(255,255,255,0.03)) !important;
+        border: 1px solid rgba(179,139,54,0.24) !important;
+        box-shadow: 0 0 24px rgba(179,139,54,0.15) !important;
       }
-    })
+      [data-h2c-target] .keyword-highlight {
+        background: linear-gradient(90deg, rgba(179,139,54,0.15), rgba(255,255,255,0.02)) !important;
+        border: 1px solid rgba(179,139,54,0.18) !important;
+        box-shadow: 0 0 18px rgba(179,139,54,0.12) !important;
+      }
+      [data-h2c-target] .accent-theme {
+        background: linear-gradient(135deg, rgba(179,139,54,0.05), transparent) !important;
+      }
+      [data-h2c-target] .highlight-text {
+        text-shadow: 0 0 12px rgba(179,139,54,0.5) !important;
+      }
+      [data-h2c-target] .conclusion {
+        text-shadow: none !important;
+      }
+      [data-h2c-target] .score {
+        text-shadow: 0 0 18px rgba(179,139,54,0.15) !important;
+      }
+    `
+    captureEl.setAttribute('data-h2c-target', '1')
+    document.head.appendChild(h2cPatch)
+
+    let canvas
+    try {
+      canvas = await h2c(captureEl, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: false,
+        backgroundColor: '#05050A',
+        logging: false,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: document.documentElement.scrollWidth,
+        onclone: (clonedDoc) => {
+          // 1. 确保所有 reveal 元素可见
+          clonedDoc.querySelectorAll('.reveal').forEach(el => {
+            el.style.opacity = '1'
+            el.style.transform = 'none'
+          })
+
+          // 2. 遍历克隆文档所有 <style> 标签，替换 color-mix()
+          clonedDoc.querySelectorAll('style').forEach(styleEl => {
+            if (styleEl.textContent && styleEl.textContent.includes('color-mix')) {
+              styleEl.textContent = styleEl.textContent
+                .replace(/color-mix\([^)]+\)/g, 'transparent')
+            }
+          })
+
+          // 3. 清除内联 style 属性中残留的 color-mix()
+          clonedDoc.querySelectorAll('[style]').forEach(el => {
+            const s = el.getAttribute('style') || ''
+            if (s.includes('color-mix')) {
+              el.setAttribute('style', s.replace(/color-mix\([^)]+\)/g, 'transparent'))
+            }
+          })
+        }
+      })
+    } finally {
+      // 无论成功失败，都清理临时补丁
+      captureEl.removeAttribute('data-h2c-target')
+      document.getElementById('h2c-compat-patch')?.remove()
+    }
 
     // 叠加水印
     const finalCanvas = addWatermark(canvas)
