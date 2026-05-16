@@ -55,8 +55,29 @@ test('getMonthlyScoreSummary prefers score hit display', () => {
 test('getMonthlyScoreSummary hides legacy technical relation copy', () => {
   assert.equal(
     getMonthlyScoreSummary({ month_zhi_relations: '流月地支[巳]与命主年支[寅]六害' }),
-    '本月命中已归入详情，点开查看三层判断。'
+    '本月命中已归入详情，点开查看评分架构。'
   )
+})
+
+test('normalizeMonthlyScoreLayers labels tiaohou as a correction layer', () => {
+  const layers = normalizeMonthlyScoreLayers({
+    score_hits: {
+      layers: [
+        {
+          layer: 'tiaohou',
+          score: 8,
+          hits: [
+            { code: 'tiaohou_satisfied_p1', type: 'positive', display: '调候得宜', delta_raw: '×1.08' },
+          ],
+        },
+      ],
+    },
+  })
+
+  assert.equal(layers.length, 1)
+  assert.equal(layers[0].title, '调候修正层')
+  assert.equal(layers[0].score, 8)
+  assert.equal(layers[0].hits[0].delta_raw, '×1.08')
 })
 
 test('normalizeAnnualScoreLayers returns the same layer-hit shape with annual labels', () => {

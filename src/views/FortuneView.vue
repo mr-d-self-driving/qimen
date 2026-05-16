@@ -427,7 +427,7 @@
                         type="button"
                         class="monthly-score-hit-trigger"
                         @click="showMonthlyScoreHitsGuide = true"
-                        aria-label="查看三层命中"
+                        aria-label="查看月运评分架构"
                       >
                         i
                       </button>
@@ -661,7 +661,7 @@
           <div v-if="showMonthlyScoreHitsGuide" class="fortune-modal-overlay" @click="showMonthlyScoreHitsGuide = false">
             <div class="fortune-guide-modal monthly-hit-modal" @click.stop>
               <div class="fortune-guide-head">
-                <span>三层命中</span>
+                <span>月运评分架构</span>
                 <button type="button" class="fortune-guide-close" @click="showMonthlyScoreHitsGuide = false">×</button>
               </div>
               <div class="fortune-guide-body monthly-hit-layers">

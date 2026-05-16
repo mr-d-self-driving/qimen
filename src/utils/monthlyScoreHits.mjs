@@ -2,6 +2,7 @@ const DEFAULT_LAYER_LABELS = {
   layer1: '干支格局层',
   layer2: '日运聚合层',
   layer3: '月令神煞层',
+  tiaohou: '调候修正层',
 }
 
 const normalizeHit = (hit = {}) => ({
@@ -67,7 +68,7 @@ export const normalizeAnnualScoreLayers = (annualData = {}) => normalizeScoreHit
 })
 
 export const getMonthlyScoreSummary = (monthlyData = {}) => (
-  String(monthlyData?.score_hits?.summary?.display || '本月命中已归入详情，点开查看三层判断。').trim()
+  String(monthlyData?.score_hits?.summary?.display || '本月命中已归入详情，点开查看评分架构。').trim()
 )
 
 export const getAnnualScoreSummary = (annualData = {}) => (

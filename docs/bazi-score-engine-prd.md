@@ -116,7 +116,7 @@ lib/
 - 年运大运底色层降权。
 - 年运流年太岁层升权。
 - 年运岁运神煞层收窄，避免神煞压过岁运主线。
-- 年运缓存版本更新为 `annual-score-v4-p1-dayun-liunian`。
+- 年运缓存版本更新为 `annual-score-v5-tiaohou-impact`。
 
 层级范围：
 
@@ -199,10 +199,10 @@ lib/
 
 ## 发布版本
 
-- 应用版本：`1.1.0`。
+- 应用版本：`1.1.1`。
 - 八字引擎版本：`1.6.0`。
-- 月运缓存版本：`monthly-score-v7-p1-sanxing`。
-- 年运缓存版本：`annual-score-v4-p1-dayun-liunian`。
+- 月运缓存版本：`monthly-score-v8-tiaohou-impact`。
+- 年运缓存版本：`annual-score-v5-tiaohou-impact`。
 
 ## 验收记录
 
