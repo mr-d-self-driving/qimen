@@ -1361,7 +1361,7 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 
 // 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
-const BAZI_ENGINE_VERSION = '1.5.0'
+const BAZI_ENGINE_VERSION = '1.6.0'
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
