@@ -1200,9 +1200,9 @@
                             <div class="five-shen-name">{{ formatShenWithGan(fiveShenProfile.yong) }}</div>
                             <div v-if="fiveShenProfile.yongConfidence === 'LOW'" class="five-shen-note">参考</div>
                         </div>
-                        <div v-for="s in fiveShenProfile.xi" :key="'xi'+s" class="five-shen-cell is-xi">
+                        <div v-if="fiveShenProfile.xi?.length" class="five-shen-cell is-xi">
                             <div class="five-shen-role">喜神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
+                            <div class="five-shen-name">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</div>
                         </div>
                         <div v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="five-shen-cell is-ji">
                             <div class="five-shen-role">忌神</div>
@@ -1211,10 +1211,6 @@
                         <div v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="five-shen-cell is-chou">
                             <div class="five-shen-role">仇神</div>
                             <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
-                        </div>
-                        <div v-if="fiveShenProfile.xian?.length" class="five-shen-cell is-xian" :title="'闲神：' + fiveShenProfile.xian.join('、')">
-                            <div class="five-shen-role">闲神</div>
-                            <div class="five-shen-name">{{ fiveShenProfile.xian.length }}个</div>
                         </div>
                     </div>
 
@@ -2241,13 +2237,36 @@ const formatTiaohouGods = (items = []) => {
     }).filter(Boolean).join('、') || '未触发'
 }
 
+const _WUXING = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
+const _YINYANG = { 甲:'阳',乙:'阴',丙:'阳',丁:'阴',戊:'阳',己:'阴',庚:'阳',辛:'阴',壬:'阳',癸:'阴' }
+const _SHENG = { 木:'火',火:'土',土:'金',金:'水',水:'木' }
+const _KE   = { 木:'土',土:'水',水:'火',火:'金',金:'木' }
+const computeShiShen = (dayGan, targetGan) => {
+    const dWx = _WUXING[dayGan], tWx = _WUXING[targetGan]
+    if (!dWx || !tWx) return null
+    const same = _YINYANG[dayGan] === _YINYANG[targetGan]
+    if (dWx === tWx)           return same ? '比肩' : '劫财'
+    if (_SHENG[tWx] === dWx)   return same ? '偏印' : '正印'
+    if (_SHENG[dWx] === tWx)   return same ? '食神' : '伤官'
+    if (_KE[tWx] === dWx)      return same ? '七杀' : '正官'
+    if (_KE[dWx] === tWx)      return same ? '偏财' : '正财'
+    return null
+}
+
 const shenToGanMap = computed(() => {
-    const pillars = activeProfile.value?.bazi_detail?.matrix?.pillars
+    const detail = activeProfile.value?.bazi_detail
+    const pillars = detail?.matrix?.pillars
     if (!pillars) return {}
+    const dayGan = detail.ri_zhu?.[0]
     const map = {}
+    const skip = new Set(['日主', '元男', '元女'])
     for (const p of pillars) {
-        if (p.star && p.star !== '日主' && p.star !== '元男' && p.star !== '元女' && !map[p.star]) {
-            map[p.star] = p.gan
+        if (p.star && !skip.has(p.star) && !map[p.star]) map[p.star] = p.gan
+        if (dayGan && p.hidden_stems) {
+            for (const hg of p.hidden_stems) {
+                const shen = computeShiShen(dayGan, hg)
+                if (shen && !map[shen]) map[shen] = hg
+            }
         }
     }
     return map
