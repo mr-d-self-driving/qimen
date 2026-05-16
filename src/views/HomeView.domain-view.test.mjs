@@ -37,10 +37,10 @@ test('奇门页使用顶部档案筛选器并移除旧八字注入开关', () =>
   assert.doesNotMatch(source, /v-model="baziEnabled"/)
 })
 
-test('奇门占卜提交不再强制要求八字档案但会自动携带已选档案摘要', () => {
+test('奇门占卜提交不再强制要求八字档案且仅 hybrid 携带已选档案摘要', () => {
   assert.doesNotMatch(source, /baziEnabled\.value && baziState\.value !== 'ready'/)
   assert.doesNotMatch(source, /window\.confirm\('这个问题更适合结合八字命局与奇门事件盘/)
-  assert.match(source, /baziInfo:\s*currentBaziString\.value \|\| null/)
+  assert.match(source, /baziInfo:\s*\(routeData\.branch === 'qimen'\) \? null : \(currentBaziString\.value \|\| null\)/)
   assert.match(source, /hasBaziProfile:\s*Boolean\(selectedProfileId\.value \|\| baziProfiles\.value\.length\)/)
 })
 
