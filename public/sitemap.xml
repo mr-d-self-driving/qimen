@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+        xmlns:xhtml="http://www.w3.org/1999/xhtml">
+
+  <url>
+    <loc>https://www.qimendao.com/</loc>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://www.qimendao.com/"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.qimendao.com/"/>
+  </url>
+
+  <url>
+    <loc>https://www.qimendao.com/bazi</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://www.qimendao.com/bazi"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.qimendao.com/bazi"/>
+  </url>
+
+  <url>
+    <loc>https://www.qimendao.com/fortune</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.8</priority>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://www.qimendao.com/fortune"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.qimendao.com/fortune"/>
+  </url>
+
+  <url>
+    <loc>https://www.qimendao.com/engineering</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.6</priority>
+    <xhtml:link rel="alternate" hreflang="zh-CN" href="https://www.qimendao.com/engineering"/>
+    <xhtml:link rel="alternate" hreflang="en" href="https://www.qimendao.com/engineering"/>
+  </url>
+
+  <url>
+    <loc>https://www.qimendao.com/terms</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+  <url>
+    <loc>https://www.qimendao.com/privacy</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
+  </url>
+
+</urlset>
