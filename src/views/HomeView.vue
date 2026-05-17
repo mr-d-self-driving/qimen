@@ -954,7 +954,7 @@ const startDivination = async () => {
       resultHtml.value = buildCardHTML(data)
       viewState.value = 'result'
       nextTick(() => {
-        animateScore(data.summary?.score || 0)
+        if (!(data.branch === 'bazi' && data.meta?.analysis_mode)) animateScore(data.summary?.score || 0)
         setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
       })
       return
@@ -1134,7 +1134,148 @@ const getVerdictInfo = (score) => {
 
 const getVerdictCls = (score) => score >= 75 ? 'ji' : score >= 55 ? 'ping' : 'xiong'
 
+const baziAssessmentLabel = (type) => ({
+  current_climate: '当前阶段气候',
+  timing_effectiveness: '候选时间窗',
+  innate_capacity: '先天结构适配',
+  portrait_confidence: '人物倾向画像',
+  unsupported: '边界说明'
+}[type] || '八字分析')
+
+const baziLevelLabel = (level) => ({
+  strong: '强',
+  medium: '中',
+  weak: '弱',
+  mixed: '参半',
+  unknown: '未知'
+}[level] || level || '未知')
+
+const buildTextListHTML = (items = [], cls = '') => {
+  if (!Array.isArray(items) || !items.length) return ''
+  return `<div class="${cls}">${items.map(item => `<span>${typeof item === 'string' ? item : (item.label || item.detail || JSON.stringify(item))}</span>`).join('')}</div>`
+}
+
+const buildBaziQuestionCardHTML = (data) => {
+  const summary = data.summary || { title: '八字分析', conclusion: '暂无数据', score: null, level: 'unknown' }
+  const meta = data.meta || {}
+  const foundation = data.chart_foundation || {}
+  const mode = data.mode_analysis || {}
+  const advice = data.advice || {}
+  const question = data.question || ''
+  const assessmentType = summary.assessment_type || 'current_climate'
+  const hasScore = summary.score !== null && summary.score !== undefined
+  const levelLabel = baziLevelLabel(summary.level)
+  const scoreBadge = hasScore
+    ? `<div class="bazi-score-chip">${summary.score}<span>分</span></div>`
+    : `<div class="bazi-level-chip level-${summary.level || 'unknown'}">${levelLabel}</div>`
+
+  const positive = summary.basis?.positive_signals || []
+  const negative = summary.basis?.negative_signals || []
+  const basisHTML = positive.length || negative.length || summary.basis?.logic
+    ? `<section class="result-module bazi-mode-card reveal">
+        <div class="ai-header-title">判断依据</div>
+        ${buildTextListHTML(positive, 'bazi-signal-list positive')}
+        ${buildTextListHTML(negative, 'bazi-signal-list warning')}
+        ${summary.basis?.logic ? `<p class="bazi-logic">${summary.basis.logic}</p>` : ''}
+      </section>`
+    : ''
+
+  const foundationEvidence = foundation.evidence || []
+  const foundationHTML = foundation.base_state || foundationEvidence.length
+    ? `<section class="result-module bazi-mode-card reveal">
+        <div class="ai-header-title">原局底盘</div>
+        ${foundation.base_state ? `<p class="bazi-card-copy">${foundation.base_state}</p>` : ''}
+        ${buildTextListHTML(foundation.supports || [], 'bazi-signal-list positive')}
+        ${buildTextListHTML(foundation.obstacles || [], 'bazi-signal-list warning')}
+        ${buildTextListHTML(foundationEvidence, 'bazi-evidence-list')}
+      </section>`
+    : ''
+
+  const windows = Array.isArray(mode.trigger_windows) ? mode.trigger_windows : []
+  const timingHTML = windows.length
+    ? `<section class="result-module bazi-mode-card reveal">
+        <div class="ai-header-title">候选时间窗</div>
+        <div class="bazi-timing-window-list">
+          ${windows.map(item => `<div class="bazi-timing-window-card quality-${item.quality || 'weak'}">
+            <div class="bazi-window-top">
+              <strong>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</strong>
+              <span class="quality-badge quality-${item.quality}">${baziLevelLabel(item.quality)}</span>
+              ${item.is_major_window ? '<span class="major-window-badge">双引动</span>' : ''}
+            </div>
+            ${item.event_type ? `<p class="window-event">${item.event_type}</p>` : ''}
+            <div class="bazi-window-meta"><span>大运 ${item.dayun_ganzhi || '-'}</span></div>
+            ${item.verdict ? `<p class="bazi-card-copy">${item.verdict}</p>` : ''}
+            ${item.mechanisms_text ? `<div class="bazi-logic">${item.mechanisms_text}</div>` : ''}
+            ${buildTextListHTML(item.supporting_evidence || [], 'bazi-signal-list positive')}
+            ${buildTextListHTML(item.blocking_evidence || [], 'bazi-signal-list warning')}
+          </div>`).join('')}
+        </div>
+      </section>`
+    : ''
+
+  let dynamicHTML = ''
+  if (meta.analysis_mode === 'status') {
+    const dayunReading = mode.dayun_reading || ''
+    const liunianReading = mode.liunian_reading || ''
+    const targetReading = mode.target_state_reading || ''
+    const domainState = mode.domain_state || ''
+    if (dayunReading || liunianReading || targetReading || domainState) {
+      dynamicHTML = `<section class="result-module bazi-mode-card reveal">
+        <div class="ai-header-title">当前运势气候</div>
+        ${domainState ? `<p class="bazi-card-copy bazi-domain-state">${domainState}</p>` : ''}
+        ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${dayunReading}</p></div>` : ''}
+        ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${liunianReading}</p></div>` : ''}
+        ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">目标元素状态</div><p>${targetReading}</p></div>` : ''}
+      </section>`
+    }
+  }
+
+  const limitationsHTML = Array.isArray(meta.limitations) && meta.limitations.length
+    ? `<section class="result-module bazi-mode-card reveal">
+        <div class="ai-header-title">置信边界</div>
+        ${buildTextListHTML(meta.limitations, 'bazi-signal-list warning')}
+      </section>`
+    : ''
+
+  const adviceHTML = Array.isArray(advice.strategy) && advice.strategy.length
+    ? `<section class="result-module bazi-mode-card reveal">
+        <div class="ai-header-title">行动建议</div>
+        <div class="action-grid">${advice.strategy.slice(0, 3).map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${s}</div></div>`).join('')}</div>
+      </section>`
+    : ''
+
+  return `<div class="result-stack bazi-result-stack">
+    <section class="result-module summary-module bazi-summary-module reveal">
+      <div class="summary-top">
+        <div class="summary-main">
+          <div class="summary-title">${summary.title || baziAssessmentLabel(assessmentType)}</div>
+          <div class="bazi-meta-row">
+            <span>${baziAssessmentLabel(assessmentType)}</span>
+            <span>${meta.analysis_mode || 'bazi'}</span>
+            ${meta.target?.fallback_level ? `<span>${meta.target.fallback_level}</span>` : ''}
+          </div>
+          <div class="summary-judgement">
+            <span class="verdict-badge verdict-ping">${levelLabel}</span>
+            <span class="conclusion">${summary.conclusion || ''}</span>
+          </div>
+        </div>
+        ${scoreBadge}
+      </div>
+      ${summary.keyword ? `<div class="keyword-highlight"><span class="keyword-label">关键判断</span><span class="keyword-text">${summary.keyword}</span></div>` : ''}
+      ${question ? `<div class="question-bubble"><div class="question-text">“${question}”</div></div>` : ''}
+    </section>
+    ${adviceHTML}
+    ${basisHTML}
+    ${foundationHTML}
+    ${dynamicHTML}
+    ${timingHTML}
+    ${limitationsHTML}
+  </div>`
+}
+
 const buildCardHTML = (data) => {
+  if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(data)
+
   const summary = data.summary || { title: '生成中...', conclusion: '暂无数据', score: 0 }
   const analysis = data.analysis || {}
   const advice = data.advice || { lucky_tips: {} }
@@ -1625,6 +1766,49 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 .result-feedback-btn { min-width: 76px; height: 50px; padding: 0 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.28); background: rgba(212,175,55,0.07); color: var(--gold-light); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; flex-shrink: 0; }
 .result-feedback-btn:hover { border-color: rgba(232,204,128,0.52); background: rgba(212,175,55,0.13); }
 .result-feedback-btn.done { color: rgba(78,205,196,0.9); border-color: rgba(78,205,196,0.28); background: rgba(78,205,196,0.06); }
+
+:deep(.bazi-result-stack) { --bazi-line: rgba(177,158,109,0.18); --bazi-ink: rgba(244,237,220,0.92); }
+:deep(.bazi-summary-module) { border-color: rgba(177,158,109,0.24); background: linear-gradient(180deg, rgba(177,158,109,0.08), rgba(255,255,255,0.025)); }
+:deep(.bazi-mode-card) { border-color: var(--bazi-line); background: rgba(255,255,255,0.032); }
+:deep(.bazi-meta-row) { display:flex; flex-wrap:wrap; gap:7px; margin:8px 0 12px; }
+:deep(.bazi-meta-row span) { padding:4px 8px; border-radius:8px; border:1px solid rgba(177,158,109,0.18); color:rgba(230,218,190,0.74); font-size:10px; letter-spacing:.08em; text-transform:uppercase; }
+:deep(.bazi-level-chip),
+:deep(.bazi-score-chip) { min-width:76px; height:76px; border-radius:14px; display:flex; align-items:center; justify-content:center; flex-direction:column; border:1px solid rgba(177,158,109,0.3); color:#F0D98F; background:rgba(177,158,109,0.08); font-family:var(--font-serif); font-size:26px; line-height:1; flex:0 0 auto; }
+:deep(.bazi-score-chip span) { margin-top:5px; font-family:var(--font-body); font-size:11px; color:var(--text-muted); }
+:deep(.bazi-level-chip.level-strong) { color:#4ECDC4; border-color:rgba(78,205,196,0.35); }
+:deep(.bazi-level-chip.level-medium) { color:#D4AF37; border-color:rgba(212,175,55,0.35); }
+:deep(.bazi-level-chip.level-weak)   { color:#FF9A56; border-color:rgba(255,154,86,0.35); }
+:deep(.bazi-level-chip.level-mixed)  { color:#A78BFA; border-color:rgba(167,139,250,0.35); }
+:deep(.bazi-level-chip.level-unknown){ color:var(--text-muted); border-color:rgba(255,255,255,0.12); }
+:deep(.bazi-card-copy),
+:deep(.bazi-logic) { margin:0; color:var(--bazi-ink); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
+:deep(.bazi-signal-list),
+:deep(.bazi-evidence-list) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+:deep(.bazi-signal-list span),
+:deep(.bazi-evidence-list span) { padding:7px 9px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.035); color:rgba(244,237,220,0.82); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
+:deep(.bazi-signal-list.positive span) { border-color:rgba(78,205,196,0.2); background:rgba(78,205,196,0.06); }
+:deep(.bazi-signal-list.warning span) { border-color:rgba(255,154,86,0.2); background:rgba(255,154,86,0.06); }
+:deep(.bazi-dynamic-grid) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+:deep(.bazi-dynamic-grid div) { min-width:0; padding:12px; border-radius:10px; background:rgba(0,0,0,0.14); border:1px solid rgba(255,255,255,0.07); }
+:deep(.bazi-dynamic-grid span) { display:block; color:var(--text-muted); font-size:10px; margin-bottom:5px; }
+:deep(.bazi-dynamic-grid strong) { color:#F0D98F; font-size:15px; }
+:deep(.bazi-dynamic-grid p) { margin:7px 0 0; color:rgba(244,237,220,0.74); font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
+:deep(.bazi-timing-window-list) { display:grid; gap:10px; }
+:deep(.bazi-timing-window-card) { padding:12px; border-radius:10px; border:1px solid rgba(177,158,109,0.16); background:rgba(0,0,0,0.12); }
+:deep(.bazi-window-top) { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
+:deep(.bazi-window-top strong) { color:#F0D98F; font-size:15px; }
+:deep(.bazi-window-top span) { color:rgba(244,237,220,0.72); font-size:11px; }
+:deep(.bazi-timing-window-card p) { margin:0; color:rgba(244,237,220,0.82); font-size:13px; line-height:1.62; }
+:deep(.bazi-window-meta) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+:deep(.bazi-window-meta span) { color:var(--text-muted); font-size:11px; }
+:deep(.bazi-reading-block) { margin:8px 0; padding:8px 12px; background:rgba(255,255,255,0.03); border-left:2px solid rgba(212,175,55,0.3); border-radius:0 6px 6px 0; }
+:deep(.bazi-reading-block .reading-label) { font-size:11px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
+:deep(.bazi-reading-block p) { margin:0; color:var(--bazi-ink); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
+:deep(.bazi-domain-state) { font-weight:500; color:var(--text-primary); margin-bottom:12px; }
+:deep(.bazi-timing-window-card.quality-strong) { border-color:rgba(78,205,196,0.3); background:rgba(78,205,196,0.04); }
+:deep(.bazi-timing-window-card.quality-medium) { border-color:rgba(212,175,55,0.25); }
+:deep(.bazi-timing-window-card.quality-weak)   { border-color:rgba(255,255,255,0.07); }
+:deep(.major-window-badge) { font-size:10px; padding:2px 6px; border-radius:6px; background:rgba(212,175,55,0.15); color:#D4AF37; margin-left:6px; }
 
 /* 分享图弹窗 */
 .share-img-overlay {

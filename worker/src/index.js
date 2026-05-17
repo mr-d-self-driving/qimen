@@ -23,12 +23,12 @@ import baziCore from '../../lib/baziCore.js';
 const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache, hasLatestEngineCache, hasExistingLlm } = baziCore;
 
 
-const { buildGeminiRoutePrompt, classifyDivinationQuestion } = divinationRouter;
+const { buildBaziSemanticRoutePrompt, buildGeminiRoutePrompt, classifyDivinationQuestion, ruleRouteHint } = divinationRouter;
 const { buildAnnualRangePayload } = fortuneAnnualCore;
 const { buildFortunePeriodKey: buildWeeklyPeriodKey, buildWeeklyFortunePayload, getSecondsUntilWeeklyExpiry, getWeekRange, getWeeklyExpiry } = fortuneWeeklyCore;
 const { buildFortunePeriodKey: buildMonthlyPeriodKey, buildMonthlyFortunePayload, getFlowMonthInfo } = fortuneMonthlyCore;
 const { getBeijingDayInfo, buildFortunePeriodKey: buildDailyPeriodKey, buildFortuneContext, buildBaseFortunePayload, buildInterpretationPrompt, parseModelJson, pickInterpretationFields, mergeInterpretation, hasReadyInterpretation } = fortuneDailyCore;
-const { buildBaziQuestionPrompt, normalizeBaziQuestionOutput } = baziQuestionCore;
+const { buildBaziQuestionPrompt, buildBaziAuditSnapshot, normalizeBaziQuestionOutput, normalizeBaziSemanticRoute } = baziQuestionCore;
 const { createEmptyMonthlyContext, createEmptyProfileContext, normalizeMonthlyContextPayload, normalizeProfileContextPayload, buildContextVersionSeed } = contextNotesCore;
 const { buildMonthlyInterpretationPeriodKey, buildMonthlyInterpretationPrompt, hasReadyMonthlyInterpretation, mergeMonthlyInterpretation, normalizeDimension, pickMonthlyInterpretationFields } = monthlyInterpretationCore;
 
@@ -148,6 +148,11 @@ async function classifyByGeminiFlashWithEnv(question, ruleResult, env) {
   const apiData = await response.json();
   const content = apiData.choices?.[0]?.message?.content || '{}';
   return JSON.parse(content.replace(/```json/g, '').replace(/```/g, '').trim());
+}
+
+async function classifyBaziSemanticRouteWithEnv(question, routeHint, env) {
+  const prompt = buildBaziSemanticRoutePrompt(question, routeHint);
+  return requestLLM(prompt, env, 'gemini-3-flash-preview', 0.1);
 }
 
 async function handleDivinationRoute(request, env) {
@@ -564,12 +569,14 @@ async function handleContextNotes(request, env) {
 
 async function handleBaziQuestion(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  const startedAt = Date.now();
   try {
     const user = await getAuthedUser(request, env);
     const body = await readJson(request);
     const question = String(body.question || '').trim();
     const profileId = String(body.profileId || '').trim();
-    const route = normalizeDivinationRoute(body.route || { branch: 'bazi', category: 'general' });
+    const requestRoute = body.route || {};
+    const baseRoute = normalizeDivinationRoute({ branch: 'bazi', category: 'general', ...requestRoute });
     
     if (!question) return json({ error: '问题不能为空' }, { status: 400 }, request, env);
     if (!profileId) return json({ error: '缺少八字档案 ID' }, { status: 400 }, request, env);
@@ -580,9 +587,76 @@ async function handleBaziQuestion(request, env) {
     if (profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
     if (!profile.bazi_detail || !profile.bazi_str) return json({ error: '该档案缺少完整八字排盘数据，请先在八字页完成命盘推演', code: 'BAZI_PROFILE_INCOMPLETE' }, { status: 400 }, request, env);
 
-    const prompt = buildBaziQuestionPrompt({ profile, question, route });
+    const cheapRouteHint = ruleRouteHint(question, { forceBranch: baseRoute.branch === 'hybrid' ? 'hybrid' : 'bazi' });
+    const routeHint = {
+      ...cheapRouteHint,
+      branch: baseRoute.branch,
+      category: baseRoute.category || cheapRouteHint.category,
+      subcategory: baseRoute.subcategory ?? cheapRouteHint.subcategory,
+      branch_hint: baseRoute.branch,
+      category_hint: baseRoute.category || cheapRouteHint.category,
+      subcategory_hint: baseRoute.subcategory ?? cheapRouteHint.subcategory,
+      analysis_mode_hint: requestRoute.analysis_mode || requestRoute.analysis_mode_hint || cheapRouteHint.analysis_mode_hint,
+      secondary_mode_hint: requestRoute.secondary_mode ?? requestRoute.secondary_mode_hint ?? cheapRouteHint.secondary_mode_hint,
+      needs_time_scan_hint: requestRoute.needs_time_scan ?? requestRoute.needs_time_scan_hint ?? cheapRouteHint.needs_time_scan_hint,
+      time_scope_hint: requestRoute.time_scope || requestRoute.time_scope_hint || cheapRouteHint.time_scope_hint,
+      target_resolution: requestRoute.target_resolution || cheapRouteHint.target_resolution,
+      llm_derived_target: requestRoute.llm_derived_target || cheapRouteHint.llm_derived_target
+    };
+    let semanticRouteRaw = null;
+    const semanticFallbacks = [];
+    try {
+      semanticRouteRaw = requestRoute.analysis_mode
+        ? { ...requestRoute, source: requestRoute.source || 'client' }
+        : await classifyBaziSemanticRouteWithEnv(question, routeHint, env);
+    } catch (routeError) {
+      semanticRouteRaw = {
+        ...routeHint,
+        source: 'rule_hint_fallback',
+        reason: routeHint.reason || `八字语义路由失败：${routeError.message}`
+      };
+      semanticFallbacks.push(`bazi_semantic_route_fallback:${routeError.message}`);
+    }
+    const semanticRoute = normalizeBaziSemanticRoute({
+      ...baseRoute,
+      ...semanticRouteRaw
+    }, routeHint);
+
+    const { prompt, pipelineResult } = buildBaziQuestionPrompt({ profile, question, route: semanticRoute });
     const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.65);
-    const output = normalizeBaziQuestionOutput(llmJson, { question, route });
+    const output = normalizeBaziQuestionOutput(llmJson, { question, route: semanticRoute, pipelineResult });
+    const auditSnapshot = buildBaziAuditSnapshot({
+      requestId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      userId: user.id,
+      question,
+      profile,
+      routeHint,
+      semanticRouteRaw,
+      semanticRouteNormalized: semanticRoute,
+      timeScopeResolved: semanticRoute.time_scope || null,
+      promptBlocks: [
+        'buildBaziQuestionPrompt',
+        output.meta?.analysis_mode ? `analysis_mode:${output.meta.analysis_mode}` : `analysis_mode:${semanticRoute.analysis_mode || 'legacy'}`,
+        semanticRoute.secondary_mode ? `secondary_mode:${semanticRoute.secondary_mode}` : '',
+        semanticRoute.target_resolution ? `target_resolution:${semanticRoute.target_resolution}` : ''
+      ].filter(Boolean),
+      llmOutputRaw: llmJson,
+      llmOutputNormalized: output,
+      pipelineResult,
+      modelName: 'gemini-3.1-pro-preview',
+      latencyMs: Date.now() - startedAt,
+      fallbacks: [
+        ...semanticFallbacks,
+        ...(output.meta?.limitations || [])
+      ],
+    });
+
+    try {
+      const { error: auditError } = await supabase.from('bazi_question_audit').insert(auditSnapshot);
+      if (auditError) console.warn('[qimen-api] bazi audit insert failed:', auditError.message || auditError);
+    } catch (auditError) {
+      console.warn('[qimen-api] bazi audit insert failed:', auditError.message || auditError);
+    }
     
     return json(output, { status: 200 }, request, env);
   } catch (error) {

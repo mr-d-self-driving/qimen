@@ -48,3 +48,11 @@ test('登录或注册落地页显式覆盖访客应用视图', () => {
   assert.match(source, /const isAuthLanding = computed\(\(\) => \['login', 'register'\]\.includes\(route\.query\.auth\)\)/)
   assert.match(source, /const canUseApp = computed\(\(\) => Boolean\(currentUser\.value \|\| \(isGuest\.value && !isAuthLanding\.value\)\)\)/)
 })
+
+test('八字问答结果使用 mode 卡片而不是奇门分数泡泡', () => {
+  assert.match(source, /const buildBaziQuestionCardHTML = \(data\) =>/)
+  assert.match(source, /summary\.score !== null && summary\.score !== undefined/)
+  assert.match(source, /bazi-mode-card/)
+  assert.match(source, /bazi-timing-window-card/)
+  assert.match(source, /if \(data\.branch === 'bazi' && data\.meta\?\.analysis_mode\)/)
+})
