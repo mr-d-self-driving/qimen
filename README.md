@@ -1,7 +1,7 @@
 # 奇门遁甲 · AI 决策引擎
 
 > **将三千年玄学智慧，接入现代 AI 推理引擎。**  
-> 时家奇门拆补转盘法 × 全息八字子平推演 × 日月年运确定性评分 × Gemini 大模型 × Vue 全栈应用
+> 时家奇门拆补转盘法 × 全息八字子平推演 × 四维用神评分体系 × 结构化问答 Pipeline × Gemini 大模型 × Vue 全栈应用
 
 <p align="center">
   <img src="https://i.imgur.com/8MVTjsS.jpeg" width="200" alt="奇门卡片详情"/>
@@ -97,10 +97,12 @@
 
 ## 推演架构
 
+### 顶层分流
+
 ```text
 用户提问
   │
-  └─► 术数分流引擎
+  └─► 术数分流引擎（divinationRouter）
         │
         ├─► 奇门遁甲：具体事件、短期决策、成败应期
         ├─► 八字命理：命局结构、长期趋势、行业适配
@@ -113,6 +115,129 @@
                           │
                           └─► 结构化决策卡片
 ```
+
+### 八字问答 Pipeline（三步结构化推演）
+
+八字问答不再是"把 profile 扔给大模型自行发挥"，而是经过三步确定性计算后，再由 AI 组织语言。这套设计的详细工程规范见 [`docs/bazi-prompt-assembly-prd.md`](./docs/bazi-prompt-assembly-prd.md)。
+
+```text
+用户问题 + 命主 profile
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  规则预判层（ruleRouteHint）          │
+│  快速提取 branch / category /         │
+│  analysis_mode 候选与时间线索         │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│  统一语义路由 LLM                     │
+│  classifyBaziSemanticRoute           │
+│  一次性输出：                         │
+│  · branch / category / subcategory  │
+│  · analysis_mode（4 种）：           │
+│    status / timing / pattern /       │
+│    character                         │
+│  · secondary_mode / time_scope       │
+│  · target_resolution                 │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│  Deterministic Normalizer            │
+│  normalizeBaziSemanticRoute          │
+│  · 枚举校验 / 冲突修正               │
+│  · 低置信降级 / 时间范围归一化        │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│  Step 1：目标元素解析                 │
+│  resolveTargetElement                │
+│  · 按 subcategory × gender × mode   │
+│    输出 TargetSpec                   │
+│  · primary_shishen / primary_gongwei │
+│  · dynamic_focus（机制 + 引动方向）   │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│  Step 2：原局状态评估                 │
+│  assessOriginalChartState            │
+│  · 扫描四柱中目标十神的位置与强弱     │
+│  · 检查刑冲合害、入墓、透干情况       │
+│  · 输出 status_tags 与综合基准状态   │
+└────────────────┬────────────────────┘
+                 │
+                 ▼ （timing / status mode 继续）
+┌─────────────────────────────────────┐
+│  Step 3：大运流年动态引动             │
+│  assessDynamicActivation             │
+│  · 遍历候选年份 / 当前岁运           │
+│  · 判断 trigger_vigor、             │
+│    activation_strength、             │
+│    is_major_window                   │
+│  · 候选窗口排序（rankTimingCandidate）│
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────┐
+│  Prompt Assembler                    │
+│  · 注入上游命局摘要（自然语言）       │
+│  · Step 1–3 结构化结果封装为断语包   │
+│  · LLM 只负责叙述 / 温度 / 信息组织  │
+└────────────────┬────────────────────┘
+                 │
+                 ▼
+         统一 JSON 输出协议
+  meta / summary / chart_foundation /
+  dynamic_context / mode_analysis / advice
+```
+
+### 运势算分引擎（四维用神体系）
+
+运势评分由本地确定性规则完成，大模型不参与评分。评分体系的详细设计见 [`docs/bazi-score-engine-prd.md`](./docs/bazi-score-engine-prd.md)。
+
+```text
+四柱 profile
+    │
+    ▼
+normalizeShenProfile         ← 四维用神归一化
+  用神 / 喜神 / 闲神 / 仇神 / 忌神
+    │
+    ▼
+calculateTiaohouRatio        ← 调候拦截器（穷通宝鉴）
+  满足调候用神 × 1.08
+  加剧偏枯    × 0.93
+    │
+    ▼
+日 / 月 / 年  算分引擎
+  Layer 1：月令格局 + 天干权重
+  Layer 2：地支刑冲合害（分级扣分）
+  Layer 3：神煞折算
+             qiRatio × tierRatio × voidRatio
+  Layer 4：大运底色层（±15）
+  Layer 5：流年太岁层（±28，权重 > 大运）
+    │
+    ▼
+最终分数 + score_hits 可解释命中记录
+```
+
+**理论支撑（NotebookLM 命例教材）**
+
+本系统的核心判断链路与权重设计，依据作者在 NotebookLM 中整理的八字命例学习材料提炼而来：
+
+| 理论来源 | 对应引擎设计 |
+| --- | --- |
+| 《滴天髓》：用神为药、喜神辅用、忌神为病、仇神助病 | 四维用神分层体系（P0-A） |
+| 《穷通宝鉴》：调候为急，生存环境优先 | 调候拦截器，遇格局冲突时调候先行（P0-B） |
+| 命例材料：支神只以冲为重，刑与穿兮动不动 | 三刑改为分级累加，取消熔断覆写（P1-A） |
+| 《三命通会》：太岁为年中天子，流年触发权重更强 | 流年层升权（±28）、大运层降权（±15）（P1-B） |
+| 命例材料：贵人无气，虽有如无；神煞轻重较量，要在通变 | 神煞按月令旺衰 × 喜忌层级 × 空亡三因子折算（P2-A） |
+| 陆致极动态分析理论：目标元素的原局状态 → 大运流年引动 → 应期判断 | 八字三步 Pipeline（目标元素 → 原局评估 → 动态引动） |
+
+> NotebookLM 中的命例教材是作者整理的私人学习资料，不对外公开，但系统中每一处权重设定均可在上述经典原文中找到对应理论依据。
 
 ---
 
@@ -132,6 +257,7 @@ AI 模型       Gemini 兼容接口
 ### 工程特性
 
 - **确定性算分**：日运、月运、年运评分由本地规则引擎生成，大模型不能擅自改分
+- **结构化 Pipeline**：八字问答经过规则预判 → 语义路由 → 三步推演 → Prompt 组装，AI 只做表达层
 - **缓存分层**：运势结果写入数据库，前端也有本地缓存与内存缓存
 - **预热机制**：登录后可预热未来七天日运，减少首次打开等待
 - **接口兜底**：八字断语失败时回退本地规则，运势文案失败时仍先展示分数
@@ -174,8 +300,28 @@ npx wrangler dev
 /
 ├── worker/          # 后端接口入口与 Cloudflare Workers 配置
 ├── lib/             # 奇门、八字、运势评分和提示词构建核心逻辑
+│   ├── normalizeShenProfile.js      # 四维用神归一化
+│   ├── calculateTiaohouRatio.js     # 调候拦截器
+│   ├── calculateShenshaImpact.js    # 神煞旺衰折算
+│   ├── calculateDailyScore.js       # 日运算分引擎
+│   ├── calculateMonthlyScore.js     # 月运算分引擎
+│   ├── calculateAnnualScore.js      # 年运算分引擎
+│   ├── baziQuestionCore.js          # 八字问答 Pipeline 核心
+│   ├── divinationRouter.js          # 术数分流与语义路由
+│   ├── constants/                   # 调候表、干支关系常量
+│   └── classics/                   # 经典规则数据
 ├── src/             # Vue 前端应用
-├── docs/sql/        # 数据库迁移脚本
+│   └── utils/
+│       ├── baziLocalMatrix.mjs      # 四柱矩阵计算
+│       ├── baziTransit.mjs          # 大运流年流月推算
+│       ├── baziShensha.mjs          # 神煞计算
+│       └── baziInterpretation.mjs   # 断语字段解析
+├── docs/
+│   ├── bazi-prompt-assembly-prd.md  # 八字问答 Pipeline 工程规范
+│   ├── bazi-score-engine-prd.md     # 运势算分引擎重构规范
+│   ├── bazi-target-element-resolution-prd.md  # Step 1 目标元素解析规范
+│   ├── bazi-original-state-assessment-prd.md  # Step 2 原局状态评估规范
+│   └── sql/                         # 数据库迁移脚本
 ├── mock/            # 前端访客与测试模拟数据
 ├── public/          # 静态资源与单页应用兜底配置
 ├── archive/         # 历史接口与旧版原型
@@ -236,11 +382,15 @@ npx wrangler dev
 
 **诚实的推演**
 
-提示词中明确禁止“因为问题积极就盲目高分”。凶象必须如实呈现，吉象才有说服力。
+提示词中明确禁止"因为问题积极就盲目高分"。凶象必须如实呈现，吉象才有说服力。
 
 **算法的权威性**
 
 日主强弱、喜忌神、日月年评分都由本地确定性引擎完成。大模型是表达层，不是判分层。
+
+**结构化先于自由发挥**
+
+八字问答经过语义路由 → 目标元素解析 → 原局状态评估 → 动态引动判断四步确定性处理后，AI 才介入。同一个问题，不同模型拿到的上下文是相同的，结论不会因为模型而漂移。
 
 **语境决定象意**
 
@@ -256,6 +406,7 @@ npx wrangler dev
 - [Vue 3](https://vuejs.org) — 前端框架
 - [Vite](https://vitejs.dev) — 构建工具
 - [Cloudflare Workers](https://workers.cloudflare.com) — 无服务器接口运行时
+- 陆致极《当代八字》— 动态分析理论（目标元素 → 原局状态 → 岁运引动）
 
 ---
 
