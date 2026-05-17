@@ -56,3 +56,19 @@ test('八字问答结果使用 mode 卡片而不是奇门分数泡泡', () => {
   assert.match(source, /bazi-timing-window-card/)
   assert.match(source, /if \(data\.branch === 'bazi' && data\.meta\?\.analysis_mode\)/)
 })
+
+test('八字问答结果把枚举 meta 渲染为用户可读标签', () => {
+  assert.match(source, /baziAnalysisModeLabel/)
+  assert.match(source, /当前状态/)
+  assert.match(source, /精确领域/)
+  assert.doesNotMatch(source, /<span>\$\{meta\.analysis_mode \|\| 'bazi'\}<\/span>/)
+  assert.doesNotMatch(source, /<span>\$\{meta\.target\.fallback_level\}<\/span>/)
+})
+
+test('八字问答结果挂载原局排盘背书板块', () => {
+  assert.match(source, /import BaziBackingPanel from/)
+  assert.match(source, /activeBaziResultData/)
+  assert.match(source, /<BaziBackingPanel/)
+  assert.match(source, /:profile="activeBaziProfile"/)
+  assert.match(source, /:result-data="activeBaziResultData"/)
+})

@@ -225,6 +225,14 @@
           <transition name="fade">
             <div v-show="viewState === 'result'" class="result-wrapper">
               <div v-html="resultHtml" class="html-container"></div>
+              <BaziBackingPanel
+                v-if="activeBaziResultData && activeBaziProfile"
+                :profile="activeBaziProfile"
+                :result-data="activeBaziResultData"
+                :analysis-mode="activeBaziResultData.meta?.analysis_mode"
+                :selected-year="baziCardSelectedYear"
+                @update:selected-year="baziCardSelectedYear = $event"
+              />
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -401,6 +409,7 @@ import {
 import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import AccountMenu from '../components/AccountMenu.vue'
+import BaziBackingPanel from '../components/BaziBackingPanel.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
@@ -468,6 +477,8 @@ const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data
 
 const resultHtml = ref('')
 const currentScore = ref(0)
+const activeBaziResultData = ref(null)
+const baziCardSelectedYear = ref(null)
 let scoreTimer = null
 
 // 保存长图
@@ -878,11 +889,31 @@ const resetToInput = () => {
   viewState.value = 'input'
   questionInput.value = ''
   activeResultRecord.value = null
+  activeBaziResultData.value = null
+  baziCardSelectedYear.value = null
+}
+
+const activateBaziResultPanel = (data) => {
+  if (!(data?.branch === 'bazi' && data.meta?.analysis_mode)) {
+    activeBaziResultData.value = null
+    baziCardSelectedYear.value = null
+    return
+  }
+  activeBaziResultData.value = data
+  if (data.meta.analysis_mode === 'timing') {
+    const windows = data.mode_analysis?.trigger_windows || []
+    const best = windows.find(window => window.quality === 'strong') || windows[0]
+    baziCardSelectedYear.value = Number(best?.year) || activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
+  } else {
+    baziCardSelectedYear.value = activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
+  }
 }
 
 const startDivination = async () => {
   const input = questionInput.value.trim()
   if (!input) return alert("问题不能为空！")
+  activeBaziResultData.value = null
+  baziCardSelectedYear.value = null
 
   const { data: { session } } = await supabase.auth.getSession()
   const guestState = getGuestState()
@@ -930,6 +961,7 @@ const startDivination = async () => {
         router.push({ name: 'bazi', query: { question: input } })
         return
       }
+      selectedProfileId.value = profileId
 
       const response = await fetch(BAZI_QUESTION_API_URL, {
         method: 'POST',
@@ -952,6 +984,7 @@ const startDivination = async () => {
       const savedRecord = await saveRecordToDatabase(input, data)
       activeResultRecord.value = savedRecord
       resultHtml.value = buildCardHTML(data)
+      activateBaziResultPanel(data)
       viewState.value = 'result'
       nextTick(() => {
         if (!(data.branch === 'bazi' && data.meta?.analysis_mode)) animateScore(data.summary?.score || 0)
@@ -977,6 +1010,7 @@ const startDivination = async () => {
     if (!response.ok || data.error) throw new Error(data.details || data.error || '推演失败')
     const savedRecord = await saveRecordToDatabase(input, data)
     activeResultRecord.value = savedRecord
+    activateBaziResultPanel(data)
     if (!session && isGuest.value) {
       recordGuestQuestion()
       await trackGuestEvent(supabase, 'guest_qimen_asked', 'qimen', { limit_reached: true })
@@ -1070,6 +1104,7 @@ const loadRecord = (item) => {
   globalState.isDrawerOpen = false
   activeResultRecord.value = item
   resultHtml.value = buildCardHTML(item.qimen_data)
+  activateBaziResultPanel(item.qimen_data)
   viewState.value = 'result'
   nextTick(() => {
     animateScore(item.qimen_data?.summary?.score || item.score || 0)
@@ -1150,6 +1185,22 @@ const baziLevelLabel = (level) => ({
   unknown: '未知'
 }[level] || level || '未知')
 
+const baziAnalysisModeLabel = (mode) => ({
+  status: '当前状态',
+  timing: '应期扫描',
+  pattern: '先天结构',
+  character: '人物画像',
+  unsupported: '边界说明'
+}[mode] || '八字分析')
+
+const baziFallbackLevelLabel = (level) => ({
+  subcategory: '精确领域',
+  category: '领域规则',
+  general: '通用规则',
+  llm_derived: '象义推断',
+  none: '无规则'
+}[level] || '')
+
 const buildTextListHTML = (items = [], cls = '') => {
   if (!Array.isArray(items) || !items.length) return ''
   return `<div class="${cls}">${items.map(item => `<span>${typeof item === 'string' ? item : (item.label || item.detail || JSON.stringify(item))}</span>`).join('')}</div>`
@@ -1165,6 +1216,8 @@ const buildBaziQuestionCardHTML = (data) => {
   const assessmentType = summary.assessment_type || 'current_climate'
   const hasScore = summary.score !== null && summary.score !== undefined
   const levelLabel = baziLevelLabel(summary.level)
+  const modeLabel = baziAnalysisModeLabel(meta.analysis_mode)
+  const fallbackLevelLabel = baziFallbackLevelLabel(meta.target?.fallback_level)
   const scoreBadge = hasScore
     ? `<div class="bazi-score-chip">${summary.score}<span>分</span></div>`
     : `<div class="bazi-level-chip level-${summary.level || 'unknown'}">${levelLabel}</div>`
@@ -1251,8 +1304,8 @@ const buildBaziQuestionCardHTML = (data) => {
           <div class="summary-title">${summary.title || baziAssessmentLabel(assessmentType)}</div>
           <div class="bazi-meta-row">
             <span>${baziAssessmentLabel(assessmentType)}</span>
-            <span>${meta.analysis_mode || 'bazi'}</span>
-            ${meta.target?.fallback_level ? `<span>${meta.target.fallback_level}</span>` : ''}
+            <span>${modeLabel}</span>
+            ${fallbackLevelLabel ? `<span>${fallbackLevelLabel}</span>` : ''}
           </div>
           <div class="summary-judgement">
             <span class="verdict-badge verdict-ping">${levelLabel}</span>
