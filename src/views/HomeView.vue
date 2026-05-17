@@ -1250,7 +1250,7 @@ const sanitizeBaziDisplayText = (value, targetLabel = '本问题核心象') => {
   return text
     .replace(/目标十神/g, targetLabel)
     .replace(/目标元素/g, targetLabel)
-    .replace(/置信边界/g, '参考边界')
+    .replace(/置信边界/g, '参考说明')
     .replace(/\s{2,}/g, ' ')
     .replace(/^[，,；;\s]+|[，,；;\s]+$/g, '')
     .trim()
@@ -1285,22 +1285,6 @@ const buildBaziAdviceExtrasHTML = (advice = {}, targetLabel = '本问题核心�
     ${timingHTML ? `<div class="bazi-reading-block"><div class="reading-label">建议节奏</div>${timingHTML}</div>` : ''}
     ${leverage ? `<div class="bazi-reading-block"><div class="reading-label">借势方法</div><p>${leverage}</p></div>` : ''}
   </div>`
-}
-
-const buildCompatAnalysisHTML = (analysis = {}, targetLabel = '本问题核心象') => {
-  const items = [
-    analysis.yong_shen,
-    analysis.bazi_insight,
-    analysis.pattern,
-    analysis.god_help,
-    analysis.dynamic_timing
-  ].map(item => sanitizeBaziDisplayText(item, targetLabel)).filter(Boolean)
-  const uniqueItems = [...new Set(items)]
-  if (!uniqueItems.length) return ''
-  return `<section class="result-module bazi-mode-card reveal">
-    <div class="ai-header-title">命理要点</div>
-    <div class="bazi-analysis-list">${uniqueItems.map(item => `<p>${item}</p>`).join('')}</div>
-  </section>`
 }
 
 const buildBaziQuestionCardHTML = (data) => {
@@ -1410,14 +1394,6 @@ const buildBaziQuestionCardHTML = (data) => {
     }
   }
 
-  const limitations = Array.isArray(meta.limitations) ? meta.limitations : []
-  const limitationsHTML = limitations.length
-    ? `<section class="result-module bazi-mode-card reveal">
-        <div class="ai-header-title">参考边界</div>
-        ${buildBaziTextListHTML(limitations, 'bazi-evidence-list', targetLabel)}
-      </section>`
-    : ''
-
   const adviceExtrasHTML = buildBaziAdviceExtrasHTML(advice, targetLabel)
   const adviceHTML = (Array.isArray(advice.strategy) && advice.strategy.length) || adviceExtrasHTML
     ? `<section class="result-module bazi-mode-card reveal">
@@ -1426,8 +1402,6 @@ const buildBaziQuestionCardHTML = (data) => {
         ${adviceExtrasHTML}
       </section>`
     : ''
-
-  const compatAnalysisHTML = buildCompatAnalysisHTML(data.analysis || {}, targetLabel)
 
   return `<div class="result-stack bazi-result-stack">
     <section class="result-module summary-module bazi-summary-module reveal">
@@ -1453,8 +1427,6 @@ const buildBaziQuestionCardHTML = (data) => {
     ${characterHTML}
     ${dynamicHTML}
     ${timingHTML}
-    ${compatAnalysisHTML}
-    ${limitationsHTML}
   </div>`
 }
 
@@ -1992,8 +1964,6 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :deep(.bazi-reading-block p) { margin:0; color:var(--bazi-ink); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
 :deep(.bazi-domain-state) { font-weight:500; color:var(--text-primary); margin-bottom:12px; }
 :deep(.bazi-advice-extra) { display:grid; gap:8px; margin-top:10px; }
-:deep(.bazi-analysis-list) { display:grid; gap:8px; }
-:deep(.bazi-analysis-list p) { margin:0; padding:10px 12px; border-radius:10px; background:rgba(0,0,0,0.12); border:1px solid rgba(255,255,255,0.06); color:var(--bazi-ink); font-size:13px; line-height:1.68; overflow-wrap:anywhere; }
 :deep(.bazi-timing-meta) { display:grid; gap:8px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:rgba(0,0,0,0.12); border:1px solid rgba(255,255,255,0.06); }
 :deep(.timing-best) { color:#4ECDC4; font-size:13px; line-height:1.6; }
 :deep(.timing-avoid) { color:#FFB36E; font-size:13px; line-height:1.6; }

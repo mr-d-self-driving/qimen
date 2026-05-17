@@ -75,7 +75,7 @@ test('八字问答结果挂载原局排盘背书板块', () => {
   assert.match(source, /:result-data="activeBaziResultData"/)
 })
 
-test('八字问答结果按 PRD 补齐 pattern character timing 和 limitations 字段展示', () => {
+test('八字问答结果按 PRD 补齐 pattern character 和 timing 字段展示', () => {
   assert.match(source, /先天结构适配/)
   assert.match(source, /mode\.structural_supports/)
   assert.match(source, /mode\.structural_risks/)
@@ -87,7 +87,6 @@ test('八字问答结果按 PRD 补齐 pattern character timing 和 limitations 
   assert.match(source, /mode\.best_window/)
   assert.match(source, /mode\.avoid_window/)
   assert.match(source, /mode\.why_not_now/)
-  assert.match(source, /meta\.limitations/)
 })
 
 test('八字问答行动建议展示 strategy 之外的 advice 价值字段', () => {
@@ -97,6 +96,13 @@ test('八字问答行动建议展示 strategy 之外的 advice 价值字段', ()
   assert.match(source, /advice\.leverage/)
   assert.match(source, /建议节奏/)
   assert.match(source, /借势方法/)
+})
+
+test('八字问答结果不展示兼容 analysis 摘要和 fallback 边界提示', () => {
+  assert.doesNotMatch(source, /命理要点/)
+  assert.doesNotMatch(source, /参考边界/)
+  assert.doesNotMatch(source, /buildCompatAnalysisHTML/)
+  assert.doesNotMatch(source, /const limitationsHTML/)
 })
 
 test('背书板块采用八字档案专业排盘结构而不是临时卡片', () => {
