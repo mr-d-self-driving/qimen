@@ -61,8 +61,10 @@ test('八字问答结果把枚举 meta 渲染为用户可读标签', () => {
   assert.match(source, /baziAnalysisModeLabel/)
   assert.match(source, /当前状态/)
   assert.match(source, /精确领域/)
+  assert.match(source, /const metaHTML = ''/)
   assert.doesNotMatch(source, /<span>\$\{meta\.analysis_mode \|\| 'bazi'\}<\/span>/)
   assert.doesNotMatch(source, /<span>\$\{meta\.target\.fallback_level\}<\/span>/)
+  assert.doesNotMatch(source, /<div class="bazi-meta-row">/)
 })
 
 test('八字问答结果挂载原局排盘背书板块', () => {
@@ -71,4 +73,25 @@ test('八字问答结果挂载原局排盘背书板块', () => {
   assert.match(source, /<BaziBackingPanel/)
   assert.match(source, /:profile="activeBaziProfile"/)
   assert.match(source, /:result-data="activeBaziResultData"/)
+})
+
+test('背书板块采用八字档案专业排盘结构而不是临时卡片', () => {
+  const component = readFileSync(new URL('../components/BaziBackingPanel.vue', import.meta.url), 'utf8')
+  assert.match(component, /bazi-table/)
+  assert.match(component, /专业四柱大运流年/)
+  assert.match(component, /linkage-row/)
+  assert.doesNotMatch(component, /命盘背书/)
+})
+
+test('历史抽屉里的八字记录不展示分数', () => {
+  assert.match(source, /isBaziRecord\(item\)/)
+  assert.match(source, /v-if="!isBaziRecord\(item\)"/)
+})
+
+test('八字问答前端过滤工程化内部表达', () => {
+  assert.match(source, /sanitizeBaziDisplayText/)
+  assert.match(source, /concreteTargetLabel/)
+  assert.match(source, /置信度需下调/)
+  assert.match(source, /estimated/)
+  assert.match(source, /目标十神/)
 })

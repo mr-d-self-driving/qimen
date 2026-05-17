@@ -19,8 +19,10 @@ import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/q
 import { calculateQimenScore } from '../../lib/qimenScoringEngine.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import baziCore from '../../lib/baziCore.js';
+import qimenLlmOutput from '../../lib/qimenLlmOutput.js';
 
 const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache, hasLatestEngineCache, hasExistingLlm } = baziCore;
+const { normalizeQimenLlmOutput } = qimenLlmOutput;
 
 
 const { buildBaziSemanticRoutePrompt, buildGeminiRoutePrompt, classifyDivinationQuestion, ruleRouteHint } = divinationRouter;
@@ -1111,7 +1113,7 @@ ${timingPromptSection}
 务必做到有根据、有理论支持，分析的详细还要体会我问问题的心理潜在因素，照顾我的心理感受。你先分析，我下面要问你问题了。
 问题：${userQuestion}`;
 
-    const aiJsonData = await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7);
+    const aiJsonData = normalizeQimenLlmOutput(await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7));
     const rawLlmScoreAudit = aiJsonData.score_audit || {};
     const auditDelta = parseAuditDelta(rawLlmScoreAudit.audit_delta);
     const finalScore = Math.round(clampNumber(backendScoreAudit.final_score + auditDelta, 0, 100));

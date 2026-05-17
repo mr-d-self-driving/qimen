@@ -44,11 +44,11 @@
               <div class="d-hist-q">{{ item.question }}</div>
               <div class="d-hist-meta">
                 <span>{{ item.dateStr }}</span><span>·</span>
-                <span>{{ item.catLabel }}</span><span>·</span>
-                <span>{{ item.score }}分</span>
+                <span>{{ item.catLabel }}</span><span v-if="!isBaziRecord(item)">·</span>
+                <span v-if="!isBaziRecord(item)">{{ item.score }}分</span>
               </div>
             </div>
-            <span class="d-hist-badge" :class="'verdict-' + getVerdictInfo(item.score).cls">{{ getVerdictInfo(item.score).label }}</span>
+            <span v-if="!isBaziRecord(item)" class="d-hist-badge" :class="'verdict-' + getVerdictInfo(item.score).cls">{{ getVerdictInfo(item.score).label }}</span>
           </div>
         </div>
       </div>
@@ -225,14 +225,15 @@
           <transition name="fade">
             <div v-show="viewState === 'result'" class="result-wrapper">
               <div v-html="resultHtml" class="html-container"></div>
-              <BaziBackingPanel
-                v-if="activeBaziResultData && activeBaziProfile"
-                :profile="activeBaziProfile"
-                :result-data="activeBaziResultData"
-                :analysis-mode="activeBaziResultData.meta?.analysis_mode"
-                :selected-year="baziCardSelectedYear"
-                @update:selected-year="baziCardSelectedYear = $event"
-              />
+              <Teleport v-if="showBaziBackingAnchor" to="#bazi-backing-anchor">
+                <BaziBackingPanel
+                  :profile="activeBaziProfile"
+                  :result-data="activeBaziResultData"
+                  :analysis-mode="activeBaziResultData.meta?.analysis_mode"
+                  :selected-year="baziCardSelectedYear"
+                  @update:selected-year="baziCardSelectedYear = $event"
+                />
+              </Teleport>
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -479,6 +480,7 @@ const resultHtml = ref('')
 const currentScore = ref(0)
 const activeBaziResultData = ref(null)
 const baziCardSelectedYear = ref(null)
+const showBaziBackingAnchor = ref(false)
 let scoreTimer = null
 
 // 保存长图
@@ -891,9 +893,21 @@ const resetToInput = () => {
   activeResultRecord.value = null
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
+  showBaziBackingAnchor.value = false
+}
+
+const syncBaziBackingAnchor = () => {
+  nextTick(() => {
+    showBaziBackingAnchor.value = Boolean(
+      activeBaziResultData.value &&
+      activeBaziProfile.value &&
+      document.getElementById('bazi-backing-anchor')
+    )
+  })
 }
 
 const activateBaziResultPanel = (data) => {
+  showBaziBackingAnchor.value = false
   if (!(data?.branch === 'bazi' && data.meta?.analysis_mode)) {
     activeBaziResultData.value = null
     baziCardSelectedYear.value = null
@@ -907,6 +921,7 @@ const activateBaziResultPanel = (data) => {
   } else {
     baziCardSelectedYear.value = activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
   }
+  syncBaziBackingAnchor()
 }
 
 const startDivination = async () => {
@@ -914,6 +929,7 @@ const startDivination = async () => {
   if (!input) return alert("问题不能为空！")
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
+  showBaziBackingAnchor.value = false
 
   const { data: { session } } = await supabase.auth.getSession()
   const guestState = getGuestState()
@@ -1169,6 +1185,8 @@ const getVerdictInfo = (score) => {
 
 const getVerdictCls = (score) => score >= 75 ? 'ji' : score >= 55 ? 'ping' : 'xiong'
 
+const isBaziRecord = (item) => item?.qimen_data?.branch === 'bazi' || item?.branch === 'bazi'
+
 const baziAssessmentLabel = (type) => ({
   current_climate: '当前阶段气候',
   timing_effectiveness: '候选时间窗',
@@ -1206,6 +1224,45 @@ const buildTextListHTML = (items = [], cls = '') => {
   return `<div class="${cls}">${items.map(item => `<span>${typeof item === 'string' ? item : (item.label || item.detail || JSON.stringify(item))}</span>`).join('')}</div>`
 }
 
+const concreteTargetLabel = (data) => {
+  const target = data?.meta?.target || {}
+  const toList = (value) => Array.isArray(value) ? value.filter(Boolean) : []
+  const labels = [
+    ...toList(target.shishen),
+    ...toList(data?.chart_foundation?.core_stars),
+    ...toList(target.gongwei),
+    ...toList(data?.chart_foundation?.core_palaces)
+  ]
+  return [...new Set(labels)].slice(0, 4).join('、') || '本问题核心象'
+}
+
+const sanitizeBaziDisplayText = (value, targetLabel = '本问题核心象') => {
+  if (value === null || value === undefined) return ''
+  let text = typeof value === 'string' ? value : (value.label || value.detail || JSON.stringify(value))
+  ;[
+    /大运定位为\s*estimated[，,、\s]*(置信度需下调)?/gi,
+    /大运[^。；;]*estimated[^。；;]*(?:[。；;]|$)/gi,
+    /置信度需下调/gi,
+    /estimated/gi,
+    /fallback_current|fallback_level/gi,
+    /trigger_vigor|activation_strength|activates_target|is_major_window|vigor_check/gi
+  ].forEach(pattern => { text = text.replace(pattern, '') })
+  return text
+    .replace(/目标十神/g, targetLabel)
+    .replace(/目标元素/g, targetLabel)
+    .replace(/置信边界/g, '参考边界')
+    .replace(/\s{2,}/g, ' ')
+    .replace(/^[，,；;\s]+|[，,；;\s]+$/g, '')
+    .trim()
+}
+
+const buildBaziTextListHTML = (items = [], cls = '', targetLabel = '本问题核心象') => {
+  if (!Array.isArray(items) || !items.length) return ''
+  const labels = items.map(item => sanitizeBaziDisplayText(item, targetLabel)).filter(Boolean)
+  if (!labels.length) return ''
+  return `<div class="${cls}">${labels.map(item => `<span>${item}</span>`).join('')}</div>`
+}
+
 const buildBaziQuestionCardHTML = (data) => {
   const summary = data.summary || { title: '八字分析', conclusion: '暂无数据', score: null, level: 'unknown' }
   const meta = data.meta || {}
@@ -1216,8 +1273,8 @@ const buildBaziQuestionCardHTML = (data) => {
   const assessmentType = summary.assessment_type || 'current_climate'
   const hasScore = summary.score !== null && summary.score !== undefined
   const levelLabel = baziLevelLabel(summary.level)
-  const modeLabel = baziAnalysisModeLabel(meta.analysis_mode)
-  const fallbackLevelLabel = baziFallbackLevelLabel(meta.target?.fallback_level)
+  const targetLabel = concreteTargetLabel(data)
+  const metaHTML = ''
   const scoreBadge = hasScore
     ? `<div class="bazi-score-chip">${summary.score}<span>分</span></div>`
     : `<div class="bazi-level-chip level-${summary.level || 'unknown'}">${levelLabel}</div>`
@@ -1227,9 +1284,9 @@ const buildBaziQuestionCardHTML = (data) => {
   const basisHTML = positive.length || negative.length || summary.basis?.logic
     ? `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">判断依据</div>
-        ${buildTextListHTML(positive, 'bazi-signal-list positive')}
-        ${buildTextListHTML(negative, 'bazi-signal-list warning')}
-        ${summary.basis?.logic ? `<p class="bazi-logic">${summary.basis.logic}</p>` : ''}
+        ${buildBaziTextListHTML(positive, 'bazi-signal-list positive', targetLabel)}
+        ${buildBaziTextListHTML(negative, 'bazi-signal-list warning', targetLabel)}
+        ${summary.basis?.logic ? `<p class="bazi-logic">${sanitizeBaziDisplayText(summary.basis.logic, targetLabel)}</p>` : ''}
       </section>`
     : ''
 
@@ -1237,10 +1294,10 @@ const buildBaziQuestionCardHTML = (data) => {
   const foundationHTML = foundation.base_state || foundationEvidence.length
     ? `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">原局底盘</div>
-        ${foundation.base_state ? `<p class="bazi-card-copy">${foundation.base_state}</p>` : ''}
-        ${buildTextListHTML(foundation.supports || [], 'bazi-signal-list positive')}
-        ${buildTextListHTML(foundation.obstacles || [], 'bazi-signal-list warning')}
-        ${buildTextListHTML(foundationEvidence, 'bazi-evidence-list')}
+        ${foundation.base_state ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(foundation.base_state, targetLabel)}</p>` : ''}
+        ${buildBaziTextListHTML(foundation.supports || [], 'bazi-signal-list positive', targetLabel)}
+        ${buildBaziTextListHTML(foundation.obstacles || [], 'bazi-signal-list warning', targetLabel)}
+        ${buildBaziTextListHTML(foundationEvidence, 'bazi-evidence-list', targetLabel)}
       </section>`
     : ''
 
@@ -1257,10 +1314,10 @@ const buildBaziQuestionCardHTML = (data) => {
             </div>
             ${item.event_type ? `<p class="window-event">${item.event_type}</p>` : ''}
             <div class="bazi-window-meta"><span>大运 ${item.dayun_ganzhi || '-'}</span></div>
-            ${item.verdict ? `<p class="bazi-card-copy">${item.verdict}</p>` : ''}
-            ${item.mechanisms_text ? `<div class="bazi-logic">${item.mechanisms_text}</div>` : ''}
-            ${buildTextListHTML(item.supporting_evidence || [], 'bazi-signal-list positive')}
-            ${buildTextListHTML(item.blocking_evidence || [], 'bazi-signal-list warning')}
+            ${item.verdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(item.verdict, targetLabel)}</p>` : ''}
+            ${item.mechanisms_text ? `<div class="bazi-logic">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</div>` : ''}
+            ${buildBaziTextListHTML(item.supporting_evidence || [], 'bazi-signal-list positive', targetLabel)}
+            ${buildBaziTextListHTML(item.blocking_evidence || [], 'bazi-signal-list warning', targetLabel)}
           </div>`).join('')}
         </div>
       </section>`
@@ -1275,25 +1332,20 @@ const buildBaziQuestionCardHTML = (data) => {
     if (dayunReading || liunianReading || targetReading || domainState) {
       dynamicHTML = `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">当前运势气候</div>
-        ${domainState ? `<p class="bazi-card-copy bazi-domain-state">${domainState}</p>` : ''}
-        ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${dayunReading}</p></div>` : ''}
-        ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${liunianReading}</p></div>` : ''}
-        ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">目标元素状态</div><p>${targetReading}</p></div>` : ''}
+        ${domainState ? `<p class="bazi-card-copy bazi-domain-state">${sanitizeBaziDisplayText(domainState, targetLabel)}</p>` : ''}
+        ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${sanitizeBaziDisplayText(dayunReading, targetLabel)}</p></div>` : ''}
+        ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${sanitizeBaziDisplayText(liunianReading, targetLabel)}</p></div>` : ''}
+        ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">${targetLabel}状态</div><p>${sanitizeBaziDisplayText(targetReading, targetLabel)}</p></div>` : ''}
       </section>`
     }
   }
 
-  const limitationsHTML = Array.isArray(meta.limitations) && meta.limitations.length
-    ? `<section class="result-module bazi-mode-card reveal">
-        <div class="ai-header-title">置信边界</div>
-        ${buildTextListHTML(meta.limitations, 'bazi-signal-list warning')}
-      </section>`
-    : ''
+  const limitationsHTML = ''
 
   const adviceHTML = Array.isArray(advice.strategy) && advice.strategy.length
     ? `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">行动建议</div>
-        <div class="action-grid">${advice.strategy.slice(0, 3).map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${s}</div></div>`).join('')}</div>
+        <div class="action-grid">${advice.strategy.slice(0, 3).map((s, i) => `<div class="action-step reveal" style="transition-delay:${i * 70}ms"><div class="action-index">0${i + 1}</div><div class="action-copy">${sanitizeBaziDisplayText(s, targetLabel)}</div></div>`).join('')}</div>
       </section>`
     : ''
 
@@ -1302,23 +1354,20 @@ const buildBaziQuestionCardHTML = (data) => {
       <div class="summary-top">
         <div class="summary-main">
           <div class="summary-title">${summary.title || baziAssessmentLabel(assessmentType)}</div>
-          <div class="bazi-meta-row">
-            <span>${baziAssessmentLabel(assessmentType)}</span>
-            <span>${modeLabel}</span>
-            ${fallbackLevelLabel ? `<span>${fallbackLevelLabel}</span>` : ''}
-          </div>
+          ${metaHTML}
           <div class="summary-judgement">
             <span class="verdict-badge verdict-ping">${levelLabel}</span>
-            <span class="conclusion">${summary.conclusion || ''}</span>
+            <span class="conclusion">${sanitizeBaziDisplayText(summary.conclusion || '', targetLabel)}</span>
           </div>
         </div>
         ${scoreBadge}
       </div>
-      ${summary.keyword ? `<div class="keyword-highlight"><span class="keyword-label">关键判断</span><span class="keyword-text">${summary.keyword}</span></div>` : ''}
+      ${summary.keyword ? `<div class="keyword-highlight"><span class="keyword-label">关键判断</span><span class="keyword-text">${sanitizeBaziDisplayText(summary.keyword, targetLabel)}</span></div>` : ''}
       ${question ? `<div class="question-bubble"><div class="question-text">“${question}”</div></div>` : ''}
     </section>
     ${adviceHTML}
     ${basisHTML}
+    <div id="bazi-backing-anchor" class="bazi-backing-anchor"></div>
     ${foundationHTML}
     ${dynamicHTML}
     ${timingHTML}
