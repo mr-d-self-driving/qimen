@@ -75,6 +75,30 @@ test('八字问答结果挂载原局排盘背书板块', () => {
   assert.match(source, /:result-data="activeBaziResultData"/)
 })
 
+test('八字问答结果按 PRD 补齐 pattern character timing 和 limitations 字段展示', () => {
+  assert.match(source, /先天结构适配/)
+  assert.match(source, /mode\.structural_supports/)
+  assert.match(source, /mode\.structural_risks/)
+  assert.match(source, /人物倾向画像/)
+  assert.match(source, /buildPortraitBlockHTML/)
+  assert.match(source, /mode\.appearance_tendency/)
+  assert.match(source, /mode\.personality_tendency/)
+  assert.match(source, /mode\.career_style/)
+  assert.match(source, /mode\.best_window/)
+  assert.match(source, /mode\.avoid_window/)
+  assert.match(source, /mode\.why_not_now/)
+  assert.match(source, /meta\.limitations/)
+})
+
+test('八字问答行动建议展示 strategy 之外的 advice 价值字段', () => {
+  assert.match(source, /advice\.risk/)
+  assert.match(source, /advice\.avoid/)
+  assert.match(source, /advice\.timing/)
+  assert.match(source, /advice\.leverage/)
+  assert.match(source, /建议节奏/)
+  assert.match(source, /借势方法/)
+})
+
 test('背书板块采用八字档案专业排盘结构而不是临时卡片', () => {
   const component = readFileSync(new URL('../components/BaziBackingPanel.vue', import.meta.url), 'utf8')
   assert.match(component, /bazi-table/)
