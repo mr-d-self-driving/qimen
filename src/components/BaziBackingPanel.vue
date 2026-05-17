@@ -177,16 +177,19 @@ const windows = computed(() => props.resultData?.mode_analysis?.trigger_windows 
 const windowByYear = computed(() => new Map(windows.value.map(item => [Number(item.year), item])))
 const bestWindow = computed(() => windows.value.find(item => item.quality === 'strong') || windows.value[0] || null)
 const selectedLiunianYear = computed(() => Number(localSelectedYear.value || matrix.value.current_liunian?.year))
+const selectedDayun = computed(() => fullDayunList.value.find(dayun => isSelectedDayun(dayun)) || null)
 const modeLabel = computed(() => MODE_LABELS[props.analysisMode] || '八字分析')
 
 const linkedLiunianList = computed(() => {
   const source = liunianList.value
     .map(item => ({ ...item, year: Number(item.year), window: windowByYear.value.get(Number(item.year)) }))
     .filter(item => Number.isFinite(item.year))
-  if (props.analysisMode === 'timing' && windows.value.length) {
-    const years = new Set(windows.value.map(item => Number(item.year)).filter(Number.isFinite))
-    return source.filter(item => years.has(item.year)).slice(0, 12)
+
+  const range = dayunYearRange(selectedDayun.value)
+  if (range) {
+    return source.filter(item => item.year >= range.start && item.year <= range.end)
   }
+
   const selected = selectedLiunianYear.value
   if (!Number.isFinite(selected)) return source.slice(0, 12)
   return source.filter(item => item.year >= selected - 3 && item.year <= selected + 8).slice(0, 12)
@@ -248,23 +251,32 @@ function endAge(dayun) {
 
 function isSelectedDayun(dayun) {
   const selected = Number(localSelectedYear.value)
-  const start = Number(dayun.start_year)
-  const end = Number(dayun.end_year) || (Number.isFinite(start) ? start + 9 : null)
-  return Number.isFinite(selected) && Number.isFinite(start) && Number.isFinite(end) && selected >= start && selected <= end
+  const range = dayunYearRange(dayun)
+  return Boolean(range) && Number.isFinite(selected) && selected >= range.start && selected <= range.end
 }
 
 function dayunHasWindow(dayun) {
-  const start = Number(dayun.start_year)
-  const end = Number(dayun.end_year) || (Number.isFinite(start) ? start + 9 : null)
-  return windows.value.some(item => Number(item.year) >= start && Number(item.year) <= end)
+  const range = dayunYearRange(dayun)
+  return Boolean(range) && windows.value.some(item => {
+    const year = Number(item.year)
+    return Number.isFinite(year) && year >= range.start && year <= range.end
+  })
 }
 
 function dayunHasBestWindow(dayun) {
   if (!bestWindow.value) return false
+  const range = dayunYearRange(dayun)
+  if (!range) return false
+  const year = Number(bestWindow.value.year)
+  return Number.isFinite(year) && year >= range.start && year <= range.end
+}
+
+function dayunYearRange(dayun) {
+  if (!dayun) return null
   const start = Number(dayun.start_year)
   const end = Number(dayun.end_year) || (Number.isFinite(start) ? start + 9 : null)
-  const year = Number(bestWindow.value.year)
-  return Number.isFinite(year) && year >= start && year <= end
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return null
+  return { start, end }
 }
 </script>
 

@@ -83,6 +83,15 @@ test('背书板块采用八字档案专业排盘结构而不是临时卡片', ()
   assert.doesNotMatch(component, /命盘背书/)
 })
 
+test('专业排盘联动列表只使用八字档案矩阵数据，候选时间窗只做高亮', () => {
+  const component = readFileSync(new URL('../components/BaziBackingPanel.vue', import.meta.url), 'utf8')
+  assert.match(component, /const liunianList = computed\(\(\) => matrix\.value\.liunian_list \|\| \[\]\)/)
+  assert.match(component, /windowByYear/)
+  assert.match(component, /dayunHasWindow/)
+  assert.doesNotMatch(component, /props\.analysisMode === 'timing' && windows\.value\.length/)
+  assert.doesNotMatch(component, /source\.filter\(item => years\.has\(item\.year\)\)/)
+})
+
 test('历史抽屉里的八字记录不展示分数', () => {
   assert.match(source, /isBaziRecord\(item\)/)
   assert.match(source, /v-if="!isBaziRecord\(item\)"/)
