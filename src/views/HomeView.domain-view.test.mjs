@@ -86,7 +86,7 @@ test('八字问答结果按 PRD 补齐 pattern character 和 timing 字段展示
   assert.match(source, /mode\.career_style/)
   assert.match(source, /mode\.best_window/)
   assert.match(source, /mode\.avoid_window/)
-  assert.match(source, /mode\.why_not_now/)
+  assert.doesNotMatch(source, /mode\.why_not_now/)
 })
 
 test('八字问答行动建议展示 strategy 之外的 advice 价值字段', () => {
@@ -96,6 +96,30 @@ test('八字问答行动建议展示 strategy 之外的 advice 价值字段', ()
   assert.match(source, /advice\.leverage/)
   assert.match(source, /建议节奏/)
   assert.match(source, /借势方法/)
+  assert.match(source, /buildBaziAdviceRowsHTML/)
+  assert.match(source, /bazi-advice-row/)
+  const adviceExtraStart = source.indexOf('const buildBaziAdviceExtrasHTML')
+  const adviceExtraEnd = source.indexOf('const buildBaziQuestionCardHTML')
+  const adviceExtraSource = source.slice(adviceExtraStart, adviceExtraEnd)
+  assert.doesNotMatch(adviceExtraSource, /bazi-reading-block/)
+})
+
+test('八字问答判断依据展示收敛后的 logic 长文', () => {
+  assert.match(source, /summary\.basis\?\.logic/)
+  assert.match(source, /bazi-basis-summary/)
+  assert.doesNotMatch(source, /interaction_summary/)
+})
+
+test('八字问答前端展示收敛后的 schema 字段', () => {
+  assert.match(source, /summary\.basis\?\.logic/)
+  assert.doesNotMatch(source, /interaction_summary/)
+  assert.doesNotMatch(source, /mode\.why_not_now/)
+  assert.doesNotMatch(source, /mode\.domain_fit/)
+  assert.doesNotMatch(source, /mode\.innate_ceiling/)
+  assert.doesNotMatch(source, /mode\.domain_state/)
+  assert.match(source, /支撑/)
+  assert.match(source, /阻力/)
+  assert.match(source, /依据/)
 })
 
 test('八字问答结果不展示兼容 analysis 摘要和 fallback 边界提示', () => {

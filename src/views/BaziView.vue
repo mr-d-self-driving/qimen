@@ -670,122 +670,16 @@
                     基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
                 </div>
 
-                <div v-show="currentTab === 'pro' && fullDayunList.length" class="timeline-section">
-                    <div class="timeline-head">
-                        <div class="timeline-title">专业四柱大运流年流月流日联动</div>
-                        <div class="timeline-actions">
-                            <button class="timeline-icon-btn" title="跳转到今天" @click="jumpToCurrentTransit" aria-label="跳转到今天">
-                                <svg viewBox="0 0 24 24" aria-hidden="true">
-                                    <rect x="4" y="5.5" width="16" height="14" rx="3"></rect>
-                                    <path d="M8 3.5v4M16 3.5v4M4 9.5h16"></path>
-                                    <circle cx="12" cy="14" r="2.2"></circle>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                    
-                    <!-- 1. 大运 -->
-                    <div class="linkage-row">
-                        <div class="row-label">大<br>运</div>
-                        <div class="row-content">
-                            <div v-for="d in fullDayunList" :key="'dy'+d.id" 
-                                 class="link-item dy-item"
-                                 :class="{ active: selectedDayunIdx === d.id }"
-                                 @click="selectDayun(d.id)">
-                                 <div class="item-header">{{ d.start_year }}<br>{{ d.start_age }}~{{ d.start_age + 9 }}岁</div>
-                                 <div v-if="d.isXiaoyun" class="item-body xiaoyun-body">小运</div>
-                                 <div v-else class="item-body stacked-ganzhi">
-                                     <div class="char-wrap">
-                                         <span class="char-gan" :class="WX_MAP[d.gan]">{{ d.gan }}</span>
-                                         <span class="shi-shen" :class="getShenColor(d.shi_shen)">{{ d.shi_shen }}</span>
-                                     </div>
-                                     <div class="char-wrap">
-                                         <span class="char-zhi" :class="WX_MAP[d.zhi]">{{ d.zhi }}</span>
-                                         <span v-if="d.zhi_shi_shen" class="shi-shen" :class="getShenColor(d.zhi_shi_shen)">{{ d.zhi_shi_shen }}</span>
-                                     </div>
-                                 </div>
-                            </div>
-                        </div>
-                    </div>
+                <div v-show="currentTab === 'pro' && dayunList.length" class="timeline-section">
+                    <BaziBackingPanel
+                        :profile="activeProfile"
+                        :result-data="baziTimelineResultData"
+                        analysis-mode="status"
+                        :selected-year="selectedLiunianYear"
+                        :show-chart="false"
+                        @update:selected-year="selectedLiunianYear = $event"
+                    />
 
-                    <!-- 2. 流年 -->
-                    <div class="linkage-row">
-                        <div class="row-label">流<br>年</div>
-                        <div class="row-content">
-                            <div v-for="ln in linkedLiunianList" :key="'ln'+ln.year" 
-                                 class="link-item ln-item"
-                                 :class="{ active: selectedLiunianYear === ln.year }"
-                                 @click="selectLiunian(ln.year)">
-                                 <div class="item-header">{{ ln.year }}</div>
-                                 <div class="item-body stacked-ganzhi">
-                                     <div class="char-wrap">
-                                         <span class="char-gan" :class="WX_MAP[ln.gan]">{{ ln.gan }}</span>
-                                         <span class="shi-shen" :class="getShenColor(ln.shi_shen)">{{ ln.shi_shen }}</span>
-                                     </div>
-                                     <div class="char-wrap">
-                                         <span class="char-zhi" :class="WX_MAP[ln.zhi]">{{ ln.zhi }}</span>
-                                         <span class="shi-shen" :class="getShenColor(ln.zhi_shi_shen)">{{ ln.zhi_shi_shen }}</span>
-                                     </div>
-                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 3. 流月 -->
-                    <div class="linkage-row">
-                        <div class="row-label">流<br>月</div>
-                        <div class="row-content">
-                            <div v-for="(ly, i) in linkedLiuyueList" :key="'ly'+i" 
-                                 class="link-item ly-item"
-                                 :class="{ active: selectedLiuyueIndex === ly.index }"
-                                 @click="selectedLiuyueIndex = ly.index">
-                                 <div class="item-header">{{ ly.monthName }}</div>
-                                 <div class="item-body stacked-ganzhi">
-                                     <div class="char-wrap">
-                                         <span class="char-gan" :class="WX_MAP[ly.gan]">{{ ly.gan }}</span>
-                                         <span class="shi-shen" :class="getShenColor(ly.shi_shen)">{{ ly.shi_shen }}</span>
-                                     </div>
-                                     <div class="char-wrap">
-                                         <span class="char-zhi" :class="WX_MAP[ly.zhi]">{{ ly.zhi }}</span>
-                                         <span class="shi-shen" :class="getShenColor(ly.zhi_shi_shen)">{{ ly.zhi_shi_shen }}</span>
-                                     </div>
-                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- 4. 流日 -->
-                    <div class="linkage-row">
-                        <div class="row-label">流<br>日</div>
-                        <div class="row-content">
-                            <div v-for="day in linkedLiuriList" :key="day.dateKey"
-                                 class="link-item lr-item"
-                                 :class="{ active: selectedLiuriDateKey === day.dateKey }"
-                                 @click="selectedLiuriDateKey = day.dateKey">
-                                 <div class="item-header">{{ day.dateLabel }}<br>{{ day.weekLabel }}</div>
-                                 <div class="item-body stacked-ganzhi">
-                                     <div class="char-wrap">
-                                         <span class="char-gan" :class="WX_MAP[day.gan]">{{ day.gan }}</span>
-                                         <span class="shi-shen" :class="getShenColor(day.shi_shen)">{{ day.shi_shen }}</span>
-                                     </div>
-                                     <div class="char-wrap">
-                                         <span class="char-zhi" :class="WX_MAP[day.zhi]">{{ day.zhi }}</span>
-                                         <span class="shi-shen" :class="getShenColor(day.zhi_shi_shen)">{{ day.zhi_shi_shen }}</span>
-                                     </div>
-                                 </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div v-if="activeLiuri" class="fortune-guide-card" :class="{ masked: liuriInsightMasked }">
-                        <div>
-                            <div class="fortune-guide-title">{{ liuriInsightTitle }}</div>
-                            <div class="fortune-guide-copy">{{ liuriInsightText }}</div>
-                        </div>
-                        <button class="fortune-guide-btn" @click="openFortuneGuide">查看每日运势</button>
-                    </div>
-
-                    <!-- 5. 生克合化关系 -->
                     <div v-if="interactions" class="ai-section" style="margin-top:20px;">
                         <div class="timeline-title">生克合化注意</div>
                         
@@ -1335,6 +1229,7 @@ import {
 } from '../fortuneCache.mjs'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import AccountMenu from '../components/AccountMenu.vue'
+import BaziBackingPanel from '../components/BaziBackingPanel.vue'
 import {
     buildBaziProfileInsertPayload,
     buildPillarsProfilePayload,
@@ -1839,6 +1734,14 @@ const selectedDayunIdx = ref(0);
 const selectedLiunianYear = ref(new Date().getFullYear());
 const selectedLiuyueIndex = ref(0);
 const selectedLiuriDateKey = ref('');
+
+const baziTimelineResultData = computed(() => ({
+    meta: { analysis_mode: 'status' },
+    mode_analysis: {
+        trigger_windows: [],
+        current_climate: '当前岁运'
+    }
+}))
 
 const syncTransitSelection = (targetDate = new Date()) => {
     if (!baziEngine.value) return

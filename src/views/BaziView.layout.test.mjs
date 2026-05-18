@@ -4,19 +4,28 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('./BaziView.vue', import.meta.url), 'utf8')
 
-test('大运流年流月流日都使用强制上下结构类名', () => {
+test('专业页不再内联维护大运流年流月流日四套交互', () => {
   const matches = source.match(/class="item-body stacked-ganzhi"/g) || []
-  assert.equal(matches.length, 4)
+  assert.equal(matches.length, 0)
 })
 
-test('stacked-ganzhi 样式强制纵向排列', () => {
-  assert.match(source, /\.stacked-ganzhi\s*\{[^}]*flex-direction:\s*column;/s)
+test('专业页大运流年交互交给 BaziBackingPanel', () => {
+  assert.match(source, /<BaziBackingPanel/)
+  assert.match(source, /:show-chart="false"/)
 })
 
 test('专业联动区包含流日与日运跳转入口', () => {
-  assert.match(source, /流日/)
-  assert.match(source, /查看每日运势/)
+  assert.match(source, /BaziBackingPanel/)
+  assert.match(source, /:show-chart="false"/)
+  assert.match(source, /baziTimelineResultData/)
   assert.doesNotMatch(source, />看日运</)
+})
+
+test('全息八字专业页复用背书组件展示大运流年交互', () => {
+  assert.match(source, /import BaziBackingPanel from/)
+  assert.match(source, /<BaziBackingPanel/)
+  assert.match(source, /:profile="activeProfile"/)
+  assert.match(source, /analysis-mode="status"/)
 })
 
 test('新增排盘弹窗默认不预填出生时间', () => {

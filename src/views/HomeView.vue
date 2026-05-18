@@ -1263,6 +1263,34 @@ const buildBaziTextListHTML = (items = [], cls = '', targetLabel = '本问题核
   return `<div class="${cls}">${labels.map(item => `<span>${item}</span>`).join('')}</div>`
 }
 
+const buildBaziFoundationGroupHTML = (label, items = [], cls = '', targetLabel = '本问题核心象') => {
+  const listHTML = buildBaziTextListHTML(items, cls, targetLabel)
+  if (!listHTML) return ''
+  return `<div class="bazi-foundation-group">
+    <div class="foundation-group-label">${label}</div>
+    ${listHTML}
+  </div>`
+}
+
+const buildBaziAdviceRowsHTML = (rows = [], targetLabel = '本问题核心象') => {
+  const normalized = rows
+    .map(row => ({
+      label: row.label,
+      value: Array.isArray(row.value)
+        ? row.value.map(item => sanitizeBaziDisplayText(item, targetLabel)).filter(Boolean).join('；')
+        : sanitizeBaziDisplayText(row.value || '', targetLabel),
+      tone: row.tone || 'neutral'
+    }))
+    .filter(row => row.value)
+  if (!normalized.length) return ''
+  return `<div class="bazi-advice-rows">
+    ${normalized.map(row => `<div class="bazi-advice-row tone-${row.tone}">
+      <span class="advice-row-label">${row.label}</span>
+      <span class="advice-row-text">${row.value}</span>
+    </div>`).join('')}
+  </div>`
+}
+
 const buildPortraitBlockHTML = (block, label, targetLabel = '本问题核心象') => {
   if (!block?.text) return ''
   const confidence = block.confidence || 'low'
@@ -1274,17 +1302,13 @@ const buildPortraitBlockHTML = (block, label, targetLabel = '本问题核心象'
 }
 
 const buildBaziAdviceExtrasHTML = (advice = {}, targetLabel = '本问题核心象') => {
-  const avoidHTML = buildBaziTextListHTML(advice.avoid || [], 'bazi-signal-list warning', targetLabel)
-  const timingHTML = buildBaziTextListHTML(advice.timing || [], 'bazi-evidence-list', targetLabel)
-  const risk = sanitizeBaziDisplayText(advice.risk || '', targetLabel)
-  const leverage = sanitizeBaziDisplayText(advice.leverage || '', targetLabel)
-  if (!risk && !avoidHTML && !timingHTML && !leverage) return ''
-  return `<div class="bazi-advice-extra">
-    ${risk ? `<div class="bazi-reading-block warning"><div class="reading-label">风险提醒</div><p>${risk}</p></div>` : ''}
-    ${avoidHTML ? `<div class="bazi-reading-block warning"><div class="reading-label">需要避开</div>${avoidHTML}</div>` : ''}
-    ${timingHTML ? `<div class="bazi-reading-block"><div class="reading-label">建议节奏</div>${timingHTML}</div>` : ''}
-    ${leverage ? `<div class="bazi-reading-block"><div class="reading-label">借势方法</div><p>${leverage}</p></div>` : ''}
-  </div>`
+  const rowsHTML = buildBaziAdviceRowsHTML([
+    { label: '风险提醒', value: advice.risk, tone: 'warning' },
+    { label: '需要避开', value: advice.avoid || [], tone: 'warning' },
+    { label: '建议节奏', value: advice.timing || [], tone: 'neutral' },
+    { label: '借势方法', value: advice.leverage, tone: 'positive' }
+  ], targetLabel)
+  return rowsHTML ? `<div class="bazi-advice-extra">${rowsHTML}</div>` : ''
 }
 
 const buildBaziQuestionCardHTML = (data) => {
@@ -1305,23 +1329,26 @@ const buildBaziQuestionCardHTML = (data) => {
 
   const positive = summary.basis?.positive_signals || []
   const negative = summary.basis?.negative_signals || []
-  const basisHTML = positive.length || negative.length || summary.basis?.logic
+  const basisLogic = summary.basis?.logic || ''
+  const basisHTML = positive.length || negative.length || basisLogic
     ? `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">判断依据</div>
+        ${basisLogic ? `<p class="bazi-basis-summary">${sanitizeBaziDisplayText(basisLogic, targetLabel)}</p>` : ''}
         ${buildBaziTextListHTML(positive, 'bazi-signal-list positive', targetLabel)}
         ${buildBaziTextListHTML(negative, 'bazi-signal-list warning', targetLabel)}
-        ${summary.basis?.logic ? `<p class="bazi-logic">${sanitizeBaziDisplayText(summary.basis.logic, targetLabel)}</p>` : ''}
       </section>`
     : ''
 
   const foundationEvidence = foundation.evidence || []
-  const foundationHTML = foundation.base_state || foundationEvidence.length
+  const foundationSupports = foundation.supports || []
+  const foundationObstacles = foundation.obstacles || []
+  const foundationHTML = foundation.base_state || foundationSupports.length || foundationObstacles.length || foundationEvidence.length
     ? `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">原局底盘</div>
         ${foundation.base_state ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(foundation.base_state, targetLabel)}</p>` : ''}
-        ${buildBaziTextListHTML(foundation.supports || [], 'bazi-signal-list positive', targetLabel)}
-        ${buildBaziTextListHTML(foundation.obstacles || [], 'bazi-signal-list warning', targetLabel)}
-        ${buildBaziTextListHTML(foundationEvidence, 'bazi-evidence-list', targetLabel)}
+        ${buildBaziFoundationGroupHTML('支撑', foundationSupports, 'bazi-signal-list positive', targetLabel)}
+        ${buildBaziFoundationGroupHTML('阻力', foundationObstacles, 'bazi-signal-list warning', targetLabel)}
+        ${buildBaziFoundationGroupHTML('依据', foundationEvidence, 'bazi-evidence-list', targetLabel)}
       </section>`
     : ''
 
@@ -1332,7 +1359,6 @@ const buildBaziQuestionCardHTML = (data) => {
         ${meta.analysis_mode === 'timing' ? `<div class="bazi-timing-meta">
           ${mode.best_window ? `<div class="timing-best">最优窗口：${sanitizeBaziDisplayText(mode.best_window, targetLabel)}</div>` : ''}
           ${mode.avoid_window ? `<div class="timing-avoid">回避：${sanitizeBaziDisplayText(mode.avoid_window, targetLabel)}</div>` : ''}
-          ${mode.why_not_now ? `<div class="bazi-logic">${sanitizeBaziDisplayText(mode.why_not_now, targetLabel)}</div>` : ''}
           <div class="timing-disclaimer">候选强度代表应期信号强弱，不是事件必然发生概率。</div>
         </div>` : ''}
         <div class="bazi-timing-window-list">
@@ -1342,7 +1368,6 @@ const buildBaziQuestionCardHTML = (data) => {
               <span class="quality-badge quality-${item.quality}">${baziLevelLabel(item.quality)}</span>
               ${item.is_major_window ? '<span class="major-window-badge">双引动</span>' : ''}
             </div>
-            ${item.event_type ? `<p class="window-event">${item.event_type}</p>` : ''}
             <div class="bazi-window-meta"><span>大运 ${item.dayun_ganzhi || '-'}</span></div>
             ${item.verdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(item.verdict, targetLabel)}</p>` : ''}
             ${item.mechanisms_text ? `<div class="bazi-logic">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</div>` : ''}
@@ -1353,15 +1378,14 @@ const buildBaziQuestionCardHTML = (data) => {
       </section>`
     : ''
 
-  const patternHTML = meta.analysis_mode === 'pattern' && (mode.domain_fit || mode.capacity_level || mode.innate_ceiling || mode.structural_supports?.length || mode.structural_risks?.length || mode.verdict)
+  const patternHTML = meta.analysis_mode === 'pattern' && (mode.capacity_level || mode.structural_supports?.length || mode.structural_risks?.length || mode.verdict || mode.current_status_note)
     ? `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">先天结构适配</div>
         ${mode.capacity_level ? `<div class="bazi-capacity-row"><span class="capacity-label">容量</span><span class="capacity-level level-${mode.capacity_level}">${baziLevelLabel(mode.capacity_level)}</span></div>` : ''}
-        ${mode.domain_fit ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(mode.domain_fit, targetLabel)}</p>` : ''}
         ${mode.verdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(mode.verdict, targetLabel)}</p>` : ''}
         ${buildBaziTextListHTML(mode.structural_supports || [], 'bazi-signal-list positive', targetLabel)}
         ${buildBaziTextListHTML(mode.structural_risks || [], 'bazi-signal-list warning', targetLabel)}
-        ${mode.innate_ceiling ? `<p class="bazi-logic">${sanitizeBaziDisplayText(mode.innate_ceiling, targetLabel)}</p>` : ''}
+        ${mode.current_status_note ? `<p class="bazi-logic">${sanitizeBaziDisplayText(mode.current_status_note, targetLabel)}</p>` : ''}
       </section>`
     : ''
 
@@ -1382,11 +1406,9 @@ const buildBaziQuestionCardHTML = (data) => {
     const dayunReading = mode.dayun_reading || ''
     const liunianReading = mode.liunian_reading || ''
     const targetReading = mode.target_state_reading || ''
-    const domainState = mode.domain_state || ''
-    if (dayunReading || liunianReading || targetReading || domainState) {
+    if (dayunReading || liunianReading || targetReading) {
       dynamicHTML = `<section class="result-module bazi-mode-card reveal">
         <div class="ai-header-title">当前运势气候</div>
-        ${domainState ? `<p class="bazi-card-copy bazi-domain-state">${sanitizeBaziDisplayText(domainState, targetLabel)}</p>` : ''}
         ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${sanitizeBaziDisplayText(dayunReading, targetLabel)}</p></div>` : ''}
         ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${sanitizeBaziDisplayText(liunianReading, targetLabel)}</p></div>` : ''}
         ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">${targetLabel}状态</div><p>${sanitizeBaziDisplayText(targetReading, targetLabel)}</p></div>` : ''}
@@ -1939,12 +1961,17 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :deep(.bazi-level-chip.level-unknown){ color:var(--text-muted); border-color:rgba(255,255,255,0.12); }
 :deep(.bazi-card-copy),
 :deep(.bazi-logic) { margin:0; color:var(--bazi-ink); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
+:deep(.bazi-basis-summary) { margin:0 0 10px; color:var(--bazi-ink); font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
 :deep(.bazi-signal-list),
 :deep(.bazi-evidence-list) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 :deep(.bazi-signal-list span),
 :deep(.bazi-evidence-list span) { padding:7px 9px; border-radius:8px; border:1px solid rgba(255,255,255,0.08); background:rgba(255,255,255,0.035); color:rgba(244,237,220,0.82); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
 :deep(.bazi-signal-list.positive span) { border-color:rgba(78,205,196,0.2); background:rgba(78,205,196,0.06); }
 :deep(.bazi-signal-list.warning span) { border-color:rgba(255,154,86,0.2); background:rgba(255,154,86,0.06); }
+:deep(.bazi-foundation-group) { margin-top:10px; }
+:deep(.foundation-group-label) { color:var(--text-muted); font-size:11px; letter-spacing:1px; margin-bottom:6px; }
+:deep(.bazi-foundation-group .bazi-signal-list),
+:deep(.bazi-foundation-group .bazi-evidence-list) { margin-top:0; }
 :deep(.bazi-dynamic-grid) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
 :deep(.bazi-dynamic-grid div) { min-width:0; padding:12px; border-radius:10px; background:rgba(0,0,0,0.14); border:1px solid rgba(255,255,255,0.07); }
 :deep(.bazi-dynamic-grid span) { display:block; color:var(--text-muted); font-size:10px; margin-bottom:5px; }
@@ -1962,8 +1989,14 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :deep(.bazi-reading-block.warning) { border-left-color:rgba(255,154,86,0.38); background:rgba(255,154,86,0.045); }
 :deep(.bazi-reading-block .reading-label) { font-size:11px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
 :deep(.bazi-reading-block p) { margin:0; color:var(--bazi-ink); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
-:deep(.bazi-domain-state) { font-weight:500; color:var(--text-primary); margin-bottom:12px; }
 :deep(.bazi-advice-extra) { display:grid; gap:8px; margin-top:10px; }
+:deep(.bazi-advice-rows) { display:grid; gap:6px; margin-top:8px; }
+:deep(.bazi-advice-row) { display:grid; grid-template-columns:72px minmax(0,1fr); gap:10px; align-items:start; padding:7px 0; border-top:1px solid rgba(255,255,255,0.055); }
+:deep(.bazi-advice-row:first-child) { border-top:0; }
+:deep(.advice-row-label) { color:var(--text-muted); font-size:12px; line-height:1.7; white-space:nowrap; }
+:deep(.advice-row-text) { color:var(--bazi-ink); font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
+:deep(.bazi-advice-row.tone-warning .advice-row-label) { color:#F4B06A; }
+:deep(.bazi-advice-row.tone-positive .advice-row-label) { color:#7CD5C8; }
 :deep(.bazi-timing-meta) { display:grid; gap:8px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:rgba(0,0,0,0.12); border:1px solid rgba(255,255,255,0.06); }
 :deep(.timing-best) { color:#4ECDC4; font-size:13px; line-height:1.6; }
 :deep(.timing-avoid) { color:#FFB36E; font-size:13px; line-height:1.6; }

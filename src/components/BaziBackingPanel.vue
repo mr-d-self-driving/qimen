@@ -8,7 +8,7 @@
       <div class="backing-mode">{{ modeLabel }}</div>
     </div>
 
-    <div v-if="displayColumns.length" class="bazi-table-wrap">
+    <div v-if="showChart && displayColumns.length" class="bazi-table-wrap">
       <table class="bazi-table">
         <thead>
           <tr>
@@ -136,7 +136,8 @@ const props = defineProps({
   profile: { type: Object, default: () => ({}) },
   resultData: { type: Object, default: () => ({}) },
   analysisMode: { type: String, default: '' },
-  selectedYear: { type: Number, default: null }
+  selectedYear: { type: Number, default: null },
+  showChart: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['update:selectedYear'])
