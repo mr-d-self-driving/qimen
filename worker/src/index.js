@@ -679,14 +679,21 @@ async function handleBaziQuestion(request, env) {
     const semanticRoute = normalizeBaziSemanticRoute({ ...baseRoute, ...semanticRouteRaw }, routeHint);
 
     // ── SSE Step 2: 语义路由完成 ──
-    const _modeLabel = { timing: '时间模式', pattern: '格局模式', character: '性格模式', status: '状态模式' }[semanticRoute.analysis_mode] || '分析模式';
-    emit({ type: 'step', index: 2, pct: 36, chip: { main: _modeLabel, sub: semanticRoute.analysis_mode || 'timing' } });
+    const _BAZI_MODE_CN = { timing: '时间推演', pattern: '格局分析', character: '性格命理', status: '当下状态' };
+    const _modeLabel = _BAZI_MODE_CN[semanticRoute.analysis_mode] || '分析模式';
+    const _modeSub   = _BAZI_MODE_CN[semanticRoute.analysis_mode] ? (semanticRoute.branch === 'hybrid' ? '综合推演' : '八字命理') : '命理分析';
+    emit({ type: 'step', index: 2, pct: 36, chip: { main: _modeLabel, sub: _modeSub } });
 
     const { prompt, pipelineResult } = buildBaziQuestionPrompt({ profile, question, route: semanticRoute });
 
     // ── SSE Step 3: 构建推演框架完成 ──
-    const _scope = semanticRoute.time_scope ? `${semanticRoute.time_scope}` : '命局综合';
-    emit({ type: 'step', index: 3, pct: 48, chip: { main: '推演框架', sub: _scope } });
+    const _SCOPE_CN = { current_year: '今年', next_3_years: '近三年', next_5_years: '近五年', next_10_years: '未来十年', unknown: '命局综合' };
+    const _scopeType = semanticRoute.time_scope?.type || 'unknown';
+    const _scopeYears = semanticRoute.time_scope?.start_year && semanticRoute.time_scope?.end_year
+      ? `${semanticRoute.time_scope.start_year}–${semanticRoute.time_scope.end_year}`
+      : null;
+    const _scopeMain = _SCOPE_CN[_scopeType] || '命局综合';
+    emit({ type: 'step', index: 3, pct: 48, chip: { main: _scopeMain, sub: _scopeYears || '命局推演' } });
 
     // ── SSE Step 4: 五行喜忌 (instant — derived from pipelineResult) ──
     const _favorable = pipelineResult?.favorable_elements?.join('') || pipelineResult?.favorable || '';
