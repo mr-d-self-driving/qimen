@@ -2,8 +2,11 @@
   <section class="bazi-backing-panel result-module bazi-mode-card reveal">
     <div class="backing-head">
       <div>
-        <div class="backing-kicker">原局排盘</div>
-        <h3>全息八字</h3>
+        <div class="ai-header-title">原局排盘</div>
+        <div class="profile-title">{{ profileTitle }}</div>
+        <div v-if="profileTags.length" class="profile-tags">
+          <span v-for="tag in profileTags" :key="tag">{{ tag }}</span>
+        </div>
       </div>
       <div class="backing-mode">{{ modeLabel }}</div>
     </div>
@@ -68,9 +71,26 @@
       </table>
     </div>
 
-    <div v-if="fullDayunList.length" class="timeline-section">
+    <div v-if="xiaoyunList.length || fullDayunList.length" class="timeline-section">
       <div class="timeline-head">
         <div class="timeline-title">专业四柱大运流年流月流日联动</div>
+      </div>
+
+      <div v-if="xiaoyunList.length" class="linkage-row">
+        <div class="row-label">小<br>运</div>
+        <div class="row-content">
+          <button
+            v-for="xiaoyun in xiaoyunList"
+            :key="dayunKey(xiaoyun)"
+            type="button"
+            class="link-item xy-item"
+            :class="{ active: isSelectedDayun(xiaoyun) }"
+            @click="selectDayun(xiaoyun)"
+          >
+            <div class="item-header">{{ xiaoyun.start_year || '-' }}<br>{{ xiaoyun.start_age || '?' }}~{{ endAge(xiaoyun) }}岁</div>
+            <div class="item-body xiaoyun-body">小运</div>
+          </button>
+        </div>
       </div>
 
       <div class="linkage-row">
@@ -85,8 +105,7 @@
             @click="selectDayun(dayun)"
           >
             <div class="item-header">{{ dayun.start_year || '-' }}<br>{{ dayun.start_age || '?' }}~{{ endAge(dayun) }}岁</div>
-            <div v-if="dayun.isXiaoyun" class="item-body xiaoyun-body">小运</div>
-            <div v-else class="item-body stacked-ganzhi">
+            <div class="item-body stacked-ganzhi">
               <div class="char-wrap">
                 <span class="char-gan" :class="WX_MAP[dayun.gan] || 'wx-none'">{{ dayun.gan || '-' }}</span>
                 <span v-if="dayun.shi_shen" class="shi-shen" :class="getShenColor(dayun.shi_shen)">{{ dayun.shi_shen }}</span>
@@ -125,12 +144,66 @@
           </button>
         </div>
       </div>
+
+      <div v-if="linkedLiuyueList.length" class="linkage-row">
+        <div class="row-label">流<br>月</div>
+        <div class="row-content">
+          <button
+            v-for="liuyue in linkedLiuyueList"
+            :key="liuyue.index"
+            type="button"
+            class="link-item ly-item"
+            :class="{ active: selectedLiuyueIndex === liuyue.index }"
+            @click="selectLiuyue(liuyue.index)"
+          >
+            <div class="item-header">{{ liuyue.monthName || liuyue.month_name || '-' }}</div>
+            <div class="item-body stacked-ganzhi">
+              <div class="char-wrap">
+                <span class="char-gan" :class="WX_MAP[liuyue.gan] || 'wx-none'">{{ liuyue.gan || '-' }}</span>
+                <span v-if="liuyue.shi_shen" class="shi-shen" :class="getShenColor(liuyue.shi_shen)">{{ liuyue.shi_shen }}</span>
+              </div>
+              <div class="char-wrap">
+                <span class="char-zhi" :class="WX_MAP[liuyue.zhi] || 'wx-none'">{{ liuyue.zhi || '-' }}</span>
+                <span v-if="liuyue.zhi_shi_shen" class="shi-shen" :class="getShenColor(liuyue.zhi_shi_shen)">{{ liuyue.zhi_shi_shen }}</span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <div v-if="linkedLiuriList.length" class="linkage-row">
+        <div class="row-label">流<br>日</div>
+        <div class="row-content">
+          <button
+            v-for="liuri in linkedLiuriList"
+            :key="liuri.dateKey"
+            type="button"
+            class="link-item lr-item"
+            :class="{ active: selectedLiuriDateKey === liuri.dateKey }"
+            @click="selectLiuri(liuri.dateKey)"
+          >
+            <div class="item-header">{{ liuri.dateLabel }}<br>{{ liuri.weekLabel }}</div>
+            <div class="item-body stacked-ganzhi">
+              <div class="char-wrap">
+                <span class="char-gan" :class="WX_MAP[liuri.gan] || 'wx-none'">{{ liuri.gan || '-' }}</span>
+                <span v-if="liuri.shi_shen" class="shi-shen" :class="getShenColor(liuri.shi_shen)">{{ liuri.shi_shen }}</span>
+              </div>
+              <div class="char-wrap">
+                <span class="char-zhi" :class="WX_MAP[liuri.zhi] || 'wx-none'">{{ liuri.zhi || '-' }}</span>
+                <span v-if="liuri.zhi_shi_shen" class="shi-shen" :class="getShenColor(liuri.zhi_shi_shen)">{{ liuri.zhi_shi_shen }}</span>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
     </div>
   </section>
 </template>
 
 <script setup>
 import { computed, ref, watch } from 'vue'
+import { Solar } from 'lunar-javascript'
+import { buildLiuRiList } from '../utils/baziTransit.mjs'
 
 const props = defineProps({
   profile: { type: Object, default: () => ({}) },
@@ -158,21 +231,38 @@ const MODE_LABELS = {
 }
 
 const localSelectedYear = ref(props.selectedYear)
+const selectedLiuyueIndex = ref(0)
+const selectedLiuriDateKey = ref('')
 
 watch(() => props.selectedYear, (year) => {
   localSelectedYear.value = year
 })
 
 const matrix = computed(() => props.profile?.bazi_detail?.matrix || {})
+const profileTitle = computed(() => props.profile?.name || '命主档案')
+const profileTags = computed(() => [
+  props.profile?.strong_weak,
+  props.profile?.geju || props.profile?.bazi_detail?.pattern_analysis?.extraction?.final_pattern?.name
+].filter(Boolean))
 const displayColumns = computed(() => {
   const names = ['年', '月', '日', '时']
-  return (matrix.value.pillars || []).map((pillar, index) => ({
+  const pillars = (matrix.value.pillars || []).map((pillar, index) => ({
     name: pillar.name || names[index] || '',
     ...pillar,
     hidden_stems: normalizeHiddenStems(pillar.hidden_stems)
   }))
+  return [
+    matrix.value.current_liunian ? normalizeDisplayColumn(matrix.value.current_liunian, '流年') : null,
+    matrix.value.current_dayun ? normalizeDisplayColumn(matrix.value.current_dayun, '大运') : null,
+    ...pillars
+  ].filter(Boolean)
 })
-const fullDayunList = computed(() => matrix.value.dayun_list || [])
+const xiaoyunList = computed(() => {
+  const explicit = matrix.value.xiaoyun_list || []
+  const legacy = (matrix.value.dayun_list || []).filter(dayun => dayun.isXiaoyun)
+  return explicit.length ? explicit : legacy
+})
+const fullDayunList = computed(() => (matrix.value.dayun_list || []).filter(dayun => !dayun.isXiaoyun))
 const liunianList = computed(() => matrix.value.liunian_list || [])
 const windows = computed(() => props.resultData?.mode_analysis?.trigger_windows || [])
 const windowByYear = computed(() => new Map(windows.value.map(item => [Number(item.year), item])))
@@ -180,6 +270,8 @@ const bestWindow = computed(() => windows.value.find(item => item.quality === 's
 const selectedLiunianYear = computed(() => Number(localSelectedYear.value || matrix.value.current_liunian?.year))
 const selectedDayun = computed(() => fullDayunList.value.find(dayun => isSelectedDayun(dayun)) || null)
 const modeLabel = computed(() => MODE_LABELS[props.analysisMode] || '八字分析')
+const dayGan = computed(() => matrix.value.pillars?.[2]?.gan || '')
+const baziEngine = computed(() => buildBaziEngine(props.profile))
 
 const linkedLiunianList = computed(() => {
   const source = liunianList.value
@@ -196,6 +288,26 @@ const linkedLiunianList = computed(() => {
   return source.filter(item => item.year >= selected - 3 && item.year <= selected + 8).slice(0, 12)
 })
 
+const selectedLiunian = computed(() => linkedLiunianList.value.find(item => item.year === selectedLiunianYear.value) || linkedLiunianList.value[0] || null)
+const linkedLiuyueList = computed(() => (selectedLiunian.value?.liuyue_list || []).map((item, index) => ({
+  ...item,
+  index: Number.isFinite(Number(item.index)) ? Number(item.index) : index,
+  monthName: item.monthName || item.month_name
+})))
+const originalLiunian = computed(() => {
+  if (!baziEngine.value?.yun) return null
+  const year = selectedLiunianYear.value
+  for (const dayun of baziEngine.value.yun.getDaYun()) {
+    const liunian = dayun.getLiuNian().find(item => Number(item.getYear()) === year)
+    if (liunian) return liunian
+  }
+  return null
+})
+const linkedLiuriList = computed(() => {
+  if (!originalLiunian.value || !dayGan.value) return []
+  return buildLiuRiList(originalLiunian.value, selectedLiuyueIndex.value, dayGan.value)
+})
+
 watch([bestWindow, () => props.analysisMode], ([best]) => {
   if (props.selectedYear) return
   const year = props.analysisMode === 'timing'
@@ -204,9 +316,57 @@ watch([bestWindow, () => props.analysisMode], ([best]) => {
   if (Number.isFinite(year)) selectYear(year)
 }, { immediate: true })
 
+watch(linkedLiuyueList, (list) => {
+  if (!list.length) {
+    selectedLiuyueIndex.value = 0
+    return
+  }
+  if (!list.some(item => item.index === selectedLiuyueIndex.value)) {
+    selectedLiuyueIndex.value = list[0].index
+  }
+}, { immediate: true })
+
+watch(linkedLiuriList, (list) => {
+  if (!list.length) {
+    selectedLiuriDateKey.value = ''
+    return
+  }
+  if (!list.some(item => item.dateKey === selectedLiuriDateKey.value)) {
+    selectedLiuriDateKey.value = list[0].dateKey
+  }
+}, { immediate: true })
+
+function buildBaziEngine(profile = {}) {
+  const birth = String(profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || '').match(/\d+/g)
+  if (!birth || birth.length < 3) return null
+  try {
+    const solar = Solar.fromYmdHms(
+      Number(birth[0]),
+      Number(birth[1]),
+      Number(birth[2]),
+      Number(birth[3] || 12),
+      Number(birth[4] || 0),
+      0
+    )
+    const baZi = solar.getLunar().getEightChar()
+    const gender = profile.gender === 'M' ? 1 : 0
+    return { baZi, yun: baZi.getYun(gender) }
+  } catch {
+    return null
+  }
+}
+
 function normalizeHiddenStems(stems = []) {
   if (!Array.isArray(stems)) return []
   return stems.map(item => typeof item === 'string' ? { gan: item } : item).filter(item => item?.gan || item)
+}
+
+function normalizeDisplayColumn(pillar, fallbackName) {
+  return {
+    ...pillar,
+    name: pillar.name || fallbackName,
+    hidden_stems: normalizeHiddenStems(pillar.hidden_stems)
+  }
 }
 
 function hiddenStemLabel(stem) {
@@ -233,7 +393,16 @@ function getShenColor(name = '') {
 
 function selectYear(year) {
   localSelectedYear.value = Number(year)
+  selectedLiuyueIndex.value = 0
   emit('update:selectedYear', localSelectedYear.value)
+}
+
+function selectLiuyue(index) {
+  selectedLiuyueIndex.value = Number(index)
+}
+
+function selectLiuri(dateKey) {
+  selectedLiuriDateKey.value = dateKey
 }
 
 function selectDayun(dayun) {
@@ -247,6 +416,8 @@ function dayunKey(dayun) {
 
 function endAge(dayun) {
   const startAge = Number(dayun.start_age)
+  const endAgeValue = Number(dayun.end_age)
+  if (Number.isFinite(endAgeValue)) return endAgeValue
   return Number.isFinite(startAge) ? startAge + 9 : '?'
 }
 
@@ -293,16 +464,36 @@ function dayunYearRange(dayun) {
   gap: 12px;
   margin-bottom: 14px;
 }
-.backing-kicker {
-  color: rgba(212,175,55,0.9);
-  font-size: 12px;
+.ai-header-title {
+  font-family: var(--font-serif);
+  color: var(--gold);
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
 }
-.backing-head h3 {
-  margin: 3px 0 0;
+.ai-header-title::before { content: '✧'; font-size: 12px; }
+.profile-title {
   color: var(--text-primary);
   font-family: var(--font-serif);
   font-size: 20px;
-  font-weight: 500;
+  line-height: 1.35;
+}
+.profile-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.profile-tags span {
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(212,175,55,0.2);
+  color: rgba(244,237,220,0.78);
+  background: rgba(212,175,55,0.06);
+  font-size: 11px;
+  line-height: 1.2;
 }
 .backing-mode {
   flex: 0 0 auto;
@@ -410,7 +601,7 @@ function dayunYearRange(dayun) {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 58px;
+  min-width: 76px;
   padding: 6px 4px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -467,7 +658,7 @@ function dayunYearRange(dayun) {
   width: 100%;
   min-width: 0;
   height: 19px;
-  padding-right: 10px;
+  padding-right: 18px;
 }
 .char-gan,
 .char-zhi {
@@ -478,7 +669,7 @@ function dayunYearRange(dayun) {
 }
 .shi-shen {
   position: absolute;
-  right: -14px;
+  right: 0;
   top: -1px;
   font-size: 9px;
   padding: 1px 3px;
