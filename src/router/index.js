@@ -5,6 +5,7 @@ import BaziView from '../views/BaziView.vue'
 import FortuneView from '../views/FortuneView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import EngineeringView from '../views/EngineeringView.vue'
+import FeedbackView from '../views/FeedbackView.vue'
 import LegalView from '../views/LegalView.vue'
 import AdminView from '../views/AdminView.vue'
 import { globalState } from '../store.js'
@@ -49,6 +50,14 @@ const router = createRouter({
         titleEn: 'Engineering Mode — Qimen AI',
         description: '可视化奇门遁甲规则引擎，开放评分审计与宫位推演细节，供技术研究与验证使用。',
         descriptionEn: 'Visual Qimen rule engine with open scoring audit and palace details for technical research.',
+        ogImage: 'https://www.qimendao.com/images/home.jpg',
+      },
+    },
+    {
+      path: '/feedback', name: 'feedback', component: FeedbackView,
+      meta: {
+        title: '反馈与共创 — 奇门遁甲 AI',
+        description: '提交产品反馈、功能建议或内容纠错，帮助奇门遁甲 AI 持续打磨。',
         ogImage: 'https://www.qimendao.com/images/home.jpg',
       },
     },

@@ -47,7 +47,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const route = useRoute()
 const cosmosCanvas = ref(null)
-const isBottomNavVisible = computed(() => route.name !== 'reset-password' && globalState.authReady && (globalState.currentUser || globalState.isGuest))
+const secondaryRoutes = new Set(['reset-password', 'feedback'])
+const isBottomNavVisible = computed(() => !secondaryRoutes.has(route.name) && globalState.authReady && (globalState.currentUser || globalState.isGuest))
 let animationId = null
 let authSubscription = null
 

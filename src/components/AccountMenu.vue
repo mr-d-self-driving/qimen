@@ -21,6 +21,9 @@
       <router-link v-if="!globalState.currentUser" class="account-menu-link" :to="{ path: '/', query: { auth: 'register' } }" @click="closeMenu">
         注册
       </router-link>
+      <router-link class="account-menu-link feedback" to="/feedback" @click="closeMenu">
+        反馈与共创
+      </router-link>
       <button v-if="globalState.currentUser" class="account-menu-action" type="button" @click="handleSignOut">
         退出登录
       </button>
@@ -160,6 +163,10 @@ onUnmounted(() => {
 
 .account-menu-link.featured {
   color: rgba(207,255,250,0.94);
+}
+
+.account-menu-link.feedback {
+  color: var(--gold-light);
 }
 
 .account-menu-action {
