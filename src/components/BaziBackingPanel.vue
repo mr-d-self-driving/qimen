@@ -1,16 +1,5 @@
 <template>
   <section class="bazi-backing-panel result-module bazi-mode-card reveal">
-    <div class="backing-head">
-      <div>
-        <div class="ai-header-title">原局排盘</div>
-        <div class="profile-title">{{ profileTitle }}</div>
-        <div v-if="profileTags.length" class="profile-tags">
-          <span v-for="tag in profileTags" :key="tag">{{ tag }}</span>
-        </div>
-      </div>
-      <div class="backing-mode">{{ modeLabel }}</div>
-    </div>
-
     <BaziPillarTable
       v-if="showChart && displayColumns.length"
       :columns="displayColumns"
@@ -214,13 +203,6 @@ const WX_MAP = {
   庚: 'wx-jin', 辛: 'wx-jin', 申: 'wx-jin', 酉: 'wx-jin',
   壬: 'wx-shui', 癸: 'wx-shui', 亥: 'wx-shui', 子: 'wx-shui'
 }
-const MODE_LABELS = {
-  status: '当前状态',
-  timing: '应期扫描',
-  pattern: '先天结构',
-  character: '人物画像'
-}
-
 const localSelectedYear = ref(props.selectedYear)
 const selectedLiuyueIndex = ref(0)
 const selectedLiuriDateKey = ref('')
@@ -252,11 +234,6 @@ const selectionRef = computed(() => ({
 const { resolvedMatrix, displayColumns } = useBaziColumns(profileRef, null, selectionRef)
 const matrix = resolvedMatrix
 
-const profileTitle = computed(() => props.profile?.name || '命主档案')
-const profileTags = computed(() => [
-  props.profile?.strong_weak,
-  props.profile?.geju || props.profile?.bazi_detail?.pattern_analysis?.extraction?.final_pattern?.name
-].filter(Boolean))
 const liunianList = computed(() => {
   // API 排盘：liunian_list 在 matrix 顶层
   const topLevel = matrix.value?.liunian_list
@@ -267,7 +244,6 @@ const liunianList = computed(() => {
 const windows = computed(() => props.resultData?.mode_analysis?.trigger_windows || [])
 const windowByYear = computed(() => new Map(windows.value.map(item => [Number(item.year), item])))
 const bestWindow = computed(() => windows.value.find(item => item.quality === 'strong') || windows.value[0] || null)
-const modeLabel = computed(() => MODE_LABELS[props.analysisMode] || '八字分析')
 const dayGan = computed(() => matrix.value?.pillars?.[2]?.gan || '')
 const baziEngine = computed(() => buildBaziEngine(props.profile))
 
@@ -458,52 +434,6 @@ function dayunYearRange(dayun) {
 .bazi-backing-panel {
   border-color: rgba(177,158,109,0.22);
   background: rgba(255,255,255,0.032);
-}
-.backing-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 14px;
-}
-.ai-header-title {
-  font-family: var(--font-serif);
-  color: var(--gold);
-  font-size: 15px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-.ai-header-title::before { content: '✧'; font-size: 12px; }
-.profile-title {
-  color: var(--text-primary);
-  font-family: var(--font-serif);
-  font-size: 20px;
-  line-height: 1.35;
-}
-.profile-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.profile-tags span {
-  padding: 4px 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(212,175,55,0.2);
-  color: rgba(244,237,220,0.78);
-  background: rgba(212,175,55,0.06);
-  font-size: 11px;
-  line-height: 1.2;
-}
-.backing-mode {
-  flex: 0 0 auto;
-  padding: 6px 9px;
-  border: 1px solid rgba(212,175,55,0.24);
-  border-radius: 8px;
-  color: rgba(244,237,220,0.78);
-  font-size: 12px;
 }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: shenshaPop 0.3s ease; }

@@ -1636,25 +1636,61 @@ const displayColumns = computed(() => {
     const matrix = resolvedMatrix.value
     if (!matrix) return []
     if (currentTab.value === 'basic') return matrix.pillars || []
-    // matrix.current_* already have shensha/shi/zizuo/nayin from patchColumn;
-    // only override star and re-fix hidden_stems/kong using dayGan
-    const dayGan = (matrix.pillars || [])[2]?.gan || ''
-    const patchTransit = (col) => {
-        if (!col?.gan || !col?.zhi || !dayGan) return col
+
+    const pillars = matrix.pillars || []
+    const dayGan = pillars[2]?.gan || ''
+    const yearZhi = pillars[0]?.zhi || ''
+    const dayZhi = pillars[2]?.zhi || ''
+    const monthZhi = pillars[1]?.zhi || ''
+    const yearGan = pillars[0]?.gan || ''
+    const isMale = activeProfile.value?.gender === 'M'
+    const allGans = pillars.map(p => p.gan)
+
+    const buildTransit = (name, ganZhiStr) => {
+        if (!ganZhiStr || !dayGan) return null
+        const col = buildTransitColumn(name, ganZhiStr, dayGan)
+        if (!col) return null
         return {
             ...col,
-            star: toFullShen(getShiShen(dayGan, col.gan)) || col.star,
-            hidden_stems: (ZHI_HIDE[col.zhi] || []).map(stemGan => ({
-                gan: stemGan,
-                shi_shen: toFullShen(getShiShen(dayGan, stemGan))
-            })),
-            kong: computeXunKong(col.gan, col.zhi)
+            shensha: getShenShaArray(col.zhi, dayGan, yearZhi, dayZhi, {
+                monthZhi, pillarGan: col.gan, yearGan, isMale, allGans
+            })
         }
     }
+
+    const year = selectedLiunianYear.value
+    let activeLiunian = null
+    let activeDayun = null
+
+    if (Number.isFinite(year)) {
+        let ln = (matrix.liunian_list || []).find(l => Number(l.year) === year)
+        if (!ln) {
+            for (const d of (matrix.dayun_list || [])) {
+                ln = (d.liunian_list || []).find(l => Number(l.year) === year)
+                if (ln) break
+            }
+        }
+        if (ln?.gan && ln?.zhi) activeLiunian = buildTransit('流年', ln.gan + ln.zhi)
+
+        const dy = (matrix.dayun_list || []).filter(d => !d.isXiaoyun).find(d => {
+            const start = Number(d.start_year)
+            const end = Number(d.end_year) || (Number.isFinite(start) ? start + 9 : null)
+            return Number.isFinite(start) && Number.isFinite(end) && year >= start && year <= end
+        })
+        if (dy?.gan && dy?.zhi) activeDayun = buildTransit('大运', dy.gan + dy.zhi)
+    }
+
+    if (!activeLiunian && matrix.current_liunian?.gan && matrix.current_liunian?.zhi) {
+        activeLiunian = buildTransit('流年', matrix.current_liunian.gan + matrix.current_liunian.zhi)
+    }
+    if (!activeDayun && matrix.current_dayun?.gan && matrix.current_dayun?.zhi) {
+        activeDayun = buildTransit('大运', matrix.current_dayun.gan + matrix.current_dayun.zhi)
+    }
+
     const cols = []
-    if (matrix.current_liunian) cols.push(patchTransit(matrix.current_liunian))
-    if (matrix.current_dayun) cols.push(patchTransit(matrix.current_dayun))
-    cols.push(...(matrix.pillars || []))
+    if (activeLiunian) cols.push(activeLiunian)
+    if (activeDayun) cols.push(activeDayun)
+    cols.push(...pillars)
     return cols
 })
 

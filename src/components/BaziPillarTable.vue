@@ -5,7 +5,7 @@
         <tr>
           <th class="bz-label">柱位</th>
           <th v-for="col in columns" :key="col.name" class="bz-label">
-            {{ col.name }}{{ showPillarSuffix ? '柱' : '' }}
+            {{ col.name }}{{ ['年','月','日','时'].includes(col.name) ? '柱' : '' }}
           </th>
         </tr>
       </thead>
