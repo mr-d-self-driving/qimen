@@ -156,6 +156,8 @@ const buildPillarColumn = ({ name, pillar, star, hiddenStems, dayGan, diShi, zhi
   }
 }
 
+export { computeXunKong, toFullShen, getShiShen, ZHI_HIDE }
+
 export const buildTransitColumn = (name, ganZhi, dayGan) => {
   if (!ganZhi) return null
   const gan = ganZhi.charAt(0)

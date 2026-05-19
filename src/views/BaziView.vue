@@ -1196,6 +1196,10 @@ import {
 import {
     buildLocalBaziMatrix,
     buildTransitColumn,
+    computeXunKong,
+    toFullShen,
+    getShiShen,
+    ZHI_HIDE,
     getDayunByYear,
     getPromptDataFromProfile
 } from '../utils/baziLocalMatrix.mjs'
@@ -1603,10 +1607,19 @@ const resolvedMatrix = computed(() => {
     const dayGan = pillarsArr[2]?.gan
     const dayZhi = pillarsArr[2]?.zhi
     const allGans = pillarsArr.map(p => p.gan)
-    const patchShensha = (p) => {
+    const patchColumn = (p) => {
         if (!p || !p.zhi) return p
+        const fixedStems = Array.isArray(p.hidden_stems)
+            ? p.hidden_stems.map(s => {
+                const stemGan = typeof s === 'string' ? s : (s?.gan || '')
+                const existing = typeof s === 'object' && s?.shi_shen ? s.shi_shen : ''
+                return { gan: stemGan, shi_shen: existing || toFullShen(getShiShen(dayGan, stemGan)) }
+            })
+            : []
         return {
             ...p,
+            hidden_stems: fixedStems,
+            kong: p.kong || (p.gan && p.zhi ? computeXunKong(p.gan, p.zhi) : '-'),
             shensha: getShenShaArray(p.zhi, dayGan, yearZhi, dayZhi, {
                 monthZhi, pillarGan: p.gan, yearGan, isMale, allGans
             })
@@ -1614,23 +1627,34 @@ const resolvedMatrix = computed(() => {
     }
     return {
         ...base,
-        pillars: pillarsArr.map(patchShensha),
-        current_dayun: patchShensha(base.current_dayun),
-        current_liunian: patchShensha(base.current_liunian)
+        pillars: pillarsArr.map(patchColumn),
+        current_dayun: patchColumn(base.current_dayun),
+        current_liunian: patchColumn(base.current_liunian)
     }
 })
 
 const displayColumns = computed(() => {
     const matrix = resolvedMatrix.value
     if (!matrix) return []
-    const dayGan = (matrix.pillars || [])[2]?.gan || ''
     if (currentTab.value === 'basic') return matrix.pillars || []
-    const rebuild = (col) => col?.gan && col?.zhi && dayGan
-        ? buildTransitColumn(col.name, col.gan + col.zhi, dayGan)
-        : col
+    // matrix.current_* already have shensha/shi/zizuo/nayin from patchColumn;
+    // only override star and re-fix hidden_stems/kong using dayGan
+    const dayGan = (matrix.pillars || [])[2]?.gan || ''
+    const patchTransit = (col) => {
+        if (!col?.gan || !col?.zhi || !dayGan) return col
+        return {
+            ...col,
+            star: toFullShen(getShiShen(dayGan, col.gan)) || col.star,
+            hidden_stems: (ZHI_HIDE[col.zhi] || []).map(stemGan => ({
+                gan: stemGan,
+                shi_shen: toFullShen(getShiShen(dayGan, stemGan))
+            })),
+            kong: computeXunKong(col.gan, col.zhi)
+        }
+    }
     const cols = []
-    if (matrix.current_liunian) cols.push(rebuild(matrix.current_liunian))
-    if (matrix.current_dayun) cols.push(rebuild(matrix.current_dayun))
+    if (matrix.current_liunian) cols.push(patchTransit(matrix.current_liunian))
+    if (matrix.current_dayun) cols.push(patchTransit(matrix.current_dayun))
     cols.push(...(matrix.pillars || []))
     return cols
 })

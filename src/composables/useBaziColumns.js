@@ -1,5 +1,5 @@
 import { computed } from 'vue'
-import { buildLocalBaziMatrix, buildTransitColumn } from '../utils/baziLocalMatrix.mjs'
+import { buildLocalBaziMatrix, buildTransitColumn, computeXunKong, toFullShen, getShiShen } from '../utils/baziLocalMatrix.mjs'
 import { getShenShaArray } from '../utils/baziShensha.mjs'
 
 /**
@@ -25,10 +25,19 @@ export function useBaziColumns(profileRef, currentTabRef = null, selectionRef = 
     const dayZhi = pillarsArr[2]?.zhi
     const allGans = pillarsArr.map(p => p.gan)
 
-    const patchShensha = (p) => {
+    const patchColumn = (p) => {
       if (!p?.zhi) return p
+      const fixedStems = Array.isArray(p.hidden_stems)
+        ? p.hidden_stems.map(s => {
+            const stemGan = typeof s === 'string' ? s : (s?.gan || '')
+            const existing = typeof s === 'object' && s?.shi_shen ? s.shi_shen : ''
+            return { gan: stemGan, shi_shen: existing || toFullShen(getShiShen(dayGan, stemGan)) }
+          })
+        : []
       return {
         ...p,
+        hidden_stems: fixedStems,
+        kong: p.kong || (p.gan && p.zhi ? computeXunKong(p.gan, p.zhi) : '-'),
         shensha: getShenShaArray(p.zhi, dayGan, yearZhi, dayZhi, {
           monthZhi, pillarGan: p.gan, yearGan, isMale, allGans
         })
@@ -37,9 +46,9 @@ export function useBaziColumns(profileRef, currentTabRef = null, selectionRef = 
 
     return {
       ...base,
-      pillars: pillarsArr.map(patchShensha),
-      current_dayun: patchShensha(base.current_dayun),
-      current_liunian: patchShensha(base.current_liunian)
+      pillars: pillarsArr.map(patchColumn),
+      current_dayun: patchColumn(base.current_dayun),
+      current_liunian: patchColumn(base.current_liunian)
     }
   })
 
