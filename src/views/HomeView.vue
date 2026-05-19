@@ -512,7 +512,9 @@ const snapshotProfile = computed(() => {
   if (snap?.birth_date && snap?.gender) return {
     name: snap.name || activeBaziProfile.value?.name || '',
     birth_date: snap.birth_date,
-    gender: snap.gender
+    gender: snap.gender,
+    strong_weak: snap.strong_weak || activeBaziProfile.value?.strong_weak || '',
+    geju: snap.geju || activeBaziProfile.value?.geju || ''
   }
   return activeBaziProfile.value
 })

@@ -740,7 +740,9 @@ async function handleBaziQuestion(request, env) {
       subject_snapshot: {
         name: profile.name || null,
         birth_date: profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || null,
-        gender: profile.gender || null
+        gender: profile.gender || null,
+        strong_weak: profile.strong_weak || null,
+        geju: profile.geju || null
       }
     };
     emit({ type: 'complete', result: outputWithSnapshot });
