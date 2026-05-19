@@ -1781,7 +1781,7 @@ watch(baziEngine, async (newVal) => {
 
 watch(currentTab, async (tab) => {
     if (tab === 'pro') {
-        await scrollActiveTransitItemsIntoView()
+        await jumpToCurrentTransit()
     }
 })
 
