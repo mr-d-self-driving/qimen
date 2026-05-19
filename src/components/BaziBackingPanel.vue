@@ -183,7 +183,7 @@
 <script setup>
 import { computed, ref, watch } from 'vue'
 import { Solar } from 'lunar-javascript'
-import { buildLiuRiList, getShiShen } from '../utils/baziTransit.mjs'
+import { buildLiuRiList, getShiShen, findTransitSelectionByDate } from '../utils/baziTransit.mjs'
 
 const ZHI_MAIN_GAN = {
   子: '癸', 丑: '己', 寅: '甲', 卯: '乙', 辰: '戊', 巳: '丙',
@@ -438,7 +438,18 @@ function dayunYearRange(dayun) {
 }
 
 function jumpToCurrent() {
-  const year = Number(resolvedMatrix.value?.current_liunian?.year)
+  const engine = baziEngine.value
+  if (engine?.yun) {
+    const selection = findTransitSelectionByDate(engine, new Date())
+    if (selection) {
+      localSelectedYear.value = selection.liunianYear
+      selectedLiuyueIndex.value = selection.liuyueIndex
+      selectedLiuriDateKey.value = selection.liuriDateKey
+      emit('update:selectedYear', localSelectedYear.value)
+      return
+    }
+  }
+  const year = Number(resolvedMatrix.value?.current_liunian?.year || new Date().getFullYear())
   if (Number.isFinite(year)) selectYear(year)
 }
 </script>
