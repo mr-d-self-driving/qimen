@@ -1195,6 +1195,7 @@ import {
 } from '../utils/birthplaceSearch.mjs'
 import {
     buildLocalBaziMatrix,
+    buildTransitColumn,
     getDayunByYear,
     getPromptDataFromProfile
 } from '../utils/baziLocalMatrix.mjs'
@@ -1622,14 +1623,15 @@ const resolvedMatrix = computed(() => {
 const displayColumns = computed(() => {
     const matrix = resolvedMatrix.value
     if (!matrix) return []
-    let cols = []
-    if (currentTab.value === 'basic') {
-        cols = matrix.pillars || []
-    } else {
-        if (matrix.current_liunian) cols.push(matrix.current_liunian)
-        if (matrix.current_dayun) cols.push(matrix.current_dayun)
-        cols.push(...(matrix.pillars || []))
-    }
+    const dayGan = (matrix.pillars || [])[2]?.gan || ''
+    if (currentTab.value === 'basic') return matrix.pillars || []
+    const rebuild = (col) => col?.gan && col?.zhi && dayGan
+        ? buildTransitColumn(col.name, col.gan + col.zhi, dayGan)
+        : col
+    const cols = []
+    if (matrix.current_liunian) cols.push(rebuild(matrix.current_liunian))
+    if (matrix.current_dayun) cols.push(rebuild(matrix.current_dayun))
+    cols.push(...(matrix.pillars || []))
     return cols
 })
 

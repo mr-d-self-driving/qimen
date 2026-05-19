@@ -738,6 +738,7 @@ async function handleBaziQuestion(request, env) {
     const outputWithSnapshot = {
       ...output,
       subject_snapshot: {
+        name: profile.name || null,
         birth_date: profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || null,
         gender: profile.gender || null
       }

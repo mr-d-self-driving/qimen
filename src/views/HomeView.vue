@@ -509,7 +509,11 @@ const currentBaziString = ref('')
 const activeBaziProfile = computed(() => baziProfiles.value.find(p => p.id === selectedProfileId.value))
 const snapshotProfile = computed(() => {
   const snap = activeBaziResultData.value?.subject_snapshot
-  if (snap?.birth_date && snap?.gender) return { birth_date: snap.birth_date, gender: snap.gender }
+  if (snap?.birth_date && snap?.gender) return {
+    name: snap.name || activeBaziProfile.value?.name || '',
+    birth_date: snap.birth_date,
+    gender: snap.gender
+  }
   return activeBaziProfile.value
 })
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)

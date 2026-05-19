@@ -26,7 +26,7 @@
           <td class="bz-label">藏干</td>
           <td v-for="col in columns" :key="'cg-' + col.name" class="bz-sub">
             <template v-for="stem in normalizeHiddenStems(col.hidden_stems)" :key="stem.gan">
-              <span :class="WX_MAP[stem.gan] || 'wx-none'">{{ hiddenStemLabel(stem) }}</span><br>
+              <span class="cg-line"><span :class="WX_MAP[stem.gan] || 'wx-none'">{{ stem.gan }}</span><span class="cg-shen">{{ stem.shi_shen }}</span></span>
             </template>
             <span v-if="!normalizeHiddenStems(col.hidden_stems).length" style="color:#555">-</span>
           </td>
@@ -42,7 +42,8 @@
         <tr>
           <td class="bz-label">空亡</td>
           <td v-for="col in columns" :key="'kong-' + col.name" class="bz-sub">
-            <span v-if="col.is_kong" style="color:var(--crimson)">空亡</span>
+            <span v-if="col.kong && col.kong !== '-'">{{ col.kong }}</span>
+            <span v-else-if="col.is_kong" style="color:var(--crimson)">空亡</span>
             <span v-else style="color:#555">-</span>
           </td>
         </tr>
@@ -71,8 +72,6 @@
 <script setup>
 import { getShenshaInfo, sortedShensha } from '../utils/baziShensha.mjs'
 
-const GAN_WUXING = { 甲: '甲木', 乙: '乙木', 丙: '丙火', 丁: '丁火', 戊: '戊土', 己: '己土', 庚: '庚金', 辛: '辛金', 壬: '壬水', 癸: '癸水' }
-
 const WX_MAP = {
   甲: 'wx-mu', 乙: 'wx-mu', 寅: 'wx-mu', 卯: 'wx-mu',
   丙: 'wx-huo', 丁: 'wx-huo', 巳: 'wx-huo', 午: 'wx-huo',
@@ -90,11 +89,7 @@ defineEmits(['shensha-click'])
 
 function normalizeHiddenStems(stems) {
   if (!Array.isArray(stems)) return []
-  return stems.map(item => typeof item === 'string' ? { gan: item } : item).filter(item => item?.gan)
-}
-
-function hiddenStemLabel(stem) {
-  return stem.shi_shen ? `${stem.gan}${stem.shi_shen}` : (GAN_WUXING[stem.gan] || stem.gan)
+  return stems.map(item => typeof item === 'string' ? { gan: item, shi_shen: '' } : item).filter(item => item?.gan)
 }
 </script>
 
@@ -134,6 +129,8 @@ function hiddenStemLabel(stem) {
 .wx-huo { color: #E57373; }
 .wx-tu { color: #DCE775; }
 .wx-none { color: #666; }
+.cg-line { display: block; line-height: 1.5; }
+.cg-shen { color: #888; font-size: 10px; margin-left: 1px; }
 @media (max-width: 640px) {
   .bazi-table { --bz-char-size: 14px; }
 }

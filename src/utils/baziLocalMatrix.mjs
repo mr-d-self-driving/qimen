@@ -3,18 +3,14 @@ import { Solar } from 'lunar-javascript'
 import { findDatesByBazi } from './baziProfileInput.mjs'
 
 const ZHI_MAIN_GAN = {
-  子: '癸',
-  丑: '己',
-  寅: '甲',
-  卯: '乙',
-  辰: '戊',
-  巳: '丙',
-  午: '丁',
-  未: '己',
-  申: '庚',
-  酉: '辛',
-  戌: '戊',
-  亥: '壬'
+  子: '癸', 丑: '己', 寅: '甲', 卯: '乙', 辰: '戊', 巳: '丙',
+  午: '丁', 未: '己', 申: '庚', 酉: '辛', 戌: '戊', 亥: '壬'
+}
+
+const ZHI_HIDE = {
+  子: ['癸'], 丑: ['己', '癸', '辛'], 寅: ['甲', '丙', '戊'], 卯: ['乙'],
+  辰: ['戊', '乙', '癸'], 巳: ['丙', '庚', '戊'], 午: ['丁', '己'], 未: ['己', '丁', '乙'],
+  申: ['庚', '壬', '戊'], 酉: ['辛'], 戌: ['戊', '辛', '丁'], 亥: ['壬', '甲']
 }
 
 const SHI_SHEN = {
@@ -29,6 +25,50 @@ const SHI_SHEN = {
   壬: { 甲: '食', 乙: '伤', 丙: '才', 丁: '财', 戊: '杀', 己: '官', 庚: '枭', 辛: '印', 壬: '比', 癸: '劫' },
   癸: { 甲: '伤', 乙: '食', 丙: '财', 丁: '才', 戊: '官', 己: '杀', 庚: '印', 辛: '枭', 壬: '劫', 癸: '比' }
 }
+
+const FULL_SHEN = {
+  比: '比肩', 劫: '劫财', 食: '食神', 伤: '伤官',
+  财: '正财', 才: '偏财', 官: '正官', 杀: '七杀',
+  印: '正印', 枭: '偏印'
+}
+
+const NAYIN = {
+  甲子: '海中金', 乙丑: '海中金', 丙寅: '炉中火', 丁卯: '炉中火', 戊辰: '大林木', 己巳: '大林木',
+  庚午: '路旁土', 辛未: '路旁土', 壬申: '剑锋金', 癸酉: '剑锋金', 甲戌: '山头火', 乙亥: '山头火',
+  丙子: '涧下水', 丁丑: '涧下水', 戊寅: '城头土', 己卯: '城头土', 庚辰: '白蜡金', 辛巳: '白蜡金',
+  壬午: '杨柳木', 癸未: '杨柳木', 甲申: '泉中水', 乙酉: '泉中水', 丙戌: '屋上土', 丁亥: '屋上土',
+  戊子: '霹雳火', 己丑: '霹雳火', 庚寅: '松柏木', 辛卯: '松柏木', 壬辰: '长流水', 癸巳: '长流水',
+  甲午: '沙中金', 乙未: '沙中金', 丙申: '山下火', 丁酉: '山下火', 戊戌: '平地木', 己亥: '平地木',
+  庚子: '壁上土', 辛丑: '壁上土', 壬寅: '金箔金', 癸卯: '金箔金', 甲辰: '覆灯火', 乙巳: '覆灯火',
+  丙午: '天河水', 丁未: '天河水', 戊申: '大驿土', 己酉: '大驿土', 庚戌: '钗钏金', 辛亥: '钗钏金',
+  壬子: '桑柘木', 癸丑: '桑柘木', 甲寅: '大溪水', 乙卯: '大溪水', 丙辰: '沙中土', 丁巳: '沙中土',
+  戊午: '天上火', 己未: '天上火', 庚申: '石榴木', 辛酉: '石榴木', 壬戌: '大海水', 癸亥: '大海水'
+}
+
+const _GAN_ORDER = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸']
+const _ZHI_ORDER = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥']
+const _CS_START = { 甲: 11, 乙: 6, 丙: 2, 丁: 9, 戊: 2, 己: 9, 庚: 5, 辛: 0, 壬: 8, 癸: 3 }
+const _SHI_ER = ['长生', '沐浴', '冠带', '临官', '帝旺', '衰', '病', '死', '墓', '绝', '胎', '养']
+const _ZHI_IDX = { 子: 0, 丑: 1, 寅: 2, 卯: 3, 辰: 4, 巳: 5, 午: 6, 未: 7, 申: 8, 酉: 9, 戌: 10, 亥: 11 }
+const _YANG_GANS = new Set(['甲', '丙', '戊', '庚', '壬'])
+
+const getDiShi = (gan, zhi) => {
+  const start = _CS_START[gan]
+  const zIdx = _ZHI_IDX[zhi]
+  if (start === undefined || zIdx === undefined) return '-'
+  const offset = _YANG_GANS.has(gan) ? (zIdx - start + 12) % 12 : (start - zIdx + 12) % 12
+  return _SHI_ER[offset]
+}
+
+const computeXunKong = (gan, zhi) => {
+  const ganIdx = _GAN_ORDER.indexOf(gan)
+  const zhiIdx = _ZHI_IDX[zhi]
+  if (ganIdx === -1 || zhiIdx === undefined) return '-'
+  const headZhiIdx = (zhiIdx - ganIdx + 12) % 12
+  return _ZHI_ORDER[(headZhiIdx + 10) % 12] + _ZHI_ORDER[(headZhiIdx + 11) % 12]
+}
+
+const toFullShen = (s) => FULL_SHEN[s] || s
 
 const pad2 = (value) => String(value).padStart(2, '0')
 
@@ -93,20 +133,24 @@ export const getPromptDataFromProfile = (profile) => {
   return result
 }
 
-const buildPillarColumn = ({ name, pillar, star, hiddenStems, diShi, zhiShiShen, xunKong, nayin }) => {
+const buildPillarColumn = ({ name, pillar, star, hiddenStems, dayGan, diShi, zhiShiShen, xunKong, nayin }) => {
   const gan = String(pillar || '').charAt(0)
   const zhi = String(pillar || '').charAt(1)
   const zhiTenGods = toArray(zhiShiShen)
+  const rawStems = toArray(hiddenStems)
 
   return {
     name,
     star: star || '',
     gan,
     zhi,
-    hidden_stems: toArray(hiddenStems),
+    hidden_stems: rawStems.map(s => {
+      const stemGan = typeof s === 'string' ? s : (s?.gan || '')
+      return { gan: stemGan, shi_shen: dayGan ? toFullShen(getShiShen(dayGan, stemGan)) : '' }
+    }),
     shi: diShi || '',
     zizuo: zhiTenGods[0] || '',
-    is_kong: !!zhi && String(xunKong || '').includes(zhi),
+    kong: gan && zhi ? computeXunKong(gan, zhi) : '-',
     nayin: nayin || '',
     shensha: []
   }
@@ -116,18 +160,20 @@ export const buildTransitColumn = (name, ganZhi, dayGan) => {
   if (!ganZhi) return null
   const gan = ganZhi.charAt(0)
   const zhi = ganZhi.charAt(1)
-  const mainGan = ZHI_MAIN_GAN[zhi]
 
   return {
     name,
-    star: getShiShen(dayGan, gan),
+    star: toFullShen(getShiShen(dayGan, gan)),
     gan,
     zhi,
-    hidden_stems: mainGan ? [mainGan] : [],
-    shi: '',
-    zizuo: getShiShen(dayGan, mainGan),
-    is_kong: false,
-    nayin: '',
+    hidden_stems: (ZHI_HIDE[zhi] || []).map(stemGan => ({
+      gan: stemGan,
+      shi_shen: toFullShen(getShiShen(dayGan, stemGan))
+    })),
+    shi: getDiShi(dayGan, zhi),
+    zizuo: getDiShi(gan, zhi),
+    kong: computeXunKong(gan, zhi),
+    nayin: NAYIN[gan + zhi] || '-',
     shensha: []
   }
 }
@@ -146,6 +192,7 @@ export const buildLocalBaziMatrix = (profile, referenceDate = new Date()) => {
       pillar: eightChar.getYear(),
       star: eightChar.getYearShiShenGan(),
       hiddenStems: eightChar.getYearHideGan(),
+      dayGan,
       diShi: eightChar.getYearDiShi(),
       zhiShiShen: eightChar.getYearShiShenZhi(),
       xunKong: eightChar.getYearXunKong(),
@@ -156,6 +203,7 @@ export const buildLocalBaziMatrix = (profile, referenceDate = new Date()) => {
       pillar: eightChar.getMonth(),
       star: eightChar.getMonthShiShenGan(),
       hiddenStems: eightChar.getMonthHideGan(),
+      dayGan,
       diShi: eightChar.getMonthDiShi(),
       zhiShiShen: eightChar.getMonthShiShenZhi(),
       xunKong: eightChar.getMonthXunKong(),
@@ -166,6 +214,7 @@ export const buildLocalBaziMatrix = (profile, referenceDate = new Date()) => {
       pillar: eightChar.getDay(),
       star: eightChar.getDayShiShenGan(),
       hiddenStems: eightChar.getDayHideGan(),
+      dayGan,
       diShi: eightChar.getDayDiShi(),
       zhiShiShen: eightChar.getDayShiShenZhi(),
       xunKong: eightChar.getDayXunKong(),
@@ -176,6 +225,7 @@ export const buildLocalBaziMatrix = (profile, referenceDate = new Date()) => {
       pillar: eightChar.getTime(),
       star: eightChar.getTimeShiShenGan(),
       hiddenStems: eightChar.getTimeHideGan(),
+      dayGan,
       diShi: eightChar.getTimeDiShi(),
       zhiShiShen: eightChar.getTimeShiShenZhi(),
       xunKong: eightChar.getTimeXunKong(),
