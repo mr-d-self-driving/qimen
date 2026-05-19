@@ -181,7 +181,7 @@
 </template>
 
 <script setup>
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { Solar } from 'lunar-javascript'
 import { buildLiuRiList, getShiShen, findTransitSelectionByDate } from '../utils/baziTransit.mjs'
 
@@ -437,7 +437,7 @@ function dayunYearRange(dayun) {
   return { start, end }
 }
 
-function jumpToCurrent() {
+async function jumpToCurrent() {
   const engine = baziEngine.value
   if (engine?.yun) {
     const selection = findTransitSelectionByDate(engine, new Date())
@@ -446,6 +446,10 @@ function jumpToCurrent() {
       selectedLiuyueIndex.value = selection.liuyueIndex
       selectedLiuriDateKey.value = selection.liuriDateKey
       emit('update:selectedYear', localSelectedYear.value)
+      await nextTick()
+      document.querySelectorAll('.timeline-section .link-item.active').forEach(el => {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
+      })
       return
     }
   }
