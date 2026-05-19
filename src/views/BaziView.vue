@@ -1198,7 +1198,6 @@ import {
     buildTransitColumn,
     computeXunKong,
     toFullShen,
-    getShiShen,
     ZHI_HIDE,
     getDayunByYear,
     getPromptDataFromProfile
