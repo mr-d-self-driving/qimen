@@ -19,6 +19,11 @@
           <p>
             你好，我是 Justin，这个项目目前由我持续开发。它希望把奇门遁甲排盘、解读和日常问题分析做得更清晰、更易用。现在产品形态还比较粗糙，如果你遇到问题、发现解释不准确，或有想要的功能，欢迎告诉我。
           </p>
+          <p class="open-source-note">
+            项目完全开源，如果你觉得它有一点帮助，也欢迎在 GitHub 上给
+            <a href="https://github.com/oceanjustinlin/qimen" target="_blank" rel="noreferrer">oceanjustinlin/qimen</a>
+            点一个 star。
+          </p>
         </div>
 
         <div class="contact-strip">
@@ -183,6 +188,22 @@ const copyEmail = async () => {
 .feedback-copy .feedback-lead {
   margin-bottom: 12px;
   color: rgba(240,237,230,0.9);
+}
+
+.feedback-copy .open-source-note {
+  margin-top: 14px;
+  color: rgba(232,204,128,0.82);
+}
+
+.feedback-copy .open-source-note a {
+  color: rgba(178,239,234,0.96);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(178,239,234,0.35);
+}
+
+.feedback-copy .open-source-note a:hover {
+  color: #d4fffb;
+  border-bottom-color: rgba(178,239,234,0.72);
 }
 
 .contact-strip {
