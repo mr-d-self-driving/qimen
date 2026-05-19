@@ -48,6 +48,14 @@
       <template v-if="!collapsible || timelineExpanded">
         <div class="timeline-head">
           <div class="timeline-title">专业四柱大运流年流月流日联动</div>
+          <button class="timeline-icon-btn" title="回到今日" @click="jumpToCurrent">
+            <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <rect x="2" y="4" width="12" height="10" rx="2" stroke="currentColor" stroke-width="1.4"/>
+              <path d="M5 2v3M11 2v3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/>
+              <path d="M2 7h12" stroke="currentColor" stroke-width="1.4"/>
+              <rect x="6.5" y="9.5" width="3" height="2" rx="0.5" fill="currentColor"/>
+            </svg>
+          </button>
         </div>
 
         <!-- 大运行（含小运） -->
@@ -428,6 +436,11 @@ function dayunYearRange(dayun) {
   if (!Number.isFinite(start) || !Number.isFinite(end)) return null
   return { start, end }
 }
+
+function jumpToCurrent() {
+  const year = Number(resolvedMatrix.value?.current_liunian?.year)
+  if (Number.isFinite(year)) selectYear(year)
+}
 </script>
 
 <style scoped>
@@ -506,6 +519,15 @@ function dayunYearRange(dayun) {
   gap: 12px;
   margin-bottom: 12px;
 }
+.timeline-icon-btn {
+  width: 30px; height: 30px; border-radius: 999px;
+  border: 1px solid rgba(232,204,128,0.16);
+  background: rgba(255,255,255,0.04);
+  color: var(--gold-light);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0; flex-shrink: 0;
+}
+.timeline-icon-btn svg { width: 15px; height: 15px; }
 .timeline-title {
   font-size: 14px;
   color: var(--gold);
