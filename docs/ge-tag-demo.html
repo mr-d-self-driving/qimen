@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>有名格 · 局势拆解</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=ZCOOL+XiaoWei&family=Noto+Serif+SC:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold:         #D4AF37;
+    --gold-light:   #E8CC80;
+    --bg-deep:      #05050A;
+    --bg-card:      rgba(255,255,255,0.03);
+    --glass-border: rgba(255,255,255,0.07);
+    --text-primary: rgba(240,237,230,0.95);
+    --text-muted:   #8E8E93;
+    --radius-card:  22px;
+    --crimson:      #FF5E57;
+    --teal:         #4ECDC4;
+    --font-serif:   'ZCOOL XiaoWei','Noto Serif SC',serif;
+    --spring:       cubic-bezier(0.34,1.56,0.64,1);
+    --ease:         cubic-bezier(0.4,0,0.2,1);
+    --theme-color:  #00D26A;
+    --theme-dim:    rgba(0,210,106,0.15);
+  }
+  *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+  body {
+    background: var(--bg-deep);
+    color: var(--text-primary);
+    font-family: 'PingFang SC', -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+    padding: 40px 20px 80px;
+    position: relative;
+  }
+  body::before {
+    content:''; position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 10%, rgba(107,140,255,0.05) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 80% 90%, rgba(212,175,55,0.04) 0%, transparent 60%);
+  }
+  .page-wrap {
+    position:relative; z-index:1;
+    max-width:520px; margin:0 auto;
+    display:flex; flex-direction:column; gap:10px;
+  }
+  .page-title {
+    text-align:center; font-family:var(--font-serif);
+    font-size:13px; color:var(--gold-light); letter-spacing:3px; opacity:.55;
+    margin-bottom:6px;
+  }
+
+  /* ── Module card ── */
+  .result-module {
+    background: var(--bg-card);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-card);
+    backdrop-filter: blur(20px) saturate(1.2);
+    box-shadow: 0 4px 32px rgba(0,0,0,0.35);
+    padding: 20px;
+  }
+
+  /* ── Section header ── */
+  .ai-header-title {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11px; color: var(--text-muted);
+    letter-spacing: 2px; margin-bottom: 14px; font-weight: 500;
+  }
+  .ai-header-title::before { content:'✧'; font-size:12px; }
+
+  /* ── insight-flow ── */
+  .insight-flow { display:flex; flex-direction:column; gap:10px; }
+
+  /* ── insight-strip base ── */
+  .insight-strip {
+    position:relative; padding:14px 16px 14px 18px;
+    background:rgba(0,0,0,0.18);
+    border:1px solid rgba(255,255,255,0.05);
+    border-radius:12px;
+    border-left:3px solid rgba(255,255,255,0.1);
+    transition:border-color .3s, transform .25s, box-shadow .25s;
+  }
+  .insight-strip:hover { transform:translateY(-1px); box-shadow:0 6px 20px rgba(0,0,0,0.25); }
+  .insight-strip-label {
+    font-size:10px; color:var(--text-muted);
+    letter-spacing:1.5px; text-transform:uppercase;
+    margin-bottom:8px; font-weight:500;
+  }
+  .insight-strip-body { font-size:13px; color:#D0D0D8; line-height:1.75; }
+
+  /* accent colors */
+  .accent-indigo { border-left-color:#7B8CFF; background:linear-gradient(135deg,rgba(107,140,255,0.03),transparent); }
+  .accent-indigo .insight-strip-label { color:#8B9AFF; }
+  .accent-gold { border-left-color:var(--gold); background:linear-gradient(135deg,rgba(212,175,55,0.03),transparent); }
+  .accent-gold .insight-strip-label { color:var(--gold-light); }
+  .accent-violet { border-left-color:#B39DDB; background:linear-gradient(135deg,rgba(179,157,219,0.03),transparent); }
+  .accent-violet .insight-strip-label { color:#C4B5F4; }
+  .accent-neutral { border-left-color:rgba(255,255,255,0.15); }
+
+  /* score basis */
+  .score-basis-body { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+  .sb-row { display:flex; flex-direction:column; gap:6px; }
+  .sb-row-title { font-size:9px; color:var(--text-muted); font-weight:600; letter-spacing:1.5px; }
+  .sb-tags { display:flex; flex-wrap:wrap; gap:6px; }
+  .sb-tag {
+    font-size:11px; padding:3px 10px; border-radius:20px;
+    font-weight:500; transition:transform .2s;
+  }
+  .sb-tag:hover { transform:scale(1.05); }
+  .sb-tag.positive { background:rgba(0,210,106,0.08); color:#00D26A; border:1px solid rgba(0,210,106,0.18); }
+  .sb-tag.negative { background:rgba(255,94,87,0.08); color:#FF5E57; border:1px solid rgba(255,94,87,0.18); }
+  .sb-logic {
+    font-size:12px; color:#8888A0; line-height:1.7;
+    padding:10px 12px; background:rgba(255,255,255,0.015);
+    border-radius:8px; border-left:2px solid var(--theme-color);
+  }
+
+  /* ── 有名格 strip ── */
+  .accent-ge {
+    border-left-color: rgba(212,175,55,0.5);
+    background: linear-gradient(135deg, rgba(212,175,55,0.04), transparent);
+  }
+  .accent-ge .insight-strip-label { color: var(--gold-light); }
+
+  .ge-body { display:flex; flex-direction:column; gap:10px; margin-top:4px; }
+
+  .ge-tags-row { display:flex; flex-wrap:wrap; gap:7px; }
+
+  .ge-tag {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 10px; border-radius:20px;
+    font-size:11px; font-weight:500;
+    cursor:pointer; white-space:nowrap; user-select:none;
+    transition:transform .2s;
+  }
+  .ge-tag:hover { transform:scale(1.05); }
+  .ge-tag:active { transform:scale(1); }
+  .ge-tag.ji {
+    background:rgba(212,175,55,0.11);
+    border:1px solid rgba(212,175,55,0.32);
+    color:#E8CC80;
+  }
+  .ge-tag.xiong {
+    background:rgba(255,94,87,0.11);
+    border:1px solid rgba(255,94,87,0.28);
+    color:#FF8A80;
+  }
+  .ge-dot { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+  .ji  .ge-dot { background:var(--gold); }
+  .xiong .ge-dot { background:var(--crimson); }
+
+  .ge-note {
+    font-size:11px; color:var(--text-muted); line-height:1.6;
+    /* optional: brief contextual note about net delta */
+  }
+
+  /* ── Popover ── */
+  .ge-popover {
+    position:fixed; z-index:9999;
+    background:rgba(10,10,22,0.97);
+    border:1px solid rgba(212,175,55,0.2);
+    border-radius:14px; padding:13px 15px;
+    min-width:210px; max-width:256px;
+    box-shadow:0 10px 40px rgba(0,0,0,0.65), inset 0 0 0 1px rgba(255,255,255,0.025);
+    backdrop-filter:blur(20px);
+    pointer-events:none; opacity:0;
+    transform:translateY(6px) scale(0.97);
+    transition:opacity .15s var(--ease), transform .2s var(--spring);
+  }
+  .ge-popover.visible { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+  .pop-name {
+    font-family:var(--font-serif); font-size:14px; letter-spacing:1px;
+    margin-bottom:7px;
+  }
+  .pop-name.ji    { color:var(--gold-light); }
+  .pop-name.xiong { color:#FF8A80; }
+  .pop-divider { height:1px; background:rgba(255,255,255,0.06); margin:7px 0; }
+  .pop-text { font-size:12px; line-height:1.75; color:rgba(240,237,230,0.72); font-family:var(--font-serif); }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <p class="page-title">局势拆解 · 有名格落点</p>
+
+  <!-- ── 局势拆解 module ── -->
+  <section class="result-module">
+    <div class="ai-header-title">局势拆解</div>
+    <div class="insight-flow">
+
+      <!-- 分数依据 strip (existing) -->
+      <div class="insight-strip accent-neutral">
+        <div class="insight-strip-label">分数依据</div>
+        <div class="score-basis-body">
+          <div class="sb-row">
+            <div class="sb-row-title">有利依据</div>
+            <div class="sb-tags">
+              <span class="sb-tag positive">值使生门</span>
+              <span class="sb-tag positive">值符不空</span>
+              <span class="sb-tag positive">用神得地</span>
+            </div>
+          </div>
+          <div class="sb-row">
+            <div class="sb-row-title">谨慎因素</div>
+            <div class="sb-tags">
+              <span class="sb-tag negative">日干受制</span>
+              <span class="sb-tag negative">时支空亡</span>
+            </div>
+          </div>
+          <div class="sb-logic">综合用神状态、主客关系与空亡后，本局落在偏有利区间。</div>
+        </div>
+      </div>
+
+      <!-- ★ 有名格 strip (新增) -->
+      <div class="insight-strip accent-ge">
+        <div class="insight-strip-label">格局吉凶</div>
+        <div class="ge-body">
+          <div class="ge-tags-row">
+            <span class="ge-tag ji"
+              data-name="天遁" data-delta="+10" data-type="ji"
+              data-text="丙奇生门丁仪同宫，天机暗助，所谋之事顺水推舟，宜大胆进取。">
+              <span class="ge-dot"></span>天遁
+            </span>
+            <span class="ge-tag ji"
+              data-name="飞鸟跌穴" data-delta="+8" data-type="ji"
+              data-text="丙奇落戊宫，如鸟归巢，主动出击则势如破竹，被动守成反失先机。">
+              <span class="ge-dot"></span>飞鸟跌穴
+            </span>
+            <span class="ge-tag xiong"
+              data-name="白虎猖狂" data-delta="-8" data-type="xiong"
+              data-text="辛加乙奇，金克木，防口舌是非与血光之灾，慎言慎行为上策。">
+              <span class="ge-dot"></span>白虎猖狂
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 局势判断 (existing AI strip) -->
+      <div class="insight-strip accent-indigo">
+        <div class="insight-strip-label">局势判断</div>
+        <div class="insight-strip-body">当前局势主动有力，用神居旺宫，值使吉门同宫，时势顺畅，宜把握窗口期积极推进。</div>
+      </div>
+
+      <!-- 有利条件 (existing AI strip) -->
+      <div class="insight-strip accent-gold">
+        <div class="insight-strip-label">有利条件</div>
+        <div class="insight-strip-body">丙奇飞临用神宫，贵人暗助；值符星落旺位，主导资源充沛；动爻带马，时机流动性强。</div>
+      </div>
+
+      <!-- 阻力风险 (existing AI strip) -->
+      <div class="insight-strip accent-violet">
+        <div class="insight-strip-label">阻力风险</div>
+        <div class="insight-strip-body">时支空亡未实，中途存在变数；白虎猖狂主口舌是非，执行中宜低调，避免过度声张。</div>
+      </div>
+
+    </div>
+  </section>
+
+</div>
+
+<!-- Popover singleton -->
+<div class="ge-popover" id="pop">
+  <div class="pop-name" id="popName">
+    <span id="popNameText"></span>
+  </div>
+  <div class="pop-divider"></div>
+  <div class="pop-text" id="popText"></div>
+</div>
+
+<script>
+  const pop = document.getElementById('pop')
+  const popName = document.getElementById('popName')
+  const popNameText = document.getElementById('popNameText')
+
+  const popText = document.getElementById('popText')
+  let active = null, hideTimer = null
+
+  function show(tag) {
+    if (hideTimer) { clearTimeout(hideTimer); hideTimer = null }
+    active = tag
+    popNameText.textContent = tag.dataset.name
+    popName.className = `pop-name ${tag.dataset.type}`
+
+    popText.textContent = tag.dataset.text
+    pop.style.opacity = '0'
+    pop.classList.add('visible')
+    const r = tag.getBoundingClientRect()
+    const pw = 256, ph = pop.offsetHeight || 90
+    let left = r.left + r.width / 2 - pw / 2
+    let top  = r.top - ph - 10
+    left = Math.max(10, Math.min(left, window.innerWidth - pw - 10))
+    if (top < 60) top = r.bottom + 10
+    pop.style.left = left + 'px'
+    pop.style.top  = top + 'px'
+    pop.style.opacity = ''
+  }
+  function hide(now) {
+    if (now) { pop.classList.remove('visible'); active = null; return }
+    hideTimer = setTimeout(() => { pop.classList.remove('visible'); active = null }, 100)
+  }
+  document.querySelectorAll('.ge-tag').forEach(t => {
+    t.addEventListener('click', e => {
+      e.stopPropagation()
+      active === t && pop.classList.contains('visible') ? hide(true) : show(t)
+    })
+  })
+  pop.addEventListener('mouseenter', () => { if (hideTimer) { clearTimeout(hideTimer); hideTimer = null } })
+  pop.addEventListener('mouseleave', () => hide())
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.ge-tag') && !e.target.closest('#pop')) hide(true)
+  })
+  window.addEventListener('scroll', () => {
+    if (active && pop.classList.contains('visible')) show(active)
+  }, { passive: true })
+</script>
+</body>
+</html>
