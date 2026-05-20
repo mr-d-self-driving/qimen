@@ -57,15 +57,15 @@
     <div class="page-wrap">
       <div class="container">
 
-        <div v-if="!canUseApp" class="glass-card auth-card">
+        <div v-if="!canUseApp" class="glass-card auth-card" :class="{ 'signup-simple': !isLoginMode }">
           <div class="auth-card-glow" aria-hidden="true"></div>
           <div class="auth-head">
-            <div class="auth-kicker">{{ isLoginMode ? 'RETURNING SEEKER' : 'NEW SEEKER' }}</div>
+            <div v-if="isLoginMode" class="auth-kicker">RETURNING SEEKER</div>
             <h1>{{ isLoginMode ? '进入推演台' : '创建推演身份' }}</h1>
-            <p>{{ isLoginMode ? '同步历史记录、八字档案与运势缓存。' : '保存你的提问、档案与后续应验反馈。' }}</p>
+            <p v-if="isLoginMode">同步历史记录、八字档案与运势缓存。</p>
           </div>
 
-          <div class="auth-oauth-row">
+          <div v-if="isLoginMode" class="auth-oauth-row">
             <button class="google-submit" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
               <span class="google-mark" aria-hidden="true">
                 <svg viewBox="0 0 24 24" focusable="false">
@@ -80,7 +80,7 @@
             <button class="guest-submit" @click="handleGuestEntry">访客体验</button>
           </div>
 
-          <div class="auth-divider"><span>或使用邮箱</span></div>
+          <div v-if="isLoginMode" class="auth-divider"><span>或使用邮箱</span></div>
 
           <div class="auth-fields">
             <label class="auth-field">
@@ -98,20 +98,27 @@
             </label>
           </div>
 
+          <div v-if="!isLoginMode" class="auth-terms">
+            继续即表示同意
+            <router-link to="/terms">《用户协议》</router-link>
+            与
+            <router-link to="/privacy">《隐私政策》</router-link>。
+          </div>
+
           <button class="auth-submit" :disabled="authLoading" @click="handleAuth">
             <span>{{ authLoading ? '验证中...' : (isLoginMode ? '登录' : '注册') }}</span>
           </button>
 
-          <div class="auth-inline-actions">
+          <div v-if="isLoginMode" class="auth-inline-actions">
             <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
               {{ resetEmailLoading ? '正在发送...' : '忘记密码' }}
             </button>
             <router-link class="auth-engineering-link" to="/engineering">术数工程化</router-link>
           </div>
 
-          <div v-if="resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
+          <div v-if="isLoginMode && resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
 
-          <div class="auth-terms">
+          <div v-if="isLoginMode" class="auth-terms">
             继续即表示同意
             <router-link to="/terms">《用户协议》</router-link>
             与
@@ -2097,6 +2104,17 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 1px rgba(21
 .auth-kicker { font-size: 10px; color: rgba(78,205,196,0.78); letter-spacing: .2em; font-weight: 700; }
 .auth-head h1 { margin: 0; font-family: var(--font-serif); font-size: 26px; font-weight: 500; letter-spacing: .08em; color: var(--gold-light); }
 .auth-head p { margin: 0; color: rgba(240,237,230,0.56); font-size: 13px; line-height: 1.7; }
+.auth-card.signup-simple {
+  gap: 20px;
+}
+.auth-card.signup-simple .auth-head {
+  align-items: center;
+  text-align: center;
+  padding: 4px 0 2px;
+}
+.auth-card.signup-simple .auth-head h1 {
+  font-size: 28px;
+}
 .auth-oauth-row { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(118px,.75fr); gap: 10px; }
 .google-submit,
 .guest-submit,
@@ -2547,6 +2565,7 @@ input::placeholder { color: rgba(255,255,255,0.25); }
   .feedback-overlay.show .feedback-drawer { transform: translateY(0); }
   .auth-card { padding: 22px; gap: 16px; }
   .auth-head h1 { font-size: 23px; }
+  .auth-card.signup-simple .auth-head h1 { font-size: 25px; }
   .auth-oauth-row { grid-template-columns: 1fr; }
   .auth-inline-actions { justify-content: space-between; gap: 12px; }
   .qimen-profile-panel { padding: 12px 14px; }
