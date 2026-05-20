@@ -1786,6 +1786,7 @@ const buildCardHTML = (data) => {
   const hasChart = palaces.length > 0
 
   const score = summary.score || 0
+  const vd = getVerdictInfo(score)
   const THEME = score < 55 ? '#FF5E57' : score < 75 ? '#F5C518' : '#00D26A'
   const THEME_DIM = score < 55 ? 'rgba(255,94,87,0.15)' : score < 75 ? 'rgba(245,197,24,0.15)' : 'rgba(0,210,106,0.15)'
 
@@ -1905,23 +1906,17 @@ const buildCardHTML = (data) => {
     `<div class="insight-strip ${item.cls} reveal"><div class="insight-strip-label">${item.label}</div><div class="insight-strip-body">${item.value}</div></div>`
   )).join('')
 
-  let geCornerHTML = ''
-  if (namedFormationHits.length) {
-    const jiCount = namedFormationHits.filter(h => String(h.effect).startsWith('+')).length
-    const xiongCount = namedFormationHits.filter(h => !String(h.effect).startsWith('+')).length
-    geCornerHTML = `<div class="ge-corner-badges">${jiCount ? `<span class="ge-corner-badge ji">吉 ×${jiCount}</span>` : ''}${xiongCount ? `<span class="ge-corner-badge xiong">凶 ×${xiongCount}</span>` : ''}</div>`
-  }
-
   return `<div class="result-stack" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="result-module summary-module reveal">
       <div class="summary-top">
         <div class="summary-main">
           <div class="summary-title">${summary.title || '本局断语'}</div>
           <div class="summary-judgement">
+            <span class="verdict-badge verdict-${vd.cls}">${vd.label}</span>
             <span class="conclusion">${summary.conclusion}</span>
           </div>
         </div>
-        <div class="summary-score-bubble"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span>${geCornerHTML}</div>
+        <div class="summary-score-bubble"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span></div>
       </div>
       ${summary.keyword ? `<div class="keyword-highlight"><span class="keyword-label">关键判断</span><span class="keyword-text">${summary.keyword}</span></div>` : ''}
       ${question ? `<div class="question-bubble"><div class="question-text">“${question}”</div></div>` : ''}
@@ -2804,11 +2799,6 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :global(.ge-pop-name.xiong) { color:#FF8A80; }
 :global(.ge-pop-divider) { height:1px; background:rgba(255,255,255,0.06); margin:10px 0; }
 :global(.ge-pop-text) { font-size:13px; line-height:1.8; color:rgba(240,237,230,0.75); font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; }
-/* 右上角格局角标 */
-:deep(.ge-corner-badges) { display:flex; flex-direction:column; gap:4px; align-items:flex-end; margin-top:6px; }
-:deep(.ge-corner-badge) { font-size:10px; font-weight:600; letter-spacing:0.5px; padding:2px 8px; border-radius:10px; }
-:deep(.ge-corner-badge.ji) { background:rgba(212,175,55,0.13); border:1px solid rgba(212,175,55,0.35); color:#E8CC80; }
-:deep(.ge-corner-badge.xiong) { background:rgba(255,94,87,0.12); border:1px solid rgba(255,94,87,0.3); color:#FF8A80; }
 /* 策略与风险 */
 :deep(.strategy-list) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
 :deep(.strategy-list li) { position:relative; padding:12px 14px 12px 36px; background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:#C8C8D4; font-size:13px; line-height:1.7; transition:border-color .25s,background .25s; }
