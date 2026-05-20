@@ -12,7 +12,7 @@ import { Solar, Lunar } from 'lunar-javascript';
 import C from '../../lib/QimenConstants.js';
 import U from '../../lib/QimenUtils.js';
 import Calc from '../../lib/QimenCalculations.js';
-import { buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../lib/qimenPromptSections.js';
+import { buildFrontendCopyProtocolSection, buildQimenInferenceRulesSection, buildQimenOutputContractSection, buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../lib/qimenPromptSections.js';
 import { buildDomainViewPromptSection, buildYongshenPromptSection, getYongshenRule } from '../../lib/qimenYongshenRules.js';
 import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTimingRules.js';
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
@@ -72,6 +72,73 @@ function sanitizeSignalList(items = []) {
   return (Array.isArray(items) ? items : [])
     .map(sanitizeUserText)
     .filter(Boolean);
+}
+
+function buildQimenAuditSnapshot({
+  requestId = '',
+  recordId = null,
+  userId = null,
+  question = '',
+  ruleRouteHint = null,
+  routeRaw = null,
+  routeNormalized = null,
+  roleAudit = null,
+  qimenChartSnapshot = null,
+  timingTargetSymbols = null,
+  timingInputSnapshot = null,
+  timingAnalysisBackend = null,
+  timingPromptSection = '',
+  yongshenRuleSnapshot = null,
+  polarityOverrides = null,
+  backendScoreInput = null,
+  backendScoreAudit = null,
+  backendScoreIntermediate = null,
+  promptBlocks = [],
+  llmInputSnapshot = null,
+  llmPromptText = '',
+  llmOutputRaw = null,
+  llmOutputNormalized = null,
+  timingLlmOutput = null,
+  timingFinal = null,
+  postprocessAudit = null,
+  finalOutput = null,
+  modelName = '',
+  latencyMs = null,
+  fallbacks = []
+} = {}) {
+  return {
+    request_id: requestId,
+    record_id: recordId,
+    user_id: userId,
+    question,
+    rule_route_hint: ruleRouteHint,
+    route_raw: routeRaw,
+    route_normalized: routeNormalized,
+    role_audit: roleAudit,
+    qimen_chart_snapshot: qimenChartSnapshot,
+    timing_target_symbols: timingTargetSymbols,
+    timing_input_snapshot: timingInputSnapshot,
+    timing_analysis_backend: timingAnalysisBackend,
+    timing_prompt_section: timingPromptSection,
+    yongshen_rule_snapshot: yongshenRuleSnapshot,
+    polarity_overrides: polarityOverrides,
+    backend_score_input: backendScoreInput,
+    backend_score_audit: backendScoreAudit,
+    backend_score_intermediate: backendScoreIntermediate,
+    prompt_blocks: promptBlocks,
+    llm_input_snapshot: llmInputSnapshot,
+    llm_prompt_text: llmPromptText,
+    llm_output_raw: llmOutputRaw,
+    llm_output_normalized: llmOutputNormalized,
+    timing_llm_output: timingLlmOutput,
+    timing_final: timingFinal,
+    postprocess_audit: postprocessAudit,
+    final_output: finalOutput,
+    fallbacks,
+    model_name: modelName,
+    latency_ms: latencyMs,
+    created_at: new Date().toISOString()
+  };
 }
 
 function getAllowedOrigins(env) {
@@ -893,6 +960,7 @@ let baziMemoryCache = {};
 
 async function handleQimen(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  const startedAt = Date.now();
 
   // ── Pre-stream: auth + quota (may return JSON errors before SSE starts) ──
   const authHeader = request.headers.get('Authorization');
@@ -1033,9 +1101,11 @@ async function handleQimen(request, env) {
     // ── SSE Step 1: 起盘计算完成 ──
     emit({ type: 'step', index: 1, pct: 25, chip: { main: qimen_structure, sub: ganzhiHour } });
 
-    const detectedIntent = body.route
-        ? normalizeDivinationRoute(body.route)
+    const qimenRouteHint = ruleRouteHint(userQuestion, { forceBranch: 'qimen' });
+    const routeRaw = body.route
+        ? { ...body.route, source: body.route.source || 'client' }
         : await classifyDivinationQuestion({ question: userQuestion, forceBranch: 'qimen', llmFallback: true, llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env) });
+    const detectedIntent = normalizeDivinationRoute(routeRaw);
 
     // ── SSE Step 0: 解析问题意图完成 (routing was done by client) ──
     const _cat0 = QIMEN_CATEGORY_LABELS[detectedIntent.category] || '综合运势';
@@ -1075,7 +1145,7 @@ async function handleQimen(request, env) {
         isHourStem: tianPanGan[i] === hourStem || diPan[i] === hourStem
     }));
     
-    const timingAnalysis = buildTimingAnalysis({
+    const timingInputSnapshot = {
         generatedAt: bjTime,
         chart: {
             dayKongBranches: String(dayKongObj || '').split(''),
@@ -1089,7 +1159,8 @@ async function handleQimen(request, env) {
         scanDays: 30,
         scanMaxHits: 12,
         recheckLimit: 5
-    });
+    };
+    const timingAnalysis = buildTimingAnalysis(timingInputSnapshot);
     
     // ── SSE Step 3: 推演应期完成 ──
     const _windows = timingAnalysis?.p2_scan?.candidates || [];
@@ -1101,12 +1172,13 @@ async function handleQimen(request, env) {
         intent: detectedIntent,
         palaces: timingPalaces
     });
-    const backendScoreAudit = calculateQimenScore({
+    const backendScoreInput = {
         intent: detectedIntent,
         palaces: timingPalaces,
         yongshenRule,
         polarityOverrides
-    });
+    };
+    const backendScoreAudit = calculateQimenScore(backendScoreInput);
     // ── SSE Step 4: 后端评分完成 ──
     emit({ type: 'step', index: 4, pct: 72, chip: { main: `初分 ${backendScoreAudit.final_score}`, sub: QIMEN_SCORE_LABEL(backendScoreAudit.final_score) } });
 
@@ -1119,7 +1191,17 @@ async function handleQimen(request, env) {
     const timingPromptSection = buildTimingPromptSection(timingAnalysis);
     const polarityPromptSection = buildPolarityPromptSection(polarityOverrides);
     const summaryPromptSection = buildSummaryPromptSection();
-    const scoreAuditPromptSection = buildScoreAuditPromptSection(backendScoreAudit);
+    const inferenceRulesSection = buildQimenInferenceRulesSection();
+    const scoreAuditPromptSection = buildScoreAuditPromptSection({
+        scoreAudit: backendScoreAudit,
+        scoreInput: backendScoreInput,
+        yongshenRule
+    });
+    const frontendCopyProtocolSection = buildFrontendCopyProtocolSection();
+    const outputContractSection = buildQimenOutputContractSection({
+        routeConfidence: detectedIntent.confidence,
+        backendScore: backendScoreAudit.final_score
+    });
 
     const finalPrompt = `你是一位精通“时家奇门拆补转盘法”的奇门遁甲预测大师。
 起局时间：${timestamp_solar}(${timestamp_lunar})。
@@ -1134,6 +1216,8 @@ ${effectiveBaziInfo}
 1. ${yongshenPromptSection}
    - **补充限制**：如果上文提供了“求测人八字/命理信息”，请务必提取其出生年的天干作为“年命”落宫，结合日干落宫综合判断；若未提供，直接以“日干”代表求测人。
    - **审计要求**：你必须把当前 category/subcategory 对应的取用神规则作为审计依据。若你认为上游分类或子分类不贴合用户问题，必须在 intent_audit 中说明，并评估这是否导致后端初分偏差。
+
+${inferenceRulesSection}
 
 2. **断吉凶（注重静态盘面）**：
    - 分析五行生克、吉凶格、空亡（能量减半/待填实）、马星（变动/加速），对比核心用神宫位的生克关系。
@@ -1160,105 +1244,9 @@ ${polarityPromptSection}
 
 ${timingPromptSection}
 
-**【Output Format (JSON Schema)】**
-请严格按照以下 JSON 结构返回数据：
-{
-  "summary": {
-    "title": "短标题 (如: 大客户谈判预测)",
-    "conclusion": "核心结论，克制表达，不要绝对化",
-    "score": 85,
-    "score_basis": {
-      "positive_signals": ["用户能听懂的有利因素，不要直接写后端技术标签"],
-      "negative_signals": ["用户能听懂的风险因素，不要直接写后端技术标签"],
-      "score_logic": "说明后端初分经过你审计后为什么落在这个区间"
-    },
-    "keyword": "关键信号 (如: 财气通门户，马星催动)"
-  },
-  "intent_audit": {
-    "route_confidence": "${detectedIntent.confidence}",
-    "is_route_acceptable": true,
-    "suggested_category": "",
-    "suggested_subcategory": "",
-    "reason": "审计上游分类、subcategory 与取用神规则是否贴合用户问题；若 route_confidence 为 low，必须重点说明"
-  },
-  "score_audit": {
-    "backend_pre_score": ${backendScoreAudit.final_score},
-    "audit_delta": 0,
-    "final_score_suggestion": ${backendScoreAudit.final_score},
-    "confidence": "low|medium|high",
-    "missed_or_overweighted_factors": [
-      {
-        "factor": "后端漏判/误判/过重/过轻的因素",
-        "type": "missed|overweighted|underweighted|misread",
-        "impact": "+0",
-        "reason": "说明教材依据、现实映射和为什么影响 audit_delta"
-      }
-    ],
-    "audit_reason": "用自然语言说明你为什么保留或修正后端初分"
-  },
-  "analysis": {
-    "tensor": "时空能量 (如: 阳遁三局，金水相生)",
-    "yong_shen": "用神分析 (详细说明你提取了哪些用神及其生克状态)",
-    "bazi_insight": "年命/八字参考 (如提供了八字，请简述年命落宫吉凶及其对大局的影响；若未提供八字，返回空即可)",
-    "pattern": "特殊格局 (如: 癸+己华盖地户，需防文书错漏)",
-    "god_help": "神助 (如: 临九地，宜长线发展)",
-    "dynamic_timing": "动态应期推演 (极其重要！详细说明当天的哪个时辰/未来的哪个日子能冲破阻碍或填实空亡，促成事情发展)"
-  },
-  "advice": {
-    "strategy": [
-      "策略1", "策略2"
-    ],
-    "risk": "避坑指南",
-    "lucky_tips": {
-      "direction": "有利方位",
-      "time": "有利时间",
-      "action": "助运行行为"
-    }
-  },
-  "domain_view": {
-    "type": "career_business|relationship|finance_wealth|health_action|item_transaction|exam_study|lawsuit_legal|fengshui_house|pregnancy_birth",
-    "title": "领域判断标题",
-    "axes": [
-      {
-        "key": "self",
-        "label": "本人状态",
-        "symbol": "日干",
-        "verdict": "该轴的判断结论",
-        "evidence": "对应具体宫位/门星神干/空亡马星的依据",
-        "tone": "positive|mixed|warning"
-      }
-    ],
-    "process": {
-      "label": "流程/阻力/风险",
-      "symbols": ["值使门", "时干"],
-      "verdict": "过程判断",
-      "evidence": "过程依据"
-    },
-    "timing": {
-      "label": "应期",
-      "verdict": "应期判断",
-      "favorable_window": "有利窗口",
-      "trigger": "触发条件"
-    },
-    "decision": {
-      "recommended_action": "建议做法",
-      "avoid": "应避免事项"
-    }
-  },
-  "timing_analysis": {
-    "method": "qimen-timing-v1",
-    "summary": "用一句话概括应期判断，必须基于系统提供的 timing_analysis 候选",
-    "primary_window": "最值得观察的时间窗口",
-    "primary_trigger": "触发规则，如空亡填实/冲空/马星动/冲墓/逢合逢冲",
-    "confidence": "low|medium|high"
-  },
-  "display_blocks": {
-    "situation": "给用户看的局势拆解，隐藏后端技术标签",
-    "support": "有利条件，用人话表达",
-    "risk": "阻力与不确定性，用人话表达",
-    "timing": "时间窗口，只说明可能启动/观察，不保证结果"
-  }
-}
+${frontendCopyProtocolSection}
+
+${outputContractSection}
 
 务必做到有根据、有理论支持，分析的详细还要体会我问问题的心理潜在因素，照顾我的心理感受。你先分析，我下面要问你问题了。
 问题：${userQuestion}`;
@@ -1266,15 +1254,30 @@ ${timingPromptSection}
     // ── SSE Step 5: AI 推演开始 (awaiting LLM) ──
     emit({ type: 'active', index: 5, pct: 78 });
 
-    const aiJsonData = normalizeQimenLlmOutput(await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7));
-    const rawLlmScoreAudit = aiJsonData.score_audit || {};
+    const rawQimenLlmOutput = await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7);
+    const aiJsonData = normalizeQimenLlmOutput(rawQimenLlmOutput);
+    const rawLlmScoreAudit = aiJsonData.score_review || aiJsonData.score_audit || {};
+    const rawLlmTimingReview = aiJsonData.timing_review || aiJsonData.timing_analysis || null;
     const auditDelta = parseAuditDelta(rawLlmScoreAudit.audit_delta);
     const finalScore = Math.round(clampNumber(backendScoreAudit.final_score + auditDelta, 0, 100));
+    const postprocessAudit = {
+        raw_score_review: rawLlmScoreAudit,
+        raw_timing_review: rawLlmTimingReview,
+        parsed_audit_delta: auditDelta,
+        backend_pre_score: backendScoreAudit.final_score,
+        final_score: finalScore
+    };
+    aiJsonData.score_review = rawLlmScoreAudit;
+    aiJsonData.timing_review = rawLlmTimingReview;
     aiJsonData.score_audit = {
         backend_pre_score: backendScoreAudit.final_score,
         audit_delta: auditDelta,
         final_score_suggestion: finalScore,
         confidence: ['low', 'medium', 'high'].includes(rawLlmScoreAudit.confidence) ? rawLlmScoreAudit.confidence : backendScoreAudit.confidence,
+        role_review: rawLlmScoreAudit.role_review || null,
+        layer_reviews: rawLlmScoreAudit.layer_reviews || [],
+        timing_review: rawLlmScoreAudit.timing_review || rawLlmTimingReview || null,
+        audit_delta_breakdown: rawLlmScoreAudit.audit_delta_breakdown || [],
         missed_or_overweighted_factors: Array.isArray(rawLlmScoreAudit.missed_or_overweighted_factors)
             ? rawLlmScoreAudit.missed_or_overweighted_factors
             : [],
@@ -1285,6 +1288,11 @@ ${timingPromptSection}
     const sanitizedNegativeSignals = sanitizeSignalList(rawScoreBasis.negative_signals);
     const sanitizedScoreLogic = sanitizeUserText(rawScoreBasis.score_logic)
         || `综合用神状态、主客关系、空亡与应期后，本局落在${finalScore >= 75 ? '偏有利' : finalScore >= 60 ? '中等可观察' : finalScore >= 40 ? '偏谨慎' : '明显谨慎'}区间。`;
+    postprocessAudit.sanitized_summary_basis = {
+        positive_signals: sanitizedPositiveSignals,
+        negative_signals: sanitizedNegativeSignals,
+        score_logic: sanitizedScoreLogic
+    };
 
     aiJsonData.summary = {
         ...(aiJsonData.summary || {}),
@@ -1324,7 +1332,7 @@ ${timingPromptSection}
         polarity_overrides: polarityOverrides,
         timing_analysis: {
             ...timingAnalysis,
-            llm_summary: aiJsonData.timing_analysis || null
+            llm_summary: rawLlmTimingReview
         },
         qimen_data: {
             status: "success",
@@ -1336,6 +1344,84 @@ ${timingPromptSection}
         }
     };
 
+        const qimenAuditSnapshot = buildQimenAuditSnapshot({
+            requestId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+            userId,
+            question: userQuestion,
+            ruleRouteHint: qimenRouteHint,
+            routeRaw,
+            routeNormalized: detectedIntent,
+            roleAudit: {
+                rule_role_hint: qimenRouteHint.role,
+                llm_role: routeRaw.role,
+                normalized_role: detectedIntent.role,
+                role_reason: routeRaw.reason || detectedIntent.reason || '',
+                role_confidence: routeRaw.confidence || detectedIntent.confidence || ''
+            },
+            qimenChartSnapshot: {
+                pillars: finalOutput.qimen_data.pillars,
+                timestamp: finalOutput.qimen_data.timestamp,
+                ju_info: finalOutput.qimen_data.ju_info,
+                auxiliary: finalOutput.qimen_data.auxiliary,
+                palaces: finalOutput.qimen_data.palaces
+            },
+            timingTargetSymbols,
+            timingInputSnapshot,
+            timingAnalysisBackend: timingAnalysis,
+            timingPromptSection,
+            yongshenRuleSnapshot: yongshenRule,
+            polarityOverrides,
+            backendScoreInput,
+            backendScoreAudit,
+            backendScoreIntermediate: {
+                deltas: backendScoreAudit.deltas,
+                adjustments: backendScoreAudit.adjustments,
+                yongshen_nodes: backendScoreAudit.yongshen_nodes,
+                relations: backendScoreAudit.relations,
+                timing: backendScoreAudit.timing
+            },
+            promptBlocks: [
+                'buildYongshenPromptSection',
+                'buildQimenInferenceRulesSection',
+                'buildScoreAuditPromptSection',
+                'buildSummaryPromptSection',
+                'buildDomainViewPromptSection',
+                'buildPolarityPromptSection',
+                'buildTimingPromptSection',
+                'buildFrontendCopyProtocolSection',
+                'buildQimenOutputContractSection',
+                detectedIntent.role ? `role:${detectedIntent.role}` : '',
+                detectedIntent.category ? `category:${detectedIntent.category}` : '',
+                detectedIntent.subcategory ? `subcategory:${detectedIntent.subcategory}` : ''
+            ].filter(Boolean),
+            llmInputSnapshot: {
+                intent: detectedIntent,
+                hasBaziInfo,
+                effective_bazi_info: effectiveBaziInfo,
+                backend_score_audit: backendScoreAudit,
+                timing_analysis: timingAnalysis,
+                polarity_overrides: polarityOverrides
+            },
+            llmPromptText: finalPrompt,
+            llmOutputRaw: rawQimenLlmOutput,
+            llmOutputNormalized: aiJsonData,
+            timingLlmOutput: rawLlmTimingReview,
+            timingFinal: finalOutput.timing_analysis,
+            postprocessAudit,
+            finalOutput,
+            modelName: 'gemini-3.1-pro-preview',
+            latencyMs: Date.now() - startedAt,
+            fallbacks: []
+        });
+
+        try {
+            const supabase = createSupabaseClient(env);
+            const { error: auditError } = await supabase.from('qimen_question_audit').insert(qimenAuditSnapshot);
+            if (auditError) console.warn('[qimen-api] qimen audit insert failed:', auditError.message || auditError);
+        } catch (auditErr) {
+            console.warn('[qimen-api] qimen audit insert failed:', auditErr.message || auditErr);
+        }
+	
     qimenMemoryCache[cacheKey] = finalOutput;
     emit({ type: 'complete', result: finalOutput });
 
