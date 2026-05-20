@@ -850,11 +850,62 @@ const syncAuthModeFromRoute = () => {
   isLoginMode.value = route.query.auth !== 'register'
 }
 
+// ── 有名格 popover ──
+let gePopoverEl = null
+let geActiveTag = null
+let geHideTimer = null
+
+const showGePopover = (tag, reasons) => {
+  if (geHideTimer) { clearTimeout(geHideTimer); geHideTimer = null }
+  const name = tag.dataset.geName
+  const entry = reasons.find(r => r.name === name)
+  if (!entry) return
+  geActiveTag = tag
+  if (!gePopoverEl) {
+    gePopoverEl = document.createElement('div')
+    gePopoverEl.className = 'ge-popover'
+    gePopoverEl.innerHTML = `<div class="ge-pop-name"></div><div class="ge-pop-divider"></div><div class="ge-pop-text"></div>`
+    document.body.appendChild(gePopoverEl)
+  }
+  gePopoverEl.querySelector('.ge-pop-name').textContent = entry.name
+  gePopoverEl.querySelector('.ge-pop-name').className = `ge-pop-name ${entry.type}`
+  gePopoverEl.querySelector('.ge-pop-text').textContent = entry.text
+  gePopoverEl.style.opacity = '0'
+  gePopoverEl.classList.add('visible')
+  const r = tag.getBoundingClientRect()
+  const pw = 256, ph = gePopoverEl.offsetHeight || 90
+  let left = r.left + r.width / 2 - pw / 2
+  let top  = r.top - ph - 10
+  left = Math.max(10, Math.min(left, window.innerWidth - pw - 10))
+  if (top < 60) top = r.bottom + 10
+  gePopoverEl.style.left = left + 'px'
+  gePopoverEl.style.top  = top + 'px'
+  gePopoverEl.style.opacity = ''
+}
+
+const hideGePopover = (immediate) => {
+  if (immediate) { gePopoverEl?.classList.remove('visible'); geActiveTag = null; return }
+  geHideTimer = setTimeout(() => { gePopoverEl?.classList.remove('visible'); geActiveTag = null }, 100)
+}
+
+const handleGeTagClick = (e) => {
+  const tag = e.target.closest('.ge-tag')
+  if (!tag) return
+  const row = tag.closest('.ge-tags-row')
+  if (!row) return
+  try {
+    const reasons = JSON.parse(row.dataset.geReasons || '[]')
+    if (geActiveTag === tag && gePopoverEl?.classList.contains('visible')) hideGePopover(true)
+    else showGePopover(tag, reasons)
+  } catch {}
+}
+
 onMounted(() => {
   syncAuthModeFromRoute()
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
   document.addEventListener('click', handleDocumentClick)
+  document.addEventListener('click', handleGeTagClick)
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     handleSessionUpdate(session)
@@ -868,6 +919,9 @@ watch(() => route.query.auth, syncAuthModeFromRoute)
 
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
+  document.removeEventListener('click', handleGeTagClick)
+  gePopoverEl?.remove()
+  gePopoverEl = null
   clearInterval(clockInterval)
   clearInterval(loaderInterval)
   clearInterval(scoreTimer)
@@ -1744,6 +1798,18 @@ const buildCardHTML = (data) => {
     if (pos || neg || logic) scoreBasisHTML = `<div class="insight-strip accent-neutral reveal"><div class="insight-strip-label">分数依据</div><div class="score-basis-body">${pos}${neg}${logic}</div></div>`
   }
 
+  const namedFormationHits = (data.backend_score_audit?.adjustments || [])
+    .filter(h => h.layer === 'named_formation')
+  let namedFormationHTML = ''
+  if (namedFormationHits.length) {
+    const tags = namedFormationHits.map(h => {
+      const isJi = String(h.effect).startsWith('+')
+      const escapedReason = (h.reason || '').replace(/"/g, '&quot;')
+      return `<span class="ge-tag ${isJi ? 'ji' : 'xiong'}" data-ge-name="${h.signal}"><span class="ge-dot"></span>${h.signal}</span>`
+    }).join('')
+    namedFormationHTML = `<div class="insight-strip accent-ge reveal"><div class="insight-strip-label">格局吉凶</div><div class="ge-tags-row" data-ge-reasons='${JSON.stringify(namedFormationHits.map(h => ({ name: h.signal, type: String(h.effect).startsWith('+') ? 'ji' : 'xiong', text: h.reason || '' })))}'>${tags}</div></div>`
+  }
+
   // 九宫格排盘
   let chartHTML = ''
   if (hasChart) {
@@ -1795,6 +1861,7 @@ const buildCardHTML = (data) => {
       <div class="insight-flow">
         ${baziHTML}
         ${scoreBasisHTML}
+        ${namedFormationHTML}
         ${detailInsightHTML}
       </div>
     </section>
@@ -2599,6 +2666,35 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :deep(.sb-tag.positive) { background:rgba(0,210,106,0.08); color:#00D26A; border:1px solid rgba(0,210,106,0.18); }
 :deep(.sb-tag.negative) { background:rgba(255,94,87,0.08); color:#FF5E57; border:1px solid rgba(255,94,87,0.18); }
 :deep(.sb-logic) { font-size:12px; color:#8888A0; line-height:1.7; padding:10px 12px; background:rgba(255,255,255,0.015); border-radius:8px; border-left:2px solid var(--theme-color,#B38B36); }
+:deep(.accent-ge) { border-left-color:rgba(212,175,55,0.5); background:linear-gradient(135deg,rgba(212,175,55,0.04),transparent); }
+:deep(.accent-ge .insight-strip-label) { color:#E8CC80; }
+:deep(.ge-tags-row) { display:flex; flex-wrap:wrap; gap:6px; margin-top:4px; }
+:deep(.ge-tag) { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:500; cursor:pointer; white-space:nowrap; user-select:none; transition:transform .2s; }
+:deep(.ge-tag:hover) { transform:scale(1.05); }
+:deep(.ge-tag.ji) { background:rgba(212,175,55,0.11); border:1px solid rgba(212,175,55,0.32); color:#E8CC80; }
+:deep(.ge-tag.xiong) { background:rgba(255,94,87,0.11); border:1px solid rgba(255,94,87,0.28); color:#FF8A80; }
+:deep(.ge-dot) { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
+:deep(.ge-tag.ji .ge-dot) { background:#D4AF37; }
+:deep(.ge-tag.xiong .ge-dot) { background:#FF5E57; }
+/* 有名格 popover (appended to body, needs :global) */
+:global(.ge-popover) {
+  position:fixed; z-index:9999;
+  background:rgba(10,10,22,0.97);
+  border:1px solid rgba(212,175,55,0.2);
+  border-radius:14px; padding:13px 15px;
+  min-width:210px; max-width:256px;
+  box-shadow:0 10px 40px rgba(0,0,0,0.65);
+  backdrop-filter:blur(20px);
+  pointer-events:none; opacity:0;
+  transform:translateY(6px) scale(0.97);
+  transition:opacity .15s ease, transform .2s cubic-bezier(0.34,1.56,0.64,1);
+}
+:global(.ge-popover.visible) { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
+:global(.ge-pop-name) { font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; font-size:14px; letter-spacing:1px; margin-bottom:7px; }
+:global(.ge-pop-name.ji) { color:#E8CC80; }
+:global(.ge-pop-name.xiong) { color:#FF8A80; }
+:global(.ge-pop-divider) { height:1px; background:rgba(255,255,255,0.06); margin:7px 0; }
+:global(.ge-pop-text) { font-size:12px; line-height:1.75; color:rgba(240,237,230,0.72); font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; }
 /* 策略与风险 */
 :deep(.strategy-list) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
 :deep(.strategy-list li) { position:relative; padding:12px 14px 12px 36px; background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:#C8C8D4; font-size:13px; line-height:1.7; transition:border-color .25s,background .25s; }
