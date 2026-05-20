@@ -918,42 +918,40 @@ const GE_DESCRIPTIONS = {
   '反吟（凶）': '反吟翻覆，局势颠倒，守方处境艰难，变化剧烈，宜化解矛盾。',
 }
 
-// ── 有名格 popover ──
-let gePopoverEl = null
+// ── 有名格 modal ──
+let geModalEl = null
+let geOverlayEl = null
 let geActiveTag = null
-let geHideTimer = null
 
-const showGePopover = (tag, reasons) => {
-  if (geHideTimer) { clearTimeout(geHideTimer); geHideTimer = null }
+const hideGeModal = () => {
+  geOverlayEl?.classList.remove('visible')
+  geModalEl?.classList.remove('visible')
+  geActiveTag = null
+}
+
+const showGeModal = (tag, reasons) => {
   const name = tag.dataset.geName
   const entry = reasons.find(r => r.name === name)
   if (!entry) return
   geActiveTag = tag
-  if (!gePopoverEl) {
-    gePopoverEl = document.createElement('div')
-    gePopoverEl.className = 'ge-popover'
-    gePopoverEl.innerHTML = `<div class="ge-pop-name"></div><div class="ge-pop-divider"></div><div class="ge-pop-text"></div>`
-    document.body.appendChild(gePopoverEl)
+  if (!geOverlayEl) {
+    geOverlayEl = document.createElement('div')
+    geOverlayEl.className = 'ge-overlay'
+    geOverlayEl.addEventListener('click', hideGeModal)
+    document.body.appendChild(geOverlayEl)
   }
-  gePopoverEl.querySelector('.ge-pop-name').textContent = entry.name
-  gePopoverEl.querySelector('.ge-pop-name').className = `ge-pop-name ${entry.type}`
-  gePopoverEl.querySelector('.ge-pop-text').textContent = entry.text
-  gePopoverEl.style.opacity = '0'
-  gePopoverEl.classList.add('visible')
-  const r = tag.getBoundingClientRect()
-  const pw = 256, ph = gePopoverEl.offsetHeight || 90
-  let left = r.left + r.width / 2 - pw / 2
-  let top  = r.top - ph - 10
-  left = Math.max(10, Math.min(left, window.innerWidth - pw - 10))
-  if (top < 60) top = r.bottom + 10
-  gePopoverEl.style.left = left + 'px'
-  gePopoverEl.style.top  = top + 'px'
-  gePopoverEl.style.opacity = ''
-}
-
-const hideGePopover = (immediate) => {
-  if (immediate) { gePopoverEl?.classList.remove('visible'); geActiveTag = null; return }
-  geHideTimer = setTimeout(() => { gePopoverEl?.classList.remove('visible'); geActiveTag = null }, 100)
+  if (!geModalEl) {
+    geModalEl = document.createElement('div')
+    geModalEl.className = 'ge-modal'
+    geModalEl.innerHTML = `<button class="ge-modal-close">✕</button><div class="ge-pop-name"></div><div class="ge-pop-divider"></div><div class="ge-pop-text"></div>`
+    geModalEl.querySelector('.ge-modal-close').addEventListener('click', hideGeModal)
+    document.body.appendChild(geModalEl)
+  }
+  geModalEl.querySelector('.ge-pop-name').textContent = entry.name
+  geModalEl.querySelector('.ge-pop-name').className = `ge-pop-name ${entry.type}`
+  geModalEl.querySelector('.ge-pop-text').textContent = entry.text
+  geOverlayEl.classList.add('visible')
+  geModalEl.classList.add('visible')
 }
 
 const handleGeTagClick = (e) => {
@@ -963,8 +961,8 @@ const handleGeTagClick = (e) => {
   if (!row) return
   try {
     const reasons = JSON.parse(row.dataset.geReasons || '[]')
-    if (geActiveTag === tag && gePopoverEl?.classList.contains('visible')) hideGePopover(true)
-    else showGePopover(tag, reasons)
+    if (geActiveTag === tag && geModalEl?.classList.contains('visible')) hideGeModal()
+    else showGeModal(tag, reasons)
   } catch {}
 }
 
@@ -988,8 +986,10 @@ watch(() => route.query.auth, syncAuthModeFromRoute)
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('click', handleGeTagClick)
-  gePopoverEl?.remove()
-  gePopoverEl = null
+  geModalEl?.remove()
+  geOverlayEl?.remove()
+  geModalEl = null
+  geOverlayEl = null
   clearInterval(clockInterval)
   clearInterval(loaderInterval)
   clearInterval(scoreTimer)
@@ -1899,6 +1899,13 @@ const buildCardHTML = (data) => {
     `<div class="insight-strip ${item.cls} reveal"><div class="insight-strip-label">${item.label}</div><div class="insight-strip-body">${item.value}</div></div>`
   )).join('')
 
+  let geCornerHTML = ''
+  if (namedFormationHits.length) {
+    const jiCount = namedFormationHits.filter(h => String(h.effect).startsWith('+')).length
+    const xiongCount = namedFormationHits.filter(h => !String(h.effect).startsWith('+')).length
+    geCornerHTML = `<div class="ge-corner-badges">${jiCount ? `<span class="ge-corner-badge ji">吉 ×${jiCount}</span>` : ''}${xiongCount ? `<span class="ge-corner-badge xiong">凶 ×${xiongCount}</span>` : ''}</div>`
+  }
+
   return `<div class="result-stack" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="result-module summary-module reveal">
       <div class="summary-top">
@@ -1909,7 +1916,7 @@ const buildCardHTML = (data) => {
             <span class="conclusion">${summary.conclusion}</span>
           </div>
         </div>
-        <div class="summary-score-bubble"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span></div>
+        <div class="summary-score-bubble"><span class="score" id="vueScoreValue">${score}</span><span class="score-unit">分</span>${geCornerHTML}</div>
       </div>
       ${summary.keyword ? `<div class="keyword-highlight"><span class="keyword-label">关键判断</span><span class="keyword-text">${summary.keyword}</span></div>` : ''}
       ${question ? `<div class="question-bubble"><div class="question-text">“${question}”</div></div>` : ''}
@@ -2744,25 +2751,47 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :deep(.ge-dot) { width:5px; height:5px; border-radius:50%; flex-shrink:0; }
 :deep(.ge-tag.ji .ge-dot) { background:#D4AF37; }
 :deep(.ge-tag.xiong .ge-dot) { background:#FF5E57; }
-/* 有名格 popover (appended to body, needs :global) */
-:global(.ge-popover) {
-  position:fixed; z-index:9999;
-  background:rgba(10,10,22,0.97);
-  border:1px solid rgba(212,175,55,0.2);
-  border-radius:14px; padding:13px 15px;
-  min-width:210px; max-width:256px;
-  box-shadow:0 10px 40px rgba(0,0,0,0.65);
-  backdrop-filter:blur(20px);
-  pointer-events:none; opacity:0;
-  transform:translateY(6px) scale(0.97);
-  transition:opacity .15s ease, transform .2s cubic-bezier(0.34,1.56,0.64,1);
+/* 有名格 modal (appended to body, needs :global) */
+:global(.ge-overlay) {
+  position:fixed; inset:0; z-index:9998;
+  background:rgba(0,0,0,0.55);
+  backdrop-filter:blur(6px);
+  opacity:0; pointer-events:none;
+  transition:opacity .2s ease;
 }
-:global(.ge-popover.visible) { opacity:1; transform:translateY(0) scale(1); pointer-events:auto; }
-:global(.ge-pop-name) { font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; font-size:14px; letter-spacing:1px; margin-bottom:7px; }
+:global(.ge-overlay.visible) { opacity:1; pointer-events:auto; }
+:global(.ge-modal) {
+  position:fixed; z-index:9999;
+  top:50%; left:50%;
+  transform:translate(-50%,-46%) scale(0.94);
+  background:rgba(10,10,22,0.97);
+  border:1px solid rgba(212,175,55,0.22);
+  border-radius:18px; padding:22px 22px 20px;
+  min-width:260px; max-width:320px;
+  box-shadow:0 24px 60px rgba(0,0,0,0.7);
+  opacity:0; pointer-events:none;
+  transition:opacity .2s ease, transform .25s cubic-bezier(0.34,1.56,0.64,1);
+}
+:global(.ge-modal.visible) { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
+:global(.ge-modal-close) {
+  position:absolute; top:12px; right:14px;
+  width:24px; height:24px; padding:0;
+  background:none; border:none;
+  color:rgba(240,237,230,0.35); font-size:14px;
+  cursor:pointer; display:flex; align-items:center; justify-content:center;
+  transition:color .15s;
+}
+:global(.ge-modal-close:hover) { color:rgba(240,237,230,0.8); }
+:global(.ge-pop-name) { font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; font-size:16px; letter-spacing:1.5px; margin-bottom:7px; padding-right:20px; }
 :global(.ge-pop-name.ji) { color:#E8CC80; }
 :global(.ge-pop-name.xiong) { color:#FF8A80; }
-:global(.ge-pop-divider) { height:1px; background:rgba(255,255,255,0.06); margin:7px 0; }
-:global(.ge-pop-text) { font-size:12px; line-height:1.75; color:rgba(240,237,230,0.72); font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; }
+:global(.ge-pop-divider) { height:1px; background:rgba(255,255,255,0.06); margin:10px 0; }
+:global(.ge-pop-text) { font-size:13px; line-height:1.8; color:rgba(240,237,230,0.75); font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; }
+/* 右上角格局角标 */
+:deep(.ge-corner-badges) { display:flex; flex-direction:column; gap:4px; align-items:flex-end; margin-top:6px; }
+:deep(.ge-corner-badge) { font-size:10px; font-weight:600; letter-spacing:0.5px; padding:2px 8px; border-radius:10px; }
+:deep(.ge-corner-badge.ji) { background:rgba(212,175,55,0.13); border:1px solid rgba(212,175,55,0.35); color:#E8CC80; }
+:deep(.ge-corner-badge.xiong) { background:rgba(255,94,87,0.12); border:1px solid rgba(255,94,87,0.3); color:#FF8A80; }
 /* 策略与风险 */
 :deep(.strategy-list) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
 :deep(.strategy-list li) { position:relative; padding:12px 14px 12px 36px; background:rgba(0,0,0,0.15); border:1px solid rgba(255,255,255,0.05); border-radius:10px; color:#C8C8D4; font-size:13px; line-height:1.7; transition:border-color .25s,background .25s; }
