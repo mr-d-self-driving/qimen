@@ -1779,7 +1779,6 @@ const buildCardHTML = (data) => {
   const hasChart = palaces.length > 0
 
   const score = summary.score || 0
-  const vd = getVerdictInfo(score)
   const THEME = score < 55 ? '#FF5E57' : score < 75 ? '#F5C518' : '#00D26A'
   const THEME_DIM = score < 55 ? 'rgba(255,94,87,0.15)' : score < 75 ? 'rgba(245,197,24,0.15)' : 'rgba(0,210,106,0.15)'
 
@@ -1912,7 +1911,6 @@ const buildCardHTML = (data) => {
         <div class="summary-main">
           <div class="summary-title">${summary.title || '本局断语'}</div>
           <div class="summary-judgement">
-            <span class="verdict-badge verdict-${vd.cls}">${vd.label}</span>
             <span class="conclusion">${summary.conclusion}</span>
           </div>
         </div>

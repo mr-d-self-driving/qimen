@@ -57,6 +57,16 @@ test('八字问答结果使用 mode 卡片而不是奇门分数泡泡', () => {
   assert.match(source, /if \(data\.branch === 'bazi' && data\.meta\?\.analysis_mode\)/)
 })
 
+test('奇门占卜结果主卡不展示吉凶角标', () => {
+  const summaryStart = source.indexOf('<section class="result-module summary-module reveal">', source.indexOf('const buildResultHTML'))
+  const summaryEnd = source.indexOf('</section>', summaryStart)
+  const summarySource = source.slice(summaryStart, summaryEnd)
+
+  assert.ok(summaryStart > -1)
+  assert.ok(summaryEnd > summaryStart)
+  assert.doesNotMatch(summarySource, /verdict-badge/)
+})
+
 test('八字问答结果把枚举 meta 渲染为用户可读标签', () => {
   assert.match(source, /baziAnalysisModeLabel/)
   assert.match(source, /当前状态/)
