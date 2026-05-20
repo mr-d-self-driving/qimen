@@ -26,6 +26,7 @@ test('全息八字专业页复用背书组件展示大运流年交互', () => {
   assert.match(source, /<BaziBackingPanel/)
   assert.match(source, /:profile="activeProfile"/)
   assert.match(source, /analysis-mode="status"/)
+  assert.doesNotMatch(source, /<template #identity>/)
 })
 
 test('新增排盘弹窗默认不预填出生时间', () => {

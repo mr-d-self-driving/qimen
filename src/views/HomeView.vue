@@ -289,7 +289,19 @@
                   :selected-year="baziCardSelectedYear"
                   :collapsible="true"
                   @update:selected-year="baziCardSelectedYear = $event"
-                />
+                >
+                  <template #identity>
+                    <div v-if="snapshotProfile && snapshotProfile.name" class="backing-identity">
+                      <div class="backing-section-title">原局命盘</div>
+                      <div class="backing-name-row">
+                        <span class="backing-name">{{ snapshotProfile.name }}</span>
+                        <span v-if="snapshotProfile.strong_weak" class="backing-badge badge-blue">{{ snapshotProfile.strong_weak }}</span>
+                        <span v-if="snapshotPatternName" class="backing-badge badge-gold">{{ snapshotPatternName }}</span>
+                      </div>
+                      <div v-if="snapshotLunarStr" class="backing-meta">农历：{{ snapshotLunarStr }}</div>
+                    </div>
+                  </template>
+                </BaziBackingPanel>
               </Teleport>
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
@@ -456,6 +468,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
+import { Solar } from 'lunar-javascript'
 import {
   enterGuestMode,
   globalState,
@@ -517,6 +530,32 @@ const snapshotProfile = computed(() => {
     geju: snap.geju || activeBaziProfile.value?.geju || ''
   }
   return activeBaziProfile.value
+})
+const snapshotPatternName = computed(() => {
+  const profile = snapshotProfile.value
+  return profile?.bazi_detail?.pattern_analysis?.extraction?.final_pattern?.name || profile?.geju || ''
+})
+const snapshotLunarStr = computed(() => {
+  const profile = snapshotProfile.value
+  const birthStr = String(profile?.birth_date || profile?.bazi_detail?.base_info?.solar_birth || '')
+  const parts = birthStr.match(/\d+/g)
+  if (!parts || parts.length < 3) return ''
+  try {
+    const solar = Solar.fromYmdHms(
+      Number(parts[0]),
+      Number(parts[1]),
+      Number(parts[2]),
+      Number(parts[3] || 12),
+      Number(parts[4] || 0),
+      0
+    )
+    const lunar = solar.getLunar()
+    const ganzhi = `${lunar.getYearInGanZhi()}年${lunar.getMonthInChinese()}月${lunar.getDayInChinese()} ${lunar.getTimeZhi()}时`
+    const zao = profile?.gender === 'M' ? '乾造' : '坤造'
+    return `${ganzhi} ${zao}`
+  } catch {
+    return ''
+  }
 })
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
@@ -2217,6 +2256,55 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 :deep(.capacity-level.level-strong) { color:#4ECDC4; }
 :deep(.capacity-level.level-weak) { color:#FF9A56; }
 :deep(.capacity-level.level-mixed) { color:#A78BFA; }
+.backing-identity {
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1px dashed rgba(212,175,55,0.2);
+}
+.backing-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 2px;
+  color: var(--gold);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.backing-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.backing-name {
+  font-family: var(--font-serif);
+  font-size: 18px;
+  color: var(--gold-light);
+  letter-spacing: 2px;
+  font-weight: bold;
+}
+.backing-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+.backing-badge {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+}
+.badge-blue {
+  background: rgba(66,153,225,0.15);
+  color: #90CDF4;
+  border: 1px solid rgba(66,153,225,0.35);
+}
+.badge-gold {
+  background: rgba(212,175,55,0.12);
+  color: var(--gold-light);
+  border: 1px solid rgba(212,175,55,0.3);
+}
 :deep(.bazi-portrait-block) { padding:12px; border-radius:10px; border:1px solid rgba(255,255,255,0.07); background:rgba(0,0,0,0.1); margin-top:10px; }
 :deep(.portrait-label) { font-size:11px; color:var(--text-muted); margin-bottom:6px; display:flex; align-items:center; gap:6px; }
 :deep(.confidence-badge) { font-size:9px; padding:2px 5px; border-radius:4px; background:rgba(255,255,255,0.06); color:rgba(244,237,220,0.78); }

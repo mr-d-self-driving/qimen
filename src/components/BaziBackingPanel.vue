@@ -1,14 +1,6 @@
 <template>
   <section class="bazi-backing-panel result-module bazi-mode-card reveal">
-    <div v-if="profile && profile.name" class="backing-identity">
-      <div class="backing-section-title">原局命盘</div>
-      <div class="backing-name-row">
-        <span class="backing-name">{{ profile.name }}</span>
-        <span v-if="profile.strong_weak" class="badge badge-blue">{{ profile.strong_weak }}</span>
-        <span v-if="patternName" class="badge badge-gold">{{ patternName }}</span>
-      </div>
-      <div v-if="lunarStr" class="backing-meta">农历：{{ lunarStr }}</div>
-    </div>
+    <slot name="identity"></slot>
 
     <BaziPillarTable
       v-if="showChart && displayColumns.length"
@@ -232,30 +224,6 @@ watch(() => props.selectedYear, (year) => {
 })
 
 const profileRef = computed(() => props.profile)
-
-const patternName = computed(() => {
-  const p = props.profile
-  return p?.bazi_detail?.pattern_analysis?.extraction?.final_pattern?.name || p?.geju || ''
-})
-
-const lunarStr = computed(() => {
-  const p = props.profile
-  const birthStr = String(p?.birth_date || p?.bazi_detail?.base_info?.solar_birth || '')
-  const parts = birthStr.match(/\d+/g)
-  if (!parts || parts.length < 3) return ''
-  try {
-    const s = Solar.fromYmdHms(
-      Number(parts[0]), Number(parts[1]), Number(parts[2]),
-      Number(parts[3] || 12), Number(parts[4] || 0), 0
-    )
-    const l = s.getLunar()
-    const ganzhi = `${l.getYearInGanZhi()}年${l.getMonthInChinese()}月${l.getDayInChinese()} ${l.getTimeZhi()}时`
-    const zao = p?.gender === 'M' ? '乾造' : '坤造'
-    return `${ganzhi} ${zao}`
-  } catch {
-    return ''
-  }
-})
 
 const xiaoyunList = computed(() => {
   const m = resolvedMatrix.value || {}
@@ -496,55 +464,6 @@ async function jumpToCurrent() {
 .bazi-backing-panel {
   border-color: rgba(177,158,109,0.22);
   background: rgba(255,255,255,0.032);
-}
-.backing-identity {
-  margin-bottom: 14px;
-  padding-bottom: 12px;
-  border-bottom: 1px dashed rgba(212,175,55,0.2);
-}
-.backing-section-title {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 2px;
-  color: var(--gold);
-  text-transform: uppercase;
-  margin-bottom: 8px;
-}
-.backing-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-bottom: 4px;
-}
-.backing-name {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  color: var(--gold-light);
-  letter-spacing: 2px;
-  font-weight: bold;
-}
-.backing-meta {
-  font-size: 11px;
-  color: var(--text-muted);
-  line-height: 1.6;
-}
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 20px;
-  letter-spacing: 0.5px;
-}
-.badge-blue {
-  background: rgba(66,153,225,0.15);
-  color: #90CDF4;
-  border: 1px solid rgba(66,153,225,0.35);
-}
-.badge-gold {
-  background: rgba(212,175,55,0.12);
-  color: var(--gold-light);
-  border: 1px solid rgba(212,175,55,0.3);
 }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
 .shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: shenshaPop 0.3s ease; }

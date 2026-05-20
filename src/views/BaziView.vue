@@ -826,7 +826,7 @@
                                 <!-- 用神 -->
                                 <div v-if="fiveShenProfile?.yong" class="scoring-item scoring-yong-item">
                                     <div class="scoring-item-header">
-                                        <span class="shen-badge shen-yong">{{ fiveShenProfile.yong }}</span>
+                                        <span class="shen-badge shen-yong">{{ formatShenWithGan(fiveShenProfile.yong) }}</span>
                                         <span class="shen-role-tag">用神</span>
                                     </div>
                                     <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong]">
@@ -840,7 +840,7 @@
                                 <!-- 喜神 -->
                                 <div v-for="shen in fiveShenProfile?.xi" :key="'xi'+shen" class="scoring-item fav-item">
                                     <div class="scoring-item-header">
-                                        <span class="shen-badge favorable">{{ shen }}</span>
+                                        <span class="shen-badge favorable">{{ formatShenWithGan(shen) }}</span>
                                         <span class="shen-role-tag">喜神</span>
                                     </div>
                                     <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
@@ -854,7 +854,7 @@
                                 <!-- 忌神 -->
                                 <div v-for="shen in fiveShenProfile?.ji" :key="'ji'+shen" class="scoring-item unfav-item">
                                     <div class="scoring-item-header">
-                                        <span class="shen-badge unfavorable">{{ shen }}</span>
+                                        <span class="shen-badge unfavorable">{{ formatShenWithGan(shen) }}</span>
                                         <span class="shen-role-tag">忌神</span>
                                     </div>
                                     <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
@@ -868,7 +868,7 @@
                                 <!-- 仇神 -->
                                 <div v-for="shen in fiveShenProfile?.chou" :key="'chou'+shen" class="scoring-item chou-item">
                                     <div class="scoring-item-header">
-                                        <span class="shen-badge shen-chou">{{ shen }}</span>
+                                        <span class="shen-badge shen-chou">{{ formatShenWithGan(shen) }}</span>
                                         <span class="shen-role-tag">仇神</span>
                                     </div>
                                     <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
@@ -2202,22 +2202,33 @@ const computeShiShen = (dayGan, targetGan) => {
     return null
 }
 
+const resolveGanForShen = (dayGan, targetShen) => {
+    if (!dayGan || !targetShen) return ''
+    return GAN.find(gan => computeShiShen(dayGan, gan) === targetShen) || ''
+}
+
 const shenToGanMap = computed(() => {
     const detail = activeProfile.value?.bazi_detail
-    const pillars = detail?.matrix?.pillars
-    if (!pillars) return {}
     const dayGan = detail.ri_zhu?.[0]
     const map = {}
     const skip = new Set(['日主', '元男', '元女'])
+    const pillars = detail?.matrix?.pillars || []
     for (const p of pillars) {
-        if (p.star && !skip.has(p.star) && !map[p.star]) map[p.star] = p.gan
-        if (dayGan && p.hidden_stems) {
+        if (p.star && p.gan && !skip.has(p.star) && !map[p.star]) map[p.star] = p.gan
+        if (dayGan && Array.isArray(p.hidden_stems)) {
             for (const hg of p.hidden_stems) {
-                const shen = computeShiShen(dayGan, hg)
-                if (shen && !map[shen]) map[shen] = hg
+                const stemGan = typeof hg === 'string' ? hg : hg?.gan
+                const shen = computeShiShen(dayGan, stemGan)
+                if (shen && stemGan && !map[shen]) map[shen] = stemGan
             }
         }
     }
+    const shens = detail?.five_shens
+    ;[shens?.yong, ...(shens?.xi || []), ...(shens?.ji || []), ...(shens?.chou || []), ...(shens?.xian || [])]
+        .filter(Boolean)
+        .forEach(shen => {
+            if (!map[shen]) map[shen] = resolveGanForShen(dayGan, shen)
+        })
     return map
 })
 

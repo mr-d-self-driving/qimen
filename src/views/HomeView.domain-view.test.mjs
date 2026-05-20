@@ -71,8 +71,10 @@ test('八字问答结果挂载原局排盘背书板块', () => {
   assert.match(source, /import BaziBackingPanel from/)
   assert.match(source, /activeBaziResultData/)
   assert.match(source, /<BaziBackingPanel/)
-  assert.match(source, /:profile="activeBaziProfile"/)
+  assert.match(source, /:profile="snapshotProfile"/)
   assert.match(source, /:result-data="activeBaziResultData"/)
+  assert.match(source, /<template #identity>/)
+  assert.match(source, /原局命盘/)
 })
 
 test('八字问答结果按 PRD 补齐 pattern character 和 timing 字段展示', () => {
@@ -131,14 +133,14 @@ test('八字问答结果不展示兼容 analysis 摘要和 fallback 边界提示
 
 test('背书板块采用八字档案专业排盘结构而不是临时卡片', () => {
   const component = readFileSync(new URL('../components/BaziBackingPanel.vue', import.meta.url), 'utf8')
-  assert.match(component, /bazi-table/)
+  assert.match(component, /BaziPillarTable/)
   assert.match(component, /专业四柱大运流年/)
   assert.match(component, /linkage-row/)
-  assert.match(component, /profileTitle/)
-  assert.match(component, /profileTags/)
+  assert.match(component, /<slot name="identity"><\/slot>/)
+  assert.doesNotMatch(component, /backing-identity/)
   assert.match(component, /xiaoyunList/)
   assert.match(component, /current_liunian/)
-  assert.match(component, /current_dayun/)
+  assert.match(component, /selectedDayun/)
   assert.match(component, /流<br>月/)
   assert.match(component, /流<br>日/)
   assert.doesNotMatch(component, /命盘背书/)
@@ -146,8 +148,9 @@ test('背书板块采用八字档案专业排盘结构而不是临时卡片', ()
 
 test('专业排盘联动列表只使用八字档案矩阵数据，候选时间窗只做高亮', () => {
   const component = readFileSync(new URL('../components/BaziBackingPanel.vue', import.meta.url), 'utf8')
-  assert.match(component, /const liunianList = computed\(\(\) => matrix\.value\.liunian_list \|\| \[\]\)/)
-  assert.match(component, /fullDayunList = computed\(\(\) => \(matrix\.value\.dayun_list \|\| \[\]\)\.filter\(dayun => !dayun\.isXiaoyun\)\)/)
+  assert.match(component, /const liunianList = computed\(\(\) => \{/)
+  assert.match(component, /const topLevel = matrix\.value\?\.liunian_list/)
+  assert.match(component, /fullDayunList = computed\(\(\) => \(resolvedMatrix\.value\?\.dayun_list \|\| \[\]\)\.filter\(d => !d\.isXiaoyun\)\)/)
   assert.match(component, /windowByYear/)
   assert.match(component, /dayunHasWindow/)
   assert.doesNotMatch(component, /props\.analysisMode === 'timing' && windows\.value\.length/)
