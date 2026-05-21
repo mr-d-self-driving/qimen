@@ -58,12 +58,33 @@ function parseAuditDelta(value) {
   return Math.round(clampNumber(match ? Number(match[0]) : 0, -20, 20));
 }
 
+function suppressDuplicateNegativeAuditDelta(delta, rawScoreAudit = {}, backendScoreAudit = {}) {
+  if (delta >= 0) return { delta, suppressed: false, reason: '' };
+  const backendEvidence = JSON.stringify(backendScoreAudit.adjustments || []);
+  const auditEvidence = JSON.stringify({
+    reason: rawScoreAudit.audit_reason,
+    layer_reviews: rawScoreAudit.layer_reviews,
+    missed_or_overweighted_factors: rawScoreAudit.missed_or_overweighted_factors,
+    audit_delta_breakdown: rawScoreAudit.audit_delta_breakdown
+  });
+  const duplicateKeywords = ['空亡', '杜门', '庚格', '凶格', '白虎', '朱雀', '奇格', '主客', '阴时', '值使'];
+  const repeatsBackendEvidence = duplicateKeywords.some((keyword) => (
+    backendEvidence.includes(keyword) && auditEvidence.includes(keyword)
+  ));
+  if (!repeatsBackendEvidence) return { delta, suppressed: false, reason: '' };
+  return {
+    delta: 0,
+    suppressed: true,
+    reason: 'LLM 负向审计与后端已计入的空亡/杜门/庚格/凶格/主客动静等证据重复，V4.1 后处理将重复扣分归零。'
+  };
+}
+
 function sanitizeUserText(value) {
   return String(value || '')
     .replace(/后端初分\s*\d+[^，。；,.]*[，。；,.]?/g, '')
     .replace(/后端[^，。；,.]*?(?:下调|上调|审计|初算|初分|preliminary|backend|audit)[^，。；,.]*[，。；,.]?/gi, '')
     .replace(/(?:LLM|模型)?审计修正\s*[+-]?\d+[^，。；,.]*[，。；,.]?/gi, '')
-    .replace(/audit_delta|backend_pre_score|final_score_suggestion|preliminary_score_audit|qimen-score-v1/gi, '')
+    .replace(/audit_delta|backend_pre_score|final_score_suggestion|preliminary_score_audit|qimen-score-v\d(?:\.\d+)?/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -1178,7 +1199,8 @@ async function handleQimen(request, env) {
         intent: detectedIntent,
         palaces: timingPalaces,
         yongshenRule,
-        polarityOverrides
+        polarityOverrides,
+        timingAnalysis
     };
     const backendScoreAudit = calculateQimenScore(backendScoreInput);
     // ── SSE Step 4: 后端评分完成 ──
@@ -1260,12 +1282,17 @@ ${outputContractSection}
     const aiJsonData = normalizeQimenLlmOutput(rawQimenLlmOutput);
     const rawLlmScoreAudit = aiJsonData.score_review || aiJsonData.score_audit || {};
     const rawLlmTimingReview = aiJsonData.timing_review || aiJsonData.timing_analysis || null;
-    const auditDelta = parseAuditDelta(rawLlmScoreAudit.audit_delta);
+    const parsedAuditDelta = parseAuditDelta(rawLlmScoreAudit.audit_delta);
+    const auditDeltaGuard = suppressDuplicateNegativeAuditDelta(parsedAuditDelta, rawLlmScoreAudit, backendScoreAudit);
+    const auditDelta = auditDeltaGuard.delta;
     const finalScore = Math.round(clampNumber(backendScoreAudit.final_score + auditDelta, 0, 100));
     const postprocessAudit = {
         raw_score_review: rawLlmScoreAudit,
         raw_timing_review: rawLlmTimingReview,
+        raw_parsed_audit_delta: parsedAuditDelta,
         parsed_audit_delta: auditDelta,
+        duplicate_audit_delta_suppressed: auditDeltaGuard.suppressed,
+        duplicate_audit_delta_reason: auditDeltaGuard.reason,
         backend_pre_score: backendScoreAudit.final_score,
         final_score: finalScore
     };
@@ -1274,6 +1301,8 @@ ${outputContractSection}
     aiJsonData.score_audit = {
         backend_pre_score: backendScoreAudit.final_score,
         audit_delta: auditDelta,
+        raw_audit_delta: parsedAuditDelta,
+        duplicate_audit_delta_suppressed: auditDeltaGuard.suppressed,
         final_score_suggestion: finalScore,
         confidence: ['low', 'medium', 'high'].includes(rawLlmScoreAudit.confidence) ? rawLlmScoreAudit.confidence : backendScoreAudit.confidence,
         role_review: rawLlmScoreAudit.role_review || null,
