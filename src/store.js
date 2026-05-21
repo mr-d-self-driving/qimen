@@ -18,6 +18,7 @@ export const globalState = reactive({
   authReady: false,
   currentUser: null,
   isGuest: getGuestState().active,
+  guestAccessUnlocked: false,
   selectedBaziProfileId: loadSelectedBaziProfileId()
 })
 
@@ -59,16 +60,19 @@ export const setCurrentUser = (user) => {
   if (user) {
     deactivateGuestMode()
     globalState.isGuest = false
+    globalState.guestAccessUnlocked = false
   }
 }
 
 export const enterGuestMode = () => {
   activateGuestMode()
   globalState.isGuest = true
+  globalState.guestAccessUnlocked = true
   globalState.authReady = true
 }
 
 export const leaveGuestMode = () => {
   deactivateGuestMode()
   globalState.isGuest = false
+  globalState.guestAccessUnlocked = false
 }

@@ -569,7 +569,7 @@ const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
 const isGuest = computed(() => globalState.isGuest)
 const isAuthLanding = computed(() => ['login', 'register'].includes(route.query.auth))
-const canUseApp = computed(() => Boolean(currentUser.value || (isGuest.value && !isAuthLanding.value)))
+const canUseApp = computed(() => Boolean(currentUser.value || (isGuest.value && globalState.guestAccessUnlocked && !isAuthLanding.value)))
 
 const historyRecords = ref([])
 const activeCategory = ref('all')

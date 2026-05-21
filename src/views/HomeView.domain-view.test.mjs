@@ -46,7 +46,9 @@ test('奇门占卜提交不再强制要求八字档案且仅 hybrid 携带已选
 
 test('登录或注册落地页显式覆盖访客应用视图', () => {
   assert.match(source, /const isAuthLanding = computed\(\(\) => \['login', 'register'\]\.includes\(route\.query\.auth\)\)/)
-  assert.match(source, /const canUseApp = computed\(\(\) => Boolean\(currentUser\.value \|\| \(isGuest\.value && !isAuthLanding\.value\)\)\)/)
+  assert.match(source, /const canUseApp = computed\(\(\) => Boolean\(currentUser\.value \|\| \(isGuest\.value && globalState\.guestAccessUnlocked && !isAuthLanding\.value\)\)\)/)
+  assert.match(source, /enterGuestMode\(\)/)
+  assert.match(source, /globalState\.guestAccessUnlocked/)
 })
 
 test('八字问答结果使用 mode 卡片而不是奇门分数泡泡', () => {
