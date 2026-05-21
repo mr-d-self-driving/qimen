@@ -765,6 +765,7 @@ import {
 import guestFortuneData from '../../mock/fortune-daily.json'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import AccountMenu from '../components/AccountMenu.vue'
+import { BAZI_PROFILE_LIST_SELECT } from '../baziProfileFields.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -1248,7 +1249,7 @@ const fetchProfiles = async () => {
     return
   }
 
-  const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
+  const { data } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_LIST_SELECT).order('created_at', { ascending: false })
   baziProfiles.value = data || []
   const requestedProfileId = String(route.query.profileId || '')
   const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {

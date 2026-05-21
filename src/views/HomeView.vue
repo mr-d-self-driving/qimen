@@ -498,6 +498,7 @@ import {
   mergeQimenFeedbackIntoRecords,
   normalizeQimenFeedbackForm
 } from '../qimenFeedback.mjs'
+import { BAZI_PROFILE_QIMEN_SELECT } from '../baziProfileFields.mjs'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -929,6 +930,7 @@ const GE_DESCRIPTIONS = {
 let geModalEl = null
 let geOverlayEl = null
 let geActiveTag = null
+let lastHandledSessionKey = null
 
 const hideGeModal = () => {
   geOverlayEl?.classList.remove('visible')
@@ -1007,6 +1009,9 @@ const toggleDrawer = () => {
 }
 
 const handleSessionUpdate = (session) => {
+  const sessionKey = session?.access_token || session?.user?.id || ''
+  if (sessionKey && sessionKey === lastHandledSessionKey) return
+  lastHandledSessionKey = sessionKey
   setCurrentUser(session?.user || null)
   if (session) {
     currentUser.value = session.user
@@ -1018,6 +1023,7 @@ const handleSessionUpdate = (session) => {
       userId: session.user.id
     })
   } else {
+    lastHandledSessionKey = ''
     currentUser.value = null
     if (!isGuest.value) {
       historyRecords.value = []
@@ -1127,7 +1133,7 @@ const fetchBaziProfiles = async () => {
     return
   }
   if (!currentUser.value) return
-  const { data, error } = await supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false })
+  const { data, error } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_QIMEN_SELECT).order('created_at', { ascending: false })
   if (!error && data) {
     baziProfiles.value = data
     const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {

@@ -324,9 +324,11 @@ function getTargetMonth(url, body) {
 
 async function getProfileForFortune(userId, profileId, env, requireSummary = false) {
   const supabase = createSupabaseClient(env);
+  const scoreFields = 'id, name, gender, birth_date, bazi_str, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu';
+  const selectFields = requireSummary ? `${scoreFields}, bazi_summary` : scoreFields;
   let query = supabase
     .from('bazi_profiles')
-    .select('id, name, gender, birth_date, bazi_summary, bazi_str, bazi_detail, favorable_elements, unfavorable_elements, day_zhi, year_zhi, month_zhi, ri_zhu')
+    .select(selectFields)
     .eq('user_id', userId);
 
   if (profileId) {
