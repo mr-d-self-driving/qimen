@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>义气指数 · Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Noto+Serif+SC:wght@300;400;700&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#09071a;
+  --ca:#ff9966;
+  --cb:#60c5f4;
+  --gold:#fbbf24;
+  --green:#4ade80;
+  --text:#fff;
+  --dim:rgba(255,255,255,0.38);
+  --surface:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.08);
+}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Noto Sans SC',sans-serif;color:var(--text)}
+
+/* BLOBS */
+.blob{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0}
+.ba{width:400px;height:400px;top:-160px;right:-60px;background:rgba(255,153,102,0.11);animation:bf 10s ease-in-out infinite}
+.bb{width:340px;height:340px;bottom:-100px;left:-80px;background:rgba(96,197,244,0.09);animation:bf 13s ease-in-out infinite reverse}
+.bc{width:280px;height:280px;top:40%;left:50%;transform:translate(-50%,-50%);background:rgba(251,191,36,0.05);animation:bf 17s ease-in-out infinite 2s}
+@keyframes bf{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-16px)}}
+
+/* PROGRESS */
+#prog{position:fixed;top:0;left:0;right:0;display:flex;gap:4px;padding:12px 16px;z-index:200}
+.ps{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.12)}
+.pf{height:100%;width:0%;border-radius:2px;background:#fff}
+
+/* CARDS */
+.cards{position:fixed;inset:0;z-index:1}
+.card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:68px 28px 52px;opacity:0;pointer-events:none;transition:opacity .3s}
+.card.on{opacity:1;pointer-events:all}
+
+/* NAV */
+#nav{position:fixed;inset:0;display:grid;grid-template-columns:1fr 1fr;z-index:100;cursor:pointer}
+
+/* ANIMATIONS */
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes si{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
+.afu{opacity:0;animation:fu .55s ease forwards}
+.afi{opacity:0;animation:fi .4s ease forwards}
+.asi{opacity:0;animation:si .5s cubic-bezier(.34,1.56,.64,1) forwards}
+
+/* ═══ CARD 1 · 开场 ═══ */
+.c1-badge{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--gold);padding:5px 14px;border-radius:100px;
+  background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.28);margin-bottom:22px
+}
+.c1-title{font-family:'Syne',sans-serif;font-size:clamp(42px,12vw,62px);font-weight:800;line-height:1.08;text-align:center;letter-spacing:-.03em}
+.c1-sub{margin-top:16px;font-size:15px;color:var(--dim);text-align:center;line-height:1.85;max-width:270px}
+.c1-sources{margin-top:28px;display:flex;gap:12px}
+.c1-src{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;
+  color:rgba(255,255,255,.3);padding:4px 10px;border-radius:4px;
+  background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07)
+}
+.c1-hint{position:absolute;bottom:36px;font-size:11px;color:rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;gap:8px}
+.hd{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);animation:hdp 2s infinite}
+@keyframes hdp{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:.8;transform:scale(1.4)}}
+
+/* ═══ CARD 2 · 古籍理论 ═══ */
+.qblock{width:100%;max-width:320px}
+.qsrc{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--gold);margin-bottom:12px}
+.qtext{font-family:'Noto Serif SC',serif;font-size:16px;line-height:2.1;color:rgba(255,255,255,.82);border-left:2px solid var(--gold);padding-left:16px}
+.qem{color:var(--gold)}
+.qdiv{height:1px;background:rgba(255,255,255,.07);margin:22px 0}
+.qmod{font-size:13.5px;line-height:1.85;color:var(--dim)}
+.qmod strong{color:var(--text)}
+.qmod .ga{color:var(--ca)}.qmod .gb{color:var(--cb)}.qmod .gg{color:var(--green)}.qmod .gy{color:var(--gold)}
+
+/* ═══ CARD 3 · L3 印星扫描 ═══ */
+.c2-layer-tag{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-bottom:5px;text-align:center
+}
+.c2-layer-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:20px;text-align:center}
+.scan-wrap{width:100%;max-width:340px;position:relative}
+.scan-person{margin-bottom:14px}
+.sp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.sp-pname{font-size:11px;font-weight:700;letter-spacing:.05em}
+.sp-viewing{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim)}
+.sp-count{
+  font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:4px;
+  background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.25);color:var(--gold);
+  opacity:0;transition:opacity .3s
+}
+.sp-count.visible{opacity:1}
+.bz-row{display:flex;gap:5px}
+.bzc{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:8px 2px 6px;border-radius:8px;border:1px solid transparent;transition:all .25s
+}
+.bzc-gan{font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700;line-height:1;transition:all .3s}
+.bzc-zhi{font-family:'Noto Serif SC',serif;font-size:18px;line-height:1;transition:all .3s}
+.bzc-lbl{font-size:8px;color:rgba(255,255,255,.2);margin-top:3px}
+.bzc.res-gan .bzc-gan{color:var(--gold);text-shadow:0 0 16px rgba(251,191,36,.9),0 0 32px rgba(251,191,36,.5)}
+.bzc.res-zhi .bzc-zhi{color:var(--gold);text-shadow:0 0 16px rgba(251,191,36,.9)}
+.bzc.has-res{background:rgba(251,191,36,.07);border-color:rgba(251,191,36,.22)}
+.bzc.scanned:not(.has-res) .bzc-gan{opacity:.22}
+.bzc.scanned:not(.has-res) .bzc-zhi{opacity:.22}
+.bzc.scanned.has-res .bzc-lbl{color:rgba(251,191,36,.5)}
+.bz-scan-divider{height:1px;background:rgba(255,255,255,.05);margin:6px 0}
+.yin-legend{font-size:10px;color:rgba(255,255,255,.22);font-family:'JetBrains Mono',monospace;letter-spacing:.06em;margin-top:12px;text-align:center}
+.yin-legend span{color:var(--gold);opacity:.9}
+.scan-caption{width:100%;max-width:340px;font-size:12.5px;line-height:1.75;color:rgba(255,255,255,.55);text-align:center;margin-top:10px}
+
+/* 五行色 */
+.ww{color:#93c5fd}.wf{color:#f87171}.we{color:#fbbf24}.wd{color:#86efac}.ws{color:#cbd5e1}
+
+/* ═══ CARD 4 · L4 五神互补 ═══ */
+.c3-tag{
+  font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-bottom:5px;text-align:center
+}
+.c3-name{font-family:'Syne',sans-serif;font-size:17px;font-weight:700;color:rgba(255,255,255,.6);margin-bottom:22px;text-align:center}
+.comp-grid{width:100%;max-width:330px;display:flex;flex-direction:column;gap:14px}
+.comp-block{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:14px 16px}
+.comp-block-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.comp-who{font-size:12px;font-weight:700}
+.comp-arrow-row{font-size:10px;color:var(--dim);font-family:'JetBrains Mono',monospace;letter-spacing:.05em}
+.comp-match-badge{
+  font-size:10px;font-weight:700;padding:2px 8px;border-radius:100px;
+  background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.22);color:var(--green);
+  opacity:0;transition:opacity .4s
+}
+.comp-match-badge.show{opacity:1}
+.comp-bz-row{display:flex;gap:5px;margin-top:10px}
+.comp-bzc{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:7px 2px 5px;border-radius:8px;border:1px solid transparent;transition:all .3s
+}
+.comp-gan{font-family:'Noto Serif SC',serif;font-size:20px;font-weight:700;line-height:1;color:rgba(255,255,255,.18);transition:all .3s}
+.comp-zhi{font-family:'Noto Serif SC',serif;font-size:16px;line-height:1;color:rgba(255,255,255,.18);transition:all .3s}
+.comp-lbl{font-size:8px;color:rgba(255,255,255,.12);margin-top:3px}
+.comp-bzc.lit .comp-gan{color:var(--green);text-shadow:0 0 14px rgba(74,222,128,.8),0 0 28px rgba(74,222,128,.4)}
+.comp-bzc.lit .comp-zhi{color:var(--green);text-shadow:0 0 12px rgba(74,222,128,.6)}
+.comp-bzc.lit{background:rgba(74,222,128,.07);border-color:rgba(74,222,128,.22)}
+.comp-foot{margin-top:14px;font-family:'JetBrains Mono',monospace;font-size:10px;color:rgba(255,255,255,.25);text-align:center;letter-spacing:.06em}
+.comp-foot strong{color:var(--green)}
+
+/* ═══ CARD 5 · 分数 ═══ */
+.score-ctx{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:28px}
+.sbar-wrap{width:100%;max-width:300px;margin-bottom:28px}
+.sbar-track{height:12px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;display:flex;margin-bottom:12px}
+.sbar-s1{height:100%;width:0%;background:var(--gold);border-radius:100px 0 0 100px;flex-shrink:0}
+.sbar-s3{height:100%;width:0%;background:var(--green);border-radius:0 100px 100px 0;flex-shrink:0;margin-left:2px}
+.sbar-items{display:flex;align-items:stretch;gap:8px}
+.sbar-item{flex:1;padding:9px 12px;border-radius:10px;display:flex;flex-direction:column;gap:3px;opacity:0;transition:opacity .35s}
+.sbar-item.vis{opacity:1}
+.si1{background:rgba(251,191,36,.07);border:1px solid rgba(251,191,36,.18)}
+.si3{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.18)}
+.si-name{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.07em;color:var(--dim);text-transform:uppercase}
+.si-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1.1}
+.si1 .si-val{color:var(--gold)}
+.si3 .si-val{color:var(--green)}
+.score-big{font-family:'Syne',sans-serif;font-size:96px;font-weight:800;line-height:1;letter-spacing:-.05em;color:var(--green)}
+.score-big .su{font-size:44px;font-weight:700;color:rgba(74,222,128,.7)}
+.score-badge{
+  margin-top:22px;padding:9px 26px;border-radius:100px;
+  font-family:'Syne',sans-serif;font-size:19px;font-weight:700;
+  background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);color:var(--green)
+}
+.sba{width:100%;max-width:300px;margin-top:24px}
+.sba-track{
+  height:10px;border-radius:100px;
+  background:linear-gradient(to right,rgba(255,107,157,.3) 0%,rgba(255,255,255,.06) 50%,rgba(74,222,128,.3) 100%);
+  position:relative
+}
+.sba-center{position:absolute;left:50%;top:-3px;width:2px;height:16px;background:rgba(255,255,255,.18);transform:translateX(-50%)}
+.sba-fill-r{position:absolute;top:0;bottom:0;left:50%;border-radius:0 100px 100px 0;background:var(--green);width:0%;transition:width .9s .6s ease}
+.sba-lbls{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.25);margin-top:6px}
+.sba-tiers{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,.18);margin-top:3px}
+
+/* ═══ CARD 6 · 断语 ═══ */
+.vbox{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:28px 24px}
+.vbtag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.vbtag::before{content:'';width:16px;height:1px;background:var(--gold)}
+.vbtitle{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1.25;margin-bottom:14px}
+.vbbody{font-size:13px;line-height:1.9;color:var(--dim)}
+.vbbody strong{color:var(--text)}
+.vbfoot{margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:flex-end}
+.vbfoot-s{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--green)}
+</style>
+</head>
+<body>
+<div class="blob ba"></div>
+<div class="blob bb"></div>
+<div class="blob bc"></div>
+
+<div id="prog">
+  <div class="ps"><div class="pf" id="p0"></div></div>
+  <div class="ps"><div class="pf" id="p1"></div></div>
+  <div class="ps"><div class="pf" id="p2"></div></div>
+  <div class="ps"><div class="pf" id="p3"></div></div>
+  <div class="ps"><div class="pf" id="p4"></div></div>
+  <div class="ps"><div class="pf" id="p5"></div></div>
+</div>
+
+<div id="nav"><div onclick="prev()"></div><div onclick="next()"></div></div>
+
+<div class="cards">
+
+<!-- ═══ 1 · 开场 ═══ -->
+<div class="card on" id="c0">
+  <div class="c1-badge afu" style="animation-delay:.2s">维度 02 · 义气指数</div>
+  <h1 class="c1-title afu" style="animation-delay:.4s">
+    义气这东西，<br>写没写进<br>你们的<span style="color:var(--gold)">八字</span>里？
+  </h1>
+  <p class="c1-sub afu" style="animation-delay:.8s">
+    不是嘴上说的"我挺你"，<br>
+    是命盘里天然写好的<br>「靠山反应」——有就是有
+  </p>
+  <div class="c1-sources afu" style="animation-delay:1.1s">
+    <div class="c1-src">印星占比</div>
+    <div class="c1-src">五神互补</div>
+  </div>
+  <div class="c1-hint afu" style="animation-delay:1.4s">
+    <div class="hd"></div>点右侧继续
+  </div>
+</div>
+
+<!-- ═══ 2 · 古籍理论 ═══ -->
+<div class="card" id="c1">
+  <div class="qblock">
+    <div class="qsrc afu" style="animation-delay:.2s">《子平真诠 · 论用神》</div>
+    <div class="qtext afu" style="animation-delay:.4s">
+      「印者，如<span class="qem">母之生我</span>也，<br>
+      有生育、<span class="qem">庇护</span>之义。<br>
+      命局中印旺者，<br>得贵人<span class="qem">护持</span>。」
+    </div>
+    <div class="qdiv afu" style="animation-delay:.9s"></div>
+    <div class="qmod afu" style="animation-delay:1.1s">
+      古人说的「印」不只是学历或贵人，更是<span class="gy">命盘里写好的被守护感</span>。<br><br>
+      当<span class="ga">小云</span>的甲乙木塞满<span class="gb">小月</span>需要的印，<br>
+      当<span class="gb">小月</span>的庚辛金补足<span class="ga">小云</span>的命盘缺口——<br>
+      这不是情绪勒索，是<strong>五行写好的互相撑场子</strong>。<br><br>
+      义气感不用学，自然就流出来。
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 3 · L3 印星扫描 ═══ -->
+<div class="card" id="c2">
+  <div class="c2-layer-tag afu" style="animation-delay:.1s">来源 1 / 2 · 印星占比</div>
+  <div class="c2-layer-name afu" style="animation-delay:.2s">扫描彼此命盘里的「靠山字」</div>
+
+  <div class="scan-wrap" id="scanWrap">
+    <div class="scan-person">
+      <div class="sp-header afu" style="animation-delay:.25s">
+        <span class="sp-pname" style="color:var(--ca)">小云的八字</span>
+        <span class="sp-viewing">← 丁（小月）视角</span>
+        <span class="sp-count" id="cnt-a">★ 5 个印星</span>
+      </div>
+      <!-- 甲寅 乙卯 壬午 甲子 | 丁见甲=正印★×2, 丁见乙=偏印★, 寅中甲=正印★, 卯中乙=偏印★ -->
+      <div class="bz-row">
+        <div class="bzc" id="a0" data-res-gan="正印" data-res-zhi="正印">
+          <span class="bzc-gan wd">甲</span><span class="bzc-zhi wd">寅</span><span class="bzc-lbl">年</span>
+        </div>
+        <div class="bzc" id="a1" data-res-gan="偏印" data-res-zhi="偏印">
+          <span class="bzc-gan wd">乙</span><span class="bzc-zhi wd">卯</span><span class="bzc-lbl">月</span>
+        </div>
+        <div class="bzc" id="a2">
+          <span class="bzc-gan ww">壬</span><span class="bzc-zhi wf">午</span><span class="bzc-lbl">日</span>
+        </div>
+        <div class="bzc" id="a3" data-res-gan="正印">
+          <span class="bzc-gan wd">甲</span><span class="bzc-zhi ww">子</span><span class="bzc-lbl">时</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bz-scan-divider"></div>
+
+    <div class="scan-person" style="margin-top:10px">
+      <div class="sp-header afu" style="animation-delay:.4s">
+        <span class="sp-pname" style="color:var(--cb)">小月的八字</span>
+        <span class="sp-viewing">← 壬（小云）视角</span>
+        <span class="sp-count" id="cnt-b">★ 4 个印星</span>
+      </div>
+      <!-- 辛酉 庚申 丁亥 壬午 | 壬见辛=正印★, 壬见庚=偏印★, 酉中辛=正印★, 申中庚=偏印★ -->
+      <div class="bz-row">
+        <div class="bzc" id="b0" data-res-gan="正印" data-res-zhi="正印">
+          <span class="bzc-gan ws">辛</span><span class="bzc-zhi ws">酉</span><span class="bzc-lbl">年</span>
+        </div>
+        <div class="bzc" id="b1" data-res-gan="偏印" data-res-zhi="偏印">
+          <span class="bzc-gan ws">庚</span><span class="bzc-zhi ws">申</span><span class="bzc-lbl">月</span>
+        </div>
+        <div class="bzc" id="b2">
+          <span class="bzc-gan wf">丁</span><span class="bzc-zhi ww">亥</span><span class="bzc-lbl">日</span>
+        </div>
+        <div class="bzc" id="b3">
+          <span class="bzc-gan ww">壬</span><span class="bzc-zhi wf">午</span><span class="bzc-lbl">时</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="yin-legend afu" style="animation-delay:3.0s">
+    <span>★</span> = 印星（正印·偏印）= 命盘里天然写好的「守护信号」
+  </div>
+  <p class="scan-caption afu" id="scan-caption" style="animation-delay:3.6s"></p>
+</div>
+
+<!-- ═══ 4 · L4 五神互补 ═══ -->
+<div class="card" id="c3">
+  <div class="c3-tag afu" style="animation-delay:.1s">来源 2 / 2 · 五神互补</div>
+  <div class="c3-name afu" style="animation-delay:.2s">你缺的，TA 刚好有</div>
+
+  <div class="comp-grid afu" style="animation-delay:.35s">
+
+    <div class="comp-block">
+      <div class="comp-block-head">
+        <div>
+          <div class="comp-who" style="color:var(--ca)">小云(壬) 用神 = 金</div>
+          <div class="comp-arrow-row" style="margin-top:3px">申酉月生·壬水泄木·命盘最缺金</div>
+        </div>
+        <div class="comp-match-badge" id="match1">✓ 高度吻合</div>
+      </div>
+      <!-- 小月命盘 · 金元素亮起 -->
+      <div class="comp-bz-row">
+        <div class="comp-bzc" id="cb1-0">
+          <span class="comp-gan ws">辛</span><span class="comp-zhi ws">酉</span><span class="comp-lbl">年</span>
+        </div>
+        <div class="comp-bzc" id="cb1-1">
+          <span class="comp-gan ws">庚</span><span class="comp-zhi ws">申</span><span class="comp-lbl">月</span>
+        </div>
+        <div class="comp-bzc" id="cb1-2">
+          <span class="comp-gan wf">丁</span><span class="comp-zhi ww">亥</span><span class="comp-lbl">日</span>
+        </div>
+        <div class="comp-bzc" id="cb1-3">
+          <span class="comp-gan ww">壬</span><span class="comp-zhi wf">午</span><span class="comp-lbl">时</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-block">
+      <div class="comp-block-head">
+        <div>
+          <div class="comp-who" style="color:var(--cb)">小月(丁) 用神 = 木</div>
+          <div class="comp-arrow-row" style="margin-top:3px">申月金旺·丁火受制·命盘最缺木</div>
+        </div>
+        <div class="comp-match-badge" id="match2">✓ 高度吻合</div>
+      </div>
+      <!-- 小云命盘 · 木元素亮起 -->
+      <div class="comp-bz-row">
+        <div class="comp-bzc" id="cb2-0">
+          <span class="comp-gan wd">甲</span><span class="comp-zhi wd">寅</span><span class="comp-lbl">年</span>
+        </div>
+        <div class="comp-bzc" id="cb2-1">
+          <span class="comp-gan wd">乙</span><span class="comp-zhi wd">卯</span><span class="comp-lbl">月</span>
+        </div>
+        <div class="comp-bzc" id="cb2-2">
+          <span class="comp-gan ww">壬</span><span class="comp-zhi wf">午</span><span class="comp-lbl">日</span>
+        </div>
+        <div class="comp-bzc" id="cb2-3">
+          <span class="comp-gan wd">甲</span><span class="comp-zhi ww">子</span><span class="comp-lbl">时</span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="comp-foot afu" style="animation-delay:2.8s">
+    互补吻合度 <strong>89%</strong> · 两人五神相互托底
+  </div>
+</div>
+
+<!-- ═══ 5 · 分数 ═══ -->
+<div class="card" id="c4">
+  <div class="score-ctx afu" style="animation-delay:.1s">义气指数 · 得分构成</div>
+
+  <div class="sbar-wrap afu" style="animation-delay:.3s">
+    <div class="sbar-track">
+      <div class="sbar-s1" id="ss1"></div>
+      <div class="sbar-s3" id="ss3"></div>
+    </div>
+    <div class="sbar-items">
+      <div class="sbar-item si1" id="si1el">
+        <span class="si-name">印星占比</span>
+        <span class="si-val" id="lv1">+0</span>
+      </div>
+      <div class="sbar-item si3" id="si3el">
+        <span class="si-name">五行互补</span>
+        <span class="si-val" id="lv3">+0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="score-big asi" style="animation-delay:1.8s">
+    <span id="sval">0</span><span class="su">%</span>
+  </div>
+
+  <div class="sba afu" style="animation-delay:2.0s">
+    <div class="sba-track">
+      <div class="sba-center"></div>
+      <div class="sba-fill-r" id="sbar"></div>
+    </div>
+    <div class="sba-lbls"><span>−100%</span><span>0%</span><span>+100%</span></div>
+    <div class="sba-tiers"><span>天然拆台</span><span>帮倒忙</span><span>各顾各</span><span>义气搭档</span><span>命定靠山</span></div>
+  </div>
+
+  <div class="score-badge asi" id="score-badge-el" style="animation-delay:3.2s">——</div>
+  <div class="afu" id="score-badge-sub" style="animation-delay:3.5s;font-size:12px;color:rgba(255,255,255,.35);margin-top:8px;text-align:center;max-width:280px"></div>
+</div>
+
+<!-- ═══ 6 · 断语 ═══ -->
+<div class="card" id="c5">
+  <div class="vbox afu" style="animation-delay:.2s">
+    <div class="vbtag">义气指数 结论</div>
+    <div class="vbtitle" id="vb-title">——</div>
+    <div class="vbbody" id="vb-body"></div>
+    <div class="vbfoot">
+      <div class="vbfoot-s" id="vb-score">+65%</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /cards -->
+
+<script>
+'use strict';
+
+/* ── DEMO DATA ── */
+const DEMO = {
+  names: { a: '小云', b: '小月' },
+  dayGanA: '壬', dayGanB: '丁',
+  l4Direction: '双向补给',
+  yinStarDense: true,
+  dim2Score: 65,
+  l3Raw: 34,   // 印星占比 加权贡献 (62 × 55%)
+  l4Raw: 31,   // 五神互补 加权贡献 (68 × 45%)
+};
+
+/* ── DIM2 TEXT ENGINE ── */
+function getDIM2Texts({l4Direction, yinStarDense, dim2Score, names}){
+  const A=names.a, B=names.b;
+
+  /* Module A */
+  let scanCaption;
+  if(l4Direction==='双向补给'&&yinStarDense)
+    scanCaption='想帮的本能有，帮了还真管用——两个条件同时成立，扫下来是双向贵人的配置。';
+  else if(l4Direction==='双向补给'&&!yinStarDense)
+    scanCaption='五行上是互补的，找对方办事会顺一些。印星少，主动性不强，但帮起来不含糊。';
+  else if(l4Direction==='A→B单向'&&yinStarDense)
+    scanCaption=`${A}命里对${B}的印星密——见${B}就想搭把手，是本能，不是客气。五行上也是${A}给${B}补，${B}那边没这么强。`;
+  else if(l4Direction==='A→B单向'&&!yinStarDense)
+    scanCaption=`五行上${A}在给${B}补资源，${B}找${A}帮忙会顺一点。印星少，${A}不会主动出现，但开口了一般能搞定。`;
+  else if(l4Direction==='B→A单向'&&yinStarDense)
+    scanCaption=`${B}命里对${A}的印星厚——有「帮这个人」的本能，五行上也是${B}给${A}补。${A}找${B}是对的，${B}找${A}就别太指望了。`;
+  else if(l4Direction==='B→A单向'&&!yinStarDense)
+    scanCaption=`五行上${B}在补${A}，${A}在${B}身边做事会顺一点。${B}不是主动帮忙的类型，但${A}碰到事可以开口。`;
+  else if(l4Direction==='双向消耗'&&yinStarDense)
+    scanCaption='两边印星都有，想帮对方的心是真的——但五行上互相激活忌神。在一起做事，帮了等于拖。';
+  else if(l4Direction==='双向消耗'&&!yinStarDense)
+    scanCaption='印星少，五行还互相消耗。想帮的意愿不强，帮了也容易越帮越乱。';
+  else if(yinStarDense)
+    scanCaption='印星扫出来不少，主动性是有的。五行上没互补——出了力，不一定有效果。';
+  else
+    scanCaption='印星和互补都薄。能义气靠的是自己的意愿，命盘这层没给这段关系开多少口。';
+
+  /* Module B */
+  let badge, badgeSubtext;
+  if(dim2Score>=80){
+    badge='命中真贵人 ✦';
+    badgeSubtext='想帮你、帮得上、帮了真有用——三件事同时成立，这种命配找不着第二个';
+  } else if(dim2Score>=50){
+    badge='真义气 ✦';
+    badgeSubtext='听说你遇到急事，接电话先骂一句"真能惹事"，然后立马请假踩着人字拖赶过来替你撑场子。';
+  } else if(dim2Score>=20){
+    badge='义气打折';
+    badgeSubtext='帮得上，但得你先开口；主动出现这件事，别太指望';
+  } else if(dim2Score>=-19){
+    badge='帮不上什么忙';
+    badgeSubtext='听你哭诉倒霉事，连麦一小时，最后一句"你自己坚强点"。';
+  } else {
+    badge='别找这个人';
+    badgeSubtext='听说你出洋相翻车了，他第一时间赶到现场不为救你，只为了拍个高清视频发群里当笑料素材。';
+  }
+
+  /* Module C */
+  let verdictTitle, verdictBody;
+  if(l4Direction==='双向补给'&&yinStarDense&&dim2Score>=50){
+    verdictTitle=`想帮你，帮了还管用——<br>这两件事同时成立不容易`;
+    verdictBody=[
+      `<span style="color:var(--ca)">${A}</span>缺的，<span style="color:var(--cb)">${B}</span>命里多；<span style="color:var(--cb)">${B}</span>缺的，<span style="color:var(--ca)">${A}</span>命里多。不是两个人有多互相了解，是五行刚好这么配——找对方出面，事情就是比自己搞更顺。`,
+      `印星又密，主动帮的本能两边都有，不等你开口就想到了。`,
+      `这种朋友大事小事都能用，不用担心找错人，也不用担心欠人情——<strong>互相的</strong>。`,
+    ];
+  } else if(l4Direction==='双向补给'&&!yinStarDense&&dim2Score>=50){
+    verdictTitle='帮得上，但不是那种<br>会主动出现的';
+    verdictBody=[
+      '五行互补是真的——找对方搭把手，事情比自己磨要顺，这是命盘能验证的。',
+      '印星少，主动性不强。这种朋友开口了能帮，但不是会先察觉到你需要帮助然后出现的类型。',
+      '有用，但用法是「你主动找」，不是「等对方来」。',
+    ];
+  } else if(l4Direction==='双向消耗'&&yinStarDense){
+    verdictTitle='想帮，但帮了反而更乱';
+    verdictBody=[
+      '印星是真的——两边见了对方都有「我来搞定」的本能，这个心没问题。',
+      `但五行方向拧了，互相激活忌神——<span style="color:var(--ca)">${A}</span>帮<span style="color:var(--cb)">${B}</span>的事，出面之后反而推不动；<span style="color:var(--cb)">${B}</span>帮<span style="color:var(--ca)">${A}</span>也一样。越帮越乱不是比喻，是命盘的实际结果。`,
+      '义气在，但帮忙这件事，各找别人更合适。',
+    ];
+  } else if(l4Direction==='双向消耗'&&!yinStarDense){
+    verdictTitle='帮不上，帮了还添乱';
+    verdictBody=[
+      '印星少，没有主动帮的本能；五行还互相消耗，真帮了对方，事情大概率更拧。',
+      '不是不义气，是这段关系在「办事」这件事上就是个雷区——两个人在一起，各自的事都推不动。',
+      '平时喝酒聊天好说，真遇到事，各找各的人比较好。',
+    ];
+  } else {
+    verdictTitle=`<span style="color:var(--ca)">${A}</span> 遇到事，该找的人是 <span style="color:var(--cb)">${B}</span>`;
+    verdictBody=[
+      `<span style="color:var(--ca)">${A}</span>找<span style="color:var(--cb)">${B}</span>帮忙，<span style="color:var(--cb)">${B}</span>出面，事情就是比自己搞更顺。不是<span style="color:var(--cb)">${B}</span>有多大能量，是<span style="color:var(--cb)">${B}</span>的五行刚好是<span style="color:var(--ca)">${A}</span>最缺的。`,
+      `<span style="color:var(--cb)">${B}</span>命里对<span style="color:var(--ca)">${A}</span>的印星厚，主动帮的本能也是真的，不用<span style="color:var(--ca)">${A}</span>一直开口。`,
+    ];
+  }
+
+  return {scanCaption, badge, badgeSubtext, verdictTitle, verdictBody};
+}
+
+/* ── RENDER TEXTS ── */
+function renderTexts(){
+  const t=getDIM2Texts(DEMO);
+
+  const sc=document.getElementById('scan-caption');
+  if(sc) sc.textContent=t.scanCaption;
+
+  const be=document.getElementById('score-badge-el');
+  if(be) be.textContent=t.badge;
+
+  const bsub=document.getElementById('score-badge-sub');
+  if(bsub) bsub.textContent=t.badgeSubtext;
+
+  const vt=document.getElementById('vb-title');
+  if(vt) vt.innerHTML=t.verdictTitle;
+
+  const vb=document.getElementById('vb-body');
+  if(vb) vb.innerHTML=t.verdictBody.map(p=>`<p style="margin-bottom:.75em">${p}</p>`).join('');
+
+  const vs=document.getElementById('vb-score');
+  if(vs) vs.textContent=(DEMO.dim2Score>=0?'+':'')+DEMO.dim2Score+'%';
+}
+
+/* ── SLIDE ENGINE ── */
+const TOTAL=6;
+const DURS=[5000,6500,7000,7000,7000,8000];
+let cur=0,raf=0,t0=0;
+
+function activate(idx){
+  cancelAnimationFrame(raf);
+  document.querySelectorAll('.card').forEach((c,i)=>c.classList.toggle('on',i===idx));
+  for(let i=0;i<TOTAL;i++){const f=document.getElementById('p'+i);f.style.transition='none';f.style.width=i<idx?'100%':'0%';}
+
+  const card=document.getElementById('c'+idx);
+  card.querySelectorAll('.afu,.afi,.asi').forEach(el=>{const d=el.style.animationDelay;el.style.animation='none';el.offsetHeight;el.style.animation='';if(d)el.style.animationDelay=d;});
+
+  if(idx===2) setupScan();
+  if(idx===3) setupComp();
+  if(idx===4) setupScore();
+
+  t0=performance.now();
+  const dur=DURS[idx];
+  const pf=document.getElementById('p'+idx);
+  function tick(now){
+    const pct=Math.min((now-t0)/dur*100,100);
+    pf.style.transition='none';pf.style.width=pct+'%';
+    if(pct<100){raf=requestAnimationFrame(tick);}else if(cur<TOTAL-1){cur++;activate(cur);}
+  }
+  raf=requestAnimationFrame(tick);
+}
+
+/* ── SCAN (L3 印星) ── */
+function setupScan(){
+  document.querySelectorAll('.bzc').forEach(el=>el.classList.remove('res-gan','res-zhi','has-res','scanned'));
+  document.querySelectorAll('.sp-count').forEach(el=>el.classList.remove('visible'));
+
+  const order=[
+    {id:'a0',delay:500,type:'both'},
+    {id:'a1',delay:800,type:'both'},
+    {id:'a2',delay:1100,type:null},
+    {id:'a3',delay:1400,type:'gan'},
+    {id:'b0',delay:1900,type:'both'},
+    {id:'b1',delay:2200,type:'both'},
+    {id:'b2',delay:2500,type:null},
+    {id:'b3',delay:2800,type:null},
+  ];
+  order.forEach(({id,delay,type})=>{
+    setTimeout(()=>{
+      const el=document.getElementById(id);if(!el)return;
+      el.classList.add('scanned');
+      if(type==='gan')     el.classList.add('res-gan','has-res');
+      else if(type==='zhi')el.classList.add('res-zhi','has-res');
+      else if(type==='both')el.classList.add('res-gan','res-zhi','has-res');
+    },delay);
+  });
+  setTimeout(()=>document.getElementById('cnt-a').classList.add('visible'),1600);
+  setTimeout(()=>document.getElementById('cnt-b').classList.add('visible'),3100);
+}
+
+/* ── COMP (五神互补) ── */
+function setupComp(){
+  document.querySelectorAll('.comp-bzc').forEach(el=>el.classList.remove('lit'));
+  ['match1','match2'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('show');});
+
+  // Block 1: 小月供金 → 小云 (辛酉·庚申 亮起)
+  setTimeout(()=>document.getElementById('cb1-0')?.classList.add('lit'),500);
+  setTimeout(()=>document.getElementById('cb1-1')?.classList.add('lit'),750);
+  setTimeout(()=>document.getElementById('match1')?.classList.add('show'),1250);
+
+  // Block 2: 小云供木 → 小月 (甲寅·乙卯·甲子 亮起)
+  setTimeout(()=>document.getElementById('cb2-0')?.classList.add('lit'),1850);
+  setTimeout(()=>document.getElementById('cb2-1')?.classList.add('lit'),2100);
+  setTimeout(()=>document.getElementById('cb2-3')?.classList.add('lit'),2350);
+  setTimeout(()=>document.getElementById('match2')?.classList.add('show'),2800);
+}
+
+/* ── SCORE ── */
+function setupScore(){
+  const s=DEMO.dim2Score, r3=DEMO.l3Raw, r4=DEMO.l4Raw;
+  ['ss1','ss3','sbar'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.transition='none';el.style.width='0%';}});
+  ['si1el','si3el'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('vis');});
+  document.getElementById('sval').textContent='0';
+
+  setTimeout(()=>{
+    const el=document.getElementById('ss1');
+    el.style.transition='width .75s ease';el.style.width=r3+'%';
+    setTimeout(()=>{document.getElementById('lv1').textContent=(r3>=0?'+':'')+r3;document.getElementById('si1el').classList.add('vis');},650);
+  },500);
+  setTimeout(()=>{
+    const el=document.getElementById('ss3');
+    el.style.transition='width .75s ease';el.style.width=r4+'%';
+    setTimeout(()=>{document.getElementById('lv3').textContent=(r4>=0?'+':'')+r4;document.getElementById('si3el').classList.add('vis');},650);
+  },1250);
+  setTimeout(()=>countUp(document.getElementById('sval'),0,s,1000),2100);
+  setTimeout(()=>{
+    const sbar=document.getElementById('sbar');
+    sbar.style.transition='width .9s ease';
+    sbar.style.width=Math.max(0,s/2)+'%';
+  },2200);
+}
+
+function countUp(el,from,to,dur){
+  const start=performance.now();
+  const ease=t=>1-Math.pow(1-t,3);
+  function tick(now){
+    const t=Math.min((now-start)/dur,1);
+    el.textContent=Math.round(from+ease(t)*(to-from));
+    if(t<1)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function next(){if(cur<TOTAL-1){cur++;activate(cur);}}
+function prev(){if(cur>0){cur--;activate(cur);}}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')next();else if(e.key==='ArrowLeft')prev();});
+let sx=0;
+document.addEventListener('touchstart',e=>sx=e.touches[0].clientX,{passive:true});
+document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>40){dx<0?next():prev();}},{passive:true});
+
+renderTexts();
+activate(0);
+</script>
+</body>
+</html>

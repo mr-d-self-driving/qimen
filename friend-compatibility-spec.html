@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>八字照妖镜 · 产品方案</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Noto+Serif+SC:wght@300;400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0c0f;
+    --surface: #141418;
+    --surface2: #1c1c22;
+    --border: #2a2a32;
+    --coral: #ff5c47;
+    --coral-dim: rgba(255,92,71,0.12);
+    --mint: #3dffc0;
+    --mint-dim: rgba(61,255,192,0.1);
+    --gold: #f5c842;
+    --gold-dim: rgba(245,200,66,0.1);
+    --text: #e8e8f0;
+    --muted: #6b6b7e;
+    --muted2: #9999aa;
+    --font-display: 'Syne', sans-serif;
+    --font-body: 'Noto Serif SC', serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ─── NOISE OVERLAY ─── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 9999; opacity: 0.35;
+  }
+
+  /* ─── SCROLLBAR ─── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--coral); border-radius: 2px; }
+
+  /* ─── LAYOUT ─── */
+  .container { max-width: 1080px; margin: 0 auto; padding: 0 40px; }
+
+  /* ─── HERO ─── */
+  .hero {
+    min-height: 100vh;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 80px 0 60px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero-bg {
+    position: absolute; inset: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 80% 20%, rgba(255,92,71,0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 10% 80%, rgba(61,255,192,0.06) 0%, transparent 60%);
+  }
+
+  .hero-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--coral); letter-spacing: 0.12em; text-transform: uppercase;
+    border: 1px solid var(--coral-dim); background: var(--coral-dim);
+    padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 40px;
+    animation: fadeInUp 0.6s ease both;
+  }
+
+  .hero-tag::before { content: '●'; font-size: 8px; animation: pulse 2s infinite; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(52px, 8vw, 96px);
+    font-weight: 800;
+    line-height: 1.0;
+    letter-spacing: -0.03em;
+    animation: fadeInUp 0.6s 0.1s ease both;
+  }
+
+  .hero-title .accent { color: var(--coral); }
+  .hero-title .accent2 { color: var(--mint); }
+
+  .hero-sub {
+    margin-top: 24px;
+    font-size: 18px; color: var(--muted2);
+    max-width: 560px;
+    animation: fadeInUp 0.6s 0.2s ease both;
+  }
+
+  .hero-sub strong { color: var(--text); }
+
+  .hero-premise {
+    margin-top: 40px;
+    padding: 24px 32px;
+    background: var(--surface);
+    border-left: 3px solid var(--coral);
+    border-radius: 0 12px 12px 0;
+    font-size: 17px; color: var(--text);
+    max-width: 680px;
+    animation: fadeInUp 0.6s 0.3s ease both;
+  }
+
+  .hero-premise .em { color: var(--coral); font-weight: 700; }
+
+  .hero-meta {
+    margin-top: 48px;
+    display: flex; gap: 32px; flex-wrap: wrap;
+    animation: fadeInUp 0.6s 0.4s ease both;
+  }
+
+  .hero-meta-item {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+
+  .hero-meta-item .label {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase;
+  }
+
+  .hero-meta-item .value {
+    font-family: var(--font-display); font-size: 22px; font-weight: 700;
+    color: var(--mint);
+  }
+
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ─── SECTION ─── */
+  section { padding: 80px 0; }
+
+  .section-header {
+    display: flex; align-items: baseline; gap: 16px;
+    margin-bottom: 48px;
+  }
+
+  .section-num {
+    font-family: var(--font-mono); font-size: 12px;
+    color: var(--coral); letter-spacing: 0.1em;
+    padding: 4px 10px; background: var(--coral-dim);
+    border-radius: 4px;
+  }
+
+  .section-title {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 4vw, 42px);
+    font-weight: 700; letter-spacing: -0.02em;
+  }
+
+  /* ─── SCORING ─── */
+  .score-container {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 40px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .score-track {
+    position: relative;
+    height: 8px;
+    background: linear-gradient(to right,
+      #1a0a0a 0%,
+      #5c1a14 10%,
+      var(--coral) 25%,
+      #ff9988 35%,
+      var(--border) 45%,
+      var(--border) 55%,
+      #88ffdd 65%,
+      var(--mint) 75%,
+      #1a4a38 90%,
+      #0a1a14 100%
+    );
+    border-radius: 100px;
+    margin: 32px 0 20px;
+  }
+
+  .score-labels {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted);
+  }
+
+  .score-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 36px;
+  }
+
+  .score-tier {
+    padding: 18px 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--surface2);
+    transition: transform 0.2s, border-color 0.2s;
+    cursor: default;
+  }
+
+  .score-tier:hover { transform: translateY(-2px); }
+
+  .score-tier.positive { border-color: rgba(61,255,192,0.2); }
+  .score-tier.neutral { border-color: rgba(255,255,255,0.08); }
+  .score-tier.negative { border-color: rgba(255,92,71,0.2); }
+
+  .score-tier .range {
+    font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+  }
+
+  .score-tier.positive .range { color: var(--mint); }
+  .score-tier.neutral .range { color: var(--muted2); }
+  .score-tier.negative .range { color: var(--coral); }
+
+  .score-tier .tier-name {
+    font-family: var(--font-display); font-size: 20px; font-weight: 700;
+    margin: 6px 0 4px;
+  }
+
+  .score-tier .tier-desc {
+    font-size: 12px; color: var(--muted);
+  }
+
+  /* ─── DIMENSIONS ─── */
+  .dims-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+  }
+
+  .dim-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    display: grid; grid-template-rows: auto auto 1fr auto;
+    gap: 12px;
+    transition: border-color 0.2s;
+  }
+
+  .dim-card:hover { border-color: var(--mint); }
+
+  .dim-num {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); letter-spacing: 0.1em;
+  }
+
+  .dim-name {
+    font-family: var(--font-display); font-size: 24px; font-weight: 700;
+  }
+
+  .dim-desc { font-size: 14px; color: var(--muted2); }
+
+  .dim-bar-wrap {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+
+  .dim-bar-track {
+    height: 4px; background: var(--border); border-radius: 100px;
+    position: relative; overflow: visible;
+  }
+
+  .dim-bar-track::before {
+    content: ''; position: absolute;
+    left: 50%; width: 1px; height: 12px; top: -4px;
+    background: var(--border);
+  }
+
+  .dim-bar-fill {
+    height: 100%; border-radius: 100px;
+    background: var(--mint);
+    width: 65%;
+    margin-left: 50%;
+    transform-origin: left;
+    animation: barGrow 1s 0.5s ease both;
+  }
+
+  .dim-bar-fill.negative {
+    background: var(--coral);
+    margin-left: auto;
+    margin-right: 50%;
+    width: 40%;
+    transform-origin: right;
+  }
+
+  @keyframes barGrow {
+    from { transform: scaleX(0); }
+    to { transform: scaleX(1); }
+  }
+
+  .dim-bar-labels {
+    display: flex; justify-content: space-between;
+    font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+  }
+
+  /* ─── TYPES ─── */
+  .types-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 16px;
+  }
+
+  .type-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px 20px;
+    transition: transform 0.2s, border-color 0.2s, background 0.2s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .type-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: var(--glow);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .type-card:hover { transform: translateY(-3px); }
+  .type-card:hover::before { opacity: 1; }
+
+  .type-card.good { --glow: linear-gradient(135deg, rgba(61,255,192,0.06), transparent); }
+  .type-card.good:hover { border-color: var(--mint); }
+
+  .type-card.warn { --glow: linear-gradient(135deg, rgba(245,200,66,0.06), transparent); }
+  .type-card.warn:hover { border-color: var(--gold); }
+
+  .type-card.bad { --glow: linear-gradient(135deg, rgba(255,92,71,0.08), transparent); }
+  .type-card.bad:hover { border-color: var(--coral); }
+
+  .type-emoji { font-size: 36px; margin-bottom: 12px; }
+
+  .type-name {
+    font-family: var(--font-display); font-size: 22px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .type-card.good .type-name { color: var(--mint); }
+  .type-card.warn .type-name { color: var(--gold); }
+  .type-card.bad .type-name { color: var(--coral); }
+
+  .type-sub { font-size: 13px; color: var(--muted2); line-height: 1.5; }
+
+  .type-tag {
+    display: inline-block; margin-top: 12px;
+    font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.05em;
+    padding: 3px 8px; border-radius: 4px;
+    background: var(--surface2); color: var(--muted);
+  }
+
+  /* ─── TIERS ─── */
+  .tiers-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+
+  .tier-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    position: relative; overflow: hidden;
+  }
+
+  .tier-card.paid {
+    background: linear-gradient(135deg, #141418 0%, #1a1420 100%);
+    border-color: rgba(245,200,66,0.25);
+  }
+
+  .tier-card.paid::after {
+    content: 'PRO';
+    position: absolute; top: 20px; right: 20px;
+    font-family: var(--font-mono); font-size: 10px; font-weight: 700;
+    color: var(--gold); padding: 4px 10px;
+    border: 1px solid var(--gold); border-radius: 100px;
+  }
+
+  .tier-card-title {
+    font-family: var(--font-display); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 24px;
+  }
+
+  .tier-card.paid .tier-card-title { color: var(--gold); }
+
+  .tier-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+  }
+
+  .tier-item:last-child { border-bottom: none; }
+
+  .tier-icon {
+    width: 22px; height: 22px; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; flex-shrink: 0; margin-top: 1px;
+  }
+
+  .tier-card:not(.paid) .tier-icon { background: var(--mint-dim); color: var(--mint); }
+  .tier-card.paid .tier-icon { background: var(--gold-dim); color: var(--gold); }
+
+  /* ─── VIRALITY ─── */
+  .flow-container {
+    display: flex; align-items: center; gap: 0;
+    overflow-x: auto; padding-bottom: 16px;
+    scrollbar-width: thin;
+  }
+
+  .flow-step {
+    flex-shrink: 0;
+    width: 260px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+  }
+
+  .flow-arrow {
+    flex-shrink: 0; width: 48px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--coral); font-size: 20px;
+  }
+
+  .flow-num {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--coral); letter-spacing: 0.1em; margin-bottom: 12px;
+  }
+
+  .flow-title {
+    font-family: var(--font-display); font-size: 18px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .flow-desc { font-size: 13px; color: var(--muted2); line-height: 1.6; }
+
+  .flow-step .half-badge {
+    margin-top: 16px;
+    padding: 10px 14px;
+    background: var(--coral-dim); border: 1px dashed rgba(255,92,71,0.3);
+    border-radius: 8px;
+    font-size: 12px; color: var(--coral); line-height: 1.5;
+  }
+
+  /* ─── CARD MOCKUP ─── */
+  .card-preview-section {
+    background: linear-gradient(135deg, var(--surface) 0%, #181820 100%);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 48px;
+    display: flex; gap: 48px; flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .share-card {
+    width: 320px;
+    background: linear-gradient(145deg, #1a1a24, #0f0f18);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 20px;
+    padding: 28px;
+    box-shadow:
+      0 0 0 1px rgba(255,92,71,0.1),
+      0 24px 48px rgba(0,0,0,0.5),
+      inset 0 1px 0 rgba(255,255,255,0.06);
+    position: relative; overflow: hidden;
+    flex-shrink: 0;
+  }
+
+  .share-card::before {
+    content: '';
+    position: absolute; top: -60px; right: -60px;
+    width: 180px; height: 180px;
+    background: radial-gradient(circle, rgba(255,92,71,0.12), transparent 70%);
+    pointer-events: none;
+  }
+
+  .share-card::after {
+    content: '';
+    position: absolute; bottom: -40px; left: -40px;
+    width: 140px; height: 140px;
+    background: radial-gradient(circle, rgba(61,255,192,0.08), transparent 70%);
+    pointer-events: none;
+  }
+
+  .card-header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: 20px;
+  }
+
+  .card-app-name {
+    font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.15em;
+    color: var(--muted); text-transform: uppercase;
+  }
+
+  .card-score-badge {
+    font-family: var(--font-display); font-size: 28px; font-weight: 800;
+    color: var(--mint);
+    line-height: 1;
+  }
+
+  .card-score-badge span {
+    font-size: 13px; color: var(--muted2); font-weight: 400;
+    display: block; text-align: right; margin-top: 2px;
+  }
+
+  .card-names {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 16px;
+  }
+
+  .card-name-tag {
+    font-family: var(--font-display); font-size: 14px; font-weight: 700;
+    padding: 4px 12px;
+    background: var(--surface2); border-radius: 100px;
+  }
+
+  .card-x { color: var(--muted); font-size: 12px; }
+
+  .card-type-label {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: var(--mint-dim); border: 1px solid rgba(61,255,192,0.2);
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-bottom: 20px;
+  }
+
+  .card-type-emoji { font-size: 18px; }
+  .card-type-name {
+    font-family: var(--font-display); font-size: 16px; font-weight: 700;
+    color: var(--mint);
+  }
+
+  .card-insights { display: flex; flex-direction: column; gap: 8px; margin-bottom: 20px; }
+
+  .card-insight {
+    display: flex; gap: 8px; align-items: flex-start;
+    font-size: 12px; color: var(--muted2); line-height: 1.5;
+  }
+
+  .card-insight .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+    margin-top: 5px; flex-shrink: 0;
+  }
+
+  .card-insight.ok .dot { background: var(--mint); }
+  .card-insight.risk .dot { background: var(--coral); }
+  .card-insight.tip .dot { background: var(--gold); }
+
+  .card-divider {
+    height: 1px; background: var(--border);
+    margin: 16px 0;
+  }
+
+  .card-cta {
+    display: flex; align-items: center; justify-content: space-between;
+  }
+
+  .card-cta-text {
+    font-size: 11px; color: var(--muted);
+    max-width: 160px; line-height: 1.4;
+  }
+
+  .card-cta-btn {
+    font-family: var(--font-display); font-size: 11px; font-weight: 700;
+    padding: 8px 16px;
+    background: var(--coral);
+    color: white; border-radius: 100px;
+    white-space: nowrap;
+  }
+
+  .card-footer {
+    margin-top: 16px;
+    font-family: var(--font-mono); font-size: 9px;
+    color: var(--muted); letter-spacing: 0.08em;
+    display: flex; justify-content: space-between;
+  }
+
+  .card-annotation {
+    flex: 1; min-width: 300px;
+  }
+
+  .card-annotation h3 {
+    font-family: var(--font-display); font-size: 20px; font-weight: 700;
+    margin-bottom: 24px; color: var(--text);
+  }
+
+  .annotation-item {
+    display: flex; gap: 16px; padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .annotation-item:last-child { border-bottom: none; }
+
+  .ann-arrow {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--coral); padding-top: 3px; flex-shrink: 0;
+  }
+
+  .ann-content { font-size: 14px; color: var(--muted2); line-height: 1.6; }
+  .ann-content strong { color: var(--text); font-weight: 400; }
+
+  /* ─── MVP ─── */
+  .mvp-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 16px;
+  }
+
+  .mvp-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    position: relative;
+    transition: border-color 0.2s, transform 0.2s;
+  }
+
+  .mvp-item:hover { border-color: var(--coral); transform: translateY(-2px); }
+
+  .mvp-num {
+    font-family: var(--font-display); font-size: 56px; font-weight: 800;
+    color: var(--border);
+    line-height: 1; margin-bottom: 16px;
+  }
+
+  .mvp-title {
+    font-family: var(--font-display); font-size: 18px; font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .mvp-desc { font-size: 13px; color: var(--muted2); line-height: 1.6; }
+
+  /* ─── FOOTER ─── */
+  footer {
+    padding: 60px 0;
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between; flex-wrap: gap;
+  }
+
+  .footer-left {
+    font-family: var(--font-display); font-size: 24px; font-weight: 800;
+  }
+
+  .footer-left span { color: var(--coral); }
+
+  .footer-right {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); text-align: right; line-height: 1.8;
+  }
+
+  /* ─── NAV ─── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+    background: rgba(12,12,15,0.8);
+    backdrop-filter: blur(20px) saturate(1.2);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    padding: 0 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 56px;
+  }
+
+  .nav-logo {
+    font-family: var(--font-display); font-size: 16px; font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-logo span { color: var(--coral); }
+
+  .nav-links {
+    display: flex; gap: 24px;
+    list-style: none;
+  }
+
+  .nav-links a {
+    font-family: var(--font-mono); font-size: 11px;
+    color: var(--muted); text-decoration: none; letter-spacing: 0.05em;
+    transition: color 0.2s;
+  }
+
+  .nav-links a:hover { color: var(--text); }
+
+  .nav-tag {
+    font-family: var(--font-mono); font-size: 10px;
+    color: var(--muted); padding: 4px 10px;
+    border: 1px solid var(--border); border-radius: 100px;
+  }
+
+  /* ─── DIVIDER ─── */
+  .section-divider {
+    height: 1px; background: var(--border);
+    margin: 0;
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 768px) {
+    .container { padding: 0 24px; }
+    nav { padding: 0 24px; }
+    .nav-links { display: none; }
+    .tiers-grid { grid-template-columns: 1fr; }
+    .card-preview-section { flex-direction: column; padding: 28px; }
+    .share-card { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-logo">八字<span>照妖镜</span></div>
+  <ul class="nav-links">
+    <li><a href="#scoring">评分体系</a></li>
+    <li><a href="#dimensions">分析维度</a></li>
+    <li><a href="#types">关系类型</a></li>
+    <li><a href="#tiers">功能分层</a></li>
+    <li><a href="#virality">裂变机制</a></li>
+    <li><a href="#card">分享卡片</a></li>
+    <li><a href="#mvp">MVP</a></li>
+  </ul>
+  <div class="nav-tag">产品方案 v0.1</div>
+</nav>
+
+<!-- ─── HERO ─── -->
+<section class="hero" style="padding-top: 120px;">
+  <div class="hero-bg"></div>
+  <div class="container">
+    <div class="hero-tag">八字双人合盘 · 朋友关系</div>
+    <h1 class="hero-title">
+      八字<br><span class="accent">照妖</span><span class="accent2">镜</span>
+    </h1>
+    <p class="hero-sub">
+      不是问你们<strong>合不合</strong>。<br>
+      是帮你搞清楚——这个人，到底是你的<strong>闺闺</strong>，还是<strong>敌蜜</strong>？
+    </p>
+    <div class="hero-premise">
+      核心问题不是「八字相不相合」<br>
+      而是：<span class="em">「和 TA 在一起，你是在充电，还是在漏电？」</span>
+    </div>
+    <div class="hero-meta">
+      <div class="hero-meta-item">
+        <span class="label">评分区间</span>
+        <span class="value">−100% → +100%</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">关系标签</span>
+        <span class="value">8 种</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">分析维度</span>
+        <span class="value">5 个</span>
+      </div>
+      <div class="hero-meta-item">
+        <span class="label">理论来源</span>
+        <span class="value">十神 × 干支</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── SCORING ─── -->
+<section id="scoring">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">01</span>
+      <h2 class="section-title">评分体系</h2>
+    </div>
+    <div class="score-container">
+      <p style="font-size: 14px; color: var(--muted2); margin-bottom: 8px;">
+        从 <span style="color:var(--coral); font-weight:700;">−100%（敌蜜预警）</span> 到 <span style="color:var(--mint); font-weight:700;">+100%（命定知己）</span>
+        ——没有中立，只有真相。
+      </p>
+      <div class="score-track"></div>
+      <div class="score-labels">
+        <span>−100%</span>
+        <span>−50%</span>
+        <span>0%</span>
+        <span>+50%</span>
+        <span>+100%</span>
+      </div>
+      <div class="score-grid">
+        <div class="score-tier positive">
+          <div class="range">+80% → +100%</div>
+          <div class="tier-name">命定知己</div>
+          <div class="tier-desc">命盘里的真·灵魂伴侣，打劫了都不散</div>
+        </div>
+        <div class="score-tier positive">
+          <div class="range">+50% → +79%</div>
+          <div class="tier-name">同频搭子</div>
+          <div class="tier-desc">聊什么都对频，在一起比较充电</div>
+        </div>
+        <div class="score-tier positive">
+          <div class="range">+20% → +49%</div>
+          <div class="tier-name">普通朋友</div>
+          <div class="tier-desc">能玩，有距离感，不深交没问题</div>
+        </div>
+        <div class="score-tier neutral">
+          <div class="range">−19% → +19%</div>
+          <div class="tier-name">塑料情</div>
+          <div class="tier-desc">不好不坏，微信聊天翻不着的那种</div>
+        </div>
+        <div class="score-tier negative">
+          <div class="range">−20% → −49%</div>
+          <div class="tier-name">暗中较劲</div>
+          <div class="tier-desc">说是朋友，内里在暗暗比，容易耗</div>
+        </div>
+        <div class="score-tier negative">
+          <div class="range">−50% → −79%</div>
+          <div class="tier-name">相爱相杀</div>
+          <div class="tier-desc">撕了又和，离不开也在互相消耗</div>
+        </div>
+        <div class="score-tier negative">
+          <div class="range">−80% → −100%</div>
+          <div class="tier-name">敌蜜预警</div>
+          <div class="tier-desc">表面闺蜜实质吸血，建议做好边界</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── DIMENSIONS ─── -->
+<section id="dimensions">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">02</span>
+      <h2 class="section-title">5 大分析维度</h2>
+    </div>
+    <div class="dims-grid">
+      <div class="dim-card">
+        <div class="dim-num">DIM 01</div>
+        <div class="dim-name">同频指数</div>
+        <div class="dim-desc">聊得来吗？有共鸣吗？<br>能懂彼此在说什么吗？</div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar-track"><div class="dim-bar-fill" style="width:72%"></div></div>
+          <div class="dim-bar-labels"><span>−100%</span><span>0</span><span>+100%</span></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">比肩 · 食伤互生 → 共鸣感</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-num">DIM 02</div>
+        <div class="dim-name">义气指数</div>
+        <div class="dim-desc">真出事了会不会帮你？<br>还是只陪你顺境不陪逆境？</div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar-track"><div class="dim-bar-fill" style="width:55%"></div></div>
+          <div class="dim-bar-labels"><span>−100%</span><span>0</span><span>+100%</span></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">印星生扶 · 比肩有情 → 义气</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-num">DIM 03</div>
+        <div class="dim-name">消耗指数</div>
+        <div class="dim-desc">在一起之后你是充电还是掉电？<br>（负值 = 消耗你）</div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar-track"><div class="dim-bar-fill negative" style="width:35%"></div></div>
+          <div class="dim-bar-labels"><span>−100%</span><span>0</span><span>+100%</span></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">劫财夺财 · 日支冲害 → 消耗</div>
+      </div>
+      <div class="dim-card">
+        <div class="dim-num">DIM 04</div>
+        <div class="dim-name">成长指数</div>
+        <div class="dim-desc">这朋友会把你带好还是带歪？<br>会不会推着你变更好？</div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar-track"><div class="dim-bar-fill" style="width:48%"></div></div>
+          <div class="dim-bar-labels"><span>−100%</span><span>0</span><span>+100%</span></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">印星化生 · 官星引导 → 成长</div>
+      </div>
+      <div class="dim-card" style="grid-column: span 1;">
+        <div class="dim-num">DIM 05</div>
+        <div class="dim-name">钱财边界</div>
+        <div class="dim-desc">能不能一起搞钱？<br>借了钱还会不会是朋友？</div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar-track"><div class="dim-bar-fill negative" style="width:60%"></div></div>
+          <div class="dim-bar-labels"><span>−100%</span><span>0</span><span>+100%</span></div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-family:var(--font-mono)">财星 + 比劫 → 利益摩擦</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── TYPES ─── -->
+<section id="types">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">03</span>
+      <h2 class="section-title">8 种朋友人格</h2>
+    </div>
+    <div class="types-grid">
+      <div class="type-card good">
+        <div class="type-emoji">🫂</div>
+        <div class="type-name">命定知己</div>
+        <div class="type-sub">比肩有情，天然懂你。不用解释，不用铺垫，就是懂。</div>
+        <div class="type-tag">比肩 · 天干五合</div>
+      </div>
+      <div class="type-card good">
+        <div class="type-emoji">🎉</div>
+        <div class="type-name">快乐搭子</div>
+        <div class="type-sub">食伤旺，聊天玩乐超顺。每次在一起都很嗨，但聊不太深。</div>
+        <div class="type-tag">食伤 · 地支六合</div>
+      </div>
+      <div class="type-card good">
+        <div class="type-emoji">👼</div>
+        <div class="type-name">贵人闺闺</div>
+        <div class="type-sub">印星单方向生扶你，TA 比你更扛事，你累了 TA 会接住。</div>
+        <div class="type-tag">印星 · 单向照顾</div>
+      </div>
+      <div class="type-card warn">
+        <div class="type-emoji">🔥</div>
+        <div class="type-name">互相打鸡血</div>
+        <div class="type-sub">火木旺，行动力拉满，在一起很亢奋，但也容易一起上头冲动。</div>
+        <div class="type-tag">火木 · 行动激活</div>
+      </div>
+      <div class="type-card warn">
+        <div class="type-emoji">👀</div>
+        <div class="type-name">暗中较劲</div>
+        <div class="type-sub">表面很亲近，内里在比。不是坏朋友，但别在 TA 面前太显眼。</div>
+        <div class="type-tag">劫财 · 比劫过旺</div>
+      </div>
+      <div class="type-card warn">
+        <div class="type-emoji">🌫</div>
+        <div class="type-name">阶段朋友</div>
+        <div class="type-sub">某个大运流年特别投缘，过了那段时间自然疏远，不是谁的错。</div>
+        <div class="type-tag">大运 · 阶段触发</div>
+      </div>
+      <div class="type-card bad">
+        <div class="type-emoji">💸</div>
+        <div class="type-name">借钱禁区</div>
+        <div class="type-sub">什么都好，就是别聊钱，别合伙，别让利益进来破坏关系。</div>
+        <div class="type-tag">财星 + 劫财 · 钱财摩擦</div>
+      </div>
+      <div class="type-card bad">
+        <div class="type-emoji">🐍</div>
+        <div class="type-name">敌蜜预警</div>
+        <div class="type-sub">冲害多，越近越累。嘴上是朋友，行动上在消耗你。做好边界。</div>
+        <div class="type-tag">冲害 · 劫财夺财</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── TIERS ─── -->
+<section id="tiers">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">04</span>
+      <h2 class="section-title">功能分层</h2>
+    </div>
+    <div class="tiers-grid">
+      <div class="tier-card">
+        <div class="tier-card-title">免费 · 传播钩子</div>
+        <div class="tier-item">
+          <div class="tier-icon">✓</div>
+          <div>关系总分 + 关系人格标签，直接看结论</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">✓</div>
+          <div>三句话版本：合拍点 / 风险点 / 绝对不要做的事</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">✓</div>
+          <div>一张可截图转发的关系分享卡</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">✓</div>
+          <div>「邀请 TA 补全命盘」的裂变入口</div>
+        </div>
+      </div>
+      <div class="tier-card paid">
+        <div class="tier-card-title">解锁 · 完整报告</div>
+        <div class="tier-item">
+          <div class="tier-icon">★</div>
+          <div>5 维雷达图，每个维度详细解读</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">★</div>
+          <div>完整关系深度报告（十神互动全解）</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">★</div>
+          <div>钱财边界专项分析：借钱/合伙/人情</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">★</div>
+          <div>未来 3 年关系走势：哪年走近，哪年疏远</div>
+        </div>
+        <div class="tier-item">
+          <div class="tier-icon">★</div>
+          <div>TA 的相处说明书：怎么跟 TA 打交道最省力</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── VIRALITY ─── -->
+<section id="virality">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">05</span>
+      <h2 class="section-title">裂变机制</h2>
+    </div>
+    <p style="font-size:15px;color:var(--muted2);margin-bottom:36px;max-width:560px;">
+      传播的核心不是"我晒报告"，而是"我邀请你一起完成"。
+      用户不是在分享结论，是在抛一个社交钩子。
+    </p>
+    <div class="flow-container">
+      <div class="flow-step">
+        <div class="flow-num">STEP 01</div>
+        <div class="flow-title">填自己的八字</div>
+        <div class="flow-desc">用户只填自己的出生信息，生成「我的朋友人格」半成品卡片。</div>
+        <div class="half-badge">
+          我已经测了，还差你。<br>
+          你在我命盘里是什么位置？
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">STEP 02</div>
+        <div class="flow-title">发给对方</div>
+        <div class="flow-desc">半成品卡里有邀请链接，对方点击后进入「填写你的信息」页面。</div>
+        <div class="half-badge">
+          对方看到：<br>
+          「TA 在测我们是什么关系，你想知道结果吗？」
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">STEP 03</div>
+        <div class="flow-title">双方解锁报告</div>
+        <div class="flow-desc">对方填写后，双方同时解锁完整关系卡，两个人都拿到报告。</div>
+        <div class="half-badge" style="background:rgba(61,255,192,0.08);border-color:rgba(61,255,192,0.25);color:var(--mint)">
+          双方同时拿到：<br>
+          「你们是同频搭子 +62%」
+        </div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">
+        <div class="flow-num">STEP 04</div>
+        <div class="flow-title">对方继续邀别人</div>
+        <div class="flow-desc">对方拿到报告后，自然想测自己和另一个朋友的关系，裂变继续。</div>
+        <div class="half-badge">
+          「我也要测我闺蜜，看我们是不是敌蜜」
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── CARD ─── -->
+<section id="card">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">06</span>
+      <h2 class="section-title">分享卡片设计</h2>
+    </div>
+    <div class="card-preview-section">
+      <!-- CARD MOCKUP -->
+      <div class="share-card">
+        <div class="card-header">
+          <div class="card-app-name">八字照妖镜</div>
+          <div>
+            <div class="card-score-badge">+62%</div>
+            <span style="font-family:var(--font-mono);font-size:9px;color:var(--muted);display:block;text-align:right;">同频搭子</span>
+          </div>
+        </div>
+
+        <div class="card-names">
+          <span class="card-name-tag">小A</span>
+          <span class="card-x">×</span>
+          <span class="card-name-tag">小B</span>
+        </div>
+
+        <div class="card-type-label">
+          <span class="card-type-emoji">🎉</span>
+          <span class="card-type-name">快乐搭子</span>
+        </div>
+
+        <div class="card-insights">
+          <div class="card-insight ok">
+            <span class="dot"></span>
+            <span>食伤互生，聊天玩乐天然对频，在一起很充电</span>
+          </div>
+          <div class="card-insight risk">
+            <span class="dot"></span>
+            <span>比劫略重，情绪上头时容易互相拱火</span>
+          </div>
+          <div class="card-insight tip">
+            <span class="dot"></span>
+            <span>可以一起玩、一起吐槽，别一起搞钱</span>
+          </div>
+        </div>
+
+        <div class="card-divider"></div>
+
+        <div class="card-cta">
+          <div class="card-cta-text">你在 TA 命盘里是什么？点这里补全合盘</div>
+          <div class="card-cta-btn">我也测</div>
+        </div>
+
+        <div class="card-footer">
+          <span>八字照妖镜</span>
+          <span>2026.05.21</span>
+        </div>
+      </div>
+
+      <!-- ANNOTATIONS -->
+      <div class="card-annotation">
+        <h3>卡片设计注解</h3>
+        <div class="annotation-item">
+          <span class="ann-arrow">→</span>
+          <div class="ann-content">
+            <strong>评分用百分比，不用分数</strong><br>
+            "+62%" 比 "62分" 更像指标，更有截图欲，也让负数更有冲击力。
+          </div>
+        </div>
+        <div class="annotation-item">
+          <span class="ann-arrow">→</span>
+          <div class="ann-content">
+            <strong>三条结论，格式固定</strong><br>
+            绿点 = 合拍点，红点 = 风险点，黄点 = 建议。固定格式让用户看一眼就懂，不用读完。
+          </div>
+        </div>
+        <div class="annotation-item">
+          <span class="ann-arrow">→</span>
+          <div class="ann-content">
+            <strong>「我也测」是最重要的按钮</strong><br>
+            对方看到这张卡，天然想知道自己视角的结果，这是整个裂变的核心驱动。
+          </div>
+        </div>
+        <div class="annotation-item">
+          <span class="ann-arrow">→</span>
+          <div class="ann-content">
+            <strong>不写玄学术语在卡面上</strong><br>
+            「比劫略重」这种词只出现在注释里，卡面只写用户能直接理解的结论。
+          </div>
+        </div>
+        <div class="annotation-item">
+          <span class="ann-arrow">→</span>
+          <div class="ann-content">
+            <strong>类型标签要有截图欲</strong><br>
+            「快乐搭子」「敌蜜预警」比「适合型伙伴」更想被发出去——这是社交货币。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- ─── MVP ─── -->
+<section id="mvp">
+  <div class="container">
+    <div class="section-header">
+      <span class="section-num">07</span>
+      <h2 class="section-title">MVP 最小闭环</h2>
+    </div>
+    <p style="font-size:15px;color:var(--muted2);margin-bottom:36px;max-width:560px;">
+      第一版只做这 4 个输出。先把关系主卡做到用户愿意截图发给对方，再考虑深度报告。
+    </p>
+    <div class="mvp-grid">
+      <div class="mvp-item">
+        <div class="mvp-num">01</div>
+        <div class="mvp-title">关系主卡</div>
+        <div class="mvp-desc">一张可截图转发的卡片，含总分 + 类型标签 + 三句结论。样式简洁，适合微信/小红书传播。</div>
+      </div>
+      <div class="mvp-item">
+        <div class="mvp-num">02</div>
+        <div class="mvp-title">关系人格标签</div>
+        <div class="mvp-desc">从 8 种标签里匹配一个，配上简短说明。标签本身就是传播语，用户看到「敌蜜预警」会忍不住发出去。</div>
+      </div>
+      <div class="mvp-item">
+        <div class="mvp-num">03</div>
+        <div class="mvp-title">三条免费结论</div>
+        <div class="mvp-desc">合拍 / 风险 / 不要做的事，各一句。不给全部，给够让用户好奇更多。</div>
+      </div>
+      <div class="mvp-item">
+        <div class="mvp-num">04</div>
+        <div class="mvp-title">邀请对方按钮</div>
+        <div class="mvp-desc">裂变的核心。对方点击后看到「TA 在测我们是什么关系」，天然有动力填写自己的信息。</div>
+      </div>
+    </div>
+
+    <!-- Bazi theory anchor -->
+    <div style="margin-top:48px; padding:28px 32px; background:var(--surface); border:1px solid var(--border); border-radius:16px;">
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:16px;">命理骨架 · 计算依据</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:20px;">
+        <div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--mint);margin-bottom:8px;">基础契合层</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.7;">日主五行阴阳 · 天干五合 · 地支六合/三合/冲刑害破</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--mint);margin-bottom:8px;">关系主题层</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.7;">朋友看比肩劫财 · 义气看印星 · 玩乐看食伤 · 钱财看财星</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--mint);margin-bottom:8px;">互补与伤害层</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.7;">是否补对方喜用 · 是否激活忌神 · 是否争合 · 比劫夺财</div>
+        </div>
+        <div>
+          <div style="font-family:var(--font-display);font-size:15px;font-weight:700;color:var(--mint);margin-bottom:8px;">动态触发层</div>
+          <div style="font-size:13px;color:var(--muted2);line-height:1.7;">大运建场 · 流年触发 · 关系升温/疏远的时间窗口</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ─── -->
+<footer>
+  <div class="container" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px;">
+    <div class="footer-left">八字<span>照妖镜</span></div>
+    <div class="footer-right">
+      产品方案 v0.1 · 2026.05<br>
+      朋友关系合盘 MVP<br>
+      理论来源：十神 × 干支生克刑冲合害
+    </div>
+  </div>
+</footer>
+
+<script>
+  // Intersection Observer for section entrance
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.style.opacity = '1';
+        entry.target.style.transform = 'translateY(0)';
+      }
+    });
+  }, { threshold: 0.1 });
+
+  document.querySelectorAll('section, .score-container, .dims-grid, .types-grid').forEach(el => {
+    el.style.opacity = '0';
+    el.style.transform = 'translateY(24px)';
+    el.style.transition = 'opacity 0.6s ease, transform 0.6s ease';
+    observer.observe(el);
+  });
+
+  // Score tier hover highlight
+  document.querySelectorAll('.score-tier').forEach(card => {
+    card.addEventListener('mouseenter', () => {
+      document.querySelectorAll('.score-tier').forEach(c => c.style.opacity = '0.4');
+      card.style.opacity = '1';
+    });
+    card.addEventListener('mouseleave', () => {
+      document.querySelectorAll('.score-tier').forEach(c => c.style.opacity = '1');
+    });
+  });
+</script>
+</body>
+</html>
