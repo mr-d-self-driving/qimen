@@ -63,22 +63,22 @@
           </p>
           <div class="seo-proof">规则引擎先排盘，AI 负责解释。</div>
           <div class="seo-entry-grid" aria-label="核心功能入口">
-            <router-link class="seo-entry" to="/">
+            <div class="seo-entry">
               <span>奇门问事</span>
               <small>按当下时辰起局，分析感情、事业、财运与选择。</small>
-            </router-link>
-            <router-link class="seo-entry" to="/bazi">
+            </div>
+            <div class="seo-entry">
               <span>八字排盘</span>
               <small>四柱十神、喜用神、格局、大运流年一键生成。</small>
-            </router-link>
-            <router-link class="seo-entry" to="/fortune">
+            </div>
+            <div class="seo-entry">
               <span>今日运势</span>
               <small>每日、每周、月度节奏和可执行建议。</small>
-            </router-link>
+            </div>
           </div>
         </section>
 
-        <div v-if="!canUseApp" class="glass-card auth-card" :class="{ 'signup-simple': !isLoginMode }">
+        <div v-if="!canUseApp" class="glass-card auth-card mobile-auth-first" :class="{ 'signup-simple': !isLoginMode }">
           <div class="auth-card-glow" aria-hidden="true"></div>
           <div class="auth-head">
             <div v-if="isLoginMode" class="auth-kicker">RETURNING SEEKER</div>
@@ -2213,8 +2213,12 @@ const buildCardHTML = (data) => {
   .page-wrap { padding: 76px 18px 60px; }
   .public-landing-container {
     max-width: 520px;
-    display: block;
+    display: flex;
+    flex-direction: column;
   }
+  .mobile-auth-first { order: 1; }
+  .seo-landing { order: 2; }
+  .seo-faq-section { order: 3; }
   .seo-landing {
     min-height: 0;
     margin-bottom: 18px;
