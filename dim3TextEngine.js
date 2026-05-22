@@ -13,43 +13,42 @@
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Module B · Badge
+//
+// ⚠️ 可达性说明：DIM3 两个来源（L3 劫煞 + L4 忌神激活）均为负向专项，
+// 实际最高分 = 0（无消耗），正向区间在数学上不可达。
+// Badge 档位设计为纯负向 5 档，范围 [−100, 0]。
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BADGE_TIERS = [
   {
-    min: 60,
-    badge: '天然充电宝 ✦',
-    subtext: '见一面顶得上睡了个好觉，对方就是你的能量插座，没道理，插上就有电。',
-  },
-  {
-    min: 20,
-    badge: '轻度充电',
-    subtext: '在一起之后比一个人略微精神，不是突飞猛进，是那种微妙的好状态。',
-  },
-  {
-    min: -10,
+    min: -12,
     badge: '基本不耗',
-    subtext: '能量层面互不干扰，在一起跟自己待着差不多，各做各的不会觉得亏电。',
+    subtext: '在一起跟各自待着差不多，能量层面互不干扰。',
   },
   {
-    min: -35,
+    min: -38,
     badge: '轻度消耗',
     subtext: '不是明显的累，是那种回家之后需要比平时多睡半小时。',
   },
   {
-    min: -70,
+    min: -65,
     badge: '慢慢耗着',
     subtext: '单独出去玩回来元气满满，然后在一起两小时发现手机没电、人也没电。',
   },
   {
-    min: -Infinity,
+    min: -85,
     badge: '能量黑洞',
-    subtext: '见一次面需要三天独处来补回来，还不一定补得满。',
+    subtext: '见一次面需要闭关独处三天才补得回来，还不一定补满。',
+  },
+  {
+    min: -Infinity,
+    badge: '相互摧毁',
+    subtext: '在一起一小时，状态比没睡的夜班还差——这不是感情问题，是命盘结构。',
   },
 ];
 
 /**
- * @param {number} score  DIM3 最终分数 [-100, +100]（正=充电，负=消耗）
+ * @param {number} score  DIM3 最终分数 [-100, 0]（两个来源均负向专项，正向不可达；0=不消耗，负=消耗）
  * @returns {{ badge: string, subtext: string }}
  */
 function getBadge(score) {
@@ -61,7 +60,7 @@ function getBadge(score) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {'双向消耗'|'A→B单向'|'B→A单向'|'基本中性'|'双向充电'} drainDirection  劫煞方向
+ * @param {'双向消耗'|'A→B单向'|'B→A单向'|'基本中性'} drainDirection  劫煞方向
  * @param {boolean} drainDense  劫煞密度（true = 双方各有 ≥2 个劫煞命中）
  * @param {{ a: string, b: string }} names
  * @returns {string}
@@ -81,7 +80,7 @@ function getScanCaption(drainDirection, drainDense, names) {
     return `${B}的气场对${A}有明显的劫煞压制——${A}跟${B}在一起，总觉得精力少了一块，回家需要先独处恢复。`;
   if (drainDirection === 'B→A单向' && !drainDense)
     return `劫煞偏向${B}→${A}，密度轻。${A}在${B}身边注意边界感，别什么事都带对方参与。`;
-  return '劫煞极少，彼此气场不形成干扰。在一起不会多花力气，甚至可能轻松一些。';
+  return '劫煞极少，彼此气场不形成干扰——在一起跟各自待着消耗差不多，不会额外多耗。';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -89,9 +88,9 @@ function getScanCaption(drainDirection, drainDense, names) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {'双向消耗'|'A→B单向'|'B→A单向'|'基本中性'|'双向充电'} drainDirection
+ * @param {'双向消耗'|'A→B单向'|'B→A单向'|'基本中性'} drainDirection
  * @param {boolean} drainDense
- * @param {number} dim3Score
+ * @param {number} dim3Score  [−100, 0]
  * @param {{ a: string, b: string }} names
  * @returns {{ title: string, body: string[] }}
  */
@@ -127,20 +126,21 @@ function getVerdict(drainDirection, drainDense, dim3Score, names) {
       ],
     };
   }
-  if (dim3Score > 0) {
+  // 基本不耗（0 ~ -12）
+  if (dim3Score >= -12) {
     return {
-      title: `在一起，<br>反而比一个人<span style="color:var(--green)">更有电</span>`,
+      title: '劫煞极少，<br>在一起<span style="color:var(--drain)">不额外多耗</span>',
       body: [
-        `命盘方向偏正向——两人的气场没有形成消耗结构，${B}跟${A}在一起，状态往往比一个人的时候还好一点。`,
-        '这不是靠感情撑出来的好状态，是五行结构里写好的能量相容。',
+        `命盘没有扫出明显的劫煞信号，忌神也几乎没有激活——在一起跟各自待着消耗差不多，不会被对方带走能量。`,
+        '消耗指数的结论是：这段关系不构成能量负担。不是充电，是不扣血——已经是消耗维度里最轻的结果。',
       ],
     };
   }
-  // 中性 / 轻度消耗
+  // 轻度消耗（-13 ~ -38）
   return {
     title: '有消耗，<br>但在可接受范围内',
     body: [
-      '扫出来的劫煞信号不算强，忌神激活也没到叠满的程度。中等消耗，不是什么大事，大多数关系都是这样。',
+      '扫出来的劫煞信号不算强，忌神激活也没到叠满的程度。轻度消耗，不是什么大事，大多数关系都是这样。',
       '在一起注意不要全天候粘着——给彼此留一些独处和各自社交的空间，消耗感会小很多。',
     ],
   };
@@ -154,9 +154,9 @@ function getVerdict(drainDirection, drainDense, dim3Score, names) {
  * 生成 DIM3 消耗指数所有文本
  *
  * @param {{
- *   drainDirection: '双向消耗'|'A→B单向'|'B→A单向'|'基本中性'|'双向充电',
+ *   drainDirection: '双向消耗'|'A→B单向'|'B→A单向'|'基本中性',
  *   drainDense:     boolean,   // 劫煞密度（两方各命中 ≥2 个）
- *   dim3Score:      number,    // DIM3 最终分数 [-100, +100]（正=充电，负=消耗）
+ *   dim3Score:      number,    // DIM3 最终分数 [−100, 0]（0=无消耗，负=消耗）
  *   names:          { a: string, b: string }
  * }} params
  *

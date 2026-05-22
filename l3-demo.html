@@ -173,7 +173,7 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-famil
 .sba{width:100%;max-width:300px;margin-top:24px}
 .sba-track{
   height:10px;border-radius:100px;
-  background:linear-gradient(to right,rgba(248,113,113,.35) 0%,rgba(255,255,255,.06) 50%,rgba(74,222,128,.3) 100%);
+  background:linear-gradient(to right,rgba(248,113,113,.5) 0%,rgba(248,113,113,.12) 50%,rgba(255,255,255,.04) 100%);
   position:relative
 }
 .sba-center{position:absolute;left:50%;top:-3px;width:2px;height:16px;background:rgba(255,255,255,.18);transform:translateX(-50%)}
@@ -411,7 +411,7 @@ html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-famil
       <div class="sba-fill-l" id="sbar-l"></div>
     </div>
     <div class="sba-lbls"><span>−100%</span><span>0%</span><span>+100%</span></div>
-    <div class="sba-tiers"><span>相互耗尽</span><span>轻度消耗</span><span>各不影响</span><span>轻度充电</span><span>能量共鸣</span></div>
+    <div class="sba-tiers"><span>相互摧毁</span><span>能量黑洞</span><span>慢慢耗着</span><span>轻度消耗</span><span>基本不耗</span></div>
   </div>
 
   <div class="score-badge asi" id="score-badge-el" style="animation-delay:3.2s">——</div>
@@ -465,28 +465,28 @@ function getDIM3Texts({drainDirection, drainDense, dim3Score, names}){
   else if(drainDirection==='B→A单向'&&!drainDense)
     scanCaption=`劫煞偏向${B}→${A}，密度轻。${A}在${B}身边注意边界感，别什么事都带对方参与。`;
   else
-    scanCaption='劫煞极少，彼此气场不形成干扰。在一起不会多花力气，甚至可能轻松一些。';
+    scanCaption='劫煞极少，彼此气场不形成干扰——在一起跟各自待着消耗差不多，不会额外多耗。';
 
-  /* Module B · Badge */
+  /* Module B · Badge
+   * DIM3 实际范围 [−100, 0]：两个来源均为负向专项（L3劫煞+L4忌神激活），
+   * 正向区间不可达，5档纯负向设计。
+   */
   let badge, badgeSubtext;
-  if(dim3Score<=-70){
+  if(dim3Score<=-86){
+    badge='相互摧毁';
+    badgeSubtext='在一起一小时，状态比没睡的夜班还差——这不是感情问题，是命盘结构。';
+  } else if(dim3Score<=-66){
     badge='能量黑洞';
-    badgeSubtext='见一次面需要三天独处来补回来，还不一定补得满。';
-  } else if(dim3Score<=-35){
+    badgeSubtext='见一次面需要闭关独处三天才补得回来，还不一定补满。';
+  } else if(dim3Score<=-39){
     badge='慢慢耗着';
     badgeSubtext='单独出去玩回来元气满满，然后在一起两小时发现手机没电、人也没电。';
-  } else if(dim3Score<=-10){
+  } else if(dim3Score<=-13){
     badge='轻度消耗';
     badgeSubtext='不是明显的累，是那种回家之后需要比平时多睡半小时。';
-  } else if(dim3Score<=20){
-    badge='基本不耗';
-    badgeSubtext='能量层面互不干扰，在一起跟自己待着差不多，各做各的不会觉得亏电。';
-  } else if(dim3Score<=60){
-    badge='轻度充电';
-    badgeSubtext='在一起之后比一个人略微精神，不是突飞猛进，是那种微妙的好状态。';
   } else {
-    badge='天然充电宝 ✦';
-    badgeSubtext='见一面顶得上睡了个好觉，对方就是你的能量插座，没道理，插上就有电。';
+    badge='基本不耗';
+    badgeSubtext='在一起跟各自待着差不多，能量层面互不干扰。';
   }
 
   /* Module C · 断语 */
@@ -511,16 +511,16 @@ function getDIM3Texts({drainDirection, drainDense, dim3Score, names}){
       '如果硬要在一起：固定独处时间不能砍，事情最好别混着做，分开工作比一起工作效率高很多倍。',
       '长期下来容易怪对方，但问题出在命盘不出在人。先看清楚再决定。',
     ];
-  } else if(dim3Score>0){
-    verdictTitle=`在<span style="color:var(--ca)">${A}</span>身边，<br><span style="color:var(--cb)">${B}</span>反而更来电`;
+  } else if(dim3Score>=-12){
+    verdictTitle='劫煞极少，<br>在一起<span style="color:var(--drain)">不额外多耗</span>';
     verdictBody=[
-      `命盘方向偏正向——两人的气场没有形成消耗结构，${B}跟${A}在一起，状态往往比一个人的时候还好一点。`,
-      '这不是靠感情撑出来的好状态，是五行结构里写好的能量相容。',
+      '命盘没有扫出明显的劫煞信号，忌神也几乎没有激活——在一起跟各自待着消耗差不多，不会被对方带走能量。',
+      '消耗指数的结论是：这段关系不构成能量负担。不是充电，是不扣血——已经是消耗维度里最轻的结果。',
     ];
   } else {
     verdictTitle='有消耗，<br>但在可接受范围内';
     verdictBody=[
-      '扫出来的劫煞信号不算强，忌神激活也没到叠满的程度。中等消耗，不是什么大事，大多数关系都是这样。',
+      '扫出来的劫煞信号不算强，忌神激活也没到叠满的程度。轻度消耗，不是什么大事，大多数关系都是这样。',
       '在一起注意不要全天候粘着——给彼此留一些独处和各自社交的空间，消耗感会小很多。',
     ];
   }
