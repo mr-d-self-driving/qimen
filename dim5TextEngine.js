@@ -1,12 +1,12 @@
 /**
- * DIM5 缘分指数 · 文本生成引擎
- * 输入：月支社交宫关系、神煞互见情况、DIM5 最终分数
+ * DIM5 钱财边界 · 文本生成引擎
+ * 输入：劫财/财星方向、日支冲害关系、DIM5 最终分数
  * 输出：扫描短断语 / Badge / 结论断语
  *
  * 理论来源：
- *   - 月支社交宫对位（L5-A）= 两人的社交节奏是否天然对频
- *   - 神煞互见（L5-B）= 桃花/天乙贵人/文昌等吉神在对方命位落点
- *   缘分指数 = 月令对位 × 社交神煞加持
+ *   - 劫财/财星占比（L3）= 两张命盘放在一起财气如何流动
+ *   - 日支冲害（L2）= 两人资源风格是否根本对冲
+ *   钱财边界 = 财气方向 × 资源风格冲突程度
  */
 
 'use strict';
@@ -17,34 +17,29 @@
 
 const BADGE_TIERS = [
   {
-    min: 71,
-    badge: '命定缘分 ✦',
-    subtext: '不是努力凑在一起，是命盘写好了「你们就会在同一个场出现」——不认识也会认识。',
+    min: 61,
+    badge: '财路相开 ✦',
+    subtext: '俩人合伙搞副业从不为分账红脸，搞钱嗅觉还出奇一致。随便弄点啥都能踩准风口，纯纯的黄金吸金搭档。',
   },
   {
-    min: 41,
-    badge: '同圈层搭子 ✦',
-    subtext: '出现在同一个圈子里不是巧合——月令和神煞都在往一块儿推你们。',
-  },
-  {
-    min: 11,
-    badge: '偶有交集',
-    subtext: '不是天然同圈层，但偶尔会在意想不到的场合碰到——神煞有些命中，没全中。',
+    min: 21,
+    badge: '适合合作',
+    subtext: '一起倒腾项目账永远算得清清楚楚，绝不互占便宜。遇到需要垫钱的局也贼痛快，主打一个靠谱不拖欠。',
   },
   {
     min: -10,
-    badge: '各走各的',
-    subtext: '社交宫没有共振，两人的圈子更多是平行的，交集要靠后天维持。',
+    badge: '各管各的',
+    subtext: '平时吃饭你买单我请客毫无压力，但千万别掏大钱合伙。亲兄弟明算账，各赚各的钱就是最舒服的距离。',
   },
   {
-    min: -40,
-    badge: '圈层不搭',
-    subtext: '月令方向有些别劲，在公开场合各自为政——强行放在一个场里反而尴尬。',
+    min: -35,
+    badge: '有些风险',
+    subtext: '只要涉及钱，这关系就能精细到令人发指。出去吃饭恨不得按夹菜的克数AA，想做朋友，千万别谈钱。',
   },
   {
     min: -Infinity,
-    badge: '场合里的陌生人',
-    subtext: '哪怕认识了，在人多的地方还是觉得对方来自另一个世界——月令冲，没办法。',
+    badge: '钱不共管',
+    subtext: '听劝，千万别合伙！只要沾上共同财产，哪怕是一起买个西瓜，都能因为谁吃了最中间那一勺而当街互薅头发。敢把两人的钱混一块，底裤都能给你亏没。',
   },
 ];
 
@@ -57,32 +52,33 @@ function getBadge(score) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Module A · 月支扫描短断语
+// Module A · 扫描短断语
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {'六合'|'同支'|'三合'|'相生'|'无明显'|'相克'|'害'|'冲'} monthRelation  月支关系
+ * @param {'双向劫财'|'A劫B'|'B劫A'|'财星互补'|'中性'} moneyDirection  劫财/财星方向
+ * @param {boolean} moneyDense  是否命中密度高（劫财/财星命中 ≥2）
  * @param {{ a: string, b: string }} names
  * @returns {string}
  */
-function getScanCaption(monthRelation, names) {
+function getScanCaption(moneyDirection, moneyDense, names) {
   const { a: A, b: B } = names;
 
-  if (monthRelation === '六合')
-    return `月令六合——${A}和${B}的社交节奏天然咬合。不是刻意安排，就是会出现在同一个场合，然后自然认识对方的朋友，自然进入同一个圈子。`;
-  if (monthRelation === '同支')
-    return `月令相同：两人在同一节奏里长大，处理社交场合的方式几乎一样。在一起参加活动，不用解释，不用磨合。`;
-  if (monthRelation === '三合')
-    return `月令三合：有共同的社交圈或行业场域，见面多了不奇怪——互相认识对方的朋友，也很自然。`;
-  if (monthRelation === '相生')
-    return `月令相生：社交场合里，两人的气场会自然助力——出现在一起，整体能量比各自单独强。`;
-  if (monthRelation === '冲')
-    return `月令相冲：社交风格正面碰撞。两人在公开场合容易出现摩擦，各说各的，强行凑在一个场反而尴尬。`;
-  if (monthRelation === '害')
-    return `月令相害：在社交场合里容易无意间踩到对方的节奏——说不清哪里不对，但就是有点别扭。`;
-  if (monthRelation === '相克')
-    return `月令相克：处事风格有根本差异，在公开场合各自为政，融合需要额外努力。`;
-  return `月令没有明显关系：各有各的社交圈，交集不多。不是关系不好，是两个不同世界的人，需要后天维系。`;
+  if (moneyDirection === '双向劫财' && moneyDense)
+    return '两边命盘都扫到了对方的劫财位——不是说一定会抢，是气场层面容易在钱这件事上互相分走能量。合作做钱的事，边界要先说清楚。';
+  if (moneyDirection === '双向劫财' && !moneyDense)
+    return '有双向劫财信号，但密度不高。偶尔会有隐约的「钱的边界感」，只要不混资产，基本不会有大问题。';
+  if (moneyDirection === 'A劫B')
+    return `${A}的命盘里有对${B}财气方向有压制的结构——合作或共同花钱的场合，${B}要有意识地保护自己的财务边界。`;
+  if (moneyDirection === 'B劫A')
+    return `${B}的命盘里有对${A}财气消耗的方向——在一起做生意或共同投入的事情，${A}要格外留意钱的去向和边界感。`;
+  if (moneyDirection === '财星互补' && moneyDense)
+    return '命盘里有财星互补结构，而且密度不低——在一起反而更容易有财运，合伙或共同投资的命盘写好了是可以的。';
+  if (moneyDirection === '财星互补' && !moneyDense)
+    return '有财星互补的信号，方向是对的，但密度不算强。在一起偶尔会有「合作比自己做顺」的感觉，不是大贵人，是轻度助力。';
+  if (moneyDirection === '中性')
+    return '劫财和财星信号都弱，钱财层面基本互不干扰。各管各的没问题，要合作也不会有大冲突，比较安全。';
+  return '命盘里没有强劫财也没有强财星互补，钱财层面基本中性。在一起花钱吃饭没问题，大额合作就先把账算清楚再说。';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,69 +86,85 @@ function getScanCaption(monthRelation, names) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * @param {'六合'|'同支'|'三合'|'相生'|'无明显'|'相克'|'害'|'冲'} monthRelation
+ * @param {'双向劫财'|'A劫B'|'B劫A'|'财星互补'|'中性'} moneyDirection
+ * @param {boolean} moneyDense
+ * @param {'无冲害'|'冲'|'害'} dayzhiRelation
  * @param {number} dim5Score
  * @param {{ a: string, b: string }} names
- * @param {string[]} socialStars  命中的社交神煞名称列表
- * @param {'双向'|'A→B'|'B→A'|'无'} starDirection  神煞命中方向
  * @returns {{ title: string, body: string[] }}
  */
-function getVerdict(monthRelation, dim5Score, names, socialStars = [], starDirection = '无') {
+function getVerdict(moneyDirection, moneyDense, dayzhiRelation, dim5Score, names) {
   const { a: A, b: B } = names;
-  const stars = socialStars.join('、') || '贵人信号';
 
-  if (monthRelation === '六合' && dim5Score >= 41) {
+  // D5-C-1: 财星互补 + 无冲害 + 高分
+  if (moneyDirection === '财星互补' && dayzhiRelation === '无冲害' && dim5Score >= 61) {
     return {
-      title: `不用刻意，<br>就会出现在<span style="color:var(--social)">同一个场合</span>`,
+      title: '这两张命盘，<br>合在一起比<span style="color:var(--money)">单干更有财运</span>',
       body: [
-        `月令六合——两人的社交宫天然咬合，不需要提前约好，就是会在同一个饭局、同一个展览、同一个朋友群里遇到。<span style="color:var(--ca)">${A}</span>的社交频率和<span style="color:var(--cb)">${B}</span>的正好是彼此顺的那种。`,
-        starDirection === '双向'
-          ? `${stars}双向互见是额外加持：在人群里，两人的能量都能被对方自然接收，不用解释、不用表演——TA 就是懂。`
-          : `${stars}有命中，在对方面前能量自然能被感知到。`,
-        `这种缘分不是努力换来的，是命盘里写好的默契。<strong>跟TA在人多的地方，你会比平时更像自己</strong>。`,
+        `命盘里有财星互补结构——<span style="color:var(--ca)">${A}</span>的五行方向是<span style="color:var(--cb)">${B}</span>的财星来源，<span style="color:var(--cb)">${B}</span>那边对<span style="color:var(--ca)">${A}</span>也有类似的助益。在一起做事，不是把对方的钱分走，是把彼此的机会放大。`,
+        '日支没有冲害，资源风格不对冲，合作起来不容易在方向上产生根本分歧。',
+        `这种配置适合合伙、联合投资、共同项目——但命盘写好了可以试，不代表不需要讲清楚账。<strong>把账算明白，财运才能顺着走</strong>。`,
       ],
     };
   }
-  if (monthRelation === '同支' && dim5Score >= 41) {
+  // D5-C-2: A劫B + 中性分数区间
+  if (moneyDirection === 'A劫B' && dim5Score >= -10) {
     return {
-      title: `同一个节奏，<br>同一种<span style="color:var(--social)">社交风格</span>`,
+      title: `<span style="color:var(--ca)">${A}</span> 在 <span style="color:var(--cb)">${B}</span> 的财气方向，<br><span style="color:var(--cb)">${B}</span> 留意边界`,
       body: [
-        `月令相同：两人处理社交场合的方式几乎一致，在一起不需要解释，不需要磨合。${A}和${B}出现在同一个场合，是那种「怎么你也在？」然后完全不尴尬的类型。`,
-        `神煞加持让这份默契更稳——在公开场合里，两人的气场自然合拍，彼此都能发挥出更好的状态。`,
-        `不是刻意维持的关系，是<strong>出现在哪里都能接住对方</strong>的那种人。`,
+        `<span style="color:var(--ca)">${A}</span>的命盘里有对<span style="color:var(--cb)">${B}</span>财气方向有压制的结构——不是<span style="color:var(--ca)">${A}</span>有意要拿走什么，是气场层面的五行方向指向了<span style="color:var(--cb)">${B}</span>的财星位置。`,
+        `日支没有冲，平时相处不会有大摩擦，但在涉及钱的合作或共同消费时，<span style="color:var(--cb)">${B}</span>容易不知不觉多付出一些。`,
+        `<span style="color:var(--cb)">${B}</span>要养成「钱的事先说清楚」的习惯，不是不信任<span style="color:var(--ca)">${A}</span>，是保护自己的财务边界。<strong>AA制、合同先签，关系反而更长久</strong>。`,
       ],
     };
   }
-  if ((monthRelation === '三合' || monthRelation === '相生') && dim5Score >= 11) {
+  // D5-C-3: B劫A + 中性分数区间
+  if (moneyDirection === 'B劫A' && dim5Score >= -10) {
     return {
-      title: `社交圈里，<br>你们是<span style="color:var(--social)">彼此的常客</span>`,
+      title: `<span style="color:var(--cb)">${B}</span> 在 <span style="color:var(--ca)">${A}</span> 的财气方向，<br><span style="color:var(--ca)">${A}</span> 留意边界`,
       body: [
-        `月令${monthRelation}：有共同的社交场域或行业圈，见面多了不奇怪，认识对方的朋友也很自然——${A}和${B}本来就属于同一个「生态圈」。`,
-        socialStars.length > 0
-          ? `${stars}有命中，在对方的圈子里，会自然成为彼此的助力。`
-          : `社交场合里两人的气场能自然配合，不需要刻意融合。`,
+        `<span style="color:var(--cb)">${B}</span>的命盘对<span style="color:var(--ca)">${A}</span>的财气有消耗方向——合作或共同投入的场合，<span style="color:var(--ca)">${A}</span>的钱容易在不知不觉中多流向<span style="color:var(--cb)">${B}</span>那边。`,
+        `不是说<span style="color:var(--cb)">${B}</span>会故意占便宜，是五行频率写在那里。<span style="color:var(--ca)">${A}</span>要有意识地在涉及钱的事情上先把账算清楚，保护自己的财务边界。`,
       ],
     };
   }
-  if (dim5Score <= -11) {
+  // D5-C-4: 双向劫财 + 冲/害 + 低分
+  if (moneyDirection === '双向劫财' && (dayzhiRelation === '冲' || dayzhiRelation === '害') && dim5Score <= -35) {
     return {
-      title: `社交圈里，<br>两个<span style="color:var(--ca)">不同世界</span>的人`,
+      title: '钱这件事，<br>建议<span style="color:var(--drain)">各管各的</span>',
       body: [
-        `月令没有形成共振，两人的社交风格和圈子方向基本是平行的——强行往一个圈里放，容易各自为政，比较尴尬。`,
-        `不是关系不好，是「场合不对」。私下一对一可以，公开场合混在一起需要更多努力。`,
-        `神煞层面也没有特别强的缘分信号——这段关系需要后天维持，不靠命盘自然推进。`,
+        `命盘扫出来是双向劫财结构——两人的气场在钱财方向上互相消耗。日支还有${dayzhiRelation}，资源风格在根本上也不一致。`,
+        '这两层叠在一起，合伙做生意或共同管钱是最高风险的选项——不是感情不好会出问题，是命盘写好了混钱容易产生摩擦。',
+        '<strong>强烈建议：财务完全独立，各自决策，偶尔请客没问题，但不要有大额共同账户或合伙协议。感情归感情，钱归钱。</strong>',
       ],
     };
   }
-  // 中性
+  // D5-C-5: 中性 + 无冲害
+  if (moneyDirection === '中性' && dayzhiRelation === '无冲害') {
+    return {
+      title: '钱财层面，<br>各管各的<span style="color:var(--cb)">最省力</span>',
+      body: [
+        `命盘里没有强劫财，也没有强财星互补，日支没有冲害——钱财方向基本中性，在一起不会互相拖财，合作也不会有天然的财运加持。`,
+        `最省力的方式就是各走各的：吃饭AA，合作项目先把账算明白，大额资金不共管。不是不信任对方，是这张命盘说两人财路各有各的走法。`,
+      ],
+    };
+  }
+  // D5-C-6: 财星互补 + 中分
+  if (moneyDirection === '财星互补' && dim5Score >= 21) {
+    return {
+      title: '在一起，<br>财路会比<span style="color:var(--money)">自己走更顺一点</span>',
+      body: [
+        '有财星互补结构，但不是双向的——一方从另一方那里得到的财气助益更多。整体分数正向，在一起偶尔合作会有「今天怎么这么顺」的感觉，可能就是命盘在帮忙。',
+        '不需要专门做什么，顺带着合作就好；大额合伙还是先把账算清楚，<strong>财运加持不代表不需要讲清楚边界</strong>。',
+      ],
+    };
+  }
+  // 兜底
   return {
-    title: `社交层面，<br>有些<span style="color:var(--social)">偶然的交集</span>`,
+    title: '钱的事，<br>先把边界说清楚',
     body: [
-      `月令无明显关系，各有各的社交圈——但偶尔会在意想不到的场合碰到，不奇怪，也不算稀罕。`,
-      socialStars.length > 0
-        ? `${stars}有些命中，在对方的圈子里不会特别格格不入，但也不会自然成为焦点。`
-        : `神煞层面也没有特别强的信号——缘分靠后天推进。`,
-      `这段缘分靠后天维系，不靠命盘自然推进——<strong>要走近，得主动一些</strong>。`,
+      '命盘这层没有特别强的信号——不是明显的财路互开，也不是明显的劫财消耗。',
+      '这段关系涉及钱的时候，靠感情不靠命盘。提前说好规则，比出了问题再扯更省力。',
     ],
   };
 }
@@ -162,14 +174,14 @@ function getVerdict(monthRelation, dim5Score, names, socialStars = [], starDirec
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * 生成 DIM5 缘分指数所有文本
+ * 生成 DIM5 钱财边界所有文本
  *
  * @param {{
- *   monthRelation:  '六合'|'同支'|'三合'|'相生'|'无明显'|'相克'|'害'|'冲',
- *   dim5Score:      number,    // DIM5 最终分数 [-100, +100]
- *   names:          { a: string, b: string },
- *   socialStars:    string[]   // 命中的社交神煞名称，如 ['天乙贵人', '桃花']
- *   starDirection:  '双向'|'A→B'|'B→A'|'无'
+ *   moneyDirection:  '双向劫财'|'A劫B'|'B劫A'|'财星互补'|'中性',
+ *   moneyDense:      boolean,   // 劫财/财星命中密度高（≥2）
+ *   dayzhiRelation:  '无冲害'|'冲'|'害',
+ *   dim5Score:       number,    // DIM5 最终分数 [-100, +100]
+ *   names:           { a: string, b: string }
  * }} params
  *
  * @returns {{
@@ -178,11 +190,11 @@ function getVerdict(monthRelation, dim5Score, names, socialStars = [], starDirec
  *   verdict:     { title: string, body: string[] }
  * }}
  */
-function getDIM5Texts({ monthRelation, dim5Score, names, socialStars = [], starDirection = '无' }) {
+function getDIM5Texts({ moneyDirection, moneyDense, dayzhiRelation, dim5Score, names }) {
   return {
-    scanCaption: getScanCaption(monthRelation, names),
+    scanCaption: getScanCaption(moneyDirection, moneyDense, names),
     badge:       getBadge(dim5Score),
-    verdict:     getVerdict(monthRelation, dim5Score, names, socialStars, starDirection),
+    verdict:     getVerdict(moneyDirection, moneyDense, dayzhiRelation, dim5Score, names),
   };
 }
 

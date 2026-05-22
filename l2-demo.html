@@ -515,11 +515,40 @@ function getDIM2Texts({l4Direction, yinStarDense, dim2Score, names}){
       '不是不义气，是这段关系在「办事」这件事上就是个雷区——两个人在一起，各自的事都推不动。',
       '平时喝酒聊天好说，真遇到事，各找各的人比较好。',
     ];
-  } else {
+  } else if(l4Direction==='A→B单向'&&yinStarDense){
+    verdictTitle=`<span style="color:var(--ca)">${A}</span> 帮 <span style="color:var(--cb)">${B}</span> 是真管用的，<br><span style="color:var(--cb)">${B}</span> 帮 <span style="color:var(--ca)">${A}</span> 另说`;
+    verdictBody=[
+      `<span style="color:var(--cb)">${B}</span>找<span style="color:var(--ca)">${A}</span>出面，事情就是顺——五行上<span style="color:var(--ca)">${A}</span>的旺度刚好是<span style="color:var(--cb)">${B}</span>最需要的，这不是<span style="color:var(--ca)">${A}</span>能力多强，是命盘这么写的。`,
+      `<span style="color:var(--ca)">${A}</span>命里对<span style="color:var(--cb)">${B}</span>的印星密，帮的本能是真实的，见了<span style="color:var(--cb)">${B}</span>有事就想搭一把。`,
+      `<span style="color:var(--ca)">${A}</span>要清楚这个方向是单向的。一直帮，<span style="color:var(--cb)">${B}</span>只觉得<span style="color:var(--ca)">${A}</span>好说话——这是两件事。`,
+    ];
+  } else if(l4Direction==='B→A单向'&&yinStarDense){
     verdictTitle=`<span style="color:var(--ca)">${A}</span> 遇到事，该找的人是 <span style="color:var(--cb)">${B}</span>`;
     verdictBody=[
       `<span style="color:var(--ca)">${A}</span>找<span style="color:var(--cb)">${B}</span>帮忙，<span style="color:var(--cb)">${B}</span>出面，事情就是比自己搞更顺。不是<span style="color:var(--cb)">${B}</span>有多大能量，是<span style="color:var(--cb)">${B}</span>的五行刚好是<span style="color:var(--ca)">${A}</span>最缺的。`,
       `<span style="color:var(--cb)">${B}</span>命里对<span style="color:var(--ca)">${A}</span>的印星厚，主动帮的本能也是真的，不用<span style="color:var(--ca)">${A}</span>一直开口。`,
+      `<span style="color:var(--ca)">${A}</span>懂不懂得用，是另一回事了。`,
+    ];
+  } else if(l4Direction==='A→B单向'&&!yinStarDense){
+    verdictTitle=`资源上是 <span style="color:var(--ca)">${A}</span> 给 <span style="color:var(--cb)">${B}</span> 补，<br>但别当义气用`;
+    verdictBody=[
+      `五行上<span style="color:var(--ca)">${A}</span>在给<span style="color:var(--cb)">${B}</span>补资源，<span style="color:var(--cb)">${B}</span>找<span style="color:var(--ca)">${A}</span>帮忙会顺一点——这个是真的，但<span style="color:var(--ca)">${A}</span>的印星薄，不是「主动出现帮你」的那种。`,
+      '开口了能用，但等着对方发现你需要帮——这件事不会发生。',
+      '当一个可以找、但不能全押上的朋友就好了。',
+    ];
+  } else if(l4Direction==='B→A单向'&&!yinStarDense){
+    verdictTitle=`<span style="color:var(--ca)">${A}</span> 在 <span style="color:var(--cb)">${B}</span> 身边做事顺，<br>但这跟义气关系不大`;
+    verdictBody=[
+      `五行上<span style="color:var(--cb)">${B}</span>给<span style="color:var(--ca)">${A}</span>补——<span style="color:var(--ca)">${A}</span>在<span style="color:var(--cb)">${B}</span>身边的时候，很多事走得比平时顺，有时说不出原因，是命盘这层在起作用。`,
+      `但<span style="color:var(--cb)">${B}</span>的印星薄，没有「我来帮你搞定」的本能。这是运气上的互补，不是感情上的义气。`,
+      '利用好这个资源互补。义气，得另找。',
+    ];
+  } else {
+    // 无明显方向 fallback
+    verdictTitle='帮忙这件事，<br>靠感情不靠命盘';
+    verdictBody=[
+      '五行互补信号不明显，印星也没有特别密——命盘这层对义气没什么特别的加持，也没什么阻碍。',
+      '这段关系能不能靠，看的是两个人平时怎么处，不是命盘写好了什么。',
     ];
   }
 
