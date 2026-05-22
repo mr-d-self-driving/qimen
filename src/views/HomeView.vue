@@ -56,6 +56,43 @@
 
     <div class="page-wrap">
       <div class="container">
+        <section v-if="viewState === 'input'" class="seo-landing" aria-labelledby="seoLandingTitle">
+          <div class="seo-kicker">免费在线工具</div>
+          <h1 id="seoLandingTitle">奇门遁甲在线排盘与 AI 解盘</h1>
+          <p class="seo-lead">
+            奇门道提供奇门遁甲在线排盘、八字四柱排盘和今日运势分析。输入时间、地点和所问之事，即可生成局盘、宫位、干支、评分与行动建议。
+          </p>
+          <div class="seo-proof">规则引擎先排盘，AI 负责解释。</div>
+          <div class="seo-entry-grid" aria-label="核心功能入口">
+            <router-link class="seo-entry" to="/">
+              <span>奇门问事</span>
+              <small>按当下时辰起局，分析感情、事业、财运与选择。</small>
+            </router-link>
+            <router-link class="seo-entry" to="/bazi">
+              <span>八字排盘</span>
+              <small>四柱十神、喜用神、格局、大运流年一键生成。</small>
+            </router-link>
+            <router-link class="seo-entry" to="/fortune">
+              <span>今日运势</span>
+              <small>每日、每周、月度节奏和可执行建议。</small>
+            </router-link>
+          </div>
+          <div class="seo-faq" aria-label="常见问题">
+            <h2>常见问题</h2>
+            <details>
+              <summary>奇门道可以做什么？</summary>
+              <p>可以在线生成奇门遁甲局盘、AI 解盘、八字四柱排盘和每日运势分析。</p>
+            </details>
+            <details>
+              <summary>AI 解盘和传统排盘有什么区别？</summary>
+              <p>奇门道先用规则引擎计算时间、干支、宫位和评分，再由 AI 把盘面转成可读解释。</p>
+            </details>
+            <details>
+              <summary>奇门问事需要出生时间吗？</summary>
+              <p>奇门问事可以按当前时间起局；八字排盘和长期运势分析需要出生日期、时间和出生地。</p>
+            </details>
+          </div>
+        </section>
 
         <div v-if="!canUseApp" class="glass-card auth-card" :class="{ 'signup-simple': !isLoginMode }">
           <div class="auth-card-glow" aria-hidden="true"></div>
@@ -2044,6 +2081,104 @@ const buildCardHTML = (data) => {
 /* 页面 */
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 18px 60px; }
 .container { width: 100%; max-width: 520px; }
+.seo-landing {
+  margin-bottom: 18px;
+  padding: 24px 22px;
+  border: 1px solid rgba(232,204,128,0.16);
+  border-radius: 18px;
+  background: rgba(8,10,18,0.52);
+  box-shadow: 0 12px 36px rgba(0,0,0,0.22);
+  backdrop-filter: blur(18px) saturate(1.15);
+}
+.seo-kicker {
+  color: rgba(78,205,196,0.82);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .18em;
+  margin-bottom: 10px;
+}
+.seo-landing h1 {
+  margin: 0;
+  color: var(--gold-light);
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+.seo-lead {
+  margin: 12px 0 0;
+  color: rgba(240,237,230,0.78);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.seo-proof {
+  margin-top: 12px;
+  color: rgba(232,204,128,0.9);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.seo-entry-grid {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+.seo-entry {
+  display: block;
+  padding: 13px 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  text-decoration: none;
+  transition: border-color .2s, background .2s, transform .2s;
+}
+.seo-entry:hover {
+  border-color: rgba(232,204,128,0.34);
+  background: rgba(255,255,255,0.065);
+  transform: translateY(-1px);
+}
+.seo-entry span {
+  display: block;
+  color: rgba(245,237,211,0.96);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+.seo-entry small {
+  display: block;
+  margin-top: 4px;
+  color: rgba(240,237,230,0.58);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.seo-faq {
+  margin-top: 18px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+  padding-top: 14px;
+}
+.seo-faq h2 {
+  margin: 0 0 10px;
+  color: rgba(245,237,211,0.9);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+.seo-faq details {
+  border-bottom: 1px solid rgba(255,255,255,0.055);
+  padding: 10px 0;
+}
+.seo-faq summary {
+  color: rgba(245,237,211,0.9);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.seo-faq p {
+  margin: 8px 0 0;
+  color: rgba(240,237,230,0.58);
+  font-size: 12px;
+  line-height: 1.7;
+}
 .tagline { text-align: center; padding: 20px 0 12px; }
 .tagline-main { font-family: var(--font-serif); font-size: 13px; font-weight: 300; letter-spacing: .3em; color: var(--text-muted); margin-bottom: 6px; }
 .tagline-sub { font-size: 11px; letter-spacing: .18em; color: rgba(255,255,255,0.18); }
