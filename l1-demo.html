@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>同频指数 · Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Noto+Serif+SC:wght@300;400;700&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#08080f;
+  --ca:#ff6b9d;
+  --cb:#6b8fff;
+  --gold:#ffd166;
+  --green:#4ade80;
+  --mint:#34d399;
+  --text:#fff;
+  --dim:rgba(255,255,255,0.38);
+  --surface:rgba(255,255,255,0.04);
+  --border:rgba(255,255,255,0.08);
+}
+html,body{width:100%;height:100%;background:var(--bg);overflow:hidden;font-family:'Noto Sans SC',sans-serif;color:var(--text)}
+
+.blob{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0}
+.ba{width:380px;height:380px;top:-140px;right:-80px;background:rgba(255,107,157,0.1);animation:bf 10s ease-in-out infinite}
+.bb{width:300px;height:300px;bottom:-100px;left:-60px;background:rgba(107,143,255,0.09);animation:bf 13s ease-in-out infinite reverse}
+@keyframes bf{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-16px)}}
+
+#prog{position:fixed;top:0;left:0;right:0;display:flex;gap:4px;padding:12px 16px;z-index:200}
+.ps{flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,0.12)}
+.pf{height:100%;width:0%;border-radius:2px;background:#fff}
+
+.cards{position:fixed;inset:0;z-index:1}
+.card{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:68px 28px 52px;opacity:0;pointer-events:none;transition:opacity .3s}
+.card.on{opacity:1;pointer-events:all}
+#nav{position:fixed;inset:0;display:grid;grid-template-columns:1fr 1fr;z-index:100;cursor:pointer}
+
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes si{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
+@keyframes scanLine{from{left:0}to{left:100%}}
+.afu{opacity:0;animation:fu .55s ease forwards}
+.afi{opacity:0;animation:fi .4s ease forwards}
+.asi{opacity:0;animation:si .5s cubic-bezier(.34,1.56,.64,1) forwards}
+
+/* ═══ CARD 1 · 开场 ═══ */
+.c1-badge{
+  font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--gold);padding:5px 14px;border-radius:100px;
+  background:rgba(255,209,102,.1);border:1px solid rgba(255,209,102,.28);margin-bottom:22px
+}
+.c1-title{font-family:'Syne',sans-serif;font-size:clamp(48px,13vw,68px);font-weight:800;line-height:1.05;text-align:center;letter-spacing:-.03em}
+.c1-sub{margin-top:16px;font-size:15px;color:var(--dim);text-align:center;line-height:1.85;max-width:270px}
+.c1-hint{position:absolute;bottom:36px;font-size:11px;color:rgba(255,255,255,.2);display:flex;flex-direction:column;align-items:center;gap:8px}
+.hd{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.2);animation:hdp 2s infinite}
+@keyframes hdp{0%,100%{opacity:.2;transform:scale(1)}50%{opacity:.8;transform:scale(1.4)}}
+
+/* ═══ CARD 2 · 古籍理论 ═══ */
+.qblock{width:100%;max-width:320px}
+.qsrc{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;color:var(--gold);margin-bottom:12px}
+.qtext{font-family:'Noto Serif SC',serif;font-size:17px;line-height:2.1;color:rgba(255,255,255,.82);border-left:2px solid var(--gold);padding-left:16px}
+.qem{color:var(--gold)}
+.qdiv{height:1px;background:rgba(255,255,255,.07);margin:22px 0}
+.qmod{font-size:14px;line-height:1.85;color:var(--dim)}
+.qmod strong{color:var(--text)}
+.qmod .ga{color:var(--ca)}.qmod .gb{color:var(--cb)}.qmod .gg{color:var(--green)}
+
+/* ═══ CARD 3 · 日干底层 ═══ */
+.c3-head{font-family:'Syne',sans-serif;font-size:16px;font-weight:700;color:rgba(255,255,255,.5);margin-bottom:24px;text-align:center}
+
+.stems-box{display:flex;align-items:center;justify-content:center;gap:0;width:100%;margin-bottom:20px}
+.snode{display:flex;flex-direction:column;align-items:center;gap:8px}
+.schar{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Noto Serif SC',serif;font-size:36px;font-weight:700}
+.sc-a{background:rgba(255,107,157,.12);border:2px solid var(--ca);color:var(--ca);box-shadow:0 0 24px rgba(255,107,157,.3)}
+.sc-b{background:rgba(107,143,255,.12);border:2px solid var(--cb);color:var(--cb);box-shadow:0 0 24px rgba(107,143,255,.3)}
+.sname{font-size:12px;font-weight:700}
+.sna{color:var(--ca)}.snb{color:var(--cb)}
+
+.smid{flex:1;display:flex;flex-direction:column;gap:12px;padding:0 12px}
+.sarr{display:flex;align-items:center;gap:6px}
+.stag{font-size:11px;font-weight:700;padding:3px 9px;border-radius:100px;white-space:nowrap;flex-shrink:0}
+.sta-a{background:rgba(255,107,157,.14);border:1px solid rgba(255,107,157,.3);color:var(--ca)}
+.sta-b{background:rgba(107,143,255,.14);border:1px solid rgba(107,143,255,.3);color:var(--cb)}
+.sline{flex:1;height:1px;background:rgba(255,255,255,.1)}
+
+.shen-pills{display:flex;flex-direction:column;gap:8px;width:100%;max-width:310px}
+.spill{padding:11px 14px;border-radius:10px;font-size:12.5px;line-height:1.65;color:var(--dim)}
+.spill strong{color:var(--text)}
+.sp-a{background:rgba(255,107,157,.07);border:1px solid rgba(255,107,157,.15)}
+.sp-b{background:rgba(107,143,255,.07);border:1px solid rgba(107,143,255,.15)}
+
+/* ═══ CARD 4 · 全局扫描 ═══ */
+.c4-head{font-size:13px;color:var(--dim);text-align:center;margin-bottom:18px;line-height:1.7}
+.scan-wrap{width:100%;max-width:340px;position:relative}
+.scan-person{margin-bottom:14px}
+.sp-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.sp-pname{font-size:11px;font-weight:700;letter-spacing:.05em}
+.sp-viewing{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--dim)}
+.sp-count{
+  font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;
+  padding:2px 8px;border-radius:4px;
+  background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.2);color:var(--green);
+  opacity:0;transition:opacity .3s
+}
+.sp-count.visible{opacity:1}
+.bz-row{display:flex;gap:5px}
+.bzc{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 6px;border-radius:8px;border:1px solid transparent;transition:all .25s}
+.bzc-gan{font-family:'Noto Serif SC',serif;font-size:22px;font-weight:700;line-height:1;transition:all .3s}
+.bzc-zhi{font-family:'Noto Serif SC',serif;font-size:18px;line-height:1;transition:all .3s}
+.bzc-lbl{font-size:8px;color:rgba(255,255,255,.2);margin-top:3px}
+.bzc.res-gan .bzc-gan{color:var(--green);text-shadow:0 0 16px rgba(52,211,153,.8),0 0 32px rgba(52,211,153,.4)}
+.bzc.res-zhi .bzc-zhi{color:var(--green);text-shadow:0 0 16px rgba(52,211,153,.8)}
+.bzc.has-res{background:rgba(52,211,153,.07);border-color:rgba(52,211,153,.2)}
+.bzc.scanned:not(.has-res) .bzc-gan{opacity:.25}
+.bzc.scanned:not(.has-res) .bzc-zhi{opacity:.25}
+.bzc.scanned.has-res .bzc-lbl{color:rgba(52,211,153,.5)}
+.bz-scan-divider{height:1px;background:rgba(255,255,255,.05);margin:4px 0}
+.scan-legend{font-size:10px;color:rgba(255,255,255,.2);font-family:'JetBrains Mono',monospace;letter-spacing:.05em;margin-top:13px;text-align:center}
+.scan-legend span{color:var(--green);opacity:.8}
+
+/* 五行色 */
+.ww{color:#cbd5e1}.wf{color:#f87171}.we{color:#fbbf24}.wd{color:#86efac}.ws{color:#93c5fd}
+
+/* ═══ CARD 5 · 分数 ═══ */
+.score-ctx{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);margin-bottom:28px}
+/* ─── stacked bar ─── */
+.sbar-wrap{width:100%;max-width:300px;margin-bottom:28px}
+.sbar-track{height:12px;background:rgba(255,255,255,.06);border-radius:100px;overflow:hidden;display:flex;margin-bottom:12px}
+.sbar-s1{height:100%;width:0%;background:linear-gradient(to right,var(--ca),var(--cb));border-radius:100px 0 0 100px;flex-shrink:0}
+.sbar-s3{height:100%;width:0%;background:var(--green);border-radius:0 100px 100px 0;flex-shrink:0;margin-left:2px}
+.sbar-items{display:flex;align-items:stretch;gap:8px}
+.sbar-item{flex:1;padding:9px 12px;border-radius:10px;display:flex;flex-direction:column;gap:3px;opacity:0;transition:opacity .35s}
+.sbar-item.vis{opacity:1}
+.si1{background:rgba(255,107,157,.07);border:1px solid rgba(255,107,157,.18)}
+.si3{background:rgba(74,222,128,.07);border:1px solid rgba(74,222,128,.18)}
+.si-name{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.07em;color:var(--dim);text-transform:uppercase}
+.si-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;line-height:1.1}
+.si1 .si-val{color:var(--ca)}
+.si3 .si-val{color:var(--green)}
+.sbar-ttl{flex:0 0 auto;padding:9px 12px;border-radius:10px;display:flex;flex-direction:column;gap:3px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.09)}
+.sbar-ttl-name{font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.07em;color:var(--dim);text-transform:uppercase}
+.lbar-total-val{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green);line-height:1.1}
+.score-big{font-family:'Syne',sans-serif;font-size:96px;font-weight:800;line-height:1;letter-spacing:-.05em;color:var(--green)}
+.score-big .su{font-size:44px;font-weight:700;color:rgba(74,222,128,.7)}
+.score-badge{
+  margin-top:22px;padding:9px 26px;border-radius:100px;
+  font-family:'Syne',sans-serif;font-size:19px;font-weight:700;
+  background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25);color:var(--green)
+}
+.sba{width:100%;max-width:300px;margin-top:24px}
+.sba-track{height:10px;border-radius:100px;background:linear-gradient(to right,rgba(255,107,157,.3) 0%,rgba(255,255,255,.06) 50%,rgba(74,222,128,.3) 100%);position:relative}
+.sba-center{position:absolute;left:50%;top:-3px;width:2px;height:16px;background:rgba(255,255,255,.18);transform:translateX(-50%)}
+.sba-fill-r{position:absolute;top:0;bottom:0;left:50%;border-radius:0 100px 100px 0;background:var(--green);width:0%;transition:width .9s .6s ease}
+.sba-lbls{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:9px;color:rgba(255,255,255,.25);margin-top:6px}
+.sba-tiers{display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;font-size:8px;color:rgba(255,255,255,.18);margin-top:3px}
+
+/* ═══ CARD 6 · 断语 ═══ */
+.vbox{width:100%;max-width:340px;background:var(--surface);border:1px solid var(--border);border-radius:22px;padding:28px 24px}
+.vbtag{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;text-transform:uppercase;color:var(--gold);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.vbtag::before{content:'';width:16px;height:1px;background:var(--gold)}
+.vbtitle{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;line-height:1.25;margin-bottom:16px}
+.vbtitle .ta{color:var(--ca)}.vbtitle .tb{color:var(--cb)}
+.vbbody{font-size:13.5px;line-height:1.9;color:var(--dim)}
+.vbbody strong{color:var(--text)}
+.vbfoot{margin-top:16px;padding-top:12px;border-top:1px solid rgba(255,255,255,.05);display:flex;justify-content:flex-end;align-items:center}
+.vbfoot-s{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--green)}
+</style>
+</head>
+<body>
+<div class="blob ba"></div>
+<div class="blob bb"></div>
+
+<div id="prog">
+  <div class="ps"><div class="pf" id="p0"></div></div>
+  <div class="ps"><div class="pf" id="p1"></div></div>
+  <div class="ps"><div class="pf" id="p2"></div></div>
+  <div class="ps"><div class="pf" id="p3"></div></div>
+  <div class="ps"><div class="pf" id="p4"></div></div>
+  <div class="ps"><div class="pf" id="p5"></div></div>
+</div>
+
+<div id="nav"><div onclick="prev()"></div><div onclick="next()"></div></div>
+
+<div class="cards">
+
+<!-- ═══ 1 · 开场 ═══ -->
+<div class="card on" id="c0">
+  <div class="c1-badge afu" style="animation-delay:.2s">维度 01 · 同频指数</div>
+  <h1 class="c1-title afu" style="animation-delay:.4s">
+    你们之间<br>有没有那种<br><span style="color:var(--green)">不用解释</span><br>就懂的默契？
+  </h1>
+  <p class="c1-sub afu" style="animation-delay:.8s">
+    同频感不是「喜好相同」，<br>是两块命盘碰在一起时的<br>能量自然流动
+  </p>
+  <div class="c1-hint afu" style="animation-delay:1.2s">
+    <div class="hd"></div>点右侧继续
+  </div>
+</div>
+
+<!-- ═══ 2 · 古籍理论 ═══ -->
+<div class="card" id="c1">
+  <div class="qblock">
+    <div class="qsrc afu" style="animation-delay:.2s">《渊海子平 · 论兄弟姊妹》</div>
+    <div class="qtext afu" style="animation-delay:.4s">
+      「<span class="qem">比肩者，兄弟也</span>。<br>
+      甲乙寅卯既多，<br>兄弟姊妹<span class="qem">夺财不和</span>。」
+    </div>
+    <div class="qdiv afu" style="animation-delay:.9s"></div>
+    <div class="qmod afu" style="animation-delay:1.1s">
+      古人说「比肩=朋友」，但更精准的是：<br>
+      <strong>比肩</strong>→你们是<span class="gg">同类</span>，不用解释就懂<br>
+      <strong>食神</strong>→对方自然流出你喜欢的能量<br>
+      <strong>伤官</strong>→对方敢说真话，聊得很爽但嘴毒<br><br>
+      两张命盘里这三种字越多，<br>
+      <strong>同频感就越真实</strong>。
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 3 · 日干底层 ═══ -->
+<div class="card" id="c2">
+  <div class="c3-head afu" style="animation-delay:.1s">两人命盘的底层反应</div>
+
+  <div class="stems-box afu" style="animation-delay:.3s">
+    <div class="snode">
+      <div class="schar sc-a">甲</div>
+      <div class="sname sna">阿哲</div>
+    </div>
+    <div class="smid">
+      <div class="sarr afu" style="animation-delay:.6s">
+        <div class="stag sta-b">食神</div>
+        <div class="sline"></div>
+        <span style="color:var(--cb);font-size:14px">→</span>
+      </div>
+      <div class="sarr afu" style="animation-delay:.85s">
+        <span style="color:var(--ca);font-size:14px">←</span>
+        <div class="sline"></div>
+        <div class="stag sta-a">偏印</div>
+      </div>
+    </div>
+    <div class="snode">
+      <div class="schar sc-b">壬</div>
+      <div class="sname snb">阿涵</div>
+    </div>
+  </div>
+
+  <div class="shen-pills">
+    <div class="spill sp-b afu" style="animation-delay:.95s">
+      <strong style="color:var(--cb)">阿涵（壬）</strong>看阿哲：壬水生甲木，五行写好的「<strong>我想照顾TA</strong>」——食神，天然主动输出。
+    </div>
+    <div class="spill sp-a afu" style="animation-delay:1.15s">
+      <strong style="color:var(--ca)">阿哲（甲）</strong>看阿涵：壬水滋养甲木，「<strong>在TA身边莫名安心</strong>」——偏印，被动接收。
+    </div>
+  </div>
+</div>
+
+<!-- ═══ 4 · 全局扫描 ═══ -->
+<div class="card" id="c3">
+  <p class="c4-head afu" style="animation-delay:.1s">把两人的八字展开<br>逐字扫描「同频信号」</p>
+
+  <div class="scan-wrap" id="scanWrap">
+    <!-- 阿涵的八字（阿哲视角） -->
+    <div class="scan-person">
+      <div class="sp-header afu" style="animation-delay:.2s">
+        <span class="sp-pname" style="color:var(--cb)">阿涵的八字</span>
+        <span class="sp-viewing">← 阿哲视角</span>
+        <span class="sp-count" id="cnt-b">✦ 3 个共鸣</span>
+      </div>
+      <!-- 丙申 庚子 壬戌 甲午 -->
+      <div class="bz-row">
+        <div class="bzc" id="b0" data-res-gan="1">
+          <span class="bzc-gan wf">丙</span><span class="bzc-zhi ws">申</span><span class="bzc-lbl">年</span>
+        </div>
+        <div class="bzc" id="b1">
+          <span class="bzc-gan ws">庚</span><span class="bzc-zhi ww">子</span><span class="bzc-lbl">月</span>
+        </div>
+        <div class="bzc" id="b2">
+          <span class="bzc-gan ww">壬</span><span class="bzc-zhi we">戌</span><span class="bzc-lbl">日</span>
+        </div>
+        <div class="bzc" id="b3" data-res-gan="1" data-res-zhi="1">
+          <span class="bzc-gan wd">甲</span><span class="bzc-zhi wf">午</span><span class="bzc-lbl">时</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="bz-scan-divider"></div>
+
+    <!-- 阿哲的八字（阿涵视角） -->
+    <div class="scan-person" style="margin-top:10px">
+      <div class="sp-header afu" style="animation-delay:.35s">
+        <span class="sp-pname" style="color:var(--ca)">阿哲的八字</span>
+        <span class="sp-viewing">← 阿涵视角</span>
+        <span class="sp-count" id="cnt-a">✦ 3 个共鸣</span>
+      </div>
+      <!-- 戊午 癸亥 甲戌 壬子 -->
+      <div class="bz-row">
+        <div class="bzc" id="a0">
+          <span class="bzc-gan we">戊</span><span class="bzc-zhi wf">午</span><span class="bzc-lbl">年</span>
+        </div>
+        <div class="bzc" id="a1" data-res-zhi="1">
+          <span class="bzc-gan ww">癸</span><span class="bzc-zhi ww">亥</span><span class="bzc-lbl">月</span>
+        </div>
+        <div class="bzc" id="a2" data-res-gan="1">
+          <span class="bzc-gan wd">甲</span><span class="bzc-zhi we">戌</span><span class="bzc-lbl">日</span>
+        </div>
+        <div class="bzc" id="a3" data-res-gan="1">
+          <span class="bzc-gan ww">壬</span><span class="bzc-zhi ww">子</span><span class="bzc-lbl">时</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="scan-legend afu" style="animation-delay:2.8s" id="scanCaption">
+    <span>✦</span> 比肩 · 食神 · 伤官 = 同频字
+  </div>
+</div>
+
+<!-- ═══ 5 · 分数 ═══ -->
+<div class="card" id="c4">
+  <div class="score-ctx afu" style="animation-delay:.1s">同频指数 · 得分构成</div>
+
+  <div class="sbar-wrap afu" style="animation-delay:.3s">
+    <div class="sbar-track">
+      <div class="sbar-s1" id="ss1"></div>
+      <div class="sbar-s3" id="ss3"></div>
+    </div>
+    <div class="sbar-items">
+      <div class="sbar-item si1" id="si1el">
+        <span class="si-name">日主底层</span>
+        <span class="si-val" id="lv1">+0</span>
+      </div>
+      <div class="sbar-item si3" id="si3el">
+        <span class="si-name">全局共鸣</span>
+        <span class="si-val" id="lv3">+0</span>
+      </div>
+      <div id="lbar-total-val" style="display:none"></div>
+    </div>
+  </div>
+
+  <div class="score-big asi" style="animation-delay:1.8s">
+    <span id="sval">0</span><span class="su">%</span>
+  </div>
+
+  <div class="sba afu" style="animation-delay:2.0s">
+    <div class="sba-track">
+      <div class="sba-center"></div>
+      <div class="sba-fill-r" id="sbar"></div>
+    </div>
+    <div class="sba-lbls"><span>−100%</span><span>0%</span><span>+100%</span></div>
+    <div class="sba-tiers"><span>敌蜜</span><span>相杀</span><span>塑料</span><span>搭子</span><span>知己</span></div>
+  </div>
+
+  <div class="score-badge asi" style="animation-delay:3.2s" id="scoreBadge">——</div>
+  <div class="score-subtext afu" style="animation-delay:3.5s;font-size:12px;color:rgba(255,255,255,.35);margin-top:8px;text-align:center;max-width:260px" id="scoreSub"></div>
+</div>
+
+<!-- ═══ 6 · 断语 ═══ -->
+<div class="card" id="c5">
+  <div class="vbox afu" style="animation-delay:.2s">
+    <div class="vbtag">同频指数 结论</div>
+    <div class="vbtitle" id="verdictTitle">——</div>
+    <div class="vbbody" id="verdictBody"></div>
+    <div class="vbfoot">
+      <div class="vbfoot-s" id="verdictScore">+58%</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /cards -->
+
+<script>
+'use strict';
+
+/* ══════════════════════════════════════════════════════════════
+   DIM1 TEXT ENGINE  (inline from dim1TextEngine.js)
+══════════════════════════════════════════════════════════════ */
+const GAN_HE_PAIRS={甲:'己',乙:'庚',丙:'辛',丁:'壬',戊:'癸',己:'甲',庚:'乙',辛:'丙',壬:'丁',癸:'戊'};
+const BADGE_TIERS=[
+  {min:80, badge:'命定知己 ✦', subtext:'你俩不是频道对上，是像同一副耳机分了左右声道'},
+  {min:50, badge:'同频搭子 ✦', subtext:'相处充电，聊什么都大差不差'},
+  {min:20, badge:'能聊，有限',  subtext:'有共同话题，但深聊时偶尔会突然断网'},
+  {min:-19,badge:'频道不太对', subtext:'偶尔能同频，偶尔又像信号不稳定'},
+  {min:-Infinity,badge:'频道对不上',subtext:'你在听，对方在做英语听力'},
+];
+function getBadge(s){return BADGE_TIERS.find(t=>s>=t.min);}
+
+const SCAN_COPY={
+  bi:{symmetric:'发呆发到一半，突然说出同一句话，然后互相看一眼——就是这种人。这辈子能遇到几个？',A_to_B:'{A} 觉得在 {B} 那里找到了同类。{B} 倒不一定这么想——对 {B} 来说，{A} 大概只是挺好聊的人之一。',B_to_A:'{B} 觉得 {A} 是同类，{A} 其实没怎么感受到。这种单方向的「懂你」有点尴尬，{B} 自己慢慢会发现的。'},
+  shi:{symmetric:'两个人在一起都在输出，还都接得住对方——这种双向流动挺少见的，聊着聊着时间就没了。',A_to_B:'{A} 说话的节奏，刚好是 {B} 最顺的那种。{B} 不用做什么，{A} 就已经在输出了。',B_to_A:'{B} 说什么 {A} 都觉得有意思。不是因为 {B} 有多厉害，是 {B} 的频率刚好是 {A} 最顺的那种。'},
+  shang:{symmetric:'两个都敢说，在一起容易聊到忘了时间。偶尔说了不该说的——隔天道一次歉，下次大概率还是一样。',A_to_B:'{A} 在 {B} 面前嘴上没滤镜。{B} 接得住，但偶尔会被 {A} 噎一下，心里嘀咕「这人说话也太直了」。',B_to_A:'{B} 在 {A} 面前说话不留情面。{A} 居然不反感——因为 {B} 说的刚好是 {A} 心里有但没说出口的那些。'},
+  mixed_high:{symmetric:'比肩、食神、伤官全扫到了，还是双向的。什么都能聊，聊完不累，这种命盘真的不多。',A_to_B:'比肩、食神、伤官全扫到了，{A} 那边更密一些——{A} 在 {B} 这里是真的顺，{B} 那边稍微淡一点。',B_to_A:'比肩、食神、伤官全扫到了，{B} 那边更密一些——{B} 在 {A} 这里是真的顺，{A} 那边稍微淡一点。'},
+  mixed:{symmetric:'同频字不少，但没特别突出的主导——什么都沾一点。在一起顺，但说不上哪里特别对。',A_to_B:'同频字不少，但主要集中在 {A} 这边——{A} 在 {B} 那里比较自在，{B} 未必有同等感受。',B_to_A:'同频字不少，但主要集中在 {B} 这边——{B} 在 {A} 那里比较自在，{A} 未必有同等感受。'},
+  rare:{none:'命盘扫下来，同频信号几乎是零。能聊到一起，靠的不是命盘，是后天各自努力。'},
+};
+function classifyResonance(rA,rB){
+  const tA=rA.length,tB=rB.length,total=tA+tB;
+  if(total<=2)return{dominant:'rare',direction:'none'};
+  const dir=Math.abs(tA-tB)<=1?'symmetric':tA>tB?'A_to_B':'B_to_A';
+  const c={bi:0,shi:0,shang:0};
+  [...rA,...rB].forEach(({shen})=>{if(shen==='比肩')c.bi++;else if(shen==='食神')c.shi++;else if(shen==='伤官')c.shang++;});
+  const types=[c.bi>0,c.shi>0,c.shang>0].filter(Boolean).length;
+  const max=Math.max(c.bi,c.shi,c.shang);
+  let dominant;
+  if(types>=2&&max<total*0.6)dominant=total>=5?'mixed_high':'mixed';
+  else if(c.bi===max)dominant='bi';
+  else if(c.shi===max)dominant='shi';
+  else dominant='shang';
+  return{dominant,direction:dir};
+}
+function fillN(s,{a,b}){return s.replace(/\{A\}/g,a).replace(/\{B\}/g,b);}
+function getScanCaption(rA,rB,names){
+  const{dominant,direction}=classifyResonance(rA,rB);
+  return fillN((SCAN_COPY[dominant]||SCAN_COPY.rare)[direction]||SCAN_COPY.rare.none,names);
+}
+
+const VERDICT_COPY={
+  shi_xiao_AtoB:{
+    zhiji:{title:'{A} 往 {B} 这边流，{B} 接得住，而且有来有往',body:['{A} 说话的节奏是 {B} 最顺的那种，命盘扫下来这个方向也是双向加持的——{A} 输出，{B} 接，但 {B} 不是被动的，有自己的东西在反哺，只是形式不一样。','这种关系难得的是：流动是真实的，不是一边在撑。','可以做很久的朋友，而且不用刻意维持。']},
+    dazi:{title:'聊起来不累，但容易单方向',body:['{A} 天然想照顾 {B}，{B} 在 TA 身边有莫名的轻松感。这不是表面投缘，是命盘写好的反应。','聊天、旅行、互相吐槽，基本顺畅。','但同频不等于对等——{A} 一直输出，{B} 一直接收，时间长了会出现「为什么只有我在付出」的裂缝。']},
+    limited:{title:'方向是对的，但力道不够',body:['{A} 天然往 {B} 这边靠，这个底层信号是真实的。但命盘全局扫下来，其他地方的摩擦把这股劲抵消了一部分。','不是没有同频感，是深不下去——聊得来，但到某个深度就停了。','有缘，适合维持在浅一点的位置。不用强行加深。']},
+    mismatch:{title:'{A} 往 {B} 这边走，{B} 根本没感觉',body:['{A} 在 {B} 这里有一种「想输出」的本能，命盘里也有几个同频字——但架不住整体频道不对。','就是那种 {A} 精心准备了话题，{B} 点点头然后开始看手机的感觉。','这不是谁的问题，是命盘没给这段关系留足空间。别费心了。']},
+  },
+  shi_xiao_BtoA:{
+    zhiji:{title:'{B} 往 {A} 这边流，{A} 接得住，而且有来有往',body:['{B} 在 {A} 这里有一种天然的「想照顾」的本能，而 {A} 接得住——不是被动接受，是有东西在反哺，只是形式不一样。','这种双向流动很少见，大多数「同频」停留在「感觉顺」，到这一步的没多少。','不用担心关系会断，这种连接自己会维持。']},
+    dazi:{title:'{B} 往 {A} 这边流，{A} 收着，但不一定感受得到',body:['{B} 在 {A} 这里有一种「想照顾」的本能，但 {A} 可能只觉得 {B} 挺好相处，没往深里想。','命盘扫下来，单向信号比较明显——{B} 那边的同频字更多。','这不是问题，只是两个人的感受可能不对等。{B} 要留意别黏过去。']},
+    limited:{title:'{B} 靠过来了，{A} 没太注意',body:['{B} 命盘里有几个同频字往 {A} 这边走，但 {A} 这边基本没有回应。','在一起不难受，但也不会特别记住。','就是那种从联系人列表里删掉，对方也不一定发现的朋友。']},
+    mismatch:{title:'{B} 单方向在付出，{A} 根本没感觉',body:['{B} 命盘里往 {A} 这边流的同频字有几个，但整体频道根本对不上。','结果就是 {B} 以为有交情，{A} 脑子里可能已经把 {B} 归到「认识」那一格了。','这种错位挺常见的，但挺伤 {B} 的。早点看清楚比较好。']},
+  },
+  bi_bi:{
+    zhiji:{title:'见一次就知道，这个人不一样',body:['两个人在对方面前都不用演。不是因为关系好，是五行根本就是同一类——不用解释，不用迁就，连沉默都舒服。','扫一遍命盘，两边都是满满的同频字。这种双向的东西，一百段朋友关系里见不到几个。','这种频道不是练出来的，是命盘写好的。不用珍惜，因为本来就丢不掉。']},
+    dazi:{title:'同类，但命盘里还有别的东西在扯',body:['底层是同频的，这一点没有问题。但命盘扫下来，其他地方有些噪音——一些竞争感，一些方向上的偏差。','在一起是顺的，但偶尔会有一种「差一点点」的感觉，说不清哪里。','大概是同类，但不是那种什么都懂的同类。']},
+    limited:{title:'底层像同类，但表层对不上',body:['日主层面是同频的，放到一起应该有共鸣——但命盘全局扫下来，同频字少得可怜。','就是那种感觉上有点像，但每次聊完都觉得差了一口气的关系。','同类不代表合拍，这两件事没有必然联系。']},
+    mismatch:{title:'以为是同类，其实不是',body:['日主同类，但命盘扫下来同频信号基本没有。','在一起可能会有一瞬间的「哦，你也这样」，然后就没了。','别被第一印象骗了。']},
+  },
+  jie_jie:{
+    zhiji:{title:'在一起很上头，也很累',body:['同频字密度很高，而且是双向的——但这两个人底层都是劫财关系，那根较劲的弦从来没松过。','在一起充电，也在一起漏电。聊得越深，竞争感越明显，但又停不下来。','这是命盘里少见的「上头型同频」——爽，但有代价。']},
+    dazi:{title:'在一起上头，但始终有根弦没松',body:['有默契，聊起来顺，但两个人之间有一根弦一直没有松——谁都不说，心里都知道在比。','命盘里同频字不少，但劫财型的同频自带暗劲：越熟越能感受到那股较劲，不是会消失的那种。','不是坏事。只是要清楚这是同频，不是心安。']},
+    limited:{title:'有点默契，但暗劲太重',body:['偶尔有那种「你懂我」的感觉，但劲使出来方向不对——底层在比，表面在聊。','同频字不多，竞争感却不小。聊得越深，越容易变成互相消耗。','见面喝咖啡可以，别做密友。']},
+    mismatch:{title:'说是朋友，内心各自打分',body:['同频信号基本没有，但那股暗劲倒是双向的——两个人坐在一起，互相都在评估对方。','这不叫同频，叫较劲。区别在于较劲让人累，同频让人充电。','这段关系属于前者。保持距离是最好的相处方式。']},
+  },
+  shang_yin:{
+    zhiji:{title:'互相说的话都刚好能接住',body:['两个人在一起都敢说，而且都接得住对方——这种东西很难找，基本靠命盘。','食神、伤官双向都有，不是单方向在输出，双方都有东西在反哺。','这种朋友可以聊很久，因为双方都不用憋着。']},
+    dazi:{title:'{B} 说话 {A} 会认真听，{A} 自己都不知道为什么',body:['{B} 说什么 {A} 都想认真听。不是因为说得多有道理，是说出来的刚好是 {A} 脑子里没成形的那些。','命盘扫下来，食神、伤官都有，频道是真的对。','但这种人遇到了要小心——说话太顺耳，容易单方向黏过去，而对方未必有同等感受。']},
+    limited:{title:'聊得有点意思，但停在表面',body:['{B} 说话 {A} 偶尔会觉得有意思，但命盘扫下来，同频信号不强——有共鸣，但不稳定。','适合偶尔见，不适合日常粘着。','保持一点距离，反而能留住那点「有意思」的感觉。']},
+    mismatch:{title:'以为有共鸣，其实只是对方说得好听',body:['偶尔感觉聊到点子上了，但命盘扫下来，同频字少得可怜——大概率是 {B} 本身就能说，不是对 {A} 特别。','别把「对方表达好」误认成「我们有同频」。','这两件事有本质区别。']},
+  },
+  negative:{
+    zhiji:{title:'底层有碰撞，全局同频字反而多得吓人',body:['日主层面有一点对冲感，按理说应该有摩擦——但命盘全局的同频字密度高得把底层摩擦盖住了。','这种组合很少见：底层有张力，表层反而流动顺畅。聊起来可能会有一种「奇怪，为什么这么对得上」的感觉。','这不是错觉，是命盘里的其他部分在撑着这段关系。']},
+    dazi:{title:'表面没问题，但深不下去',body:['聊天没什么问题，但聊完总有一种「好，那就这样」的感觉——深不下去，也不知道卡在哪里。','命盘里同频信号本来就不多，日主层面还有一点碰撞感，不是剑拔弩张，就是方向上有点拧。','现在这样挺好了。有些人适合停在「认识」的位置，不用强行往深走。']},
+    limited:{title:'貌合神离',body:['表面没有冲突，但命盘扫下来，同频字很少，底层还有一点对冲感。','就是那种在一个群里相处挺好、但私下没什么好说的关系。','不讨厌，就是不深。维持现状是最好的结果了。']},
+    mismatch:{title:'说不上为什么，就是感觉哪里不对',body:['没有大矛盾，但在一起有一种说不清楚的不顺——命盘日主层面就是有对冲，同频信号接近于零。','这种感觉不会随着时间消失，只会越来越清晰。','趁早留距离。']},
+  },
+  gan_he:{zhiji:{title:'有些缘分是写进天干里的',body:['两人日干构成天干五合——在命盘配对里相当少见，底层有一种说不清楚的「被对方拉住」的感觉，不完全是理性上的喜欢。','加上命盘里双向的同频字，这种关系有一种很难描述的「对」。','不是说不会吵架，是吵完之后还是会回来。']}},
+  other:{
+    zhiji:{title:'命盘碰到一起，刚好对上了',body:['日主关系不是最典型的同频组合，但命盘全局扫下来同频字密度相当高。','有时候缘分就是这样——底层不是最「标准」的搭配，但就是顺。','这种顺不是错觉，命盘数据在这里。']},
+    dazi:{title:'聊得来，说不清哪里对',body:['说不清楚是哪种同频，但在一起确实顺——不尴尬，话题接得上，节奏也差不多。','命盘扫下来有一定量的同频字，虽然没有特别突出的方向。','这种朋友处起来轻松，但深交需要别的维度来支撑。']},
+    limited:{title:'能聊，但找不到那个点',body:['在一起没有特别明显的不适，但也找不到那种「对，就是这个感觉」的共鸣点。','同频信号不多，日主关系也不算典型。','普通朋友，普通维持就好。']},
+    mismatch:{title:'凑到一起聊了，但其实不太行',body:['没有大的摩擦，但同频信号基本没有，日主层面也没有天然的共鸣。','就是那种微信里有，但想不起来找对方的那种关系。','合理。']},
+  },
+};
+function classifyL1(ab,ba){
+  if(ab==='比肩'&&ba==='比肩')return'bi_bi';
+  if(ab==='劫财'&&ba==='劫财')return'jie_jie';
+  if((ab==='食神'&&ba==='偏印')||(ab==='伤官'&&ba==='正印'))return'shi_xiao_AtoB';
+  if((ab==='偏印'&&ba==='食神')||(ab==='正印'&&ba==='伤官'))return'shi_xiao_BtoA';
+  if((['伤官','食神'].includes(ab)&&['正印','偏印'].includes(ba))||(['正印','偏印'].includes(ab)&&['伤官','食神'].includes(ba)))return'shang_yin';
+  if(['偏财','正财','七杀','正官'].includes(ab)||['偏财','正财','七杀','正官'].includes(ba))return'negative';
+  return'other';
+}
+function getScoreTier(s){return s>=80?'zhiji':s>=50?'dazi':s>=20?'limited':'mismatch';}
+function getVerdict(ganA,ganB,ab,ba,score,names){
+  const tier=getScoreTier(score);
+  if(GAN_HE_PAIRS[ganA]===ganB&&tier==='zhiji')return fillVerdict(VERDICT_COPY.gan_he.zhiji,names);
+  const l1=classifyL1(ab,ba);
+  const src=VERDICT_COPY[l1]||VERDICT_COPY.other;
+  return fillVerdict(src[tier]||src.limited||src.dazi,names);
+}
+function fillVerdict(raw,names){return{title:fillN(raw.title,names),body:raw.body.map(p=>fillN(p,names))};}
+function getDIM1Texts({dayGanA,dayGanB,shenAtoB,shenBtoA,resonanceA,resonanceB,dim1Score,names}){
+  return{scanCaption:getScanCaption(resonanceA,resonanceB,names),badge:getBadge(dim1Score),verdict:getVerdict(dayGanA,dayGanB,shenAtoB,shenBtoA,dim1Score,names)};
+}
+
+/* ══════════════════════════════════════════════════════════════
+   DEMO DATA  （替换此处 = 切换不同案例）
+══════════════════════════════════════════════════════════════ */
+const DEMO = {
+  dayGanA: '甲',
+  dayGanB: '壬',
+  shenAtoB: '偏印',   // getShen('甲','壬') → 壬生甲 → 甲视角壬=偏印
+  shenBtoA: '食神',   // getShen('壬','甲') → 壬生甲 → 壬视角甲=食神
+  resonanceA: [       // 甲（阿哲）视角看阿涵命盘中的比/食/伤
+    {shen:'食神'},    // 丙年干
+    {shen:'比肩'},    // 甲时干
+    {shen:'食神'},    // 午时支主气丙
+  ],
+  resonanceB: [       // 壬（阿涵）视角看阿哲命盘中的比/食/伤
+    {shen:'比肩'},    // 亥月支主气壬
+    {shen:'食神'},    // 甲日干
+    {shen:'比肩'},    // 壬时干
+  ],
+  dim1Score: 58,
+  names: { a: '阿哲', b: '阿涵' },
+
+  // 分项分数（用于进度条）
+  l1Raw: 30,     // L1 贡献分（满分50归一化后）
+  l3Raw: 28,     // L3 贡献分
+};
+
+/* ══════════════════════════════════════════════════════════════
+   渲染
+══════════════════════════════════════════════════════════════ */
+function renderTexts(){
+  const{scanCaption,badge,verdict}=getDIM1Texts(DEMO);
+
+  // Module A
+  const capEl=document.getElementById('scanCaption');
+  if(capEl)capEl.innerHTML=`<span>✦</span> ${scanCaption}`;
+
+  // Module B
+  const badgeEl=document.getElementById('scoreBadge');
+  if(badgeEl)badgeEl.textContent=badge.badge;
+  const subEl=document.getElementById('scoreSub');
+  if(subEl)subEl.textContent=badge.subtext;
+  const totalVal=document.getElementById('lbar-total-val');
+  if(totalVal)totalVal.textContent=(DEMO.dim1Score>=0?'+':'')+DEMO.dim1Score+'%';
+  const footScore=document.getElementById('verdictScore');
+  if(footScore)footScore.textContent=(DEMO.dim1Score>=0?'+':'')+DEMO.dim1Score+'%';
+
+  // Module C
+  const titleEl=document.getElementById('verdictTitle');
+  if(titleEl)titleEl.innerHTML=verdict.title.replace(DEMO.names.a,`<span class="ta">${DEMO.names.a}</span>`).replace(DEMO.names.b,`<span class="tb">${DEMO.names.b}</span>`);
+  const bodyEl=document.getElementById('verdictBody');
+  if(bodyEl)bodyEl.innerHTML=verdict.body.map(p=>`<p style="margin-bottom:.75em">${p}</p>`).join('');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SLIDE ENGINE
+══════════════════════════════════════════════════════════════ */
+const TOTAL=6;
+const DURS=[5000,6000,6000,7000,7000,8000];
+let cur=0,raf=0,t0=0;
+
+function activate(idx){
+  cancelAnimationFrame(raf);
+  document.querySelectorAll('.card').forEach((c,i)=>c.classList.toggle('on',i===idx));
+  for(let i=0;i<TOTAL;i++){const f=document.getElementById('p'+i);f.style.transition='none';f.style.width=i<idx?'100%':'0%';}
+
+  const card=document.getElementById('c'+idx);
+  card.querySelectorAll('.afu,.afi,.asi').forEach(el=>{const d=el.style.animationDelay;el.style.animation='none';el.offsetHeight;el.style.animation='';if(d)el.style.animationDelay=d;});
+
+  if(idx===3) setupScan();
+  if(idx===4) setupScore();
+
+  t0=performance.now();
+  const dur=DURS[idx];
+  const pf=document.getElementById('p'+idx);
+  function tick(now){
+    const pct=Math.min((now-t0)/dur*100,100);
+    pf.style.transition='none';pf.style.width=pct+'%';
+    if(pct<100){raf=requestAnimationFrame(tick);}else if(cur<TOTAL-1){cur++;activate(cur);}
+  }
+  raf=requestAnimationFrame(tick);
+}
+
+function setupScan(){
+  document.querySelectorAll('.bzc').forEach(el=>el.classList.remove('res-gan','res-zhi','has-res','scanned'));
+  document.querySelectorAll('.sp-count').forEach(el=>el.classList.remove('visible'));
+
+  const order=[
+    {id:'b0',delay:500,type:'gan'},
+    {id:'b1',delay:750,type:null},
+    {id:'b2',delay:1000,type:null},
+    {id:'b3',delay:1250,type:'both'},
+    {id:'a0',delay:1700,type:null},
+    {id:'a1',delay:1950,type:'zhi'},
+    {id:'a2',delay:2200,type:'gan'},
+    {id:'a3',delay:2450,type:'gan'},
+  ];
+  order.forEach(({id,delay,type})=>{
+    setTimeout(()=>{
+      const el=document.getElementById(id);if(!el)return;
+      el.classList.add('scanned');
+      if(type==='gan')el.classList.add('res-gan','has-res');
+      else if(type==='zhi')el.classList.add('res-zhi','has-res');
+      else if(type==='both')el.classList.add('res-gan','res-zhi','has-res');
+    },delay);
+  });
+  setTimeout(()=>document.getElementById('cnt-b').classList.add('visible'),1450);
+  setTimeout(()=>document.getElementById('cnt-a').classList.add('visible'),2600);
+}
+
+function setupScore(){
+  const s=DEMO.dim1Score, r1=DEMO.l1Raw, r3=DEMO.l3Raw;
+  // reset
+  ['ss1','ss3','sbar'].forEach(id=>{const el=document.getElementById(id);if(el){el.style.transition='none';el.style.width='0%';}});
+  ['si1el','si3el'].forEach(id=>{const el=document.getElementById(id);if(el)el.classList.remove('vis');});
+  document.getElementById('sval').textContent='0';
+  document.getElementById('lbar-total-val').textContent='—';
+
+  // s1 grows in
+  setTimeout(()=>{
+    const el=document.getElementById('ss1');
+    el.style.transition='width .75s ease'; el.style.width=r1+'%';
+    setTimeout(()=>{
+      document.getElementById('lv1').textContent=(r1>=0?'+':'')+r1;
+      document.getElementById('si1el').classList.add('vis');
+    },650);
+  },500);
+  // s3 appends
+  setTimeout(()=>{
+    const el=document.getElementById('ss3');
+    el.style.transition='width .75s ease'; el.style.width=r3+'%';
+    setTimeout(()=>{
+      document.getElementById('lv3').textContent=(r3>=0?'+':'')+r3;
+      document.getElementById('si3el').classList.add('vis');
+    },650);
+  },1250);
+  // total label reveals
+  setTimeout(()=>{
+    document.getElementById('lbar-total-val').textContent=(s>=0?'+':'')+s+'%';
+  },2000);
+  // big count-up
+  setTimeout(()=>countUp(document.getElementById('sval'),0,s,1000),2100);
+  // spectrum bar
+  setTimeout(()=>{
+    document.getElementById('sbar').style.transition='width .9s ease';
+    document.getElementById('sbar').style.width=Math.max(0,s/2)+'%';
+  },2200);
+}
+
+function countUp(el,from,to,dur){
+  const start=performance.now();
+  const ease=t=>1-Math.pow(1-t,3);
+  function tick(now){
+    const t=Math.min((now-start)/dur,1);
+    el.textContent='+'+ Math.round(from+ease(t)*(to-from));
+    if(t<1)requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+function next(){if(cur<TOTAL-1){cur++;activate(cur);}}
+function prev(){if(cur>0){cur--;activate(cur);}}
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key===' ')next();else if(e.key==='ArrowLeft')prev();});
+let tx=0;
+document.addEventListener('touchstart',e=>{tx=e.touches[0].clientX;},{passive:true});
+document.addEventListener('touchend',e=>{const dx=e.changedTouches[0].clientX-tx;if(Math.abs(dx)>50){dx<0?next():prev();}},{passive:true});
+
+renderTexts();
+activate(0);
+</script>
+</body>
+</html>
