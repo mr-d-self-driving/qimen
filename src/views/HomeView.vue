@@ -2784,6 +2784,35 @@ input::placeholder { color: rgba(255,255,255,0.25); }
 .feedback-primary:disabled { opacity: .55; cursor: not-allowed; }
 
 @media(max-width:560px) {
+  .page-wrap {
+    width: 100%;
+    max-width: 100%;
+    padding: 76px 14px 54px;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+  .public-landing-container {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .mobile-auth-first {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+  .seo-landing {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .seo-landing h1 {
+    font-size: 26px;
+    line-height: 1.34;
+    overflow-wrap: anywhere;
+  }
   .feedback-overlay { align-items: flex-end; justify-content: center; }
   .feedback-drawer { width: 100%; height: auto; max-height: 88vh; border-left: none; border-top: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; transform: translateY(24px); }
   .feedback-overlay.show .feedback-drawer { transform: translateY(0); }

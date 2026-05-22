@@ -48,6 +48,9 @@ test('首页包含可索引的产品承接、功能入口和 FAQ 内容', () => 
   assert.match(seoEntrySource, /<div class="seo-entry">/)
   assert.match(homeSource, /\.mobile-auth-first\s*{\s*order:\s*1/)
   assert.match(homeSource, /\.seo-landing\s*{\s*order:\s*2/)
+  assert.match(homeSource, /@media\(max-width:560px\)[\s\S]*\.public-landing-container[\s\S]*width:\s*100%/)
+  assert.match(homeSource, /@media\(max-width:560px\)[\s\S]*\.mobile-auth-first[\s\S]*width:\s*100%/)
+  assert.match(homeSource, /@media\(max-width:560px\)[\s\S]*\.seo-landing h1[\s\S]*font-size:\s*26px/)
 })
 
 test('结构化数据和爬虫文件服务中文 SEO', () => {
