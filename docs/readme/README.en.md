@@ -33,6 +33,15 @@ This is not a template generator. It is a **rules-first metaphysics reasoning sy
 
 ## Core Features
 
+### Recent Feature Updates
+
+- The fortune page now covers daily, weekly, monthly, and yearly views, so users can read today's rhythm alongside the broader week, month, and year
+- Weekly fortune adds a seven-day curve, favorable day, cautious day, weekly label, and career, wealth, and relationship reminders
+- Monthly fortune adds score curves, high-score days, low-score days, difficult-period hints, and plain-language readings for general, career, wealth, and relationships
+- Yearly fortune shows a twenty-one-year range around the current year, with luck-cycle background, annual ten-god signals, and year-cycle relationships
+- Bazi profiles now include decision notes, letting users record career, finance, relationship, and health/lifestyle context so monthly readings can stay closer to real life
+- Qimen result pages keep a validation feedback entry so users can later mark whether a reading was accurate and how the situation actually unfolded
+
 ### Divination Routing Engine
 
 - Automatically decides whether a question should use Qimen, Bazi, or a combined reading
@@ -51,10 +60,10 @@ This is not a template generator. It is a **rules-first metaphysics reasoning sy
 ### Bazi System
 
 - Supports Gregorian input, lunar input, and direct Four Pillars input
-- Supports birthplace longitude, mean solar time, and true solar time correction
+- Supports birthplace search, longitude, mean solar time, and true solar time correction
 - Expands stems, branches, ten gods, hidden stems, twelve growth phases, Na Yin, emptiness, spirits, and special patterns
 - Uses a local rule engine for day-master strength, favorable elements, pattern judgment, and generation-control relationships
-- Provides five-element power visualization, scoring details, Bazi Q&A, and feedback-based recalibration
+- Provides five-element power visualization, scoring details, Bazi Q&A, feedback-based recalibration, and decision notes
 - Supports linked luck pillars, annual cycles, and monthly cycles to show how the natal chart interacts with current time
 
 ### Fortune Scoring
@@ -62,9 +71,9 @@ This is not a template generator. It is a **rules-first metaphysics reasoning sy
 | Range | What It Does |
 | --- | --- |
 | Daily | Computes the daily score and shows insight cards, timeline, favorable hours, and mitigation advice |
-| Weekly | Produces weekly trends and action reminders |
-| Monthly | Uses solar terms for month boundaries and shows monthly curves, high-score days, low-score days, and difficult periods |
-| Yearly | Generates a ten-year range with luck-cycle context, annual ten-god signals, natal interactions, and spirit indicators |
+| Weekly | Builds a natural-week seven-day curve, weekly label, key dates, solar-term turns, and action reminders |
+| Monthly | Uses solar terms for month boundaries and shows monthly curves, high-score days, low-score days, difficult periods, and readable scoring reasons |
+| Yearly | Generates a multi-year range with luck-cycle context, annual ten-god signals, natal interactions, spirit indicators, and readable scoring reasons |
 
 Monthly detailed readings support four dimensions: general, career, wealth, and relationships. Users can provide long-term context and current-month background, which are then injected into the reading.
 
@@ -102,6 +111,154 @@ User question
                           └─► Structured decision card
 ```
 
+### Question Reasoning Pipeline
+
+The question engine is no longer a single Bazi Q&A flow. After the user enters a question, the system first decides whether the situation is better handled by Qimen, Bazi, or a combined reading. If the question is too vague, it asks for the missing context first. Each branch uses a different calculation path, and the language model only turns the rule-based conclusions into readable guidance.
+
+The detailed Bazi branch design is documented in [`../bazi-prompt-assembly-prd.md`](../bazi-prompt-assembly-prd.md), and the Qimen scoring notes are in [`../qimen-scoring-engine-improvement.md`](../qimen-scoring-engine-improvement.md).
+
+```text
+User question
+    │
+    ▼
+┌─────────────────────────────────────┐
+│  Top-level divination routing         │
+│  · Long-term chart question or event  │
+│  · Career, wealth, relationship, etc. │
+│  · Active side or waiting side        │
+│  · Ask follow-up questions if needed  │
+└────────────────┬────────────────────┘
+                 │
+        ┌────────┼────────┬────────┐
+        ▼        ▼        ▼        ▼
+   Clarify     Qimen      Bazi      Combined
+   missing     event      natal     natal context ×
+   context     path       path      current event
+```
+
+#### Qimen Event Path
+
+Use this path for concrete situations: whether to accept an offer, whether an interview can succeed, whether a project will move forward, whether someone will reply, whether a lost item can be found, or whether a certain time is favorable.
+
+```text
+Concrete question + current time
+    │
+    ▼
+Qimen chart generation
+    │
+    ├─► Identify domain and active/waiting role
+    ├─► Select useful gods and supporting signals
+    ├─► Calculate palaces, emptiness, traveling horse, chief star, and chief gate
+    ├─► Produce rule-based score and risk signals first
+    ├─► Scan usable time windows for activation or breakthrough points
+    └─► Let AI review domain, useful gods, score, and timing before producing the card
+```
+
+#### Bazi Natal Path
+
+Use this path for long-term structure: career direction, wealth capacity, relationship structure, constitution tendencies, or which years are more likely to open a window. The Bazi branch chooses a different sub-path depending on the question:
+
+| User Question | Reasoning Path | Main Focus |
+| --- | --- | --- |
+| "How is my relationship luck this year?" | Current-state reading | Natal baseline, current luck cycle, and whether the current year activates the target area |
+| "Which year in the next five years is better for changing jobs?" | Timing-window reading | Scans candidate years and identifies stronger windows and years to avoid |
+| "Am I better suited to starting a business or working a job?" | Pattern-fit reading | Natal structure, capacity, resource mode, and risk points |
+| "What kind of partner am I likely to attract?" | Character-profile reading | Tendencies shown by ten gods, palace positions, and relationship structure |
+| "This cannot be strongly judged from Bazi" | Boundary reading | States the limitation clearly and only offers a low-confidence observation frame |
+
+```text
+User question + Bazi profile
+    │
+    ▼
+Bazi semantic refinement
+    │
+    ├─► Identify domain, time range, and target of judgment
+    ├─► Choose current-state / timing-window / pattern-fit / character-profile / boundary path
+    └─► Correct low-confidence or conflicting signals to avoid forcing the wrong rule
+          │
+          ▼
+Target element resolution
+    │     Locate the core ten gods, palaces, and supporting signals for this question
+          │
+          ▼
+Natal-state assessment
+    │     Check position, strength, visibility, clashes, combinations, harm, and storage
+          │
+          ▼
+Dynamic activation assessment
+          Current state: whether the current luck cycle and year activate the target
+          Timing window: scan and rank candidate years
+          Pattern fit: focus on natal structure, with current-stage notes if needed
+          Character profile: describe tendencies without asserting facts
+          Boundary path: explain the limit and downgrade to an observation frame
+          │
+          ▼
+Reading assembly
+          Target elements, natal baseline, dynamic activation, and limitations are
+          assembled into natural language. AI expresses and organizes the result;
+          it does not recalculate the chart or invent stem-branch relations.
+```
+
+#### Combined Reading Path
+
+Use this path when the question contains both long-term natal background and a concrete current event, such as "How is my career luck this year, and should I accept this offer?" The Bazi profile provides the person's current baseline and stage; the Qimen path judges the concrete event, risks, timing, and action window.
+
+```text
+Bazi profile
+  └─► Natal baseline, current luck cycle, favorable and unfavorable tendencies
+          │
+          ▼
+Concrete event + current time
+  └─► Qimen chart, useful gods, score, timing, and breakthrough suggestions
+          │
+          ▼
+Combined result
+  Long-term trends do not replace event judgment;
+  event judgment is not detached from the user's current stage.
+```
+
+### Fortune Scoring Framework
+
+Fortune scores are produced by deterministic local rules; the language model does not decide the score. Daily, weekly, monthly, and yearly numbers are not generated from a prompt. The engine first reads the natal chart, then checks how the current time activates that chart, and finally turns the matched signals into an explainable score and guidance. The detailed engineering design is in [`../bazi-score-engine-prd.md`](../bazi-score-engine-prd.md).
+
+```text
+Bazi chart
+    │
+    ▼
+Favorable and unfavorable tendencies
+  Identify which elements and ten gods are supportive, neutral, or stressful for the person
+    │
+    ▼
+Seasonal adjustment
+  Check whether the current climate supports what the chart needs, or intensifies imbalance
+    │
+    ▼
+Time-factor layering
+  Daily: immediate effect of the day's stems and branches
+  Weekly: seven-day rhythm and dominant energy
+  Monthly: solar-term month, monthly rhythm, difficult periods, and key dates
+  Yearly: luck-cycle background and annual climate
+    │
+    ▼
+Explainable score
+  The score is shown with supportive factors, risk factors, and action guidance
+```
+
+**Theoretical Basis**
+
+The scoring framework is distilled from the author's private NotebookLM study notes on Bazi cases:
+
+| Source | Role in Scoring |
+| --- | --- |
+| Di Tian Sui: useful gods as medicine, unfavorable gods as illness | First determine whether the current time supports the chart or amplifies pressure |
+| Qiong Tong Bao Jian: seasonal balance comes first | Check cold, heat, dryness, and dampness before judging specific fortune |
+| Case-study principle: clashes are stronger than many minor branch signals | Treat clashes, punishments, combinations, and harms in layers instead of absolutizing a single signal |
+| San Ming Tong Hui: the annual ruler carries major influence | Yearly readings give special attention to how the current year activates the stage |
+| Case-study principle: nobleman stars without vitality may not help | Spirit indicators are auxiliary and must be read with strength, favorability, and emptiness |
+| Dynamic analysis theory: natal state → luck-cycle activation → timing | First check whether the natal chart has a basis, then whether time truly activates it |
+
+> The NotebookLM material is private study material. This README shows the framework only; concrete rules and weights remain in engineering docs and source code.
+
 ---
 
 ## Tech Stack
@@ -119,11 +276,14 @@ Production     Cloudflare Pages + Cloudflare Workers
 
 ### Engineering Notes
 
-- **Deterministic scoring**: daily, monthly, and yearly scores are produced by local rule engines; the model cannot overwrite them
-- **Layered caching**: fortune results are stored in the database and cached on the frontend
+- **Deterministic scoring**: daily, weekly, monthly, and yearly scores are produced by local rule engines; the model cannot overwrite them
+- **Structured reasoning paths**: questions are first routed to Qimen, Bazi, or a combined reading; the Bazi branch then chooses current-state, timing-window, pattern-fit, or character-profile paths
+- **Layered caching**: daily, weekly, monthly, yearly, and monthly detailed readings are stored in the database and cached on the frontend
 - **Warmup flow**: signed-in users can preload the next seven daily readings
 - **Fallback behavior**: Bazi readings fall back to local rules when model generation fails; fortune pages can still show scores before prose is ready
 - **Test coverage**: covers CORS, Bazi APIs, guest mode, caching, warmup, monthly fortune, yearly fortune, and core UI constraints
+- **Context injection**: long-term profile notes and current-month context are stored separately and injected into monthly detailed readings
+- **Audit trail**: Qimen and Bazi question flows keep route, rule, prompt, model-output, and post-processing snapshots for calibration
 - **Single backend entry point**: backend routes are centralized in `worker/src/index.js` for easier maintenance and review
 
 ---
@@ -213,8 +373,9 @@ Database migration scripts are kept in `docs/sql/` for the author's own maintena
 **Fortune panels include:**
 
 - Daily: seven-day switching, score-first rendering, asynchronous prose, favorable hours, and guidance
-- Monthly: solar-term month boundaries, monthly score curve, high and low days, difficult periods, and detailed readings
-- Yearly: ten-year range, luck-cycle context, annual ten-god signals, natal interactions, and yearly indicators
+- Weekly: natural-week switching, seven-day curve, favorable/cautious days, weekly labels, and event reminders
+- Monthly: solar-term month boundaries, monthly score curve, high and low days, difficult periods, and multi-dimensional detailed readings
+- Yearly: multi-year range, luck-cycle context, annual ten-god signals, natal interactions, and yearly indicators
 - Profile switching and frontend cache replay
 
 ---
