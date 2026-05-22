@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>八字合盘 · 结果报告</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Noto+Serif+SC:wght@300;400;700&family=Noto+Sans+SC:wght@400;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+/* ─── RESET ─── */
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+
+/* ─── TOKENS ─── */
+:root{
+  --bg:#09090f;
+  --surface:rgba(255,255,255,.04);
+  --surface2:rgba(255,255,255,.07);
+  --border:rgba(255,255,255,.08);
+  --border2:rgba(255,255,255,.14);
+  --ca:#ff6b9d;
+  --cb:#6b8fff;
+  --gold:#ffd166;
+  --green:#4ade80;
+  --red:#f87171;
+  --text:#fff;
+  --dim:rgba(255,255,255,.38);
+  --dim2:rgba(255,255,255,.6);
+
+  /* Demo tier: +20~+39 → 蓝灰 */
+  --tier:#94a3b8;
+  --tier-bg:rgba(148,163,184,.08);
+  --tier-border:rgba(148,163,184,.22);
+}
+
+html,body{width:100%;min-height:100svh;background:var(--bg);
+  font-family:'Noto Sans SC',sans-serif;color:var(--text);overflow-x:hidden}
+
+/* ─── BLOBS ─── */
+.blob{position:fixed;border-radius:50%;filter:blur(100px);pointer-events:none;z-index:0}
+.ba{width:420px;height:420px;top:-140px;right:-90px;
+  background:rgba(148,163,184,.07);animation:bf 11s ease-in-out infinite}
+.bb{width:340px;height:340px;bottom:-60px;left:-90px;
+  background:rgba(107,143,255,.07);animation:bf 15s ease-in-out infinite reverse}
+.bc{width:260px;height:260px;top:55%;left:30%;
+  background:rgba(74,222,128,.04);animation:bf2 19s ease-in-out infinite 3s}
+@keyframes bf{0%,100%{transform:translate(0,0)}50%{transform:translate(18px,-15px)}}
+@keyframes bf2{0%,100%{transform:translateY(0)}50%{transform:translateY(-20px)}}
+
+/* ─── ANIMATIONS ─── */
+@keyframes fu{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fi{from{opacity:0}to{opacity:1}}
+@keyframes si{from{opacity:0;transform:scale(0.75)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:.3}50%{opacity:1}}
+.afu{opacity:0;animation:fu .55s ease forwards}
+.afi{opacity:0;animation:fi .4s ease forwards}
+.asi{opacity:0;animation:si .5s cubic-bezier(.34,1.56,.64,1) forwards}
+
+/* ─── PAGE LAYOUT ─── */
+.page{position:relative;z-index:1;max-width:480px;margin:0 auto;padding-bottom:72px}
+
+/* ─── TOPBAR ─── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  padding:13px 24px;
+  background:rgba(9,9,15,.88);
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border-bottom:1px solid var(--border);
+}
+.topbar-brand{
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--dim2);
+}
+
+/* ─── R0 HERO ─── */
+.hero{
+  padding:52px 28px 32px;
+  text-align:center;
+}
+.hero-tag{
+  display:inline-flex;align-items:center;gap:7px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--dim);
+  background:var(--surface);border:1px solid var(--border);
+  padding:5px 14px;border-radius:100px;
+  margin-bottom:22px;
+}
+.hero-tag::before{content:'●';font-size:6px;color:var(--gold);animation:pulse 2.5s infinite}
+.hero-names{
+  font-family:'Syne',sans-serif;
+  font-size:clamp(40px,12vw,60px);
+  font-weight:800;letter-spacing:-.03em;line-height:1.05;
+}
+.na{color:var(--ca)}
+.sep{color:var(--dim);margin:0 10px;font-size:.6em;vertical-align:middle}
+.nb{color:var(--cb)}
+.hero-date{
+  margin-top:10px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:11px;color:var(--dim);letter-spacing:.06em;
+}
+
+/* ─── R1 SCORE ─── */
+.score-sec{padding:4px 28px 36px;text-align:center}
+
+.score-eyebrow{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:12px;
+}
+.score-num{
+  font-family:'Syne',sans-serif;
+  font-size:92px;font-weight:800;line-height:1;letter-spacing:-.04em;
+  color:var(--tier);
+  display:inline-flex;align-items:baseline;gap:3px;
+}
+.score-num .sign{font-size:56px;opacity:.65;letter-spacing:0}
+.score-num .pts{font-size:28px;opacity:.4;margin-left:6px;letter-spacing:0}
+
+/* Score Bar */
+.sbar-outer{margin:22px 0 0;position:relative}
+.sbar-axis{
+  display:flex;justify-content:space-between;align-items:center;
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  color:var(--dim);margin-bottom:6px;padding:0 1px;
+}
+.sbar-axis .star{color:var(--tier);font-size:10px}
+.sbar-track{
+  height:10px;border-radius:100px;
+  background:rgba(255,255,255,.06);
+  position:relative;overflow:visible;
+}
+/* zero tick — slightly above track */
+.sbar-zero{
+  position:absolute;top:-4px;height:18px;width:2px;
+  background:rgba(255,255,255,.18);border-radius:1px;
+  left:55.56%; /* 100/180 */
+  transform:translateX(-50%);
+}
+.sbar-fill{
+  position:absolute;top:0;height:100%;border-radius:100px;
+  background:var(--tier);
+  left:0;width:0; /* set by JS */
+  transition:width .9s cubic-bezier(.22,1,.36,1),left .9s cubic-bezier(.22,1,.36,1);
+}
+
+/* Tier Badge */
+.tier-badge-wrap{margin:20px 0 0;display:flex;justify-content:center}
+.tier-badge{
+  font-family:'Syne',sans-serif;font-size:17px;font-weight:700;
+  color:var(--tier);
+  background:var(--tier-bg);border:1px solid var(--tier-border);
+  padding:9px 24px;border-radius:100px;
+  display:inline-flex;align-items:center;gap:8px;
+}
+
+/* Tier Subtext */
+.tier-subtext{
+  margin-top:14px;
+  font-size:13px;color:var(--dim);line-height:1.9;text-align:left;
+  padding:15px 16px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:14px;
+}
+
+/* Dim Mini Bars */
+.dim-bars{
+  margin-top:18px;
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:16px;padding:15px 16px;
+}
+.dim-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.dim-row:last-child{margin-bottom:0}
+.dim-lbl{
+  font-family:'JetBrains Mono',monospace;font-size:8px;
+  color:var(--dim);width:62px;flex-shrink:0;letter-spacing:.04em;white-space:nowrap;
+}
+.dim-track{
+  flex:1;height:5px;border-radius:100px;
+  background:rgba(255,255,255,.06);position:relative;overflow:hidden;
+}
+.dim-fill{
+  position:absolute;top:0;height:100%;border-radius:100px;
+  width:0; /* animated */
+  transition:width .75s cubic-bezier(.22,1,.36,1) var(--delay,0s),
+             left .75s cubic-bezier(.22,1,.36,1) var(--delay,0s);
+}
+.dim-fill.pos{background:var(--green)}
+.dim-fill.neg{background:var(--red)}
+.dim-val{
+  font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;
+  width:34px;text-align:right;flex-shrink:0;
+}
+.dim-val.pos{color:var(--green)}
+.dim-val.neg{color:var(--red)}
+
+/* ─── DIVIDER ─── */
+.divider{height:1px;background:var(--border);margin:8px 28px 32px}
+
+/* ─── R3 INSIGHT SECTION ─── */
+.sec-head{
+  padding:0 28px 18px;
+}
+.sec-label{
+  font-family:'JetBrains Mono',monospace;font-size:9px;
+  letter-spacing:.22em;text-transform:uppercase;color:var(--dim);
+}
+
+.insights{padding:0 28px;display:flex;flex-direction:column;gap:13px}
+
+.icard{
+  border-radius:20px;padding:22px 20px;
+  background:var(--surface);border:1px solid var(--border);
+}
+.icard.pos-card{border-color:rgba(74,222,128,.14)}
+.icard.warn-card{border-color:rgba(255,209,102,.12)}
+
+.ic-tag{
+  display:flex;align-items:center;gap:9px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:8.5px;letter-spacing:.18em;text-transform:uppercase;
+  margin-bottom:13px;
+}
+.ic-tag::before{
+  content:'';display:block;
+  width:14px;height:2px;border-radius:1px;
+  background:currentColor;flex-shrink:0;
+}
+.ic-tag.pos{color:var(--green)}
+.ic-tag.warn{color:var(--gold)}
+
+.ic-title{
+  font-family:'Syne',sans-serif;
+  font-size:20px;font-weight:800;line-height:1.2;
+  margin-bottom:10px;color:#fff;
+}
+
+.ic-body{
+  font-size:13px;color:var(--dim);line-height:1.9;
+}
+.ic-body strong{color:rgba(255,255,255,.75);font-weight:700}
+
+/* ─── R4 ACTIONS ─── */
+.actions{
+  padding:36px 28px 0;
+  display:flex;flex-direction:column;align-items:center;gap:11px;
+}
+
+.btn-share{
+  width:100%;padding:16px;border:none;border-radius:100px;cursor:pointer;
+  font-family:'Syne',sans-serif;font-size:16px;font-weight:700;
+  color:#09090f;background:var(--tier);
+  display:flex;align-items:center;justify-content:center;gap:9px;
+  transition:opacity .18s,transform .15s;
+  -webkit-appearance:none;
+}
+.btn-share:active{opacity:.82;transform:scale(.98)}
+.btn-share svg{flex-shrink:0}
+
+.btn-retry{
+  width:100%;padding:14px;border-radius:100px;cursor:pointer;
+  font-family:'Noto Sans SC',sans-serif;font-size:14px;font-weight:400;
+  color:var(--dim2);
+  background:var(--surface);border:1px solid var(--border2);
+  transition:background .18s;-webkit-appearance:none;
+}
+.btn-retry:active{background:rgba(255,255,255,.08)}
+
+.disclaimer{
+  margin-top:22px;
+  font-size:11.5px;color:var(--dim);
+  text-align:center;line-height:1.75;max-width:260px;
+  font-family:'Noto Sans SC',sans-serif;
+}
+
+/* ─── TIER SWITCHER (demo only) ─── */
+.demo-controls{
+  position:fixed;bottom:20px;right:16px;z-index:200;
+  display:flex;flex-direction:column;gap:5px;
+}
+.demo-btn{
+  font-family:'JetBrains Mono',monospace;font-size:8.5px;
+  padding:5px 10px;border-radius:6px;border:1px solid var(--border2);
+  background:rgba(9,9,15,.92);color:var(--dim);
+  cursor:pointer;transition:color .15s,border-color .15s;
+  white-space:nowrap;
+}
+.demo-btn.active{color:var(--tier);border-color:var(--tier-border)}
+.demo-label{
+  font-family:'JetBrains Mono',monospace;font-size:7.5px;
+  color:var(--dim);text-align:right;margin-bottom:2px;
+  letter-spacing:.1em;
+}
+</style>
+</head>
+<body>
+
+<div class="blob ba"></div>
+<div class="blob bb"></div>
+<div class="blob bc"></div>
+
+<div class="page">
+
+  <!-- TOP BAR -->
+  <div class="topbar">
+    <span class="topbar-brand">八字合盘</span>
+  </div>
+
+  <!-- R0 · HERO ─────────────────────── -->
+  <div class="hero">
+    <div class="hero-tag afu" style="animation-delay:.1s">朋友缘分报告</div>
+    <div class="hero-names afu" style="animation-delay:.25s">
+      <span class="na">小明</span><span class="sep">×</span><span class="nb">小花</span>
+    </div>
+    <div class="hero-date afu" style="animation-delay:.4s">2026 · 01 · 15 合盘</div>
+  </div>
+
+  <!-- R1 · SCORE ─────────────────────── -->
+  <div class="score-sec">
+    <div class="score-eyebrow afu" style="animation-delay:.5s">综合缘分指数</div>
+
+    <div class="score-num afu" style="animation-delay:.6s">
+      <span class="sign" id="score-sign">+</span>
+      <span id="score-val">0</span>
+      <span class="pts">pt</span>
+    </div>
+
+    <!-- Score Bar -->
+    <div class="sbar-outer afu" style="animation-delay:.72s">
+      <div class="sbar-axis">
+        <span>−100</span>
+        <span>0</span>
+        <span>+80 <span class="star">★</span></span>
+      </div>
+      <div class="sbar-track">
+        <div class="sbar-zero"></div>
+        <div class="sbar-fill" id="sbar-fill"></div>
+      </div>
+    </div>
+
+    <!-- Tier Badge -->
+    <div class="tier-badge-wrap asi" style="animation-delay:1.85s">
+      <div class="tier-badge" id="tier-badge">无情点赞机器</div>
+    </div>
+
+    <!-- Tier Subtext -->
+    <div class="tier-subtext afu" style="animation-delay:2.15s" id="tier-subtext">
+      可以约饭，可以一起去展览，帮你转发招聘信息毫不犹豫。关系维持在不咸不淡的舒适位置——往近了走没太大必要，维持在这里也挺好的，合格的普通朋友。
+    </div>
+
+    <!-- Dim Mini Bars -->
+    <div class="dim-bars afu" style="animation-delay:2.45s">
+      <div class="dim-row">
+        <span class="dim-lbl">同频 DIM1</span>
+        <div class="dim-track"><div class="dim-fill pos" id="db1" style="--delay:.05s"></div></div>
+        <span class="dim-val pos">+55</span>
+      </div>
+      <div class="dim-row">
+        <span class="dim-lbl">义气 DIM2</span>
+        <div class="dim-track"><div class="dim-fill pos" id="db2" style="--delay:.12s"></div></div>
+        <span class="dim-val pos">+42</span>
+      </div>
+      <div class="dim-row">
+        <span class="dim-lbl">消耗 DIM3</span>
+        <div class="dim-track"><div class="dim-fill neg" id="db3" style="--delay:.19s"></div></div>
+        <span class="dim-val neg">−28</span>
+      </div>
+      <div class="dim-row">
+        <span class="dim-lbl">成长 DIM4</span>
+        <div class="dim-track"><div class="dim-fill pos" id="db4" style="--delay:.26s"></div></div>
+        <span class="dim-val pos">+38</span>
+      </div>
+      <div class="dim-row">
+        <span class="dim-lbl">钱财 DIM5</span>
+        <div class="dim-track"><div class="dim-fill pos" id="db5" style="--delay:.33s"></div></div>
+        <span class="dim-val pos">+18</span>
+      </div>
+    </div>
+  </div><!-- /score-sec -->
+
+  <div class="divider"></div>
+
+  <!-- R3 · CORE INSIGHTS ─────────────── -->
+  <div class="insights">
+
+    <!-- R3-A: 放心的地方 -->
+    <div class="icard pos-card afu" style="animation-delay:.15s">
+      <div class="ic-tag pos">放心的地方</div>
+      <div class="ic-title" id="r3a-title">满级脑电波直连</div>
+      <div class="ic-body" id="r3a-body">
+        抛个眼神就能接住梗，连叹口气他都知道你在骂谁。这种无需前情提要的<strong>"母语级"沟通</strong>，是命盘给你们开的VIP特权。不用费劲铺垫情绪，在这段关系里，你只管做自己。
+      </div>
+    </div>
+
+    <!-- R3-B: 要留意的地方 -->
+    <div class="icard warn-card afu" style="animation-delay:.3s">
+      <div class="ic-tag warn">要留意的地方</div>
+      <div class="ic-title" id="r3b-title">建议全天候财务静音</div>
+      <div class="ic-body" id="r3b-body">
+        你们的气场一沾上钱就容易短路，最容易因为点<strong>鸡毛蒜皮的开销</strong>在心里扎刺。想长久做朋友，就别在金钱上有任何牵扯，合作或共同消费前，丑话必须死死地说在前面。
+      </div>
+    </div>
+
+  </div><!-- /insights -->
+
+  <!-- R4 · ACTIONS ───────────────────── -->
+  <div class="actions">
+    <button class="btn-share afu" style="animation-delay:.45s">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/>
+        <polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/>
+      </svg>
+      分享这张合盘
+    </button>
+    <button class="btn-retry afu" style="animation-delay:.55s">换一对试试</button>
+    <p class="disclaimer afu" style="animation-delay:.65s">
+      合盘仅供参考，命盘是底色，相处是选择。
+    </p>
+  </div>
+
+</div><!-- /page -->
+
+<!-- Demo tier switcher (remove in production) -->
+<div class="demo-controls">
+  <div class="demo-label">DEMO TIER</div>
+  <button class="demo-btn" onclick="switchTier(72,'异父异母亲手足','#fbbf24','rgba(251,191,36,.08)','rgba(251,191,36,.22)')">+72 · 手足</button>
+  <button class="demo-btn" onclick="switchTier(52,'满级同频嘴替','#34d399','rgba(52,211,153,.08)','rgba(52,211,153,.22)')">+52 · 嘴替</button>
+  <button class="demo-btn active" onclick="switchTier(29,'无情点赞机器','#94a3b8','rgba(148,163,184,.08)','rgba(148,163,184,.22)')">+29 · 点赞机</button>
+  <button class="demo-btn" onclick="switchTier(9,'凑单互砍工具人','rgba(255,255,255,.5)','rgba(255,255,255,.04)','rgba(255,255,255,.12)')">+9 · 工具人</button>
+  <button class="demo-btn" onclick="switchTier(-12,'环保级塑料花','rgba(255,255,255,.4)','rgba(255,255,255,.04)','rgba(255,255,255,.1)')">−12 · 塑料花</button>
+  <button class="demo-btn" onclick="switchTier(-33,'全自动柠檬精','#fb923c','rgba(251,146,60,.08)','rgba(251,146,60,.22)')">−33 · 柠檬精</button>
+  <button class="demo-btn" onclick="switchTier(-58,'八字犯冲渡劫NPC','#f43f5e','rgba(244,63,94,.08)','rgba(244,63,94,.2)')">−58 · NPC</button>
+  <button class="demo-btn" onclick="switchTier(-78,'纯血统致命&quot;敌蜜&quot;','#dc2626','rgba(220,38,38,.08)','rgba(220,38,38,.2)')">−78 · 敌蜜</button>
+</div>
+
+<script>
+/* ─── DEMO DATA ────────────────────────────────── */
+const DIMS = [
+  { id:'db1', val:55 },
+  { id:'db2', val:42 },
+  { id:'db3', val:-28 },
+  { id:'db4', val:38 },
+  { id:'db5', val:18 },
+];
+const TOTAL = 29;
+
+/* ─── HELPERS ──────────────────────────────────── */
+function easeOutCubic(t){ return 1 - Math.pow(1-t, 3) }
+
+function countUp(el, target, duration, prefix=''){
+  const start = performance.now();
+  const sign = target >= 0 ? '+' : '−';
+  const abs = Math.abs(target);
+  document.getElementById('score-sign').textContent = sign;
+  function step(now){
+    const t = Math.min((now - start) / duration, 1);
+    el.textContent = Math.round(easeOutCubic(t) * abs);
+    if(t < 1) requestAnimationFrame(step);
+    else el.textContent = abs;
+  }
+  requestAnimationFrame(step);
+}
+
+/* Score bar: range −100 to +80 = 180 units; zero at 55.56% */
+function setScoreBar(score){
+  const fill = document.getElementById('sbar-fill');
+  const range = 180;
+  const zeroFrac = 100 / range; // 0.5556
+  if(score >= 0){
+    fill.style.left  = (zeroFrac * 100).toFixed(2) + '%';
+    fill.style.width = (score / range * 100).toFixed(2) + '%';
+  } else {
+    const w = Math.abs(score) / range * 100;
+    fill.style.left  = ((zeroFrac + score/range) * 100).toFixed(2) + '%';
+    fill.style.width = w.toFixed(2) + '%';
+  }
+}
+
+/* Dim bars: range −100 to +100 = 200 units; zero at 50% */
+function setDimBars(){
+  DIMS.forEach(({ id, val }, i) => {
+    const el = document.getElementById(id);
+    if(!el) return;
+    const range = 200;
+    if(val >= 0){
+      el.style.left  = '50%';
+      el.style.width = (val / range * 100).toFixed(1) + '%';
+    } else {
+      const w = Math.abs(val) / range * 100;
+      el.style.left  = ((0.5 + val/range) * 100).toFixed(1) + '%';
+      el.style.width = w.toFixed(1) + '%';
+    }
+  });
+}
+
+/* ─── INIT ─────────────────────────────────────── */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    countUp(document.getElementById('score-val'), TOTAL, 1000);
+    setScoreBar(TOTAL);
+    setDimBars();
+  }, 680);
+});
+
+/* ─── DEMO TIER SWITCHER ───────────────────────── */
+function switchTier(score, label, color, bg, border){
+  // update CSS vars
+  document.documentElement.style.setProperty('--tier', color);
+  document.documentElement.style.setProperty('--tier-bg', bg);
+  document.documentElement.style.setProperty('--tier-border', border);
+
+  // reset + re-animate score
+  const valEl = document.getElementById('score-val');
+  valEl.textContent = '0';
+  document.getElementById('sbar-fill').style.width = '0';
+  document.getElementById('sbar-fill').style.left  = '55.56%';
+
+  setTimeout(() => {
+    countUp(valEl, score, 800);
+    setScoreBar(score);
+  }, 60);
+
+  // update badge
+  document.getElementById('tier-badge').innerHTML = label;
+
+  // mark active btn
+  document.querySelectorAll('.demo-btn').forEach(b => b.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+}
+</script>
+</body>
+</html>
