@@ -685,6 +685,23 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .btn-secondary:active{background:rgba(255,255,255,.1)}
 .res-disclaimer{font-size:10px;color:rgba(255,255,255,.2);text-align:center;line-height:1.6;padding-top:2px}
 
+.share-sheet{position:fixed;inset:0;z-index:1000;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(2,3,8,.72);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.share-sheet.open{display:flex}
+.share-window{width:min(392px,100%);max-height:calc(100dvh - 36px);overflow:auto;border-radius:24px;background:#0d0f18;border:1px solid rgba(255,255,255,.14);box-shadow:0 28px 80px rgba(0,0,0,.48);padding:14px}
+.share-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;padding:2px 2px 12px}
+.share-kicker{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.18em;color:var(--tc,#60a5fa);text-transform:uppercase;margin-bottom:5px}
+.share-title{font-size:17px;font-weight:900;color:#fff;line-height:1.25}
+.share-note{margin-top:5px;font-size:12px;color:rgba(255,255,255,.46);line-height:1.55}
+.share-close{width:34px;height:34px;border-radius:50%;background:rgba(255,255,255,.08);color:rgba(255,255,255,.76);display:flex;align-items:center;justify-content:center;font-size:20px;line-height:1;flex-shrink:0}
+.share-preview{position:relative;overflow:hidden;border-radius:18px;background:#080910;border:1px solid rgba(255,255,255,.1);min-height:420px;display:flex;align-items:center;justify-content:center}
+.share-preview img{display:block;width:100%;height:auto;user-select:auto;-webkit-user-select:auto;-webkit-touch-callout:default}
+.share-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:13px;color:rgba(255,255,255,.48)}
+.share-actions{display:flex;gap:8px;padding-top:12px}
+.share-action{flex:1;height:42px;border-radius:100px;font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center}
+.share-action.primary{background:var(--tc,#60a5fa);color:#06070b}
+.share-action.ghost{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);color:rgba(255,255,255,.68)}
+.share-toast{min-height:18px;padding-top:8px;text-align:center;font-size:11px;color:rgba(255,255,255,.38);line-height:1.5}
+
 /* Tier color vars */
 .tc-amber{ --tc:#fbbf24; --tc-dim:rgba(251,191,36,.12); --tc-border:rgba(251,191,36,.32); --tc-glow:rgba(251,191,36,.22) }
 .tc-green{ --tc:#34d399; --tc-dim:rgba(52,211,153,.12); --tc-border:rgba(52,211,153,.30); --tc-glow:rgba(52,211,153,.2) }
@@ -1317,6 +1334,28 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 
 </div><!-- /shell -->
 
+<div class="share-sheet" id="share-sheet" aria-hidden="true">
+  <div class="share-window" role="dialog" aria-modal="true" aria-labelledby="share-title">
+    <div class="share-head">
+      <div>
+        <div class="share-kicker">WECHAT READY</div>
+        <div class="share-title" id="share-title">分享图片已生成</div>
+        <div class="share-note" id="share-note">在微信里长按图片保存或转发，也可以点右上角分享给朋友。</div>
+      </div>
+      <button class="share-close" id="share-close" aria-label="关闭分享窗口">×</button>
+    </div>
+    <div class="share-preview">
+      <div class="share-loading" id="share-loading">正在生成截图...</div>
+      <img id="share-image" alt="合盘分享截图">
+    </div>
+    <div class="share-actions">
+      <button class="share-action ghost" id="share-copy">复制链接</button>
+      <button class="share-action primary" id="share-save">保存图片</button>
+    </div>
+    <div class="share-toast" id="share-toast"></div>
+  </div>
+</div>
+
 <script type="module">
 import { searchBirthplaces, findBirthplaceByName } from '../src/utils/birthplaceSearch.mjs';
 window.__birthplaceSearch = { searchBirthplaces, findBirthplaceByName };
@@ -1728,8 +1767,51 @@ async function startReport(){
   S.placeA = findPlaceForInput(S.cityA);
   S.placeB = findPlaceForInput(S.cityB);
 
-  computeMockBazi();
-  computeScores();
+  // Use full county-level label from birthplaceSearch if available
+  const labelA = S.placeA?.label || S.cityA;
+  const labelB = S.placeB?.label || S.cityB;
+
+  const profileA = {
+    name: S.nameA, gender: S.genderA,
+    birth_date: `${S.yearA}-${pad2(S.monthA)}-${pad2(S.dayA)}`,
+    hour_index: S.hourA,
+    birth_location: labelA,
+    lat: S.placeA?.lat != null ? Number(S.placeA.lat) : null,
+    lng: S.placeA?.lng != null ? Number(S.placeA.lng) : null,
+    tst_correction_min: S.tstA ? S.tstCorrA : 0,
+  };
+  const profileB = {
+    name: S.nameB, gender: S.genderB,
+    birth_date: `${S.yearB}-${pad2(S.monthB)}-${pad2(S.dayB)}`,
+    hour_index: S.hourB,
+    birth_location: labelB,
+    lat: S.placeB?.lat != null ? Number(S.placeB.lat) : null,
+    lng: S.placeB?.lng != null ? Number(S.placeB.lng) : null,
+    tst_correction_min: S.tstB ? S.tstCorrB : 0,
+  };
+
+  // Call real BaZi engine; fall back to mock on any failure
+  let usedReal = false;
+  try {
+    const resp = await fetch('/api/compatibility/init', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ profileA, profileB }),
+    });
+    if (resp.ok) {
+      const data = await resp.json();
+      if (data.ok && data.A && data.B) {
+        populateBaziFromCompact(data.A, data.B);
+        computeRealDIMs(data.A, data.B);
+        usedReal = true;
+      }
+    }
+  } catch(e) { /* network error – fall back */ }
+
+  if (!usedReal) {
+    computeMockBazi();
+    computeScores();
+  }
+
   buildAllDIMContent();
 
   const wiz=document.getElementById('wizard');
@@ -1739,6 +1821,23 @@ async function startReport(){
     wiz.classList.remove('active');wiz.style.transform='';wiz.style.transition='';
     initDim('dim1');showPhaseImmediate('dim1');
   },460);
+}
+
+// Convert compact API response into S.bazi pillar arrays expected by the scan slide
+function populateBaziFromCompact(A, B) {
+  const LABELS = ['年','月','日','时'];
+  function toPillars(compact) {
+    const pillars = [];
+    for (let i = 0; i < 4; i++) {
+      const g = compact.gans[i], z = compact.zhis[i];
+      if (g || z) pillars.push({ gan: g||'', zhi: z||'', label: LABELS[i] });
+    }
+    return pillars;
+  }
+  S.bazi.A = toPillars(A);
+  S.bazi.B = toPillars(B);
+  S.bazi.dayGanA = A.dayGan || '';
+  S.bazi.dayGanB = B.dayGan || '';
 }
 /* ══════════════════════════════════════════════════
    MOCK BAZI COMPUTATION
@@ -1858,6 +1957,114 @@ function computeScores(){
 
   // Total
   const raw=S.dims.d1*.30+S.dims.d2*.25+S.dims.d3*.20+S.dims.d4*.15+S.dims.d5*.10;
+  S.total=normalize(raw);
+  const t=getTier(S.total);S.tier=t.label;S.tierClass=t.cls;
+  pickInsights();
+}
+
+/* ══════════════════════════════════════════════════
+   REAL DIM SCORING ENGINE (uses live bazi from API)
+══════════════════════════════════════════════════ */
+const ZHI_MAIN_GAN={子:'癸',丑:'己',寅:'甲',卯:'乙',辰:'戊',巳:'丙',午:'丁',未:'己',申:'庚',酉:'辛',戌:'戊',亥:'壬'};
+const GAN_HE={甲:'己',己:'甲',乙:'庚',庚:'乙',丙:'辛',辛:'丙',丁:'壬',壬:'丁',戊:'癸',癸:'戊'};
+const ZHI_6HE={子:'丑',丑:'子',寅:'亥',亥:'寅',卯:'戌',戌:'卯',辰:'酉',酉:'辰',巳:'申',申:'巳',午:'未',未:'午'};
+const ZHI_CHONG={子:'午',午:'子',丑:'未',未:'丑',寅:'申',申:'寅',卯:'酉',酉:'卯',辰:'戌',戌:'辰',巳:'亥',亥:'巳'};
+const ZHI_SANHE={申:'子辰',子:'申辰',辰:'申子',亥:'卯未',卯:'亥未',未:'亥卯',寅:'午戌',午:'寅戌',戌:'寅午',巳:'酉丑',酉:'巳丑',丑:'巳酉'};
+const PILLAR_W=[0.8,1.4,1.5,1.0]; // 年月日时
+const SHEN_W_GAN={比肩:18,劫财:-12,食神:22,伤官:10,正财:5,偏财:12,正官:4,七杀:-18,正印:18,偏印:12};
+const SHEN_W_ZHI={比肩:14,劫财:-10,食神:17,伤官:8,正财:4,偏财:9,正官:3,七杀:-14,正印:14,偏印:9};
+const SHENG_BY=[4,0,1,2,3]; // what generates each wx index: 木←水,火←木,土←火,金←土,水←金
+const KE_BY=[3,4,0,1,2];    // what restrains each wx index: 木←金,火←水,土←木,金←火,水←土
+const L1_PAIR_SCORES={
+  '比肩/比肩':80,'劫财/劫财':25,
+  '食神/偏印':60,'伤官/正印':55,'偏印/食神':60,'正印/伤官':55,
+  '偏财/七杀':-35,'正财/正官':-20,'七杀/偏财':-35,'正官/正财':-20,
+};
+const L5_MONTH={same:75,liuhe:65,sanhe_half:50,sheng:30,none:0,ke:-25,chong:-55};
+const L2_YEAR={same:55,liuhe:50,sanhe_half:40,sheng:25,none:0,ke:-25,chong:-45};
+
+function zhiRel(a,b){
+  if(!a||!b)return'none'; if(a===b)return'same';
+  if(ZHI_6HE[a]===b)return'liuhe'; if(ZHI_CHONG[a]===b)return'chong';
+  if(ZHI_SANHE[a]?.includes(b))return'sanhe_half';
+  const aw=ZHI_WX[a]??0,bw=ZHI_WX[b]??0;
+  if(SHENG_MAP[aw]===bw||SHENG_MAP[bw]===aw)return'sheng';
+  if(KE_MAP[aw]===bw||KE_MAP[bw]===aw)return'ke';
+  return'none';
+}
+
+function l1Score(dayGanA,dayGanB){
+  const ab=getShen(dayGanA,dayGanB),ba=getShen(dayGanB,dayGanA);
+  let raw=L1_PAIR_SCORES[`${ab}/${ba}`]||0;
+  if(GAN_HE[dayGanA]===dayGanB)raw=Math.min(100,raw+20);
+  return raw;
+}
+
+function l3OneSide(dayGan,gans,zhis,onlyShens){
+  let score=0;
+  for(let i=0;i<4;i++){
+    if(!gans[i])continue;
+    const s=getShen(dayGan,gans[i]);
+    if(!onlyShens||onlyShens.includes(s))score+=(SHEN_W_GAN[s]||0)*PILLAR_W[i];
+    const mg=ZHI_MAIN_GAN[zhis[i]];
+    if(mg){const zs=getShen(dayGan,mg);if(!onlyShens||onlyShens.includes(zs))score+=(SHEN_W_ZHI[zs]||0)*PILLAR_W[i];}
+  }
+  return score;
+}
+function l3Score(A,B){return clamp(((l3OneSide(A.dayGan,B.gans,B.zhis)+l3OneSide(B.dayGan,A.gans,A.zhis))/2)/1.2);}
+function l3YinScore(A,B){const Y=['正印','偏印'];return clamp(((l3OneSide(A.dayGan,B.gans,B.zhis,Y)+l3OneSide(B.dayGan,A.gans,A.zhis,Y))/2)/0.9);}
+function l3ShaScore(A,B){const J=['劫财','七杀'];return Math.min(0,clamp(((l3OneSide(A.dayGan,B.gans,B.zhis,J)+l3OneSide(B.dayGan,A.gans,A.zhis,J))/2)/0.9));}
+
+function shenWx(dayGan,shenName){
+  const dw=GAN_WX[dayGan]??0;
+  if(['比肩','劫财'].includes(shenName))return dw;
+  if(['食神','伤官'].includes(shenName))return SHENG_MAP[dw];
+  if(['偏财','正财'].includes(shenName))return KE_MAP[dw];
+  if(['七杀','正官'].includes(shenName))return KE_BY[dw];
+  if(['偏印','正印'].includes(shenName))return SHENG_BY[dw];
+  return dw;
+}
+const SHEN_TIER={yong:1.5,xi:1.0,xian:0,chou:-1.0,ji:-1.3};
+function compScore(dayGan,five_shens,targetRatio){
+  const map={};
+  const add=(s,c)=>{if(!s)return;const wx=WX_NAMES[shenWx(dayGan,s)];if(map[wx]==null||map[wx]<c)map[wx]=c;};
+  add(five_shens.yong,SHEN_TIER.yong);
+  (five_shens.xi||[]).forEach(s=>add(s,SHEN_TIER.xi));
+  (five_shens.xian||[]).forEach(s=>add(s,SHEN_TIER.xian));
+  (five_shens.chou||[]).forEach(s=>add(s,SHEN_TIER.chou));
+  (five_shens.ji||[]).forEach(s=>add(s,SHEN_TIER.ji));
+  return Object.entries(map).reduce((sum,[wx,c])=>sum+(targetRatio[wx]||0)*c,0);
+}
+function l4Score(A,B){return clamp(((compScore(A.dayGan,A.five_shens,B.wuxing_ratio)+compScore(B.dayGan,B.five_shens,A.wuxing_ratio))/2)/0.65);}
+function l4NegScore(A,B){
+  const ag=compScore(A.dayGan,A.five_shens,B.wuxing_ratio);
+  const bg=compScore(B.dayGan,B.five_shens,A.wuxing_ratio);
+  return Math.min(0,clamp((Math.min(0,ag)+Math.min(0,bg))/2/0.65));
+}
+
+function computeRealDIMs(A,B){
+  const l1=l1Score(A.dayGan,B.dayGan);
+  const l3=l3Score(A,B),l3yin=l3YinScore(A,B),l3sha=l3ShaScore(A,B);
+  const l4=l4Score(A,B),l4neg=l4NegScore(A,B);
+  const l5m=L5_MONTH[zhiRel(A.monthZhi,B.monthZhi)]??0;
+  const l2y=L2_YEAR[zhiRel(A.yearZhi,B.yearZhi)]??0;
+
+  const DW=DIM_SCORE_WEIGHTS;
+  const d1=clamp(l1*DW.d1.s1+l3*DW.d1.s3);
+  const d2=clamp(l3yin*DW.d2.s1+l4*DW.d2.s3);
+  const d3=Math.min(0,clamp(l3sha*DW.d3.s1+l4neg*DW.d3.s3));
+  const d4=clamp(l4*DW.d4.s1+l5m*DW.d4.s3);
+  const d5=clamp(l2y*DW.d5.s1+l5m*DW.d5.s3);
+
+  S.dims={d1,d2,d3,d4,d5};
+  S.dimRaw={
+    d1:{s1:Math.round(l1*DW.d1.s1),s3:Math.round(l3*DW.d1.s3)},
+    d2:{s1:Math.round(l3yin*DW.d2.s1),s3:Math.round(l4*DW.d2.s3)},
+    d3:{s1:Math.round(l3sha*DW.d3.s1),s3:Math.round(l4neg*DW.d3.s3)},
+    d4:{s1:Math.round(l4*DW.d4.s1),s3:Math.round(l5m*DW.d4.s3)},
+    d5:{s1:Math.round(l2y*DW.d5.s1),s3:Math.round(l5m*DW.d5.s3)},
+  };
+  const raw=d1*.30+d2*.25+d3*.20+d4*.15+d5*.10;
   S.total=normalize(raw);
   const t=getTier(S.total);S.tier=t.label;S.tierClass=t.cls;
   pickInsights();
@@ -2336,6 +2543,26 @@ function dimTapRight(dimId){
 document.getElementById('res-btn-share')?.addEventListener('click', resShare);
 document.getElementById('res-btn-try')?.addEventListener('click', resTryAnother);
 document.getElementById('res-btn-rewatch')?.addEventListener('click', resRewatch);
+document.getElementById('share-close')?.addEventListener('click',()=>{
+  document.getElementById('share-sheet')?.classList.remove('open');
+  document.getElementById('share-sheet')?.setAttribute('aria-hidden','true');
+});
+document.getElementById('share-copy')?.addEventListener('click',async()=>{
+  try{
+    await navigator.clipboard?.writeText(location.href);
+    document.getElementById('share-toast').textContent='链接已复制';
+  }catch(e){
+    document.getElementById('share-toast').textContent='复制失败，可以直接用微信右上角分享';
+  }
+});
+document.getElementById('share-save')?.addEventListener('click',async()=>{
+  if(!latestShareBlob)latestShareBlob=await renderShareBlob();
+  const url=latestShareUrl||URL.createObjectURL(latestShareBlob);
+  const a=document.createElement('a');
+  a.href=url;a.download='qimen-compatibility.png';
+  document.body.appendChild(a);a.click();a.remove();
+  document.getElementById('share-toast').textContent=isWeChat()?'微信里也可以直接长按图片保存':'图片已保存';
+});
 
 function pauseDim(dimId){
   const st=dimState[dimId];if(!st||st.paused)return;
@@ -2430,13 +2657,171 @@ function animResBar(score){
   if(score>=0){fill.style.left='50%';fill.style.width=(score/2)+'%';}
   else{const w=Math.abs(score)/2;fill.style.left=(50-w)+'%';fill.style.width=w+'%';}
 }
-function resShare(){
-  if(navigator.share){
-    navigator.share({title:'奇门道·合盘',text:`${S.nameA}×${S.nameB} 综合缘分 ${S.total>0?'+':''}${S.total}%`,url:location.href});
-  }else{
-    navigator.clipboard?.writeText(location.href);
-    const btn=document.getElementById('res-btn-share');const orig=btn.innerHTML;
-    btn.innerHTML='✓ 链接已复制';setTimeout(()=>{btn.innerHTML=orig;},2000);
+let latestShareBlob=null;
+let latestShareUrl='';
+
+function isWeChat(){return /MicroMessenger/i.test(navigator.userAgent||'');}
+function escapeHTML(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+function stripHTML(v){const d=document.createElement('div');d.innerHTML=String(v??'');return d.textContent||d.innerText||'';}
+
+function getSharePayload(){
+  const date=document.getElementById('res-date')?.textContent||'';
+  return {
+    nameA:S.nameA||'A',
+    nameB:S.nameB||'B',
+    date,
+    score:Number(S.total)||0,
+    tier:S.tier||document.getElementById('res-badge')?.textContent||'合盘',
+    goodTitle:S.r3a?.title||document.getElementById('res-r3a-title')?.textContent||'放心的地方',
+    goodBody:stripHTML(S.r3a?.body||document.getElementById('res-r3a-body')?.innerHTML||''),
+    warnTitle:S.r3b?.title||document.getElementById('res-r3b-title')?.textContent||'要留意的地方',
+    warnBody:stripHTML(S.r3b?.body||document.getElementById('res-r3b-body')?.innerHTML||'')
+  };
+}
+
+function shareCardHTML(payload){
+  const root=getComputedStyle(document.getElementById('result'));
+  const tc=root.getPropertyValue('--tc').trim()||'#60a5fa';
+  const tcDim=root.getPropertyValue('--tc-dim').trim()||'rgba(96,165,250,.12)';
+  const tcBorder=root.getPropertyValue('--tc-border').trim()||'rgba(96,165,250,.3)';
+  const tcGlow=root.getPropertyValue('--tc-glow').trim()||'rgba(96,165,250,.22)';
+  const score=Math.max(-100,Math.min(100,Math.round(payload.score)));
+  const sign=score>=0?'+':'−';
+  const abs=Math.abs(score);
+  const fillLeft=score>=0?50:50-abs/2;
+  const fillWidth=abs/2;
+  return `
+  <div xmlns="http://www.w3.org/1999/xhtml" style="width:720px;height:1120px;box-sizing:border-box;background:#09090f;color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Noto Sans SC','PingFang SC',Arial,sans-serif;position:relative;overflow:hidden;padding:66px 54px 46px;">
+    <div style="position:absolute;inset:0;background:radial-gradient(circle at 18% 12%,rgba(204,255,0,.18),transparent 22%),radial-gradient(circle at 84% 18%,rgba(255,107,157,.14),transparent 21%),radial-gradient(circle at 18% 86%,rgba(107,143,255,.14),transparent 24%);"></div>
+    <div style="position:absolute;right:-130px;top:88px;width:310px;height:380px;border:30px solid rgba(204,255,0,.18);border-radius:45% 55% 50% 50%/40% 45% 55% 60%;"></div>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;">
+      <div style="align-self:center;font-size:20px;letter-spacing:.34em;color:#ffd166;border:1px solid rgba(255,209,102,.28);border-radius:999px;padding:9px 25px;background:#09090f;">奇门道</div>
+      <div style="text-align:center;margin-top:54px;">
+        <div style="font-size:66px;line-height:1.05;font-weight:900;letter-spacing:-1px;"><span style="color:#ff6b9d">${escapeHTML(payload.nameA)}</span><span style="color:rgba(255,255,255,.34);font-size:36px;margin:0 12px;">×</span><span style="color:#6b8fff">${escapeHTML(payload.nameB)}</span></div>
+        <div style="margin-top:12px;font-size:20px;color:rgba(255,255,255,.38);letter-spacing:.08em;">${escapeHTML(payload.date)}</div>
+      </div>
+      <div style="text-align:center;margin-top:54px;">
+        <div style="font-size:18px;letter-spacing:.26em;color:rgba(255,255,255,.38);">综合缘分指数</div>
+        <div style="margin-top:6px;font-size:154px;line-height:1;font-weight:900;color:${tc};text-shadow:0 0 80px ${tcGlow};letter-spacing:-8px;"><span style="font-size:82px;opacity:.66">${sign}</span>${abs}<span style="font-size:36px;opacity:.38;margin-left:8px;">%</span></div>
+        <div style="margin-top:10px;height:13px;border-radius:999px;background:rgba(255,255,255,.08);position:relative;">
+          <div style="position:absolute;left:50%;top:-5px;width:3px;height:23px;background:rgba(255,255,255,.22);border-radius:2px;"></div>
+          <div style="position:absolute;left:${fillLeft}%;top:0;width:${fillWidth}%;height:13px;border-radius:999px;background:${tc};box-shadow:0 0 18px ${tcGlow};"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:16px;color:rgba(255,255,255,.32);letter-spacing:.06em;"><span>−100%</span><span>0</span><span>+100%</span></div>
+        <div style="display:inline-block;margin-top:30px;font-size:34px;font-weight:900;color:${tc};background:${tcDim};border:2px solid ${tcBorder};border-radius:999px;padding:20px 48px;box-shadow:0 0 34px ${tcGlow};">${escapeHTML(payload.tier)}</div>
+      </div>
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:18px;">
+        <div style="background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:25px 28px 25px 34px;border-left:7px solid #4ade80;">
+          <div style="font-size:16px;letter-spacing:.18em;color:#4ade80;margin-bottom:9px;">放心的地方</div>
+          <div style="font-size:29px;line-height:1.2;font-weight:900;margin-bottom:10px;">${escapeHTML(payload.goodTitle)}</div>
+          <div style="font-size:21px;line-height:1.62;color:rgba(255,255,255,.62);">${escapeHTML(payload.goodBody).slice(0,86)}</div>
+        </div>
+        <div style="background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.1);border-radius:24px;padding:25px 28px 25px 34px;border-left:7px solid #ffd166;">
+          <div style="font-size:16px;letter-spacing:.18em;color:#ffd166;margin-bottom:9px;">要留意的地方</div>
+          <div style="font-size:29px;line-height:1.2;font-weight:900;margin-bottom:10px;">${escapeHTML(payload.warnTitle)}</div>
+          <div style="font-size:21px;line-height:1.62;color:rgba(255,255,255,.62);">${escapeHTML(payload.warnBody).slice(0,86)}</div>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;padding-top:12px;color:rgba(255,255,255,.34);font-size:18px;">
+          <span>命盘是底色，相处是选择</span><span style="color:${tc};font-weight:800;">长按分享</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderShareBlob(){
+  const p=getSharePayload();
+  const result=document.getElementById('result');
+  const root=getComputedStyle(result);
+  const tc=root.getPropertyValue('--tc').trim()||'#60a5fa';
+  const tcDim=root.getPropertyValue('--tc-dim').trim()||'rgba(96,165,250,.12)';
+  const tcBorder=root.getPropertyValue('--tc-border').trim()||'rgba(96,165,250,.3)';
+  const tcGlow=root.getPropertyValue('--tc-glow').trim()||'rgba(96,165,250,.22)';
+  const canvas=document.createElement('canvas');
+  canvas.width=720;canvas.height=1120;
+  const ctx=canvas.getContext('2d');
+  const font="'PingFang SC','Noto Sans SC',-apple-system,BlinkMacSystemFont,Arial,sans-serif";
+  const mono="'JetBrains Mono','SFMono-Regular',Menlo,monospace";
+  const score=Math.max(-100,Math.min(100,Math.round(p.score)));
+  const sign=score>=0?'+':'−';
+  const abs=Math.abs(score);
+
+  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+  function fillRound(x,y,w,h,r,color){ctx.fillStyle=color;roundRect(x,y,w,h,r);ctx.fill();}
+  function strokeRound(x,y,w,h,r,color,lw=1){ctx.strokeStyle=color;ctx.lineWidth=lw;roundRect(x,y,w,h,r);ctx.stroke();}
+  function text(t,x,y,size,weight,color,align='left',family=font){ctx.font=`${weight} ${size}px ${family}`;ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline='top';ctx.fillText(String(t),x,y);}
+  function wrap(t,x,y,maxW,lineH,size,weight,color,limit=3){
+    ctx.font=`${weight} ${size}px ${font}`;ctx.fillStyle=color;ctx.textAlign='left';ctx.textBaseline='top';
+    const chars=String(t||'').slice(0,92).split('');let line='',lines=[];
+    chars.forEach(ch=>{const test=line+ch;if(ctx.measureText(test).width>maxW&&line){lines.push(line);line=ch;}else line=test;});
+    if(line)lines.push(line);lines=lines.slice(0,limit);
+    lines.forEach((ln,i)=>ctx.fillText(ln,x,y+i*lineH));
+  }
+  function drawCard(y,accent,label,title,body){
+    fillRound(54,y,612,150,24,'rgba(255,255,255,.055)');
+    strokeRound(54,y,612,150,24,'rgba(255,255,255,.1)',1.5);
+    fillRound(54,y,7,150,4,accent);
+    text(label,88,y+21,16,'700',accent,'left',mono);
+    text(title,88,y+52,29,'900','#fff');
+    wrap(body,88,y+92,526,31,20,'500','rgba(255,255,255,.62)',2);
+  }
+
+  ctx.fillStyle='#09090f';ctx.fillRect(0,0,720,1120);
+  let g=ctx.createRadialGradient(130,120,0,130,120,230);g.addColorStop(0,'rgba(204,255,0,.18)');g.addColorStop(1,'rgba(204,255,0,0)');ctx.fillStyle=g;ctx.fillRect(0,0,720,1120);
+  g=ctx.createRadialGradient(600,160,0,600,160,230);g.addColorStop(0,'rgba(255,107,157,.14)');g.addColorStop(1,'rgba(255,107,157,0)');ctx.fillStyle=g;ctx.fillRect(0,0,720,1120);
+  g=ctx.createRadialGradient(140,960,0,140,960,260);g.addColorStop(0,'rgba(107,143,255,.14)');g.addColorStop(1,'rgba(107,143,255,0)');ctx.fillStyle=g;ctx.fillRect(0,0,720,1120);
+  ctx.save();ctx.globalAlpha=.28;ctx.strokeStyle='rgba(204,255,0,.65)';ctx.lineWidth=30;roundRect(575,88,310,380,130);ctx.stroke();ctx.restore();
+
+  fillRound(270,66,180,42,21,'#09090f');strokeRound(270,66,180,42,21,'rgba(255,209,102,.28)',1.5);text('奇门道',360,77,20,'700','#ffd166','center',mono);
+  ctx.font=`900 66px ${font}`;const wa=ctx.measureText(p.nameA).width, wx=36, wb=ctx.measureText(p.nameB).width;let x=(720-wa-wx-wb-24)/2;
+  text(p.nameA,x,162,66,'900','#ff6b9d');x+=wa+12;text('×',x,177,36,'900','rgba(255,255,255,.34)');x+=wx+12;text(p.nameB,x,162,66,'900','#6b8fff');
+  text(p.date,360,246,20,'500','rgba(255,255,255,.38)','center',mono);
+  text('综合缘分指数',360,322,18,'700','rgba(255,255,255,.38)','center',mono);
+  ctx.font=`900 154px ${font}`;ctx.shadowColor=tcGlow;ctx.shadowBlur=50;ctx.fillStyle=tc;ctx.textAlign='center';ctx.textBaseline='top';ctx.fillText(`${sign}${abs}%`,360,348);ctx.shadowBlur=0;
+  fillRound(54,556,612,13,7,'rgba(255,255,255,.08)');
+  fillRound(359,551,3,23,2,'rgba(255,255,255,.22)');
+  fillRound(360+(score<0?score*3.06:0),556,Math.abs(score)*3.06,13,7,tc);
+  text('−100%',54,577,16,'500','rgba(255,255,255,.32)', 'left', mono);text('0',360,577,16,'500','rgba(255,255,255,.32)', 'center', mono);text('+100%',666,577,16,'500','rgba(255,255,255,.32)', 'right', mono);
+  ctx.font=`900 34px ${font}`;const bw=Math.min(560,ctx.measureText(p.tier).width+96);fillRound((720-bw)/2,628,bw,78,39,tcDim);strokeRound((720-bw)/2,628,bw,78,39,tcBorder,2);text(p.tier,360,650,34,'900',tc,'center');
+  drawCard(742,'#4ade80','放心的地方',p.goodTitle,p.goodBody);
+  drawCard(912,'#ffd166','要留意的地方',p.warnTitle,p.warnBody);
+  text('命盘是底色，相处是选择',54,1082,18,'500','rgba(255,255,255,.34)');text('长按分享',666,1082,18,'800',tc,'right');
+  return new Promise((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(new Error('截图生成失败')),'image/png',.95));
+}
+
+async function openShareSheet(){
+  const sheet=document.getElementById('share-sheet');
+  const loading=document.getElementById('share-loading');
+  const image=document.getElementById('share-image');
+  const note=document.getElementById('share-note');
+  sheet.classList.add('open');sheet.setAttribute('aria-hidden','false');
+  note.textContent=isWeChat()?'在微信里长按图片保存或转发，也可以点右上角分享给朋友。':'图片已生成，可保存后发给朋友。';
+  loading.style.display='flex';image.removeAttribute('src');
+  latestShareBlob=await renderShareBlob();
+  if(latestShareUrl)URL.revokeObjectURL(latestShareUrl);
+  latestShareUrl=URL.createObjectURL(latestShareBlob);
+  image.src=latestShareUrl;loading.style.display='none';
+}
+
+async function resShare(){
+  const title='奇门道·合盘';
+  const text=`${S.nameA}×${S.nameB} 综合缘分 ${S.total>0?'+':''}${S.total}%`;
+  if(isWeChat()){
+    await openShareSheet();
+    return;
+  }
+  try{
+    const blob=await renderShareBlob();
+    const file=new File([blob],'qimen-compatibility.png',{type:'image/png'});
+    if(navigator.canShare?.({files:[file]})&&navigator.share){
+      await navigator.share({title,text,url:location.href,files:[file]});
+    }else if(navigator.share){
+      await navigator.share({title,text,url:location.href});
+    }else{
+      await openShareSheet();
+    }
+  }catch(e){
+    await openShareSheet();
   }
 }
 function resTryAnother(){resetAll();showPhaseImmediate('landing');}
@@ -2479,18 +2864,6 @@ function countUpEl(el,target,ms){
 }
 const pad2=v=>String(v).padStart(2,'0');
 
-/* ── API fire-and-forget ── */
-async function saveProfiles(){
-  try{
-    await fetch('/api/compatibility/init',{
-      method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        profileA:{name:S.nameA,gender:S.genderA,birth_date:`${S.yearA}-${pad2(S.monthA)}-${pad2(S.dayA)}`,hour_index:S.hourA,city:S.cityA,tst_correction_min:S.tstCorrA},
-        profileB:{name:S.nameB,gender:S.genderB,birth_date:`${S.yearB}-${pad2(S.monthB)}-${pad2(S.dayB)}`,hour_index:S.hourB,city:S.cityB,tst_correction_min:S.tstCorrB},
-      }),
-    });
-  }catch(e){}
-}
 
 if(typeof openWizard === 'function') window.openWizard = openWizard;
 if(typeof closeWizard === 'function') window.closeWizard = closeWizard;

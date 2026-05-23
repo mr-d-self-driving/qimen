@@ -1660,6 +1660,112 @@ ${promptData.daYunStr}
   }
 }
 
+/* ─────────────────────────────────────────────────────────
+   Compatibility Init – compute real bazi for both persons
+   and persist an anonymous compatibility_sessions row.
+───────────────────────────────────────────────────────── */
+async function handleCompatibilityInit(request, env) {
+  if (request.method !== 'POST') {
+    return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  }
+  try {
+    const body = await request.json();
+    const { profileA, profileB } = body || {};
+    if (!profileA || !profileB) {
+      return json({ error: 'profileA and profileB required' }, { status: 400 }, request, env);
+    }
+
+    // Zhi index 0-11 (子丑…亥) → representative solar hour (mid of 2-hr block)
+    const ZHI_MID_HOURS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22];
+
+    function parsePerson(p) {
+      const dateParts = String(p.birth_date || '').split('-').map(Number);
+      const y = dateParts[0] || 2000, m = dateParts[1] || 1, d = dateParts[2] || 1;
+      const hi = parseInt(p.hour_index ?? -1);
+      let baseH = hi >= 0 ? ZHI_MID_HOURS[hi] : 12;
+      let baseMin = 0;
+
+      // Apply true solar time correction (in minutes, already computed on frontend)
+      const tstMin = parseInt(p.tst_correction_min || 0);
+      baseMin += tstMin;
+      if (baseMin < 0) { baseH -= 1; baseMin += 60; }
+      if (baseMin >= 60) { baseH += 1; baseMin -= 60; }
+      baseH = ((baseH % 24) + 24) % 24;
+
+      const solar = Solar.fromYmdHms(y, m, d, baseH, baseMin, 0);
+      const baZi = solar.getLunar().getEightChar();
+      const isMale = p.gender === 'M' || p.gender === '男';
+      const detail = buildCompleteBaziDetail({
+        baZi,
+        yun: baZi.getYun(isMale ? 1 : 0),
+        isMale,
+        currentYear: new Date().getFullYear(),
+      });
+
+      const gz = detail.pillars?.ganzhi || {};
+      return {
+        dayGan: (gz.day || '')[0] || '',
+        gans: [
+          (gz.year  || '')[0] || '',
+          (gz.month || '')[0] || '',
+          (gz.day   || '')[0] || '',
+          hi >= 0 ? (gz.time || '')[0] || '' : '',
+        ],
+        zhis: [
+          (gz.year  || '')[1] || '',
+          (gz.month || '')[1] || '',
+          detail.day_zhi   || (gz.day   || '')[1] || '',
+          hi >= 0 ? (gz.time || '')[1] || '' : '',
+        ],
+        dayZhi:   detail.day_zhi   || '',
+        yearZhi:  detail.year_zhi  || '',
+        monthZhi: detail.month_zhi || '',
+        five_shens:   detail.five_shens   || {},
+        wuxing_ratio: detail.wuxing_ratio || {},
+      };
+    }
+
+    const compactA = parsePerson(profileA);
+    const compactB = parsePerson(profileB);
+
+    // Persist session (best-effort – don't fail the response if DB is unavailable)
+    let sessionId = null;
+    try {
+      const supabase = createSupabaseClient(env);
+      const { data: session } = await supabase
+        .from('compatibility_sessions')
+        .insert({
+          name_a: profileA.name || null,
+          name_b: profileB.name || null,
+          gender_a: profileA.gender || null,
+          gender_b: profileB.gender || null,
+          birth_date_a: profileA.birth_date || null,
+          birth_date_b: profileB.birth_date || null,
+          birth_location_a: profileA.birth_location || profileA.city || null,
+          birth_location_b: profileB.birth_location || profileB.city || null,
+          birth_lat_a: profileA.lat  != null ? Number(profileA.lat)  : null,
+          birth_lng_a: profileA.lng  != null ? Number(profileA.lng)  : null,
+          birth_lat_b: profileB.lat  != null ? Number(profileB.lat)  : null,
+          birth_lng_b: profileB.lng  != null ? Number(profileB.lng)  : null,
+          hour_index_a: profileA.hour_index != null ? Number(profileA.hour_index) : -1,
+          hour_index_b: profileB.hour_index != null ? Number(profileB.hour_index) : -1,
+          bazi_compact_a: compactA,
+          bazi_compact_b: compactB,
+        })
+        .select('id')
+        .single();
+      sessionId = session?.id || null;
+    } catch (dbErr) {
+      console.error('[compatibility/init] db insert failed:', dbErr.message);
+    }
+
+    return json({ ok: true, sessionId, A: compactA, B: compactB }, { status: 200 }, request, env);
+  } catch (e) {
+    console.error('[compatibility/init] error:', e);
+    return json({ error: e.message }, { status: 500 }, request, env);
+  }
+}
+
 async function routeRequest(request, env) {
   const url = new URL(request.url);
 
@@ -1693,6 +1799,7 @@ async function routeRequest(request, env) {
   if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
   if (url.pathname === '/api/qimen') return handleQimen(request, env);
   if (url.pathname === '/api/bazi') return handleBazi(request, env);
+  if (url.pathname === '/api/compatibility/init') return handleCompatibilityInit(request, env);
 
   return json({
     error: 'Not Found',
