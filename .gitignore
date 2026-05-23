@@ -62,6 +62,11 @@ Thumbs.db
 .ruflo/
 tmp/
 temp/
+output/
+push.sh
+
+# Local prototypes / design demos
+compatibility/
 
 # Codex local configuration
 .codex/
