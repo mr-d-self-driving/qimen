@@ -154,6 +154,8 @@ button{cursor:pointer;background:none;-webkit-appearance:none}
 
 /* Color strip accent (top) */
 .land-strip{position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#CCFF00 0%,#FF6B9D 35%,#6B8FFF 65%,#FFD700 100%);z-index:10}
+.land-exit{position:absolute;top:14px;right:16px;z-index:20;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.5);font-size:18px;line-height:1;transition:background .15s,color .15s,border-color .15s}
+.land-exit:hover{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.3)}
 
 .land-badge{
   display:inline-flex;align-items:center;gap:7px;
@@ -703,6 +705,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 ══════════════════════════════════════ -->
 <div class="phase active" id="landing">
   <div class="land-strip"></div>
+  <button class="land-exit" id="landExit" title="返回报告中心">×</button>
   <div class="land-blob lb1"></div>
   <div class="land-blob lb2"></div>
   <div class="land-blob lb3"></div>
@@ -1642,6 +1645,7 @@ document.addEventListener('click', (event)=>{
 
 document.querySelector('.btn-start')?.addEventListener('click', openWizard);
 document.querySelector('.wiz-x')?.addEventListener('click', closeWizard);
+document.getElementById('landExit')?.addEventListener('click', () => { window.location.href = '/reports'; });
 document.getElementById('wizBack')?.addEventListener('click', wizGoBack);
 document.getElementById('nextS0')?.addEventListener('click', ()=>wizGoNext('ws-s1'));
 document.getElementById('nextS1')?.addEventListener('click', startReport);
