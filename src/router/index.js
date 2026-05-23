@@ -2,6 +2,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import BaziView from '../views/BaziView.vue'
+import ReportView from '../views/ReportView.vue'
 import FortuneView from '../views/FortuneView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import EngineeringView from '../views/EngineeringView.vue'
@@ -35,6 +36,13 @@ const router = createRouter({
         description: '专业四柱八字排盘，十神分析、格局判断、大运流年一键生成。',
         descriptionEn: 'Professional Bazi four-pillars chart: ten gods, patterns, major cycles and yearly luck in one click.',
         ogImage: 'https://www.qimendao.com/images/bazi_1.jpg',
+      },
+    },
+    {
+      path: '/reports', name: 'reports', component: ReportView,
+      meta: {
+        title: '专业报告 — 奇门遁甲 AI',
+        description: '查看您的专属八字、合盘与运势报告',
       },
     },
     {

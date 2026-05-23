@@ -25,6 +25,10 @@
         <div class="nav-icon">🧬</div>
         <div class="nav-label">八字</div>
       </router-link>
+      <router-link to="/reports" class="nav-item" active-class="active">
+        <div class="nav-icon">📊</div>
+        <div class="nav-label">报告</div>
+      </router-link>
       <router-link to="/fortune" class="nav-item" active-class="active">
         <div class="nav-icon">🗓️</div> <div class="nav-label">运势</div>
       </router-link>
