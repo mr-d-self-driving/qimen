@@ -2,7 +2,7 @@
   <div class="report-view">
     <header id="siteHeader">
       <div class="header-side"></div>
-      <div class="site-logo">报告中心</div>
+      <div class="site-logo">命理案卷</div>
       <div class="header-side header-actions">
         <AccountMenu />
       </div>
@@ -12,7 +12,7 @@
       <div class="container">
         <div class="report-header">
           <div class="section-kicker">专属报告</div>
-          <div class="section-title">全方位多维分析</div>
+          <div class="section-title">命盘细读</div>
           <div class="section-sub">深挖你的命局，从关系、运势到格局</div>
         </div>
 
@@ -23,18 +23,10 @@
             <div class="report-card-content">
               <div class="card-top-row">
                 <div class="report-icon">✨</div>
-                <span class="card-tag">限时免费</span>
               </div>
               <h3 class="report-title">八字双人合盘</h3>
               <p class="report-subtitle">朋友缘分</p>
               <p class="report-desc">你们在一起是充电还是漏电？五个维度深测人际化学反应</p>
-              <div class="card-dims">
-                <span>同频</span>
-                <span>义气</span>
-                <span>消耗</span>
-                <span>成长</span>
-                <span>钱财</span>
-              </div>
             </div>
             <div class="card-arrow">→</div>
           </a>
@@ -95,11 +87,15 @@ import AccountMenu from '../components/AccountMenu.vue'
 }
 
 .site-logo {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--font-serif);
   font-size: 17px;
-  font-weight: 800;
-  color: #D4AF37;
-  letter-spacing: 0.08em;
+  font-weight: 500;
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(212,175,55,0.45));
+  letter-spacing: 0.15em;
   text-align: center;
   white-space: nowrap;
 }
@@ -115,6 +111,8 @@ import AccountMenu from '../components/AccountMenu.vue'
 }
 
 .page-wrap {
+  position: relative;
+  z-index: 1;
   padding: 0 16px;
   max-width: 480px;
   margin: 0 auto;
@@ -134,12 +132,13 @@ import AccountMenu from '../components/AccountMenu.vue'
 }
 
 .section-title {
-  font-family: 'Syne', sans-serif;
+  font-family: 'Songti SC', 'STSong', var(--font-ganzhi);
   font-size: 28px;
-  font-weight: 800;
+  font-weight: 600;
   color: #fff;
   line-height: 1.1;
   margin-bottom: 6px;
+  font-synthesis: none;
 }
 
 .section-sub {
@@ -253,9 +252,9 @@ import AccountMenu from '../components/AccountMenu.vue'
 }
 
 .report-title {
-  font-family: 'Syne', sans-serif;
+  font-family: var(--font-serif);
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 500;
   color: #fff;
   margin-bottom: 2px;
   line-height: 1.2;
@@ -283,21 +282,6 @@ import AccountMenu from '../components/AccountMenu.vue'
   color: rgba(255, 255, 255, 0.55);
   line-height: 1.5;
   margin-bottom: 14px;
-}
-
-.card-dims {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.card-dims span {
-  font-size: 11px;
-  padding: 3px 9px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.55);
 }
 
 .card-arrow {
