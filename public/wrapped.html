@@ -154,6 +154,8 @@ button{cursor:pointer;background:none;-webkit-appearance:none}
 
 /* Color strip accent (top) */
 .land-strip{position:absolute;top:0;left:0;right:0;height:5px;background:linear-gradient(90deg,#CCFF00 0%,#FF6B9D 35%,#6B8FFF 65%,#FFD700 100%);z-index:10}
+.land-exit{position:absolute;top:14px;right:16px;z-index:20;width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.14);color:rgba(255,255,255,.5);font-size:18px;line-height:1;transition:background .15s,color .15s,border-color .15s}
+.land-exit:hover{background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.3)}
 
 .land-badge{
   display:inline-flex;align-items:center;gap:7px;
@@ -720,6 +722,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 ══════════════════════════════════════ -->
 <div class="phase active" id="landing">
   <div class="land-strip"></div>
+  <button class="land-exit" id="landExit" title="返回报告中心">×</button>
   <div class="land-blob lb1"></div>
   <div class="land-blob lb2"></div>
   <div class="land-blob lb3"></div>
@@ -1357,7 +1360,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 </div>
 
 <script type="module">
-import { searchBirthplaces, findBirthplaceByName } from '../src/utils/birthplaceSearch.mjs';
+import { searchBirthplaces, findBirthplaceByName } from './utils/birthplaceSearch.mjs';
 window.__birthplaceSearch = { searchBirthplaces, findBirthplaceByName };
 </script>
 <script>
@@ -1681,6 +1684,7 @@ document.addEventListener('click', (event)=>{
 
 document.querySelector('.btn-start')?.addEventListener('click', openWizard);
 document.querySelector('.wiz-x')?.addEventListener('click', closeWizard);
+document.getElementById('landExit')?.addEventListener('click', () => { window.location.href = '/reports'; });
 document.getElementById('wizBack')?.addEventListener('click', wizGoBack);
 document.getElementById('nextS0')?.addEventListener('click', ()=>wizGoNext('ws-s1'));
 document.getElementById('nextS1')?.addEventListener('click', startReport);
@@ -1754,11 +1758,22 @@ function checkS1(){
   const n=document.getElementById('nameB').value.trim();
   document.getElementById('nextS1').disabled=!(n&&y>=1930&&y<=2010&&m>=1&&m<=12&&d>=1&&d<=31);
 }
+function setStartLoading(on){
+  const btn=document.getElementById('nextS1');
+  if(!btn)return;
+  btn.disabled=on;
+  btn.textContent=on?'正在排盘...':'开始合盘 ✦';
+}
+function showStartError(message){
+  setStartLoading(false);
+  alert(message || '排盘失败，请稍后重试');
+}
 
 /* ══════════════════════════════════════════════════
    START REPORT
 ══════════════════════════════════════════════════ */
 async function startReport(){
+  setStartLoading(true);
   S.nameA=document.getElementById('nameA').value.trim()||'你';
   S.nameB=document.getElementById('nameB').value.trim();
   S.yearA=+document.getElementById('yearA').value;S.monthA=+document.getElementById('monthA').value;S.dayA=+document.getElementById('dayA').value;
@@ -1790,29 +1805,25 @@ async function startReport(){
     tst_correction_min: S.tstB ? S.tstCorrB : 0,
   };
 
-  // Call real BaZi engine; fall back to mock on any failure
-  let usedReal = false;
+  // Call real BaZi engine. Never silently show mock pillars as real results.
   try {
     const resp = await fetch('/api/compatibility/init', {
       method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({ profileA, profileB }),
     });
-    if (resp.ok) {
-      const data = await resp.json();
-      if (data.ok && data.A && data.B) {
-        populateBaziFromCompact(data.A, data.B);
-        computeRealDIMs(data.A, data.B);
-        usedReal = true;
-      }
+    const data = await resp.json().catch(()=>null);
+    if (!resp.ok || !data?.ok || !data.A || !data.B) {
+      throw new Error(data?.error || '真实八字接口暂时不可用');
     }
-  } catch(e) { /* network error – fall back */ }
-
-  if (!usedReal) {
-    computeMockBazi();
-    computeScores();
+    populateBaziFromCompact(data.A, data.B);
+    computeRealDIMs(data.A, data.B);
+  } catch(e) {
+    showStartError(`真实八字排盘失败：${e.message || '网络异常'}。请稍后重试。`);
+    return;
   }
 
   buildAllDIMContent();
+  setStartLoading(false);
 
   const wiz=document.getElementById('wizard');
   wiz.style.transition='transform .45s cubic-bezier(.32,.72,0,1)';
