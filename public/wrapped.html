@@ -473,6 +473,33 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .bz-scan-divider{height:1px;background:rgba(255,255,255,.06);margin:6px 0}
 .scan-legend{font-size:10px;color:rgba(255,255,255,.22);font-family:'JetBrains Mono',monospace;margin-top:13px;text-align:center}
 .scan-legend span{opacity:.7}
+
+/* Demo-style comparison blocks */
+.comp-grid{width:100%;max-width:344px;display:flex;flex-direction:column;gap:12px}
+.comp-block{border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.22);border-radius:14px;padding:12px}
+.comp-block-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:10px}
+.comp-who{font-size:12px;font-weight:800;line-height:1.35}
+.comp-arrow-row{font-size:10px;color:rgba(255,255,255,.45);line-height:1.45}
+.comp-match-badge,.comp-bless-badge,.comp-clash-badge{
+  font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:800;white-space:nowrap;
+  border-radius:6px;padding:4px 6px;
+}
+.comp-match-badge{color:#4ade80;background:rgba(74,222,128,.1);border:1px solid rgba(74,222,128,.25)}
+.comp-bless-badge{color:#00DFFF;background:rgba(0,223,255,.1);border:1px solid rgba(0,223,255,.25)}
+.comp-clash-badge{color:#FF3377;background:rgba(255,51,119,.1);border:1px solid rgba(255,51,119,.25)}
+.comp-bz-row{display:flex;gap:5px}
+.comp-bzc{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 2px 6px;
+  border-radius:9px;border:1px solid rgba(255,255,255,.07);opacity:.35;
+  transition:all .25s;background:rgba(255,255,255,.025);
+}
+.comp-bzc.lit{opacity:1;border-color:var(--comp-accent,#4ade80);background:rgba(74,222,128,.08);box-shadow:0 0 18px rgba(74,222,128,.12)}
+.comp-bzc.warn{opacity:1;border-color:#FF3377;background:rgba(255,51,119,.08);box-shadow:0 0 18px rgba(255,51,119,.12)}
+.comp-gan{font-family:'Noto Serif SC',serif;font-size:20px;font-weight:700;line-height:1}
+.comp-zhi{font-family:'Noto Serif SC',serif;font-size:17px;line-height:1}
+.comp-lbl{font-size:8px;color:rgba(255,255,255,.22);margin-top:3px}
+.comp-foot{max-width:344px;font-size:11px;line-height:1.6;color:rgba(255,255,255,.45);text-align:center}
+.comp-foot strong{color:#fff}
 /* Wuxing colors */
 .ww{color:#93c5fd}.wf{color:#f87171}.we{color:#fbbf24}.wd{color:#86efac}.ws{color:#cbd5e1}
 
@@ -1202,9 +1229,9 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
       <div class="analysis-wrap" id="dim5-analysis" style="display:flex;flex-direction:column;align-items:center;gap:20px"></div>
     </div>
     <div class="dim-slide" id="dim5-s3">
-      <p class="c4-head afu" style="animation-delay:.1s">扫描财星分布<br>「谁命里财气旺」</p>
+      <p class="c4-head afu" style="animation-delay:.1s">扫描劫财 / 财星分布<br>判断合在一起财气怎么流动</p>
       <div class="scan-wrap" id="dim5-scan"></div>
-      <div class="scan-legend afu" style="animation-delay:3s;color:rgba(255,215,0,.7)" id="dim5-legend"><span>✦</span> 正财 · 偏财 = 财气信号</div>
+      <div class="scan-legend afu" style="animation-delay:3s;color:rgba(255,215,0,.7)" id="dim5-legend"><span>✦</span> 劫财 · 正财 · 偏财 = 财气边界信号</div>
     </div>
     <div class="dim-slide" id="dim5-s4" style="text-align:center;align-items:center">
       <div class="score-ctx afu" style="animation-delay:.1s">钱财边界 · 得分构成</div>
@@ -1215,10 +1242,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
         </div>
         <div class="sbar-items">
           <div class="sbar-item" id="d5-si1" style="background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.2)">
-            <span class="si-name">月支对位</span><span class="si-val" id="d5-lv1" style="color:#FFD700">+0</span>
+            <span class="si-name">劫财财星</span><span class="si-val" id="d5-lv1" style="color:#FFD700">+0</span>
           </div>
           <div class="sbar-item" id="d5-si3" style="background:rgba(255,215,0,.07);border:1px solid rgba(255,215,0,.2)">
-            <span class="si-name">神煞互见</span><span class="si-val" id="d5-lv3" style="color:#FFB300">+0</span>
+            <span class="si-name">日支冲害</span><span class="si-val" id="d5-lv3" style="color:#FFB300">+0</span>
           </div>
         </div>
       </div>
@@ -1383,6 +1410,7 @@ const S = {
     A:[], B:[],  // each: [{gan,zhi,label}] x4
     dayGanA:'', dayGanB:'',
   },
+  compat:{ A:null, B:null },
   dims:{d1:0,d2:0,d3:0,d4:0,d5:0},
   dimRaw:{d1:{s1:0,s3:0},d2:{s1:0,s3:0},d3:{s1:0,s3:0},d4:{s1:0,s3:0},d5:{s1:0,s3:0}},
   total:0, tier:'', tierClass:'',
@@ -1464,18 +1492,6 @@ function cityToLon(name){
   return city ? CITY_LONS[city] : null;
 }
 const cityMatches = { A:[], B:[] };
-function fallbackPlace(city){
-  return {
-    id:`fallback-${city}`,
-    label:city,
-    city,
-    county:'',
-    admin1:'',
-    country:'中国',
-    lng:CITY_LONS[city],
-    lat:''
-  };
-}
 function findPlaceForInput(value){
   const query = String(value || '').trim();
   if(!query) return null;
@@ -1491,9 +1507,9 @@ function findPlaceForInput(value){
     const hit = api.searchBirthplaces?.(query, 1)?.[0];
     if(hit && (hit.label === query || hit.name === query || hit.county === query || hit.city === query)) return hit;
   }
-  const city = resolveCityName(query);
-  return city ? fallbackPlace(city) : null;
+  return null;
 }
+const CITY_RESULT_LIMIT=32;
 function searchCities(query, limit=6){
   const q = normalizeCityQuery(query);
   const api = window.__birthplaceSearch;
@@ -1506,17 +1522,7 @@ function searchCities(query, limit=6){
     const results = api.searchBirthplaces(query, limit);
     if(results.length) return results;
   }
-  if(!q) return Object.keys(CITY_LONS).slice(0, limit).map(fallbackPlace);
-  const hits = new Set();
-  if(aliasCity) hits.add(aliasCity);
-  for(const city of Object.keys(CITY_LONS)){
-    const c = normalizeCityQuery(city);
-    if(c === q || c.includes(q) || q.includes(c)) hits.add(city);
-  }
-  for(const [alias, city] of Object.entries(CITY_ALIASES)){
-    if(alias.startsWith(q) || alias.includes(q)) hits.add(city);
-  }
-  return [...hits].slice(0, limit).map(fallbackPlace);
+  return [];
 }
 function openCityResults(suf){
   renderCityResults(suf);
@@ -1534,7 +1540,7 @@ function renderCityResults(suf){
   const input = document.getElementById(`city${suf}`);
   const box = document.getElementById(`city${suf}-results`);
   if(!input || !box) return;
-  const matches = searchCities(input.value, 8);
+  const matches = searchCities(input.value, CITY_RESULT_LIMIT);
   cityMatches[suf] = matches;
   box.innerHTML = matches.length
     ? matches.map((place, idx) => {
@@ -1545,7 +1551,7 @@ function renderCityResults(suf){
         : `${place.admin1 || ''} · ${place.country || ''}`;
       return `<button class="city-option" type="button" data-city-idx="${idx}"><span>${label}</span><small>${meta} · 东经 ${lng}</small></button>`;
     }).join('')
-    : '<div class="city-empty">未找到匹配区县，可先留空或关闭真太阳时</div>';
+    : '<div class="city-empty">未找到匹配区县。请通过本地开发服务或生产环境打开，以加载完整省-市-区数据。</div>';
   box.classList.add('open');
 }
 function selectCity(suf, idx){
@@ -1816,6 +1822,7 @@ async function startReport(){
       throw new Error(data?.error || '真实八字接口暂时不可用');
     }
     populateBaziFromCompact(data.A, data.B);
+    S.compat={A:data.A,B:data.B};
     computeRealDIMs(data.A, data.B);
   } catch(e) {
     showStartError(`真实八字排盘失败：${e.message || '网络异常'}。请稍后重试。`);
@@ -1980,6 +1987,7 @@ const ZHI_MAIN_GAN={子:'癸',丑:'己',寅:'甲',卯:'乙',辰:'戊',巳:'丙',
 const GAN_HE={甲:'己',己:'甲',乙:'庚',庚:'乙',丙:'辛',辛:'丙',丁:'壬',壬:'丁',戊:'癸',癸:'戊'};
 const ZHI_6HE={子:'丑',丑:'子',寅:'亥',亥:'寅',卯:'戌',戌:'卯',辰:'酉',酉:'辰',巳:'申',申:'巳',午:'未',未:'午'};
 const ZHI_CHONG={子:'午',午:'子',丑:'未',未:'丑',寅:'申',申:'寅',卯:'酉',酉:'卯',辰:'戌',戌:'辰',巳:'亥',亥:'巳'};
+const ZHI_HAI={子:'未',未:'子',丑:'午',午:'丑',寅:'巳',巳:'寅',卯:'辰',辰:'卯',申:'亥',亥:'申',酉:'戌',戌:'酉'};
 const ZHI_SANHE={申:'子辰',子:'申辰',辰:'申子',亥:'卯未',卯:'亥未',未:'亥卯',寅:'午戌',午:'寅戌',戌:'寅午',巳:'酉丑',酉:'巳丑',丑:'巳酉'};
 const PILLAR_W=[0.8,1.4,1.5,1.0]; // 年月日时
 const SHEN_W_GAN={比肩:18,劫财:-12,食神:22,伤官:10,正财:5,偏财:12,正官:4,七杀:-18,正印:18,偏印:12};
@@ -1997,6 +2005,7 @@ const L2_YEAR={same:55,liuhe:50,sanhe_half:40,sheng:25,none:0,ke:-25,chong:-45};
 function zhiRel(a,b){
   if(!a||!b)return'none'; if(a===b)return'same';
   if(ZHI_6HE[a]===b)return'liuhe'; if(ZHI_CHONG[a]===b)return'chong';
+  if(ZHI_HAI[a]===b)return'hai';
   if(ZHI_SANHE[a]?.includes(b))return'sanhe_half';
   const aw=ZHI_WX[a]??0,bw=ZHI_WX[b]??0;
   if(SHENG_MAP[aw]===bw||SHENG_MAP[bw]===aw)return'sheng';
@@ -2024,7 +2033,36 @@ function l3OneSide(dayGan,gans,zhis,onlyShens){
 }
 function l3Score(A,B){return clamp(((l3OneSide(A.dayGan,B.gans,B.zhis)+l3OneSide(B.dayGan,A.gans,A.zhis))/2)/1.2);}
 function l3YinScore(A,B){const Y=['正印','偏印'];return clamp(((l3OneSide(A.dayGan,B.gans,B.zhis,Y)+l3OneSide(B.dayGan,A.gans,A.zhis,Y))/2)/0.9);}
-function l3ShaScore(A,B){const J=['劫财','七杀'];return Math.min(0,clamp(((l3OneSide(A.dayGan,B.gans,B.zhis,J)+l3OneSide(B.dayGan,A.gans,A.zhis,J))/2)/0.9));}
+function l3ShaScore(A,B){const J=['劫财','七杀','比肩'];return Math.min(0,clamp(((l3OneSide(A.dayGan,B.gans,B.zhis,J)+l3OneSide(B.dayGan,A.gans,A.zhis,J))/2)/0.9));}
+
+function l3MoneyOneSide(dayGan,gans,zhis){
+  let score=0;
+  for(let i=0;i<4;i++){
+    if(!gans[i])continue;
+    const s=getShen(dayGan,gans[i]);
+    if(s==='正财'||s==='偏财')score+=16*PILLAR_W[i];
+    if(s==='劫财')score-=18*PILLAR_W[i];
+    const mg=ZHI_MAIN_GAN[zhis[i]];
+    if(mg){
+      const zs=getShen(dayGan,mg);
+      if(zs==='正财'||zs==='偏财')score+=12*PILLAR_W[i];
+      if(zs==='劫财')score-=14*PILLAR_W[i];
+    }
+  }
+  return score;
+}
+function l3MoneyScore(A,B){return clamp(((l3MoneyOneSide(A.dayGan,B.gans,B.zhis)+l3MoneyOneSide(B.dayGan,A.gans,A.zhis))/2)/1.0);}
+function dayZhiMoneyScore(A,B){
+  const rel=zhiRel(A.dayZhi,B.dayZhi);
+  const map={same:20,liuhe:35,sanhe_half:25,sheng:18,none:0,ke:-15,hai:-30,chong:-55};
+  return map[rel]??0;
+}
+function l5NobleScore(A,B){
+  const monthRaw=L5_MONTH[zhiRel(A.monthZhi,B.monthZhi)]??0;
+  const aGui=tianyiBranches(A.dayGan),bGui=tianyiBranches(B.dayGan);
+  const shenshaRaw=(aGui.includes(B.dayZhi)?15:0)+(bGui.includes(A.dayZhi)?15:0);
+  return clamp(monthRaw*.55+shenshaRaw*.45);
+}
 
 function shenWx(dayGan,shenName){
   const dw=GAN_WX[dayGan]??0;
@@ -2057,23 +2095,24 @@ function computeRealDIMs(A,B){
   const l1=l1Score(A.dayGan,B.dayGan);
   const l3=l3Score(A,B),l3yin=l3YinScore(A,B),l3sha=l3ShaScore(A,B);
   const l4=l4Score(A,B),l4neg=l4NegScore(A,B);
-  const l5m=L5_MONTH[zhiRel(A.monthZhi,B.monthZhi)]??0;
-  const l2y=L2_YEAR[zhiRel(A.yearZhi,B.yearZhi)]??0;
+  const l5=l5NobleScore(A,B);
+  const l3money=l3MoneyScore(A,B);
+  const l2day=dayZhiMoneyScore(A,B);
 
   const DW=DIM_SCORE_WEIGHTS;
   const d1=clamp(l1*DW.d1.s1+l3*DW.d1.s3);
   const d2=clamp(l3yin*DW.d2.s1+l4*DW.d2.s3);
   const d3=Math.min(0,clamp(l3sha*DW.d3.s1+l4neg*DW.d3.s3));
-  const d4=clamp(l4*DW.d4.s1+l5m*DW.d4.s3);
-  const d5=clamp(l2y*DW.d5.s1+l5m*DW.d5.s3);
+  const d4=clamp(l4*DW.d4.s1+l5*DW.d4.s3);
+  const d5=clamp(l3money*DW.d5.s1+l2day*DW.d5.s3);
 
   S.dims={d1,d2,d3,d4,d5};
   S.dimRaw={
-    d1:{s1:Math.round(l1*DW.d1.s1),s3:Math.round(l3*DW.d1.s3)},
-    d2:{s1:Math.round(l3yin*DW.d2.s1),s3:Math.round(l4*DW.d2.s3)},
-    d3:{s1:Math.round(l3sha*DW.d3.s1),s3:Math.round(l4neg*DW.d3.s3)},
-    d4:{s1:Math.round(l4*DW.d4.s1),s3:Math.round(l5m*DW.d4.s3)},
-    d5:{s1:Math.round(l2y*DW.d5.s1),s3:Math.round(l5m*DW.d5.s3)},
+    d1:{s1:Math.round(l1),s3:Math.round(l3)},
+    d2:{s1:Math.round(l3yin),s3:Math.round(l4)},
+    d3:{s1:Math.round(l3sha),s3:Math.round(l4neg)},
+    d4:{s1:Math.round(l4),s3:Math.round(l5)},
+    d5:{s1:Math.round(l3money),s3:Math.round(l2day)},
   };
   const raw=d1*.30+d2*.25+d3*.20+d4*.15+d5*.10;
   S.total=normalize(raw);
@@ -2177,20 +2216,85 @@ function pickInsights(){
 function buildAllDIMContent(){
   buildAnalysisAndScan('dim1','d1',['比肩','食神','伤官'],'#CCFF00',S.dims.d1);
   buildAnalysisAndScan('dim2','d2',['正印','偏印'],'#FF8C42',S.dims.d2);
-  buildAnalysisAndScan('dim3','d3',['劫财','七杀'],'#FF3377',S.dims.d3);
+  buildAnalysisAndScan('dim3','d3',['劫财','七杀','比肩'],'#FF3377',S.dims.d3);
   buildAnalysisAndScan('dim4','d4',['正印','偏印','食神'],'#00DFFF',S.dims.d4);
-  buildAnalysisAndScan('dim5','d5',['正财','偏财'],'#FFD700',S.dims.d5);
+  buildAnalysisAndScan('dim5','d5',['劫财','正财','偏财'],'#FFD700',S.dims.d5);
 }
 
 function buildAnalysisAndScan(dimId,scoreKey,targetShens,accentColor,score){
-  // Analysis slide (日干 relationship)
+  buildAnalysisSlide(dimId,scoreKey,accentColor);
+
+  // Score slide badge/verdict fill
+  const bdg=getDimBadge(scoreKey,score);
+  const rawScore=score;
+  const dispScore=rawScore;
+  const sign=dispScore>=0?'+':'−';
+  const abs=Math.abs(dispScore);
+  document.getElementById(`${scoreKey}-val`).textContent=String(abs);
+  // Will be animated in setupScore
+  document.getElementById(`${scoreKey}-badge`).textContent=bdg.b;
+  document.getElementById(`${scoreKey}-sub`).textContent=bdg.s;
+  const verdict=getDimVerdict(scoreKey,score);
+  const titleEl=document.getElementById(`${scoreKey}-title`);
+  const bodyEl=document.getElementById(`${scoreKey}-body`);
+  const footEl=document.getElementById(`${scoreKey}-foot`);
+  if(titleEl)titleEl.innerHTML=verdict.title.replace(new RegExp(S.nameA,'g'),`<span class="ta">${S.nameA}</span>`).replace(new RegExp(S.nameB,'g'),`<span class="tb">${S.nameB}</span>`);
+  if(bodyEl)bodyEl.innerHTML=verdict.body.map(p=>`<p>${p}</p>`).join('');
+  if(footEl)footEl.textContent=(dispScore>=0?'+':'')+dispScore+'%';
+
+  // Scan slide (only show for actual pillars we have)
+  buildScanSlide(dimId,targetShens,accentColor);
+}
+
+const DIM_ANALYSIS_CONFIG={
+  dim1:{title:'两人命盘的日干底层反应',kicker:'来源 1 / 2 · 日干对位'},
+  dim2:{title:'五神互补：你缺的，TA 刚好有',kicker:'来源 2 / 2 · 五神互补'},
+  dim3:{title:'忌神激活：这段关系会不会漏电',kicker:'来源 2 / 2 · 忌神激活'},
+  dim4:{title:'调候互补 + 贵人神煞',kicker:'来源 1 + 2 · 调候互补 / 贵人神煞'},
+  dim5:{title:'日支冲害：资源风格正面碰吗',kicker:'来源 2 / 2 · 日支冲害'},
+};
+
+function buildAnalysisSlide(dimId,scoreKey,accentColor){
   const aWrap=document.getElementById(`${dimId}-analysis`);
+  if(!aWrap)return;
+  if(dimId==='dim1'){
+    buildDayStemAnalysis(aWrap);
+    return;
+  }
+  if(dimId==='dim2'){
+    aWrap.innerHTML=buildComplementAnalysis(dimId,scoreKey,accentColor);
+    return;
+  }
+  if(dimId==='dim3'){
+    aWrap.innerHTML=buildDrainAnalysis(dimId,scoreKey,accentColor);
+    return;
+  }
+  if(dimId==='dim4'){
+    aWrap.innerHTML=buildShenshaAnalysis(dimId,scoreKey,accentColor);
+    return;
+  }
+  const cfg=DIM_ANALYSIS_CONFIG[dimId];
+  const blocks=getDimAnalysisBlocks(dimId,scoreKey,accentColor);
+  aWrap.innerHTML=`
+    <div class="c3-head afu" style="animation-delay:.1s">${cfg.title}</div>
+    <div class="spill afu" style="animation-delay:.25s;border:1px solid ${accentColor};background:rgba(255,255,255,.045);color:rgba(255,255,255,.72);text-align:center">
+      <strong style="color:${accentColor};font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em">${cfg.kicker}</strong>
+    </div>
+    <div class="shen-pills" style="max-width:320px">
+      ${blocks.map((b,i)=>`
+        <div class="spill ${i%2?'sp-a':'sp-b'} afu" style="animation-delay:${0.45+i*0.18}s">
+          <strong style="color:${b.color}">${b.head}</strong>${b.body}
+        </div>`).join('')}
+    </div>`;
+}
+
+function buildDayStemAnalysis(aWrap){
   const dGA=S.bazi.dayGanA,dGB=S.bazi.dayGanB;
   const shenAtoB=getShen(dGA,dGB);
   const shenBtoA=getShen(dGB,dGA);
   const wxA=WX_NAMES[GAN_WX[dGA]??0],wxB=WX_NAMES[GAN_WX[dGB]??0];
   aWrap.innerHTML=`
-    <div class="c3-head afu" style="animation-delay:.1s">两人命盘的日干底层反应</div>
+    <div class="c3-head afu" style="animation-delay:.1s">${DIM_ANALYSIS_CONFIG.dim1.title}</div>
     <div class="stems-box afu" style="animation-delay:.3s">
       <div class="snode">
         <div class="schar sc-a">${dGA}</div>
@@ -2221,27 +2325,244 @@ function buildAnalysisAndScan(dimId,scoreKey,targetShens,accentColor,score){
         <strong style="color:var(--ca)">${S.nameA}（${dGA}）</strong>看${S.nameB}：${dGA}${descShen(shenAtoB,S.nameB,S.nameA)}
       </div>
     </div>`;
+}
 
-  // Score slide badge/verdict fill
-  const bdg=getDimBadge(scoreKey,score);
-  const rawScore=score;
-  const dispScore=rawScore;
-  const sign=dispScore>=0?'+':'−';
-  const abs=Math.abs(dispScore);
-  document.getElementById(`${scoreKey}-val`).textContent=String(abs);
-  // Will be animated in setupScore
-  document.getElementById(`${scoreKey}-badge`).textContent=bdg.b;
-  document.getElementById(`${scoreKey}-sub`).textContent=bdg.s;
-  const verdict=getDimVerdict(scoreKey,score);
-  const titleEl=document.getElementById(`${scoreKey}-title`);
-  const bodyEl=document.getElementById(`${scoreKey}-body`);
-  const footEl=document.getElementById(`${scoreKey}-foot`);
-  if(titleEl)titleEl.innerHTML=verdict.title.replace(new RegExp(S.nameA,'g'),`<span class="ta">${S.nameA}</span>`).replace(new RegExp(S.nameB,'g'),`<span class="tb">${S.nameB}</span>`);
-  if(bodyEl)bodyEl.innerHTML=verdict.body.map(p=>`<p>${p}</p>`).join('');
-  if(footEl)footEl.textContent=(dispScore>=0?'+':'')+dispScore+'%';
+function getDimAnalysisBlocks(dimId,scoreKey,accentColor){
+  const raw=S.dimRaw[scoreKey]||{s1:0,s3:0};
+  const relDay=relationText(zhiRel(getCompactSide('A').dayZhi,getCompactSide('B').dayZhi));
+  const relMonth=relationText(zhiRel(getCompactSide('A').monthZhi,getCompactSide('B').monthZhi));
+  if(dimId==='dim2')return [
+    {color:'var(--ca)',head:`${S.nameA} 的补给结构：`,body:`喜用偏向 ${usefulElementText(getCompactSide('A'))}；${S.nameB} 命盘主气 ${topElementText(getCompactSide('B'))}。`},
+    {color:'var(--cb)',head:`${S.nameB} 的补给结构：`,body:`喜用偏向 ${usefulElementText(getCompactSide('B'))}；${S.nameA} 命盘主气 ${topElementText(getCompactSide('A'))}。`},
+    {color:accentColor,head:'计分对应：',body:`印星密度 ${formatScorePart(raw.s1)}，五神互补 ${formatScorePart(raw.s3)}。这一页看的是“帮了有没有用”。`},
+  ];
+  if(dimId==='dim3')return [
+    {color:accentColor,head:'劫煞扫描：',body:`劫财、七杀、比肩都算漏电点；命中越密，见面越容易暗中消耗。`},
+    {color:accentColor,head:'忌神激活：',body:`对方命盘如果补到你的忌仇五行，就不是帮忙，是把薄弱区点亮。当前忌神激活 ${formatScorePart(raw.s3)}。`},
+    {color:'rgba(255,255,255,.75)',head:'计分对应：',body:`劫煞占比 ${formatScorePart(raw.s1)}，忌神激活 ${formatScorePart(raw.s3)}；DIM3 只记负向或中性。`},
+  ];
+  if(dimId==='dim4')return [
+    {color:'var(--ca)',head:`${S.nameA} 的成长补给：`,body:`需要 ${usefulElementText(getCompactSide('A'))}，${S.nameB} 命盘主气 ${topElementText(getCompactSide('B'))}。`},
+    {color:'var(--cb)',head:`${S.nameB} 的成长补给：`,body:`需要 ${usefulElementText(getCompactSide('B'))}，${S.nameA} 命盘主气 ${topElementText(getCompactSide('A'))}。`},
+    {color:accentColor,head:'宫位关系：',body:`两人月支为${relMonth}；对应调候互补与贵人神煞展示。`},
+  ];
+  return [
+    {color:accentColor,head:'财气流向：',body:`扫描劫财、正财、偏财，判断合在一起是财星互补，还是钱财边界被分夺。`},
+    {color:'var(--ca)',head:`${S.nameA} · 日支：`,body:`${getCompactSide('A').dayZhi||'—'}；${S.nameB} · 日支：${getCompactSide('B').dayZhi||'—'}，关系为${relDay}。`},
+    {color:accentColor,head:'计分对应：',body:`劫财/财星 ${formatScorePart(raw.s1)}，日支冲害 ${formatScorePart(raw.s3)}。这一维不再看年支或月支替代。`},
+  ];
+}
 
-  // Scan slide (only show for actual pillars we have)
-  buildScanSlide(dimId,targetShens,accentColor);
+function getCompactSide(side){
+  const pillars=S.bazi[side]||[];
+  return {
+    dayGan:S.bazi[`dayGan${side}`]||'',
+    yearZhi:pillars[0]?.zhi||'',
+    monthZhi:pillars[1]?.zhi||'',
+    dayZhi:pillars[2]?.zhi||'',
+    five_shens:S.compat?.[side]?.five_shens||{},
+    wuxing_ratio:S.compat?.[side]?.wuxing_ratio||{},
+  };
+}
+
+function usefulElementText(side){
+  const parts=[];
+  const add=s=>{const wx=WX_NAMES[shenWx(side.dayGan,s)];if(wx&&!parts.includes(wx))parts.push(wx);};
+  add(side.five_shens?.yong);
+  (side.five_shens?.xi||[]).forEach(add);
+  return parts.length?parts.join('、'):'未见明显喜用';
+}
+
+function topElementText(side){
+  const entries=Object.entries(side.wuxing_ratio||{}).sort((a,b)=>Number(b[1])-Number(a[1]));
+  return entries.length?entries.slice(0,2).map(([wx,v])=>`${wx}${Math.round(Number(v)||0)}%`).join('、'):'暂无强势五行';
+}
+
+function relationText(rel){
+  return ({same:'同支',liuhe:'六合',sanhe_half:'半合',sheng:'相生',ke:'相克',hai:'六害',chong:'相冲',none:'无明显冲合'})[rel]||'无明显冲合';
+}
+
+function buildComplementAnalysis(dimId,scoreKey,accentColor){
+  const cfg=DIM_ANALYSIS_CONFIG[dimId];
+  const A=getCompactSide('A'),B=getCompactSide('B');
+  const needA=usefulElements(A),needB=usefulElements(B);
+  const aFromB=elementHits(S.bazi.B,needA);
+  const bFromA=elementHits(S.bazi.A,needB);
+  const raw=S.dimRaw[scoreKey]||{s1:0,s3:0};
+  return `
+    <div class="c3-head afu" style="animation-delay:.1s">${cfg.title}</div>
+    <div class="spill afu" style="animation-delay:.25s;border:1px solid ${accentColor};background:rgba(255,255,255,.045);color:rgba(255,255,255,.72);text-align:center">
+      <strong style="color:${accentColor};font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em">${cfg.kicker}</strong>
+    </div>
+    <div class="comp-grid afu" style="animation-delay:.45s;--comp-accent:${accentColor}">
+      ${compBlock({
+        who:`${S.nameB} 补给 ${S.nameA}`,
+        sub:`${S.nameA} 需要 ${needA.length?needA.join('、'):'未见明显喜用'} · ${S.nameB} 主气 ${topElementText(B)}`,
+        badge:aFromB.count?`命中 ${aFromB.count}`:'未命中',
+        badgeClass:'comp-match-badge',
+        pillars:S.bazi.B,
+        hits:aFromB.hits,
+        hitClass:'lit',
+      })}
+      ${compBlock({
+        who:`${S.nameA} 补给 ${S.nameB}`,
+        sub:`${S.nameB} 需要 ${needB.length?needB.join('、'):'未见明显喜用'} · ${S.nameA} 主气 ${topElementText(A)}`,
+        badge:bFromA.count?`命中 ${bFromA.count}`:'未命中',
+        badgeClass:'comp-match-badge',
+        pillars:S.bazi.A,
+        hits:bFromA.hits,
+        hitClass:'lit',
+      })}
+    </div>
+    <div class="comp-foot afu" style="animation-delay:.85s"><strong>计分对应</strong>：印星密度 ${formatScorePart(raw.s1)}，五神互补 ${formatScorePart(raw.s3)}。</div>`;
+}
+
+function buildDrainAnalysis(dimId,scoreKey,accentColor){
+  const cfg=DIM_ANALYSIS_CONFIG[dimId];
+  const A=getCompactSide('A'),B=getCompactSide('B');
+  const badA=unfavorableElements(A),badB=unfavorableElements(B);
+  const jiB=elementHits(S.bazi.B,badA);
+  const jiA=elementHits(S.bazi.A,badB);
+  const raw=S.dimRaw[scoreKey]||{s1:0,s3:0};
+  return `
+    <div class="c3-head afu" style="animation-delay:.1s">${cfg.title}</div>
+    <div class="spill afu" style="animation-delay:.25s;border:1px solid ${accentColor};background:rgba(255,255,255,.045);color:rgba(255,255,255,.72);text-align:center">
+      <strong style="color:${accentColor};font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em">${cfg.kicker}</strong>
+    </div>
+    <div class="comp-grid afu" style="animation-delay:.45s;--comp-accent:${accentColor}">
+      ${compBlock({
+        who:`${S.nameA} 的忌神激活`,
+        sub:`${S.nameB} 是否打到 ${S.nameA} 的忌仇五行：${badA.length?badA.join('、'):'未见明显忌仇'}`,
+        badge:jiB.count?`激活 ${jiB.count}`:'未激活',
+        badgeClass:'comp-clash-badge',
+        pillars:S.bazi.B,
+        hits:jiB.hits,
+        hitClass:'warn',
+      })}
+      ${compBlock({
+        who:`${S.nameB} 的忌神激活`,
+        sub:`${S.nameA} 是否打到 ${S.nameB} 的忌仇五行：${badB.length?badB.join('、'):'未见明显忌仇'}`,
+        badge:jiA.count?`激活 ${jiA.count}`:'未激活',
+        badgeClass:'comp-clash-badge',
+        pillars:S.bazi.A,
+        hits:jiA.hits,
+        hitClass:'warn',
+      })}
+    </div>
+    <div class="comp-foot afu" style="animation-delay:.85s"><strong>计分对应</strong>：劫煞占比 ${formatScorePart(raw.s1)} 在下一页扫描；本页展示双向忌神激活 ${formatScorePart(raw.s3)}。</div>`;
+}
+
+function buildShenshaAnalysis(dimId,scoreKey,accentColor){
+  const cfg=DIM_ANALYSIS_CONFIG[dimId];
+  const A=getCompactSide('A'),B=getCompactSide('B');
+  const needA=usefulElements(A),needB=usefulElements(B);
+  const aFromB=elementHits(S.bazi.B,needA);
+  const bFromA=elementHits(S.bazi.A,needB);
+  const aGui=tianyiBranches(A.dayGan),bGui=tianyiBranches(B.dayGan);
+  const bDayHit=aGui.includes(B.dayZhi);
+  const aDayHit=bGui.includes(A.dayZhi);
+  const monthRel=zhiRel(A.monthZhi,B.monthZhi);
+  const monthRaw=L5_MONTH[monthRel]??0;
+  const tianyiRaw=(bDayHit?15:0)+(aDayHit?15:0);
+  const raw=S.dimRaw[scoreKey]||{s1:0,s3:0};
+  return `
+    <div class="c3-head afu" style="animation-delay:.1s">${cfg.title}</div>
+    <div class="spill afu" style="animation-delay:.25s;border:1px solid ${accentColor};background:rgba(255,255,255,.045);color:rgba(255,255,255,.72);text-align:center">
+      <strong style="color:${accentColor};font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em">${cfg.kicker}</strong>
+    </div>
+    <div class="comp-grid afu" style="animation-delay:.45s;--comp-accent:${accentColor}">
+      ${compBlock({
+        who:`调候互补`,
+        sub:`${S.nameA} 需要 ${needA.length?needA.join('、'):'未见明显喜用'}；${S.nameB} 需要 ${needB.length?needB.join('、'):'未见明显喜用'}`,
+        badge:`调候 ${formatScorePart(raw.s1)}`,
+        badgeClass:'comp-match-badge',
+        pillars:S.bazi.B,
+        hits:aFromB.hits,
+        hitClass:'lit',
+      })}
+      ${compBlock({
+        who:`月支社交宫`,
+        sub:`${S.nameA} 月支 ${A.monthZhi||'—'} · ${S.nameB} 月支 ${B.monthZhi||'—'}：${relationText(monthRel)}`,
+        badge:`月支 ${formatScorePart(monthRaw)}`,
+        badgeClass:monthRaw<0?'comp-clash-badge':'comp-bless-badge',
+        pillars:S.bazi.A,
+        hits:S.bazi.A.map((_,i)=>i===1&&monthRaw!==0),
+        hitClass:monthRaw<0?'warn':'lit',
+      })}
+      ${compBlock({
+        who:`${S.nameA} 的天乙贵人`,
+        sub:`贵人位 ${aGui.join('、')||'—'} · 看 ${S.nameB} 日支 ${B.dayZhi||'—'}`,
+        badge:bDayHit?'天乙 +15':'天乙 +0',
+        badgeClass:'comp-bless-badge',
+        pillars:S.bazi.B,
+        hits:S.bazi.B.map((_,i)=>i===2&&bDayHit),
+        hitClass:'lit',
+      })}
+      ${compBlock({
+        who:`${S.nameB} 的天乙贵人`,
+        sub:`贵人位 ${bGui.join('、')||'—'} · 看 ${S.nameA} 日支 ${A.dayZhi||'—'}`,
+        badge:aDayHit?'天乙 +15':'天乙 +0',
+        badgeClass:'comp-bless-badge',
+        pillars:S.bazi.A,
+        hits:S.bazi.A.map((_,i)=>i===2&&aDayHit),
+        hitClass:'lit',
+      })}
+    </div>
+    <div class="comp-foot afu" style="animation-delay:.85s"><strong>计分对应</strong>：调候互补 ${formatScorePart(raw.s1)}；L5 = 月支 ${formatScorePart(monthRaw)} ×55% + 天乙 ${formatScorePart(tianyiRaw)} ×45% = ${formatScorePart(raw.s3)}。</div>`;
+}
+
+function compBlock({who,sub,badge,badgeClass,pillars,hits,hitClass}){
+  return `
+    <div class="comp-block">
+      <div class="comp-block-head">
+        <div>
+          <div class="comp-who">${escapeHTML(who)}</div>
+          <div class="comp-arrow-row">${escapeHTML(sub)}</div>
+        </div>
+        <span class="${badgeClass}">${escapeHTML(badge)}</span>
+      </div>
+      <div class="comp-bz-row">
+        ${pillars.map((p,i)=>`
+          <div class="comp-bzc ${hits[i]?hitClass:''}">
+            <span class="comp-gan ${ganColor(p.gan)}">${escapeHTML(p.gan)}</span>
+            <span class="comp-zhi ${zhiColor(p.zhi)}">${escapeHTML(p.zhi)}</span>
+            <span class="comp-lbl">${escapeHTML(p.label)}</span>
+          </div>`).join('')}
+      </div>
+    </div>`;
+}
+
+function usefulElements(side){
+  const parts=[];
+  const add=s=>{if(!s)return;const wx=WX_NAMES[shenWx(side.dayGan,s)];if(wx&&!parts.includes(wx))parts.push(wx);};
+  add(side.five_shens?.yong);
+  (side.five_shens?.xi||[]).forEach(add);
+  return parts;
+}
+
+function unfavorableElements(side){
+  const parts=[];
+  const add=s=>{if(!s)return;const wx=WX_NAMES[shenWx(side.dayGan,s)];if(wx&&!parts.includes(wx))parts.push(wx);};
+  (side.five_shens?.ji||[]).forEach(add);
+  (side.five_shens?.chou||[]).forEach(add);
+  return parts;
+}
+
+function elementHits(pillars,elements){
+  const set=new Set(elements||[]);
+  const hits=pillars.map(p=>set.has(WX_NAMES[GAN_WX[p.gan]])||set.has(WX_NAMES[ZHI_WX[p.zhi]]));
+  return {hits,count:hits.filter(Boolean).length};
+}
+
+function shenHits(pillars,viewerDayGan,targetShens){
+  const set=new Set(targetShens||[]);
+  const hits=pillars.map(p=>set.has(getShen(viewerDayGan,p.gan))||set.has(getShen(viewerDayGan,ZHI_GANEQUIV(p.zhi))));
+  return {hits,count:hits.filter(Boolean).length};
+}
+
+function tianyiBranches(dayGan){
+  const MAP={甲:['丑','未'],戊:['丑','未'],庚:['丑','未'],乙:['子','申'],己:['子','申'],丙:['亥','酉'],丁:['亥','酉'],壬:['卯','巳'],癸:['卯','巳'],辛:['午','寅']};
+  return MAP[dayGan]||[];
 }
 
 function descShen(shen,ta,me){
@@ -2844,6 +3165,7 @@ function resetAll(){
   });
   S.skipA=false;S.skipB=false;S.hourA=-1;S.hourB=-1;S.genderA='M';S.genderB='M';S.placeA=null;S.placeB=null;
   S.tstA=true;S.tstB=true;
+  S.compat={A:null,B:null};
   document.querySelectorAll('.shi-btn').forEach(b=>b.classList.remove('sel'));
   ['gridA','gridB'].forEach(id=>document.getElementById(id)?.classList.remove('dimmed'));
   ['skipA','skipB'].forEach(id=>document.getElementById(id)?.classList.remove('on'));

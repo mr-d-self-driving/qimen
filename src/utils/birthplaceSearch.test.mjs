@@ -27,6 +27,13 @@ test('searchBirthplaces supports China county-level results', () => {
   assert.match(results[0].label, /福建 - 厦门市 - 思明区/)
 })
 
+test('searchBirthplaces expands city queries to province-city-county options', () => {
+  const counties = searchBirthplaces('厦门', 12).map((place) => place.label)
+  assert.ok(counties.includes('福建 - 厦门市 - 思明区'))
+  assert.ok(counties.includes('福建 - 厦门市 - 湖里区'))
+  assert.ok(counties.includes('福建 - 厦门市 - 翔安区'))
+})
+
 test('searchBirthplaces prioritizes exact and prefix matches', () => {
   const results = searchBirthplaces('西', 20)
   assert.ok(results.some((place) => place.name === '西安市'))
