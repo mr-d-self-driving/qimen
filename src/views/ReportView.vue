@@ -22,7 +22,7 @@
             <div class="card-glow"></div>
             <div class="report-card-content">
               <div class="card-top-row">
-                <div class="report-icon">✨</div>
+                <div class="report-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
               </div>
               <h3 class="report-title">八字双人合盘</h3>
               <p class="report-subtitle">朋友缘分</p>
@@ -36,14 +36,14 @@
             <div class="card-glow card-glow-blue"></div>
             <div class="report-card-content">
               <div class="card-top-row">
-                <div class="report-icon report-icon-dim">🔮</div>
+                <div class="report-icon report-icon-dim"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/><path d="M7.2 4.8A9 9 0 0 1 20.6 17"/></svg></div>
                 <span class="card-tag card-tag-soon">即将上线</span>
               </div>
               <h3 class="report-title report-title-dim">本命大运推演</h3>
               <p class="report-subtitle report-subtitle-dim">流年运势</p>
               <p class="report-desc">逐年解析大运流年，识别关键节点</p>
             </div>
-            <div class="locked-badge">🔒</div>
+            <div class="locked-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
           </div>
 
           <!-- 占位卡 2 -->
@@ -51,14 +51,14 @@
             <div class="card-glow card-glow-red"></div>
             <div class="report-card-content">
               <div class="card-top-row">
-                <div class="report-icon report-icon-dim">💼</div>
+                <div class="report-icon report-icon-dim"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
                 <span class="card-tag card-tag-soon">即将上线</span>
               </div>
               <h3 class="report-title report-title-dim">事业财运报告</h3>
               <p class="report-subtitle report-subtitle-dim">格局分析</p>
               <p class="report-desc">用神喜忌、财官格局与行动策略</p>
             </div>
-            <div class="locked-badge">🔒</div>
+            <div class="locked-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
           </div>
         </div>
       </div>
@@ -217,7 +217,6 @@ import AccountMenu from '../components/AccountMenu.vue'
 }
 
 .report-icon {
-  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -226,6 +225,7 @@ import AccountMenu from '../components/AccountMenu.vue'
   background: rgba(255, 255, 255, 0.08);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--gold, #b58d3b);
 }
 
 .report-icon-dim {
@@ -303,7 +303,15 @@ import AccountMenu from '../components/AccountMenu.vue'
   position: absolute;
   bottom: 20px;
   right: 20px;
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.5);
   z-index: 1;
 }
 </style>

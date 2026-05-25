@@ -434,7 +434,7 @@
                                     :class="{ active: eventForm.category === cat.value }"
                                     @click="eventForm.category = cat.value"
                                 >
-                                    {{ cat.icon }} {{ cat.label }}
+                                    {{ cat.label }}
                                 </button>
                             </div>
                         </div>
@@ -1325,20 +1325,20 @@ const isFormOpen = ref(false)
 const isCalibrating = ref(false)
 
 const LIFE_EVENT_CATEGORIES = [
-    { value: 'career', label: '事业/学业', icon: '💼' },
-    { value: 'wealth', label: '财富/资产', icon: '💰' },
-    { value: 'relationship', label: '感情/婚姻', icon: '💕' },
-    { value: 'health', label: '健康/灾厄', icon: '🏥' },
-    { value: 'family_parent', label: '父母', icon: '👨‍👩‍👧' },
-    { value: 'family_spouse', label: '配偶', icon: '💍' },
-    { value: 'family_child', label: '子女', icon: '👶' },
-    { value: 'family_sibling', label: '兄弟姐妹', icon: '🤝' },
+    { value: 'career', label: '事业/学业', icon: '事' },
+    { value: 'wealth', label: '财富/资产', icon: '财' },
+    { value: 'relationship', label: '感情/婚姻', icon: '情' },
+    { value: 'health', label: '健康/灾厄', icon: '健' },
+    { value: 'family_parent', label: '父母', icon: '亲' },
+    { value: 'family_spouse', label: '配偶', icon: '婚' },
+    { value: 'family_child', label: '子女', icon: '嗣' },
+    { value: 'family_sibling', label: '兄弟姐妹', icon: '弟' },
 ]
 
 const IMPACT_OPTIONS = [
-    { value: 1, label: '🟢 顺遂/提升', cls: 'positive' },
-    { value: 0, label: '🟡 平稳/变动', cls: 'neutral' },
-    { value: -1, label: '🔴 坎坷/挫折', cls: 'negative' },
+    { value: 1, label: '顺遂/提升', cls: 'positive' },
+    { value: 0, label: '平稳/变动', cls: 'neutral' },
+    { value: -1, label: '坎坷/挫折', cls: 'negative' },
 ]
 
 const PROFILE_CONTEXT_SECTIONS = [
@@ -3399,43 +3399,43 @@ const getShenColor = (shen) => {
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
 .bazi-view { width: 100%; min-height: 100vh; position: relative;}
 
-#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
-.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
+#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: rgba(247,244,238,0.96); border-bottom: 1px solid var(--line); }
+.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
 .header-actions { position: absolute; right: 20px; top: 50%; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
 
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
 .container { width: 100%; max-width: 520px; }
 
-.glass-card { background: rgba(14,14,24,0.72); border: 1px solid rgba(232,204,128,0.12); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 4px 32px rgba(0,0,0,0.35); animation: riseIn 0.5s ease both; }
+.glass-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 
 .profile-card { position: relative; z-index: 40; padding: 16px; overflow: visible; }
 .profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.section-kicker { color: rgba(232,204,128,0.72); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
+.section-kicker { color: var(--gold); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
 .section-title { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .default-chip { color: #101018; background: linear-gradient(135deg, var(--gold-light), var(--gold)); border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
 
 .profile-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: stretch; margin-bottom: 10px; }
 .profile-switcher { position: relative; z-index: 60; min-width: 0; }
-.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color: var(--gold-light); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(212,175,55,0.14); padding: 8px 12px; }
+.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: var(--paper-soft); color: var(--ink); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); padding: 8px 12px; }
 .profile-switch-trigger:disabled { opacity: .68; cursor: default; }
 .profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
-.profile-switch-symbol { color: var(--gold-light); font-size: 21px; line-height: 1; opacity: .92; }
-.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
+.profile-switch-symbol { color: var(--gold); font-size: 21px; line-height: 1; opacity: .92; }
+.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px var(--gold-border); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: white; border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
 .profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
-.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
+.profile-flyout-item.active { background: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-border); }
 .profile-item-main { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
 .profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
-.guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
+.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); color: var(--gold); font-size: 22px; line-height: 1; cursor: pointer; }
+.guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper-soft); }
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.mini-action:disabled { cursor: default; color: var(--gold-light); border-color: rgba(232,204,128,0.25); background: rgba(232,204,128,0.08); }
-.mini-action.danger { color: #FF8F88; }
-.mini-action--subtle { color: rgba(216,210,191,0.88); border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
+.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--ink-muted); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.mini-action:disabled { cursor: default; color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); }
+.mini-action.danger { color: var(--crimson); }
+.mini-action--subtle { color: var(--ink-dim); border-color: var(--line); background: var(--paper-soft); }
 .btn-ghost { min-height: 36px; background: rgba(212,175,55,0.12); color: var(--gold-light); border: 1px solid rgba(232,204,128,0.35); padding: 0 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; white-space: nowrap; }
 .btn-ghost:hover { background: var(--gold); color: #000; }
 .btn-ghost:disabled { opacity: .7; cursor: default; }
@@ -3445,10 +3445,10 @@ const getShenColor = (shen) => {
 .btn-primary:active { transform: scale(0.95); }
 .btn-primary:disabled { opacity: .7; cursor: wait; }
 
-.profile-form { background: rgba(255,255,255,0.025); padding: 14px; border-radius: 12px; border: 1px dashed rgba(232,204,128,0.16); margin-top: 10px; }
+.profile-form { background: var(--paper-soft); padding: 14px; border-radius: 12px; border: 1px dashed var(--gold-border); margin-top: 10px; }
 .rename-form { margin-bottom: 2px; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
-.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; outline: none; font-family: var(--font-body); }
+.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: white; border: 1px solid var(--line); color: var(--ink); outline: none; font-family: var(--font-body); }
 .form-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 .picker-overlay {
@@ -3465,11 +3465,9 @@ const getShenColor = (shen) => {
     overflow: auto;
     overscroll-behavior: contain;
     border-radius: 24px;
-    border: 1px solid rgba(232,204,128,0.16);
-    background:
-        radial-gradient(circle at top left, rgba(232,204,128,0.06), transparent 28%),
-        linear-gradient(180deg, rgba(18,18,30,0.98), rgba(10,10,18,0.98));
-    box-shadow: 0 24px 72px rgba(0,0,0,0.45);
+    border: 1px solid var(--line);
+    background: white;
+    box-shadow: 0 24px 72px rgba(0,0,0,0.15);
     padding: 18px;
     color: var(--text-primary);
     animation: pickerSheetIn .24s ease both;
@@ -3478,7 +3476,7 @@ const getShenColor = (shen) => {
     width: 42px;
     height: 4px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.2);
+    background: var(--line);
     margin: 0 auto 14px;
 }
 .picker-topbar {
@@ -3489,22 +3487,22 @@ const getShenColor = (shen) => {
     margin-bottom: 16px;
 }
 .picker-topcopy { min-width: 0; }
-.picker-heading { color: #F4EBDD; font-size: 16px; font-weight: 700; }
+.picker-heading { color: var(--ink); font-size: 16px; font-weight: 700; }
 .picker-mode-tabs {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 4px;
     padding: 4px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(232,204,128,0.16);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .picker-mode-tab {
     min-height: 40px;
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -3512,15 +3510,15 @@ const getShenColor = (shen) => {
 .picker-mode-tab.active {
     background: linear-gradient(135deg, rgba(232,204,128,0.94), rgba(212,175,55,0.94));
     color: #111114;
-    box-shadow: 0 6px 18px rgba(212,175,55,0.18);
+    box-shadow: 0 4px 12px rgba(212,175,55,0.18);
 }
 .picker-close.dark {
     position: relative;
     z-index: 2;
     justify-self: end;
-    background: rgba(255,255,255,0.04);
-    color: #B8AF9B;
-    border-color: rgba(232,204,128,0.16);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
+    border-color: var(--line);
 }
 .picker-form-row {
     display: grid;
@@ -3536,7 +3534,7 @@ const getShenColor = (shen) => {
 .picker-gender-field > span {
     display: block;
     margin-bottom: 8px;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 12px;
     font-weight: 700;
 }
@@ -3544,56 +3542,56 @@ const getShenColor = (shen) => {
     width: 100%;
     min-height: 44px;
     border: none;
-    border-bottom: 1px solid rgba(232,204,128,0.18);
+    border-bottom: 1px solid var(--line);
     border-radius: 0;
     background: transparent;
-    color: #F4EBDD;
+    color: var(--ink);
     padding: 0 2px;
     font-size: 14px;
     outline: none;
 }
 .picker-text-field input:focus {
-    border-color: rgba(232,204,128,0.5);
+    border-color: var(--gold);
 }
 .gender-segment {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     min-height: 44px;
-    border-bottom: 1px solid rgba(232,204,128,0.18);
+    border-bottom: 1px solid var(--line);
 }
 .gender-segment button {
     border: none;
     background: transparent;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
 }
 .gender-segment button.active {
-    color: #F4EBDD;
-    box-shadow: inset 0 -2px 0 var(--gold-light);
+    color: var(--ink);
+    box-shadow: inset 0 -2px 0 var(--gold);
 }
 .picker-panel {
-    border-top: 1px solid rgba(232,204,128,0.1);
+    border-top: 1px solid var(--line);
     padding-top: 14px;
 }
 .picker-column { display: flex; flex-direction: column; gap: 8px; }
 .picker-column-label {
     text-align: left;
-    color: #E5D5AF;
+    color: var(--ink-muted);
     font-size: 14px;
     font-weight: 700;
 }
 .picker-preview-card {
     border-radius: 16px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
     padding: 12px 14px;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     line-height: 1.7;
     font-size: 13px;
 }
-.picker-preview-card.muted { color: #8D9098; }
+.picker-preview-card.muted { color: var(--ink-dim); }
 .date-input-panel {
     display: flex;
     flex-direction: column;
@@ -3602,24 +3600,21 @@ const getShenColor = (shen) => {
 }
 .date-input-card {
     border-radius: 18px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
-        rgba(0,0,0,0.16);
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
     padding: 14px;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 .location-search-card {
     min-width: 0;
     position: relative;
-    border-top: 1px solid rgba(232,204,128,0.1);
-    border-bottom: 1px solid rgba(232,204,128,0.1);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
     padding: 13px 0 12px;
 }
 .location-search-field span {
     display: block;
     margin-bottom: 8px;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 12px;
     font-weight: 700;
 }
@@ -3629,16 +3624,16 @@ const getShenColor = (shen) => {
     align-items: center;
     gap: 9px;
     min-height: 48px;
-    border: 1px solid rgba(232,204,128,0.14);
+    border: 1px solid var(--line);
     border-radius: 999px;
-    background: rgba(6,6,14,0.62);
+    background: white;
     padding: 0 12px;
 }
 .location-search-input-wrap svg {
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
-    color: #AFA79A;
+    color: var(--ink-dim);
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -3650,21 +3645,21 @@ const getShenColor = (shen) => {
     min-width: 0;
     border: none;
     background: transparent;
-    color: #F7F0E2;
+    color: var(--ink);
     font-size: 14px;
     outline: none;
 }
 .location-search-input-wrap:focus-within {
-    border-color: rgba(232,204,128,0.34);
-    box-shadow: 0 0 0 1px rgba(232,204,128,0.12);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold-border);
 }
 .location-clear-btn {
     width: 28px;
     height: 28px;
     border: none;
     border-radius: 50%;
-    background: rgba(255,255,255,0.06);
-    color: #D8D2BF;
+    background: var(--line);
+    color: var(--ink-muted);
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
@@ -3673,8 +3668,8 @@ const getShenColor = (shen) => {
     margin-top: 10px;
     max-height: 252px;
     overflow: auto;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 }
 .location-result-item {
     width: 100%;
@@ -3682,9 +3677,9 @@ const getShenColor = (shen) => {
     gap: 3px;
     padding: 13px 2px;
     border: none;
-    border-bottom: 1px solid rgba(255,255,255,0.055);
+    border-bottom: 1px solid var(--line);
     background: transparent;
-    color: #F4EBDD;
+    color: var(--ink);
     text-align: left;
     cursor: pointer;
 }
@@ -3694,15 +3689,15 @@ const getShenColor = (shen) => {
     font-weight: 700;
 }
 .location-result-item small {
-    color: #928A7C;
+    color: var(--ink-dim);
     font-size: 11px;
 }
 .location-result-item:hover {
-    color: var(--gold-light);
+    color: var(--gold);
 }
 .location-empty {
     padding: 16px 2px;
-    color: #8D9098;
+    color: var(--ink-dim);
     font-size: 13px;
 }
 .time-toggle-row {
@@ -3716,7 +3711,7 @@ const getShenColor = (shen) => {
     align-items: center;
     gap: 8px;
     min-height: 30px;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 13px;
     font-weight: 700;
 }
@@ -3726,7 +3721,7 @@ const getShenColor = (shen) => {
     accent-color: var(--gold);
 }
 .time-check.active {
-    color: #F4EBDD;
+    color: var(--ink);
 }
 .time-check.disabled {
     opacity: .62;
@@ -3734,7 +3729,7 @@ const getShenColor = (shen) => {
 .date-input-label {
     display: block;
     margin-bottom: 10px;
-    color: #F4EBDD;
+    color: var(--ink);
     font-size: 15px;
     font-weight: 700;
 }
@@ -3742,27 +3737,26 @@ const getShenColor = (shen) => {
     width: 100%;
     min-height: 54px;
     border-radius: 16px;
-    border: 1px solid rgba(232,204,128,0.18);
-    background: rgba(6,6,14,0.72);
-    color: #F7F0E2;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
     padding: 0 16px;
     font-size: 21px;
     letter-spacing: 0.14em;
     outline: none;
-    box-shadow: inset 0 0 18px rgba(0,0,0,0.24);
 }
 .date-input-card input::placeholder {
-    color: rgba(212,204,190,0.34);
+    color: var(--ink-dim);
     letter-spacing: normal;
     font-size: 15px;
 }
 .date-input-card input:focus {
-    border-color: rgba(232,204,128,0.38);
-    box-shadow: 0 0 0 1px rgba(232,204,128,0.16), inset 0 0 18px rgba(0,0,0,0.24);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold-border);
 }
 .date-input-hint {
     margin-top: 10px;
-    color: #9E988B;
+    color: var(--ink-dim);
     font-size: 12px;
     line-height: 1.6;
 }
@@ -3774,21 +3768,21 @@ const getShenColor = (shen) => {
 .date-segment {
     min-width: 0;
     border-radius: 16px;
-    border: 1px solid rgba(232,204,128,0.1);
-    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
     padding: 12px 6px;
     text-align: center;
 }
 .date-segment span {
     display: block;
     margin-bottom: 6px;
-    color: #928A7C;
+    color: var(--ink-dim);
     font-size: 11px;
     letter-spacing: 1px;
 }
 .date-segment strong {
     display: block;
-    color: #F4EBDD;
+    color: var(--ink);
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -3801,12 +3795,10 @@ const getShenColor = (shen) => {
 }
 .pillar-slot {
     min-height: 104px;
-    border: 1px solid rgba(232,204,128,0.14);
+    border: 1px solid var(--line);
     border-radius: 24px;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01)),
-        rgba(7,7,16,0.72);
-    color: #D8D2BF;
+    background: var(--paper-soft);
+    color: var(--ink-muted);
     padding: 12px 8px;
     display: flex;
     flex-direction: column;
@@ -3814,35 +3806,30 @@ const getShenColor = (shen) => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 .pillar-slot.derived {
-    background: rgba(255,255,255,0.018);
+    background: white;
 }
 .pillar-slot.active {
-    border-color: rgba(232,204,128,0.46);
-    background:
-        linear-gradient(180deg, rgba(232,204,128,0.12), rgba(232,204,128,0.04)),
-        rgba(18,12,6,0.64);
-    box-shadow: inset 0 0 18px rgba(212,175,55,0.08);
+    border-color: var(--gold-border);
+    background: var(--gold-dim);
+    box-shadow: inset 0 0 0 1px var(--gold-border);
 }
 .slot-label {
     font-size: 14px;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-weight: 700;
 }
 .slot-value {
     font-size: 26px;
-    color: #F4EBDD;
+    color: var(--ink);
     font-family: var(--font-ganzhi);
     font-weight: 600;
 }
 .pillar-choice-panel {
     border-radius: 24px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background:
-        radial-gradient(circle at top right, rgba(232,204,128,0.05), transparent 28%),
-        rgba(5,5,14,0.68);
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
     padding: 14px;
     margin-bottom: 14px;
 }
@@ -3861,12 +3848,12 @@ const getShenColor = (shen) => {
 }
 .pillar-rule-tip {
     margin-bottom: 12px;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 12px;
     line-height: 1.6;
 }
 .orb-title {
-    color: #BBAF94;
+    color: var(--ink-muted);
     font-size: 12px;
     letter-spacing: 1px;
     margin-bottom: 10px;
@@ -3880,19 +3867,18 @@ const getShenColor = (shen) => {
 .choice-chip {
     min-height: 58px;
     border-radius: 18px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012)),
-        rgba(10,10,20,0.78);
+    border: 1px solid var(--line);
+    background: white;
     font-size: 24px;
     font-weight: 700;
     font-family: var(--font-ganzhi);
+    color: var(--ink);
     cursor: pointer;
 }
 .choice-chip.active {
-    border-color: rgba(232,204,128,0.46);
-    background: rgba(212,175,55,0.12);
-    box-shadow: inset 0 0 16px rgba(212,175,55,0.08);
+    border-color: var(--gold-border);
+    background: var(--gold-dim);
+    box-shadow: inset 0 0 0 1px var(--gold-border);
 }
 .choice-chip.disabled {
     opacity: .36;
@@ -3943,10 +3929,10 @@ const getShenColor = (shen) => {
     to { transform: translateX(0); opacity: 1; }
 }
 
-.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
+.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
 .bazi-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px; font-weight: bold; }
+.bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold); letter-spacing: 2px; font-weight: bold; }
 .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 2px; }
 
 .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: var(--font-body); letter-spacing: 1px; font-weight: 500; }
@@ -3956,17 +3942,17 @@ const getShenColor = (shen) => {
 .badge-action:hover, .badge-action:focus-visible { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(78,205,196,0.12); outline: none; }
 .pattern-tag { font-size: 10px; color: #E8CC80; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.2); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 4px; margin-top: 4px; }
 
-.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid rgba(232,204,128,0.16); border-radius: 12px; background: rgba(232,204,128,0.055); }
-.analysis-status.done { border-color: rgba(129,199,132,0.22); background: rgba(129,199,132,0.07); }
+.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid var(--gold-border); border-radius: 12px; background: var(--gold-dim); }
+.analysis-status.done { border-color: rgba(13,148,136,0.22); background: rgba(13,148,136,0.07); }
 .loader-orbit { position: relative; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid rgba(232,204,128,0.25); border-radius: 50%; animation: spin 1.6s linear infinite; }
 .loader-orbit span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--gold-light); box-shadow: 0 0 10px rgba(232,204,128,.65); }
 .loader-orbit span:nth-child(1) { top: -3px; left: 12px; }
 .loader-orbit span:nth-child(2) { right: 0; bottom: 4px; opacity: .7; }
 .loader-orbit span:nth-child(3) { left: 1px; bottom: 5px; opacity: .45; }
 .analysis-copy { min-width: 0; flex: 1; }
-.analysis-title { color: #F5E9CE; font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.analysis-title { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .analysis-subtitle { color: var(--text-muted); font-size: 11px; }
-.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.06); }
+.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -4005,58 +3991,58 @@ const getShenColor = (shen) => {
     border-collapse: collapse;
     text-align: center;
 }
-.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; word-wrap: break-word; }
-.bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
+.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid var(--line); vertical-align: middle; word-wrap: break-word; }
+.bazi-table th { color: var(--gold); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
 .bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
 
 .bz-label { color: var(--text-muted); font-weight: 500; font-size: var(--bz-label-size); }
 .bz-star { font-size: var(--bz-meta-size); color: var(--text-primary); }
 .bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
-.bz-sub { font-size: var(--bz-meta-size); color: #aaa; line-height: 1.4; }
-.bz-shensha { font-size: 9px; color: #B39DDB; line-height: 1.4; }
+.bz-sub { font-size: var(--bz-meta-size); color: var(--ink-dim); line-height: 1.4; }
+.bz-shensha { font-size: 9px; color: #7c5cbf; line-height: 1.4; }
 .matrix-fallback-note {
     margin-top: 12px;
     padding: 12px 14px;
     border-radius: 12px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background: rgba(232,204,128,0.05);
-    color: var(--gold-light);
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    color: var(--gold);
     font-size: 12px;
     line-height: 1.7;
 }
 
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
 
-.timeline-section { margin-top: 16px; border-top: 1px dashed var(--glass-border); padding-top: 16px; }
+.timeline-section { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px; }
 .timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 0; font-family: var(--font-serif); text-align: center; font-weight: 500; }
 .timeline-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.16); background: rgba(255,255,255,0.04); color: var(--gold-light); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--gold); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .timeline-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.timeline-icon-btn.accent { background: rgba(212,175,55,0.14); border-color: rgba(232,204,128,0.26); }
+.timeline-icon-btn.accent { background: var(--gold-dim); border-color: var(--gold-border); }
 
-.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
-.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
+.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; overflow: hidden; }
+.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: var(--gold-dim); color: var(--gold); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid var(--line); flex-shrink: 0; line-height: 1.3; }
 .row-content { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 4px; flex: 1; scroll-snap-type: x proximity; }
 .row-content::-webkit-scrollbar { display: none; }
 
 .link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 58px; padding: 6px 4px; border-radius: 8px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: center; }
-.link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
+.link-item.active { background: var(--gold-dim); border-color: var(--gold-border); }
 .lr-item { min-width: 52px; }
 
-.item-header { font-size: 10px; color: #aaa; margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
+.item-header { font-size: 10px; color: var(--ink-dim); margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
 .item-body { display: flex; flex-direction: row; gap: 4px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 22px; }
 .stacked-ganzhi { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
+.xiaoyun-body { font-size: 14px; color: var(--ink-dim); margin-top: 8px; }
 
 .char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; height: 20px; padding-right: 8px; flex: 0 0 auto; }
 .stacked-ganzhi .char-wrap { width: 100%; min-width: 0; height: 19px; padding-right: 10px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
-.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
-.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: linear-gradient(180deg, rgba(8,8,16,0.12), rgba(8,8,16,0.28)); pointer-events: none; }
-.fortune-guide-title { color: var(--gold-light); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-.fortune-guide-copy { color: #D8D2BF; font-size: 12px; line-height: 1.6; }
-.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid rgba(232,204,128,0.3); border-radius: 999px; background: rgba(212,175,55,0.16); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; }
+.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
+.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(247,244,238,0.72); pointer-events: none; }
+.fortune-guide-title { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.fortune-guide-copy { color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--gold-border); border-radius: 999px; background: white; color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .shi-shen { position: absolute; right: -14px; top: -1px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
 .shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
@@ -4082,14 +4068,14 @@ const getShenColor = (shen) => {
     }
 }
 .shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: riseIn 0.3s ease; }
-.shensha-modal h4 { color: var(--gold-light); font-size: 16px; margin: 0; font-family: var(--font-serif); }
-.shensha-modal p { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+.shensha-modal h4 { color: var(--gold); font-size: 16px; margin: 0; font-family: var(--font-serif); }
+.shensha-modal p { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
 .shensha-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 10px; margin-bottom: 10px; }
 .shensha-nature-badge { font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
 .nature-吉 { background: rgba(72,187,120,0.18); color: #68D391; border: 1px solid rgba(72,187,120,0.4); }
 .nature-凶 { background: rgba(245,101,101,0.18); color: #FC8181; border: 1px solid rgba(245,101,101,0.4); }
 .nature-中性 { background: rgba(160,160,180,0.15); color: #CBD5E0; border: 1px solid rgba(160,160,180,0.3); }
-.shensha-summary { font-size: 13px; color: #D0D0D8; line-height: 1.7; margin: 0 0 10px; }
+.shensha-summary { font-size: 13px; color: var(--ink-muted); line-height: 1.7; margin: 0 0 10px; }
 .shensha-section { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.65; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; }
 .shensha-section-label { font-weight: 700; letter-spacing: 1px; flex-shrink: 0; font-size: 11px; padding-top: 1px; }
 .shensha-ji { background: rgba(72,187,120,0.08); color: #9AE6B4; }
@@ -4098,12 +4084,12 @@ const getShenColor = (shen) => {
 .shensha-xiong .shensha-section-label { color: #FC8181; }
 .shensha-note { background: rgba(212,175,55,0.07); color: #C8B87A; }
 .shensha-note .shensha-section-label { color: var(--gold); }
-.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.24); background: linear-gradient(135deg, rgba(18,18,34,0.98), rgba(11,11,24,0.98)); box-shadow: 0 18px 48px rgba(0,0,0,0.58); animation: riseIn 0.3s ease; }
+.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid var(--line); background: white; box-shadow: 0 12px 40px rgba(0,0,0,.15); animation: riseIn 0.3s ease; }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
-.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold-light); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
-.guest-login-modal p { margin: 0; color: rgba(240,237,230,0.84); font-size: 13px; line-height: 1.8; }
-.guest-login-modal a { color: #9DB7FF; text-decoration: none; border-bottom: 1px solid rgba(157,183,255,0.46); }
-.guest-login-modal a:hover { color: #C8D5FF; border-bottom-color: rgba(200,213,255,0.82); }
+.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
+.guest-login-modal p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
+.guest-login-modal a { color: #2563eb; text-decoration: none; border-bottom: 1px solid rgba(37,99,235,0.3); }
+.guest-login-modal a:hover { color: #1d4ed8; border-bottom-color: rgba(29,78,216,0.6); }
 .guest-login-close { position: absolute; right: 12px; top: 12px; }
 
 /* 关系可视化面板已经移除旧版CSS */
@@ -4126,7 +4112,7 @@ const getShenColor = (shen) => {
 .five-shen-cell.is-xi   { background: rgba(129,199,132,0.08); border-color: rgba(129,199,132,0.2); }
 .five-shen-cell.is-ji   { background: rgba(229,115,115,0.08); border-color: rgba(229,115,115,0.25); }
 .five-shen-cell.is-chou { background: rgba(200,70,70,0.07);   border-color: rgba(200,70,70,0.2); }
-.five-shen-cell.is-xian { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); }
+.five-shen-cell.is-xian { background: var(--paper-soft); border-color: var(--line); }
 .five-shen-role { font-size: 9px; color: var(--text-muted); margin-bottom: 3px; }
 .five-shen-name { font-size: 12px; font-weight: 500; }
 .five-shen-cell.is-yong .five-shen-name { color: var(--gold); }
@@ -4136,14 +4122,14 @@ const getShenColor = (shen) => {
 .five-shen-cell.is-xian .five-shen-name { color: var(--text-muted); }
 .five-shen-note { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
 /* ── 锦囊断语块 ─────────────────────────────────── */
-.jinnang-block { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.jinnang-block { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .jinnang-block:last-of-type { border-bottom: none; margin-bottom: 8px; }
 .jinnang-block-warn .jinnang-block-label { color: #E57373; opacity: 0.85; }
 .jinnang-block-label { font-size: 10px; color: var(--gold); opacity: 0.75; margin-bottom: 4px; letter-spacing: 0.5px; }
 .jinnang-block-text { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin: 0; }
 /* ── Scoring modal 决策链 + 新角色标签 ──────────── */
-.decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
-.decision-chain-item { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 2px; }
+.decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: var(--paper-soft); border-radius: 10px; border: 1px solid var(--line); }
+.decision-chain-item { padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
 .decision-chain-item:last-child { border-bottom: none; }
 .decision-layer { font-size: 10px; color: var(--gold); opacity: 0.8; }
 .decision-reason { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
@@ -4156,15 +4142,15 @@ const getShenColor = (shen) => {
 .shen-badge.shen-chou { background: rgba(200,70,70,0.1); color: #ef9a9a; }
 
 .xiji-box { display: flex; gap: 8px; margin-bottom: 14px; }
-.xiji-item { flex: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 10px; padding: 10px; text-align: center; }
+.xiji-item { flex: 1; background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; }
 .xiji-label { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
 .xiji-val { font-weight: 500; font-size: 13px; }
 .xiji-val.favorable { color: #81C784; }
 .xiji-val.unfavorable { color: #E57373; }
 
-.insight-card { background: linear-gradient(180deg, rgba(232,204,128,0.06) 0%, rgba(255,255,255,0.015) 100%); border: 1px solid rgba(232,204,128,0.12); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
-.insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
+.insight-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.insight-card h4 { color: var(--gold); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed var(--gold-border); padding-bottom: 6px; }
+.insight-card p { line-height: 1.65; font-size: 13px; color: var(--ink-muted); }
 .tiaohou-card {
     border-color: rgba(111, 188, 186, 0.22);
     background: linear-gradient(180deg, rgba(111, 188, 186, 0.08) 0%, rgba(232,204,128,0.035) 100%);
@@ -4214,8 +4200,8 @@ const getShenColor = (shen) => {
     min-width: 0;
     padding: 9px 10px;
     border-radius: 10px;
-    background: rgba(0,0,0,0.16);
-    border: 1px solid rgba(255,255,255,0.07);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .tiaohou-god-cell span {
     display: block;
@@ -4225,7 +4211,7 @@ const getShenColor = (shen) => {
 }
 .tiaohou-god-cell strong {
     display: block;
-    color: #eef1df;
+    color: var(--ink);
     font-size: 12px;
     line-height: 1.4;
     overflow-wrap: anywhere;
@@ -4308,21 +4294,19 @@ const getShenColor = (shen) => {
     padding: 2px 10px;
 }
 .tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); min-width: 0; }
-.verdict-line span { display: block; flex: 0 0 auto; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
-.verdict-line p { flex: 1; min-width: 0; color: #F3EBDD; font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--gold-border); min-width: 0; }
+.verdict-line span { display: block; flex: 0 0 auto; color: var(--gold); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
+.verdict-line p { flex: 1; min-width: 0; color: var(--ink); font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .overload-tag { color: #FF8F88; font-size: 12px; animation: pulse 1.5s infinite; }
 
-.legacy-summary { background: rgba(212,175,55,0.05); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
+.legacy-summary { background: var(--gold-dim); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: var(--ink-muted); line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
 
 .classic-verdict-section {
-    border: 1px solid rgba(212,175,55,0.24);
+    border: 1px solid var(--gold-border);
     border-radius: 12px;
     padding: 14px;
-    background:
-        linear-gradient(180deg, rgba(232,204,128,0.08), rgba(0,0,0,0.08)),
-        rgba(255,255,255,0.02);
+    background: var(--gold-dim);
 }
 .classic-header {
     display: flex;
@@ -4331,7 +4315,7 @@ const getShenColor = (shen) => {
     gap: 12px;
     padding-bottom: 10px;
     margin-bottom: 12px;
-    border-bottom: 1px dashed rgba(212,175,55,0.24);
+    border-bottom: 1px dashed var(--gold-border);
 }
 .classic-main-title {
     margin-bottom: 6px;
@@ -4360,7 +4344,7 @@ const getShenColor = (shen) => {
 }
 .classic-body p {
     margin: 0;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.75;
     font-family: var(--font-body);
@@ -4370,7 +4354,7 @@ const getShenColor = (shen) => {
     font-size: 12px;
     font-family: var(--font-body);
     padding-left: 10px;
-    border-left: 2px solid rgba(212,175,55,0.2);
+    border-left: 2px solid var(--gold-border);
 }
 
 /* 命局天机 UI */
@@ -4408,8 +4392,8 @@ const getShenColor = (shen) => {
     height: 28px;
     border-radius: 6px;
     overflow: hidden;
-    background: #2a2a2a;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+    background: var(--paper-soft);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
 }
 .wuxing-bar-segment {
     height: 100%;
@@ -4438,7 +4422,7 @@ const getShenColor = (shen) => {
     gap: 12px;
 }
 .scoring-item {
-    background: rgba(0,0,0,0.2);
+    background: var(--paper-soft);
     border-radius: 8px;
     padding: 12px;
     border-left: 3px solid transparent;
@@ -4454,7 +4438,7 @@ const getShenColor = (shen) => {
     gap: 12px;
     margin-bottom: 8px;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid var(--line);
 }
 .shen-badge {
     padding: 2px 6px;
@@ -4492,11 +4476,11 @@ const getShenColor = (shen) => {
     width: min(92vw, 460px);
     max-height: 78vh;
     overflow-y: auto;
-    background: rgba(13,13,22,0.96);
-    border: 1px solid rgba(232,204,128,0.24);
+    background: white;
+    border: 1px solid var(--line);
     border-radius: 16px;
     padding: 16px;
-    box-shadow: 0 18px 60px rgba(0,0,0,0.58);
+    box-shadow: 0 12px 40px rgba(0,0,0,.14);
     animation: riseIn 0.25s ease;
 }
 .strength-drawer {
@@ -4520,9 +4504,9 @@ const getShenColor = (shen) => {
     min-height: 38px;
     padding: 0 8px;
     border-radius: 999px;
-    border: 1px solid rgba(232,204,128,0.16);
-    background: rgba(255,255,255,0.03);
-    color: #cdbf96;
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -4540,10 +4524,10 @@ const getShenColor = (shen) => {
     gap: 12px;
     padding-bottom: 12px;
     margin-bottom: 12px;
-    border-bottom: 1px dashed rgba(232,204,128,0.18);
+    border-bottom: 1px dashed var(--gold-border);
 }
 .drawer-head h4 {
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 17px;
     font-family: var(--font-serif);
     font-weight: 500;
@@ -4552,8 +4536,8 @@ const getShenColor = (shen) => {
     padding: 14px;
     margin-bottom: 12px;
     border-radius: 8px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(232,204,128,0.12);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .strength-meter-top {
     display: flex;
@@ -4568,7 +4552,7 @@ const getShenColor = (shen) => {
     font-weight: 700;
 }
 .strength-meter-band {
-    color: #BDB39A;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .strength-meter-track {
@@ -4576,14 +4560,13 @@ const getShenColor = (shen) => {
     height: 10px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(91,141,239,0.42), rgba(232,204,128,0.28), rgba(218,87,72,0.44));
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--line);
 }
 .strength-meter-fill {
     height: 100%;
     min-width: 4px;
     border-radius: 999px;
-    background: rgba(232,204,128,0.72);
-    box-shadow: 0 0 14px rgba(232,204,128,0.22);
+    background: var(--gold);
 }
 .strength-meter-thumb {
     position: absolute;
@@ -4591,16 +4574,16 @@ const getShenColor = (shen) => {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #F2D889;
-    border: 2px solid #201A10;
+    background: var(--gold);
+    border: 2px solid white;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 3px rgba(242,216,137,0.18);
+    box-shadow: 0 0 0 3px var(--gold-border);
 }
 .strength-meter-axis {
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-    color: #8F846D;
+    color: var(--ink-dim);
     font-size: 11px;
 }
 .strength-section-list {
@@ -4611,8 +4594,8 @@ const getShenColor = (shen) => {
 .strength-section-card {
     padding: 13px 14px;
     border-radius: 8px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .strength-section-head {
     display: flex;
@@ -4630,14 +4613,14 @@ const getShenColor = (shen) => {
     flex-shrink: 0;
     padding: 2px 8px;
     border-radius: 999px;
-    background: rgba(232,204,128,0.08);
-    border: 1px solid rgba(232,204,128,0.16);
-    color: #EBD08E;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
     font-size: 11px;
     font-weight: 600;
 }
 .strength-section-card p {
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.7;
 }
@@ -4645,21 +4628,21 @@ const getShenColor = (shen) => {
 .explain-section-card {
     padding: 14px;
     border-radius: 12px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .explain-summary-card {
     margin-bottom: 12px;
-    background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.025));
+    background: var(--gold-dim);
 }
 .explain-summary-title {
     margin-bottom: 8px;
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 13px;
     font-weight: 700;
 }
 .explain-summary-card p {
-    color: #f2ead5;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.75;
 }
@@ -4684,9 +4667,9 @@ const getShenColor = (shen) => {
     flex-shrink: 0;
     padding: 3px 8px;
     border-radius: 999px;
-    border: 1px solid rgba(232,204,128,0.16);
-    background: rgba(232,204,128,0.08);
-    color: #e7d5a3;
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    color: var(--gold);
     font-size: 10px;
     letter-spacing: 0.4px;
 }
@@ -4694,9 +4677,9 @@ const getShenColor = (shen) => {
     margin: 0 0 10px;
     padding: 10px 12px;
     border-radius: 10px;
-    border-left: 3px solid rgba(232,204,128,0.44);
-    background: rgba(232,204,128,0.06);
-    color: #f2dfaf;
+    border-left: 3px solid var(--gold);
+    background: var(--gold-dim);
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.7;
 }
@@ -4707,7 +4690,7 @@ const getShenColor = (shen) => {
 }
 .explain-paragraphs p {
     margin: 0;
-    color: #d8d2bf;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.75;
 }
@@ -4722,15 +4705,15 @@ const getShenColor = (shen) => {
     margin-bottom: 10px;
     padding: 9px 10px;
     border-radius: 10px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background: rgba(255,255,255,0.025);
-    color: #cfc6b0;
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.6;
 }
 .geju-summary-line.secondary {
-    background: rgba(255,255,255,0.02);
-    color: #bfb6a2;
+    background: white;
+    color: var(--ink-dim);
 }
 .geju-modal-tags {
     display: flex;
@@ -4741,9 +4724,9 @@ const getShenColor = (shen) => {
 .geju-chip {
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid rgba(232,204,128,0.18);
-    background: rgba(255,255,255,0.03);
-    color: #f1dfae;
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    color: var(--gold);
     font-size: 12px;
     font-weight: 600;
 }
@@ -4780,7 +4763,7 @@ const getShenColor = (shen) => {
 }
 .context-card + .context-card {
     padding-top: 22px;
-    border-top: 1px dashed rgba(232,204,128,0.14);
+    border-top: 1px dashed var(--gold-border);
 }
 .context-card-head {
     display: flex;
@@ -4790,7 +4773,7 @@ const getShenColor = (shen) => {
     margin-bottom: 8px;
 }
 .context-card-title {
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 17px;
     font-family: var(--font-serif);
 }
@@ -4805,9 +4788,9 @@ const getShenColor = (shen) => {
     min-height: 34px;
     padding: 0 12px;
     border-radius: 10px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background: rgba(14,14,24,0.86);
-    color: #F4E6C0;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
 }
 .context-card-desc {
     margin: 0 0 16px;
@@ -4826,7 +4809,7 @@ const getShenColor = (shen) => {
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px solid rgba(232,204,128,0.08);
+    border-bottom: 1px solid var(--line);
 }
 .context-panel:last-child {
     padding-bottom: 0;
@@ -4834,11 +4817,11 @@ const getShenColor = (shen) => {
 }
 .context-panel-title {
     margin-bottom: 10px;
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 14px;
     font-weight: 700;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--line);
 }
 .context-field {
     display: grid;
@@ -4849,7 +4832,7 @@ const getShenColor = (shen) => {
     margin-bottom: 0;
 }
 .context-field label {
-    color: #D9CCA8;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .context-field input,
@@ -4857,9 +4840,9 @@ const getShenColor = (shen) => {
 .context-field textarea {
     width: 100%;
     border-radius: 10px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background: rgba(10,10,18,0.84);
-    color: #F2E8D0;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
     padding: 10px 12px;
     font-size: 13px;
     line-height: 1.5;
@@ -4874,7 +4857,7 @@ const getShenColor = (shen) => {
     gap: 8px;
 }
 .context-recent-title {
-    color: #D9CCA8;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .context-recent-item {
@@ -4885,24 +4868,24 @@ const getShenColor = (shen) => {
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px dashed rgba(232,204,128,0.08);
+    border-bottom: 1px dashed var(--line);
 }
 .context-recent-item:last-child {
     border-bottom: none;
 }
 .context-recent-month {
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 12px;
     font-weight: 700;
 }
 .context-recent-copy {
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.6;
 }
 .context-notes-message {
     margin-top: 12px;
-    color: #d5c495;
+    color: var(--gold);
     font-size: 12px;
 }
 .screen-toast {
@@ -4918,19 +4901,17 @@ const getShenColor = (shen) => {
     max-width: min(78vw, 320px);
     padding: 14px 18px;
     border-radius: 14px;
-    border: 1px solid rgba(232,204,128,0.24);
-    background: rgba(10,10,18,0.9);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.34);
-    color: #f4e6c0;
+    border: 1px solid var(--line);
+    background: rgba(247,244,238,0.96);
+    box-shadow: 0 8px 28px rgba(0,0,0,.14);
+    color: var(--ink);
     font-size: 14px;
     line-height: 1.6;
     text-align: center;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
 }
 .screen-toast-card.is-error {
-    border-color: rgba(255,143,136,0.26);
-    color: #ffd1cc;
+    border-color: rgba(220,38,38,0.28);
+    color: var(--crimson);
 }
 
 @media (max-width: 760px) {
@@ -4980,34 +4961,34 @@ const getShenColor = (shen) => {
 .geju-modal-block {
     padding: 13px 14px;
     border-radius: 12px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
     margin-bottom: 12px;
 }
 .geju-block-title {
     margin-bottom: 8px;
-    color: rgba(232,204,128,0.72);
+    color: var(--gold);
     font-size: 11px;
     letter-spacing: 1px;
 }
 .geju-block-main {
-    color: #f5ebce;
+    color: var(--ink);
     font-size: 15px;
     font-weight: 700;
     margin-bottom: 7px;
 }
 .geju-block-copy {
-    color: #d8d2bf;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.7;
 }
 .geju-verdict-copy {
-    color: #f3ebdd;
+    color: var(--ink);
     font-weight: 600;
 }
 .geju-inline-note {
     margin-top: 9px;
-    color: #9ec7ff;
+    color: #2563eb;
     font-size: 12px;
     line-height: 1.6;
 }
@@ -5018,18 +4999,18 @@ const getShenColor = (shen) => {
 .pattern-step-item {
     padding: 9px 10px;
     border-radius: 8px;
-    background: rgba(0,0,0,0.16);
-    border: 1px solid rgba(255,255,255,0.055);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .pattern-step-item span {
     display: block;
     margin-bottom: 4px;
-    color: #f0d58f;
+    color: var(--gold);
     font-size: 12px;
     font-weight: 700;
 }
 .pattern-step-item p {
-    color: #d8d2bf;
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.6;
 }
@@ -5038,7 +5019,7 @@ const getShenColor = (shen) => {
     flex-wrap: wrap;
     gap: 8px 12px;
     margin-top: 10px;
-    color: #d7c89b;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .geju-inline-pairs-top {
@@ -5046,7 +5027,7 @@ const getShenColor = (shen) => {
 }
 .geju-subcopy {
     margin-top: 10px;
-    color: #cfc6b0;
+    color: var(--ink-dim);
 }
 .geju-bullet-row, .geju-bullet-list {
     display: flex;
@@ -5056,15 +5037,15 @@ const getShenColor = (shen) => {
 .geju-bullet-chip, .geju-list-chip {
     padding: 6px 10px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.045);
-    border: 1px solid rgba(255,255,255,0.06);
-    color: #e7ddc6;
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .geju-bullet-list.warning .geju-list-chip {
-    color: #ffb3aa;
-    border-color: rgba(255,159,151,0.2);
-    background: rgba(255,159,151,0.08);
+    color: var(--crimson);
+    border-color: rgba(220,38,38,0.2);
+    background: rgba(220,38,38,0.06);
 }
 
 @media (max-width: 420px) {
