@@ -5375,4 +5375,120 @@ const getShenColor = (shen) => {
     .le-form-row { grid-template-columns: 1fr; }
     .le-impacts { grid-template-columns: 1fr; }
 }
+
+/* ══════════════════════════════════════════════════
+   杂志信纸风 — Magazine / Stationery Style Overrides
+   去圆角矩形化 + Editorial Typography
+   ══════════════════════════════════════════════════ */
+
+/* ─── 1. 去圆角：所有容器清零 ─────────────────────────── */
+.glass-card,
+.insight-card, .tiaohou-card, .geju-card,
+.life-events-card, .le-card, .le-form,
+.strength-meter-card, .strength-section-card,
+.explain-summary-card, .explain-section-card,
+.geju-modal-block, .pattern-step-item, .geju-summary-line,
+.detail-drawer, .insight-detail-drawer, .geju-detail-drawer,
+.shensha-modal, .guest-login-modal,
+.le-guide-card, .le-guide-block, .le-guide-example, .le-guide-tip,
+.analysis-status, .matrix-fallback-note,
+.tiaohou-god-cell, .tiaohou-warning, .decision-chain-list, .scoring-item,
+.profile-form, .profile-flyout, .profile-flyout-item,
+.xiji-item, .five-shen-cell, .link-item, .linkage-row,
+.classic-verdict-section, .feedback-correction-block,
+.fortune-guide-card, .screen-toast-card,
+.date-input-card, .date-segment,
+.pillar-slot, .pillar-choice-panel, .choice-chip,
+.picker-preview-card, .picker-mode-tabs,
+.profile-picker-modal { border-radius: 0; }
+
+.context-field input, .context-field select, .context-field textarea,
+.le-field input, .le-field select, .le-field textarea,
+.context-month-select, .form-row input, .form-row select { border-radius: 0; }
+
+.btn-ghost, .btn-primary, .mini-action, .icon-btn,
+.le-toggle-btn, .fortune-guide-btn, .le-impact-btn,
+.picker-mode-tab, .picker-save-btn, .timeline-icon-btn,
+.profile-switch-trigger, .location-search-input-wrap,
+.insight-tab { border-radius: 0; }
+
+/* ─── 2. Glass-card → 纸页横截面（去阴影，仅留上下边线）─── */
+.glass-card {
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+
+/* ─── 3. Modal / Drawer 扁平化 ──────────────────────────── */
+.profile-picker-modal {
+    border-radius: 0;
+    box-shadow: 0 0 0 1px var(--line), 0 20px 60px rgba(0,0,0,0.12);
+}
+.picker-mode-tab.active { border-radius: 0; }
+
+.detail-drawer, .insight-detail-drawer, .geju-detail-drawer {
+    border-radius: 0;
+    box-shadow: 0 0 0 1px var(--line);
+}
+.shensha-modal {
+    border-radius: 0;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+    border: 1px solid var(--gold-border);
+}
+.guest-login-modal {
+    border-radius: 0;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    border: 1px solid var(--line);
+}
+.screen-toast-card {
+    border-radius: 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+.le-guide-card {
+    border-radius: 0;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+}
+
+/* ─── 4. 段落标题编辑风 Section headers ──────────────────── */
+.section-kicker {
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 9px;
+    font-family: var(--font-body);
+}
+
+/* ai-header 加横线分割 */
+.ai-header-row {
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+}
+.ai-header-title { font-size: 14px; letter-spacing: 1px; }
+.ai-header-title::before { display: none; }
+
+/* ─── 5. 旁注左竖线 Left-rule callout accents ─────────────── */
+.insight-card         { border-left: 2px solid var(--gold-border); }
+.tiaohou-card         { border-left: 2px solid rgba(111,188,186,0.35); }
+.analysis-status      { border-left: 2px solid var(--gold-border); }
+.analysis-status.done { border-left: 2px solid rgba(13,148,136,0.4); border-left-width: 2px; }
+.matrix-fallback-note { border-left: 2px solid var(--gold-border); }
+.life-events-card     { border-left: 2px solid var(--line); }
+.insight-tab.active   { box-shadow: none; }
+
+/* ─── 6. 响应式清零遗留圆角 ─────────────────────────────── */
+@media (min-width: 780px) {
+    .profile-picker-modal { border-radius: 0; }
+}
+@media (max-width: 420px) {
+    .profile-picker-modal, .pillar-slot, .choice-chip,
+    .date-segment, .pillar-choice-panel,
+    .le-guide-card, .picker-close.dark { border-radius: 0; }
+    .geju-detail-drawer {
+        border-radius: 0;
+        border-bottom: 1px solid var(--line);
+    }
+}
 </style>
