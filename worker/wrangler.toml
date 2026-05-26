@@ -39,3 +39,9 @@ workers_dev = true
 FRONTEND_URL = "https://qimen-1ff.pages.dev"
 SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
 WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com"
+
+[env.preview.secrets]
+required = [
+  "GEMINI_API_KEY",
+  "SUPABASE_SERVICE_KEY"
+]
