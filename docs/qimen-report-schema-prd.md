@@ -238,7 +238,7 @@ LLM 必填顶层字段收敛为：
 | `environment_state` | 值使门/值符 + LLM解释 | 固定分析流程管道与外部条件。只输出 `symbol/palace/tone/reading`。 |
 | `support_factors` | 后端有利证据 + LLM提炼 | 只输出 `tone/summary/items[]`，items 每项 `name/impact`。 |
 | `constraint_factors` | 后端调整项 + LLM解释 | 只输出 `tone/summary/items[]`，只保留 1-3 个关键因素，不堆术语。 |
-| `interaction_decision` | 后端 `backend_score_audit.relations[]` + LLM解释 | 输出 `subject_symbol/target_symbol/tone/decision/reason`，承接生克关系与现实含义。 |
+| `interaction_decision` | 后端 `backend_score_audit.relations[]` + LLM解释 | 输出 `subject_symbol/target_symbol/tone/reading`，承接生克关系与现实含义；不再要求短 `decision`。 |
 
 #### `constraint_factors` 额外字段
 
@@ -701,12 +701,12 @@ score、verdict_label、chart_summary、palaces、formation_tags、interaction_d
 3. **environment_state**：再看值使门和值符，说明流程管道与外部条件。
 4. **support_factors**：提炼有利因素，用 `summary + items[]`，不要再输出 `verdict/evidence`。
 5. **constraint_factors**：提炼不利因素，用 `summary + items[]`，只选 1-3 个关键因素，不堆术语。
-6. **interaction_decision**：最后用日干宫与目标宫/时干宫的生克关系做最终互动判断，用 `decision + reason`。
+6. **interaction_decision**：最后用日干宫与目标宫/时干宫的生克关系做最终互动判断，用 `reading` 融合结论和依据。
 
 约束：
 
-- M3 不要求 LLM 输出 `label`、`key_components`、`user_implication`、`verdict`、`evidence`。
-- `interaction_decision.reason` 必须承接 `backend_score_audit.relations[0].reason` 的现实含义。
+- M3 不要求 LLM 输出 `label`、`key_components`、`user_implication`、`verdict`、`evidence`、`reason`、`decision`。
+- `interaction_decision.reading` 必须承接 `backend_score_audit.relations[0].reason` 的现实含义。
 - 若后端没有明确关系，写 `relation unknown` 对应的现实解释，不得自行发明宫位关系。
 - `support_factors.items[]` 和 `constraint_factors.items[]` 每项只保留 `name`、`impact`。
 - `constraint_factors` 必须包含至少一个具体风险，不允许只写“谨慎”。

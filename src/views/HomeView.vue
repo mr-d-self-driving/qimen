@@ -1850,7 +1850,7 @@ const deriveScoreBasisFromM3 = (m3, formations) => {
   const subjectReading = textOf(subject?.reading, subject?.summary, subject?.verdict)
   const supportSummary = textOf(support?.summary, support?.primary_support, support?.verdict)
   const constraintSummary = textOf(constraint?.summary, constraint?.primary_risk, constraint?.verdict)
-  const interactionDecision = textOf(interaction?.decision, interaction?.verdict)
+  const interactionDecision = textOf(interaction?.reading, interaction?.decision, interaction?.verdict)
   const interactionReason = textOf(interaction?.reason, interaction?.evidence)
 
   if (supportSummary) pos.push(supportSummary)
@@ -2095,18 +2095,15 @@ const buildCardHTML = (data) => {
 
   // 环境制约：翻译层第三段，fallback 来自 macro 层和值使门
   const envTone = normalizeTone(environmentState?.tone || 'warning')
-  const envVerdict = toStr(environmentState?.verdict, '')
+  const envVerdict = toStr(environmentState?.reading, '')
+    || toStr(environmentState?.verdict, '')
     || macroReason
     || displayBlocks?.situation
     || '值使门与值符状态决定当前流程管道是否通畅。'
-  const envEvidence = toStr(environmentState?.evidence, '')
-    || domainView?.process?.evidence
-    || '需结合值使门、值符宫位与宏观层综合判断外部环境。'
   const environmentCardHTML = `<article class="inference-card tone-${envTone}">
     <div class="inference-body">
       <div class="inference-head"><span>环境制约</span><strong>${toStr(environmentState?.symbol, '值使门')}</strong></div>
       <h4>${envVerdict}</h4>
-      <p>${envEvidence}</p>
     </div>
   </article>`
 
@@ -2119,10 +2116,6 @@ const buildCardHTML = (data) => {
     || toStr(displayBlocks?.support, '')
     || (scoreBasis?.positive_signals?.[0] || '')
     || '局面存在一定正向支撑，需结合用神旺相与格局综合判断。'
-  const supportEvidence = toStr(supportState?.reason, '')
-    || toStr(supportState?.evidence, '')
-    || (scoreBasis?.positive_signals?.slice(0, 2).filter(Boolean).join('；') || '')
-    || '正向信号来自用神旺相、吉格或主客关系。'
   const supportItems = getFactorItems(supportState)
   const supportFactorsHTML = renderFactorList(supportItems, 'positive')
   const rawSupportFactors = supportItems.length
@@ -2136,7 +2129,6 @@ const buildCardHTML = (data) => {
       <div class="inference-head"><span>有利因素</span></div>
       <h4>${supportPrimary}</h4>
       ${supportFactorsHTML || supportTagsHTML}
-      <p>${supportEvidence}</p>
     </div>
   </article>`
 
@@ -2144,7 +2136,6 @@ const buildCardHTML = (data) => {
   const constraintTone = normalizeTone(constraintState?.tone || 'warning')
   const constraintPrimaryRisk = toStr(constraintState?.summary, '') || toStr(constraintState?.primary_risk, '')
   const constraintVerdict = constraintPrimaryRisk || constraintState?.verdict || displayBlocks?.risk || advice.risk || '主要限制来自流程、空亡、凶格或现实条件。'
-  const constraintEvidence = constraintState?.reason || constraintState?.evidence || analysis.pattern || advice.risk || '需结合空亡、凶门、凶星、值使流程和有名格综合判断。'
   const constraintItems = getFactorItems(constraintState)
   const constraintFactorsHTML = renderFactorList(constraintItems, 'warning')
   const rawFactors = constraintItems.length
@@ -2158,7 +2149,6 @@ const buildCardHTML = (data) => {
       <div class="inference-head"><span>不利因素</span></div>
       <h4>${constraintVerdict}</h4>
       ${constraintFactorsHTML || factorsTagsHTML}
-      <p>${constraintEvidence}</p>
     </div>
   </article>`
 
@@ -2167,7 +2157,6 @@ const buildCardHTML = (data) => {
       <div class="inference-body">
         <div class="inference-head"><span>${card.label}</span><strong>${card.symbol || '-'}</strong></div>
         <h4>${card.verdict || '暂无明确断语'}</h4>
-        <p>${card.evidence || '暂无依据说明'}</p>
       </div>
     </article>`).join('')}
     ${environmentCardHTML}
@@ -2177,28 +2166,39 @@ const buildCardHTML = (data) => {
       <div class="inference-body">
         <div class="inference-head"><span>${card.label}</span><strong>${card.symbol || '-'}</strong></div>
         <h4>${card.verdict || '暂无明确断语'}</h4>
-        <p>${card.evidence || '暂无依据说明'}</p>
       </div>
     </article>`).join('')}
   </div>`
 
   const envGuide = reportM4.environment_fengshui || {}
   const timingGuide = reportM4.timing_behavior || {}
+  const envDirection = envGuide.suitable_direction || envGuide.direction || luckyTips.direction || '暂无明确方位'
+  const envDo = envGuide.do || envGuide.environment_advice || '优先选择信息更透明、沟通更顺畅的场景，不在压力和杂讯过重时强推。'
+  const envAvoid = envGuide.avoid || envGuide.avoid_direction || ''
+  const envReason = envGuide.reason || '依据用神宫位、值符值使与风险信号综合给出。'
+  const timingWindow = timingGuide.window || timingGuide.best_window || luckyTips.time || '暂无明确窗口'
+  const timingDo = timingGuide.do || timingGuide.action || luckyTips.action || '先观察再行动'
+  const timingAvoid = timingGuide.avoid || timingGuide.avoid_action || ''
+  const timingReason = timingGuide.reason || displayBlocks?.timing || analysis.dynamic_timing || '应期只代表启动和观察窗口，不代表结果必然落地。'
   const guidanceHTML = `<div class="guidance-grid">
     <article class="guidance-card">
       <div class="guidance-kicker">环境风水</div>
-      <h4>${envGuide.direction || luckyTips.direction || '暂无明确方位'}</h4>
-      ${envGuide.avoid_direction ? `<div class="guidance-avoid">避：${envGuide.avoid_direction}</div>` : ''}
-      <p>${envGuide.environment_advice || advice.risk || '优先选择信息更透明、沟通更顺畅的场景，不在压力和杂讯过重时强推。'}</p>
-      <small>${envGuide.reason || '依据用神宫位、值符值使与风险信号综合给出。'}</small>
+      <h4>${envDirection}</h4>
+      <div class="guidance-rows">
+        <div class="guidance-row"><span>宜</span><p>${envDo}</p></div>
+        ${envAvoid ? `<div class="guidance-row warning"><span>避</span><p>${envAvoid}</p></div>` : ''}
+        <div class="guidance-row muted"><span>据</span><p>${envReason}</p></div>
+      </div>
     </article>
     <article class="guidance-card">
       <div class="guidance-kicker">时空行为</div>
-      <h4>${timingGuide.best_window || luckyTips.time || '暂无明确窗口'}</h4>
-      ${timingGuide.wait_until ? `<div class="guidance-avoid">等：${timingGuide.wait_until}</div>` : ''}
-      <p>${timingGuide.action || luckyTips.action || '先观察再行动'}</p>
-      ${timingGuide.avoid_action ? `<p class="guidance-warning">避：${timingGuide.avoid_action}</p>` : ''}
-      <small>${timingGuide.reason || displayBlocks?.timing || analysis.dynamic_timing || '应期只代表启动和观察窗口，不代表结果必然落地。'}</small>
+      <h4>${timingWindow}</h4>
+      <div class="guidance-rows">
+        ${timingGuide.wait_until ? `<div class="guidance-row"><span>等</span><p>${timingGuide.wait_until}</p></div>` : ''}
+        <div class="guidance-row"><span>行</span><p>${timingDo}</p></div>
+        ${timingAvoid ? `<div class="guidance-row warning"><span>避</span><p>${timingAvoid}</p></div>` : ''}
+        <div class="guidance-row muted"><span>据</span><p>${timingReason}</p></div>
+      </div>
     </article>
   </div>`
 
@@ -3347,7 +3347,7 @@ input::placeholder { color: var(--text-muted); }
 
 :deep(.mag-hero) {
   position: relative;
-  min-height: min(52vh, 500px);
+  min-height: min(44svh, 430px);
   display: flex;
   align-items: flex-end;
   overflow: visible;
@@ -3377,7 +3377,7 @@ input::placeholder { color: var(--text-muted); }
   justify-content: flex-end;
   width: 100%;
   min-width: 0;
-  padding: clamp(42px, 8vw, 78px) clamp(22px, 6vw, 54px) clamp(28px, 6vw, 56px);
+  padding: clamp(34px, 6vw, 60px) clamp(22px, 6vw, 54px) clamp(24px, 5vw, 44px);
 }
 :deep(.mag-hero-tags) {
   display: flex;
@@ -3410,20 +3410,20 @@ input::placeholder { color: var(--text-muted); }
 :deep(.mag-hero-panel h1) {
   margin: 0;
   max-width: 12em;
-  font-family: Georgia, "Times New Roman", "Songti SC", serif;
-  font-size: clamp(34px, 6.2vw, 72px);
+  font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-size: clamp(30px, 5.5vw, 60px);
   line-height: 1.08;
-  font-weight: 900;
+  font-weight: 850;
   letter-spacing: 0;
   color: var(--ink);
   overflow-wrap: anywhere;
 }
 :deep(.mag-hero-panel p) {
   max-width: 36em;
-  margin: 18px 0 0;
+  margin: 14px 0 0;
   color: var(--ink-muted);
-  font-size: clamp(15px, 2vw, 18px);
-  line-height: 1.75;
+  font-size: clamp(14px, 1.8vw, 17px);
+  line-height: 1.68;
   overflow-wrap: anywhere;
 }
 :deep(.mag-score-inline) {
@@ -3439,7 +3439,7 @@ input::placeholder { color: var(--text-muted); }
 }
 :deep(.mag-score-inline strong) {
   font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(42px, 8vw, 78px);
+  font-size: clamp(36px, 7vw, 64px);
   line-height: 0.9;
   font-weight: 900;
 }
@@ -3826,16 +3826,36 @@ input::placeholder { color: var(--text-muted); }
   font-size: 12px;
   font-weight: 900;
 }
-:deep(.guidance-avoid),
-:deep(.guidance-warning) {
-  margin: 0 0 10px;
-  color: #b91c1c;
-  font-size: 13px;
-  font-weight: 700;
+:deep(.guidance-rows) {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
 }
-:deep(.guidance-card small) {
-  display: block;
-  margin-top: 12px;
+:deep(.guidance-row) {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+:deep(.guidance-row span) {
+  color: var(--theme-color);
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 850;
+  line-height: 1.7;
+}
+:deep(.guidance-row p) {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.72;
+}
+:deep(.guidance-row.warning span),
+:deep(.guidance-row.warning p) {
+  color: #b91c1c;
+}
+:deep(.guidance-row.muted span),
+:deep(.guidance-row.muted p) {
   color: var(--ink-dim);
 }
 
@@ -3844,11 +3864,19 @@ input::placeholder { color: var(--text-muted); }
     max-width: 100%;
   }
   :deep(.mag-hero) {
-    min-height: 52vh;
+    min-height: 40svh;
     align-items: flex-end;
   }
   :deep(.mag-hero-panel) {
-    padding: 84px 24px 28px;
+    padding: 52px 24px 24px;
+  }
+  :deep(.mag-hero-panel h1) {
+    font-size: clamp(30px, 8vw, 40px);
+    line-height: 1.12;
+  }
+  :deep(.mag-score-inline) {
+    top: 22px;
+    right: 24px;
   }
   :deep(.mag-action-list),
   :deep(.chart-meta-grid),

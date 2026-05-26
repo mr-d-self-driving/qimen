@@ -111,7 +111,7 @@ function deriveScoreBasisFromM3(m3Inference, formationAdjustments, finalScore) {
   const subjectReading = textOf(subject?.reading, subject?.summary, subject?.verdict);
   const supportSummary = textOf(support?.summary, support?.primary_support, support?.verdict);
   const constraintSummary = textOf(constraint?.summary, constraint?.primary_risk, constraint?.verdict);
-  const interactionDecision = textOf(interaction?.decision, interaction?.verdict);
+  const interactionDecision = textOf(interaction?.reading, interaction?.decision, interaction?.verdict);
   const interactionReason = textOf(interaction?.reason, interaction?.evidence);
 
   if (supportSummary) positive.push(supportSummary);
