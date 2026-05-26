@@ -994,12 +994,13 @@ const showGeModal = (tag, reasons) => {
   if (!geModalEl) {
     geModalEl = document.createElement('div')
     geModalEl.className = 'ge-modal'
-    geModalEl.innerHTML = `<button class="ge-modal-close">✕</button><div class="ge-pop-name"></div><div class="ge-pop-divider"></div><div class="ge-pop-text"></div>`
+    geModalEl.innerHTML = `<button class="ge-modal-close">✕</button><div class="ge-pop-kicker">格局说明</div><div class="ge-pop-name"></div><div class="ge-pop-divider"></div><div class="ge-pop-text"></div>`
     geModalEl.querySelector('.ge-modal-close').addEventListener('click', hideGeModal)
     document.body.appendChild(geModalEl)
   }
   geModalEl.querySelector('.ge-pop-name').textContent = entry.name
   geModalEl.querySelector('.ge-pop-name').className = `ge-pop-name ${entry.type}`
+  geModalEl.querySelector('.ge-pop-kicker').textContent = entry.type === 'ji' ? '吉格提示' : '凶格提示'
   geModalEl.querySelector('.ge-pop-text').textContent = entry.text
   geOverlayEl.classList.add('visible')
   geModalEl.classList.add('visible')
@@ -1008,7 +1009,7 @@ const showGeModal = (tag, reasons) => {
 const handleGeTagClick = (e) => {
   const tag = e.target.closest('.ge-tag')
   if (!tag) return
-  const row = tag.closest('.ge-tags-row')
+  const row = tag.closest('.formation-tag-row, .ge-tags-row')
   if (!row) return
   try {
     const reasons = JSON.parse(row.dataset.geReasons || '[]')
@@ -1817,14 +1818,63 @@ const buildBaziQuestionCardHTML = (data) => {
   </div>`
 }
 
+const deriveScoreBasisFromM3 = (m3, formations) => {
+  const pos = []
+  const neg = []
+  const textOf = (...values) => values.find(v => typeof v === 'string' && v.trim()) || ''
+  const itemText = item => textOf(
+    item?.impact && item?.name ? `${item.name}：${item.impact}` : '',
+    item?.impact,
+    item?.name,
+    item?.text
+  )
+  const itemsOf = state => (Array.isArray(state?.items) && state.items.length)
+    ? state.items
+    : (Array.isArray(state?.factors) ? state.factors : [])
+  const target = m3?.target_state || m3?.target_yongshen_state
+  const subject = m3?.subject_state || m3?.subject_day_stem_state || m3?.self_state
+  const support = m3?.support_factors || m3?.favorable_factors
+  const constraint = m3?.constraint_factors || m3?.constraints
+  const interaction = m3?.interaction_decision || m3?.interaction_verdict
+  const targetReading = textOf(target?.reading, target?.summary, target?.verdict)
+  const subjectReading = textOf(subject?.reading, subject?.summary, subject?.verdict)
+  const supportSummary = textOf(support?.summary, support?.primary_support, support?.verdict)
+  const constraintSummary = textOf(constraint?.summary, constraint?.primary_risk, constraint?.verdict)
+  const interactionDecision = textOf(interaction?.decision, interaction?.verdict)
+  const interactionReason = textOf(interaction?.reason, interaction?.evidence)
+
+  if (supportSummary) pos.push(supportSummary)
+  itemsOf(support).slice(0, 3).forEach(f => {
+    const text = itemText(f)
+    if (text) pos.push(text)
+  })
+  if (target?.tone === 'positive' && targetReading) pos.push(targetReading)
+  if (interaction?.tone !== 'warning' && interactionDecision) pos.push(interactionDecision)
+  if (interaction?.tone !== 'warning' && interactionReason) pos.push(interactionReason)
+  if (subject?.tone === 'positive' && subjectReading) pos.push(subjectReading)
+
+  if (constraintSummary) neg.unshift(constraintSummary)
+  itemsOf(constraint).slice(0, 3).forEach(f => {
+    const text = itemText(f)
+    if (text) neg.push(text)
+  })
+  if (subject?.tone === 'warning' && subjectReading) neg.push(subjectReading)
+  if (target?.tone === 'warning' && targetReading) neg.push(targetReading)
+  return (pos.length || neg.length) ? {
+    positive_signals: pos.slice(0, 3),
+    negative_signals: neg.slice(0, 3),
+    score_logic: interactionDecision || interactionReason || ''
+  } : null
+}
+
 const buildCardHTML = (data) => {
   if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(data)
 
+  const report = data.qimen_report || {}
   const summary = data.summary || { title: '生成中...', conclusion: '暂无数据', score: 0 }
   const analysis = data.analysis || {}
   const advice = data.advice || { lucky_tips: {} }
   const question = data.question || ''
-  const scoreBasis = data.summary?.score_basis || null
   const displayBlocks = data.display_blocks || null
   const chartData = data.qimen_data || data
   const palaces = chartData.palaces || []
@@ -1835,26 +1885,78 @@ const buildCardHTML = (data) => {
 
   const score = summary.score || 0
   const vd = getVerdictInfo(score)
-  const THEME = score < 55 ? '#FF5E57' : score < 75 ? '#F5C518' : '#00D26A'
-  const THEME_DIM = score < 55 ? 'rgba(255,94,87,0.15)' : score < 75 ? 'rgba(245,197,24,0.15)' : 'rgba(0,210,106,0.15)'
+  const heroTone = score < 55 ? 'caution' : score < 75 ? 'neutral' : 'auspicious'
+  const THEME = score < 55 ? '#C84A45' : score < 75 ? '#B58D3B' : '#0D9488'
+  const THEME_DIM = score < 55 ? 'rgba(200,74,69,0.16)' : score < 75 ? 'rgba(181,141,59,0.17)' : 'rgba(13,148,136,0.15)'
 
-  const strategyItems = advice.strategy || []
+  const reportM1 = report.m1_conclusion || {}
+  const reportM2 = report.m2_basis || {}
+  const reportM3 = report.m3_inference || {}
+  const reportM4 = report.m4_guidance || {}
+  const scoreBasis = data.summary?.score_basis
+    || deriveScoreBasisFromM3(reportM3, data.backend_score_audit?.adjustments)
+    || null
+  const strategyItems = reportM1.actions?.length ? reportM1.actions : (advice.strategy || [])
   const primaryStrategies = strategyItems.slice(0, 3)
   const domainView = data.domain_view
-  const detailInsights = displayBlocks
-    ? [
-        { label: '局势判断', value: displayBlocks.situation, cls: 'accent-indigo' },
-        { label: '有利条件', value: displayBlocks.support, cls: 'accent-gold' },
-        { label: '阻力风险', value: displayBlocks.risk, cls: 'accent-violet' },
-        { label: '时间窗口', value: displayBlocks.timing, cls: 'accent-amber' }
-      ].filter(item => item.value?.trim())
-    : [
-        { label: '时空能量', value: analysis.tensor, cls: 'accent-indigo' },
-        { label: '用神分析', value: analysis.yong_shen, cls: 'accent-gold' },
-        { label: '特殊格局', value: analysis.pattern, cls: 'accent-violet' },
-        { label: '神助指引', value: analysis.god_help, cls: 'accent-teal' },
-        { label: '动态应期', value: analysis.dynamic_timing, cls: 'accent-amber' }
-      ].filter(item => item.value?.trim())
+  const luckyTips = advice.lucky_tips || {}
+  const dayStem = String(pillars.day || '').charAt(0)
+  const hourStem = String(pillars.hour || '').charAt(0)
+  const toneBadge = { positive: '顺', mixed: '参', warning: '慎' }
+  const normalizeTone = (tone) => ['positive', 'mixed', 'warning'].includes(tone) ? tone : 'mixed'
+  const formatSymbol = (label, symbol) => [label, symbol].filter(Boolean).join(' ')
+  const findPalaceForSymbol = (symbol) => {
+    const raw = String(symbol || '').replace(/^(日干|时干)\s*/, '').trim()
+    if (!raw) return ''
+    const hit = palaces.find(p => [p.sky, p.earth, p.door, p.star, p.god].some(v => v && String(v).includes(raw)))
+    return hit?.name || ''
+  }
+  const toStr = (v, fb = '') => {
+    const safe = typeof fb === 'string' ? fb : ''
+    if (!v) return safe
+    if (typeof v === 'string') return v || safe
+    if (Array.isArray(v)) return v.filter(Boolean).join('、') || safe
+    if (typeof v === 'object') return v.text || v.content || v.main || safe
+    return safe
+  }
+  const buildReportCard = (card, fallback = {}) => {
+    const tone = normalizeTone(card?.tone || fallback.tone)
+    const mainText = toStr(card?.reading, '')
+      || toStr(card?.decision, '')
+      || toStr(card?.summary, '')
+      || toStr(card?.verdict, fallback.verdict || '')
+    const reasonText = toStr(card?.reason, '')
+      || toStr(card?.evidence, fallback.evidence || '')
+    return {
+      key: card?.key || fallback.key || 'custom',
+      label: toStr(card?.label, fallback.label || '关键判断'),
+      symbol: toStr(card?.symbol, fallback.symbol || ''),
+      palace: toStr(card?.palace, fallback.palace || findPalaceForSymbol(card?.symbol || fallback.symbol)),
+      tone,
+      badge: card?.badge || toneBadge[tone],
+      verdict: mainText,
+      evidence: reasonText
+    }
+  }
+  const getFactorItems = state => (Array.isArray(state?.items) && state.items.length)
+    ? state.items
+    : (Array.isArray(state?.factors) ? state.factors : [])
+  const renderFactorList = (items, toneClass) => {
+    const normalized = items
+      .map(item => ({
+        name: toStr(item?.name || item?.label, ''),
+        impact: toStr(item?.impact || item?.text || item?.reason, '')
+      }))
+      .filter(item => item.name || item.impact)
+      .slice(0, 3)
+    if (!normalized.length) return ''
+    return `<div class="inference-factor-list ${toneClass}">
+      ${normalized.map(item => `<div class="inference-factor-item">
+        ${item.name ? `<span>${item.name}</span>` : ''}
+        ${item.impact ? `<p>${item.impact}</p>` : ''}
+      </div>`).join('')}
+    </div>`
+  }
 
   // ── 九宫格内部 HTML（无外层卡片盒）
   let panInnerHTML = ''
@@ -1862,121 +1964,284 @@ const buildCardHTML = (data) => {
     const isZhiFu = s => s && ju.zhi_fu && s.includes(ju.zhi_fu)
     const isZhiShi = d => d && ju.zhi_shi && d.includes(ju.zhi_shi)
     const cells = palaces.map(p => {
-      if (p.is_center) return `<div class=”pan-cell”><div class=”pan-center-earth”>${p.earth || ''}</div></div>`
+      if (p.is_center) return `<div class="pan-cell"><div class="pan-center-earth">${p.earth || ''}</div></div>`
       const starCls = isZhiFu(p.star) ? 'highlight-text' : ''
       const doorCls = isZhiShi(p.door) ? 'highlight-text' : ''
       let marks = ''
-      if (p.ma_xing?.has_ma) marks += `<span class=”pan-mark mark-ma”>马</span>`
-      if (p.kong_wang?.is_kong) marks += `<span class=”pan-mark mark-kong”>空</span>`
-      return `<div class=”pan-cell”><div class=”pan-god”>${p.god || ''}</div><div class=”pan-stem stem-sky”>${p.sky || ''}</div>${p.ji_sky ? `<div class=”pan-stem ji-sky”>${p.ji_sky}</div>` : ''}<div class=”pan-star ${starCls}”>${p.star || ''}</div><div class=”pan-door ${doorCls}”>${p.door || ''}</div><div class=”pan-stem stem-earth”>${p.earth || ''}</div>${p.ji_earth ? `<div class=”pan-stem ji-earth”>${p.ji_earth}</div>` : ''}<div class=”pan-marks”>${marks}</div></div>`
+      if (p.ma_xing?.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`
+      if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`
+      return `<div class="pan-cell"><div class="pan-god">${p.god || ''}</div><div class="pan-stem stem-sky">${p.sky || ''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star || ''}</div><div class="pan-door ${doorCls}">${p.door || ''}</div><div class="pan-stem stem-earth">${p.earth || ''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`
     }).join('')
-    panInnerHTML = `<div class=”pan-wrapper”><div class=”pan-header”><div class=”pan-pillars”>${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class=”pan-info”>${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class=”pan-grid”>${cells}</div></div>`
-  }
-
-  // ── 领域判断（杂志文章风格）
-  let domainArticleHTML = ''
-  if (domainView && Array.isArray(domainView.axes) && domainView.axes.length) {
-    const toneLabel = { positive: '顺', mixed: '参', warning: '慎' }
-    const axisHTML = domainView.axes.map(axis => `
-      <div class=”mag-axis-item”>
-        <div class=”mag-axis-head”>
-          <span class=”mag-axis-name”>${axis.label || '-'}</span>
-          <span class=”mag-tone-badge mag-tone-${axis.tone || 'mixed'}”>${toneLabel[axis.tone] || toneLabel.mixed}</span>
-        </div>
-        <div class=”mag-axis-verdict”>${axis.verdict || ''}</div>
-        ${axis.evidence ? `<p class=”mag-axis-evidence”>${axis.evidence}</p>` : ''}
-      </div>`).join('')
-    const processSymbols = Array.isArray(domainView.process?.symbols) ? domainView.process.symbols.join('、') : ''
-    const processHTML = domainView.process ? `<div class=”mag-mini-block”><span class=”mag-mini-label”>${domainView.process.label || '过程'}${processSymbols ? ` · ${processSymbols}` : ''}</span><span class=”mag-mini-body”>${domainView.process.verdict || ''}</span>${domainView.process.evidence ? `<p class=”mag-mini-evidence”>${domainView.process.evidence}</p>` : ''}</div>` : ''
-    const timingHTML = domainView.timing ? `<div class=”mag-mini-block”><span class=”mag-mini-label”>${domainView.timing.label || '应期'}${domainView.timing.trigger ? ` · ${domainView.timing.trigger}` : ''}</span><span class=”mag-mini-body”>${domainView.timing.verdict || ''}</span>${domainView.timing.favorable_window ? `<p class=”mag-mini-evidence”>${domainView.timing.favorable_window}</p>` : ''}</div>` : ''
-    const decisionHTML = domainView.decision ? `<div class=”mag-decision”><div><span class=”mag-decision-label”>宜</span>${domainView.decision.recommended_action || '-'}</div><div><span class=”mag-decision-label”>避</span>${domainView.decision.avoid || '-'}</div></div>` : ''
-    domainArticleHTML = `<div class=”mag-domain-block”><div class=”mag-domain-title”>${domainView.title || '领域判断'}</div><div class=”mag-axis-list”>${axisHTML}</div>${processHTML}${timingHTML}${decisionHTML}</div>`
-  }
-
-  // ── 风险提醒
-  let riskInlineHTML = ''
-  if (advice.risk?.trim()) riskInlineHTML = `<blockquote class=”mag-risk-quote”>${advice.risk}</blockquote>`
-
-  // ── 八字命理
-  let baziInsightHTML = ''
-  if (data.branch !== 'qimen' && analysis.bazi_insight?.trim() && !analysis.bazi_insight.includes('未提供八字信息')) baziInsightHTML = `<div class=”mag-insight-block”><span class=”mag-insight-label”>命理参考</span><p class=”mag-insight-body”>${analysis.bazi_insight}</p></div>`
-
-  // ── 评分依据
-  let scoreBasisInlineHTML = ''
-  if (scoreBasis) {
-    const pos = (scoreBasis.positive_signals || []).length ? `<div class=”sb-row”><div class=”sb-row-title”>有利依据</div><div class=”sb-tags”>${scoreBasis.positive_signals.map(s => `<span class=”sb-tag positive”>${s}</span>`).join('')}</div></div>` : ''
-    const neg = (scoreBasis.negative_signals || []).length ? `<div class=”sb-row”><div class=”sb-row-title”>谨慎因素</div><div class=”sb-tags”>${scoreBasis.negative_signals.map(s => `<span class=”sb-tag negative”>${s}</span>`).join('')}</div></div>` : ''
-    const logic = scoreBasis.score_logic ? `<div class=”sb-logic”>${scoreBasis.score_logic}</div>` : ''
-    if (pos || neg || logic) scoreBasisInlineHTML = `<div class=”mag-insight-block”><span class=”mag-insight-label”>分数依据</span><div class=”score-basis-body”>${pos}${neg}${logic}</div></div>`
+    panInnerHTML = `<div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
   }
 
   // ── 格局吉凶
-  const namedFormationHits = (data.backend_score_audit?.adjustments || []).filter(h => h.layer === 'named_formation')
-  let formationInlineHTML = ''
-  if (namedFormationHits.length) {
-    const tags = namedFormationHits.map(h => {
-      const isJi = String(h.effect).startsWith('+')
-      return `<span class=”ge-tag ${isJi ? 'ji' : 'xiong'}” data-ge-name=”${h.signal}”><span class=”ge-dot”></span>${h.signal}</span>`
-    }).join('')
-    formationInlineHTML = `<div class=”mag-insight-block”><span class=”mag-insight-label”>格局吉凶</span><div class=”ge-tags-row” data-ge-reasons='${JSON.stringify(namedFormationHits.map(h => ({ name: h.signal, type: String(h.effect).startsWith('+') ? 'ji' : 'xiong', text: GE_DESCRIPTIONS[h.signal] || h.reason || '' })))}'>${tags}</div></div>`
-  }
+  const namedFormationHits = reportM2.formation_tags?.length
+    ? reportM2.formation_tags.map(h => ({ signal: h.name, effect: h.effect, reason: h.reason, text: h.text, type: h.type }))
+    : (data.backend_score_audit?.adjustments || []).filter(h => h.layer === 'named_formation')
+  const formationTagsHTML = namedFormationHits.length
+    ? `<div class="formation-tag-row" data-ge-reasons='${JSON.stringify(namedFormationHits.map(h => ({ name: h.signal || h.name, type: h.type || (String(h.effect).startsWith('+') ? 'ji' : 'xiong'), text: h.text || GE_DESCRIPTIONS[h.signal || h.name] || h.reason || '' })))}'>
+        ${namedFormationHits.map(h => {
+          const name = h.signal || h.name
+          const isJi = (h.type || '').includes('ji') || String(h.effect).startsWith('+')
+          return `<span class="ge-tag ${isJi ? 'ji' : 'xiong'}" data-ge-name="${name}"><span class="ge-dot"></span>${name}</span>`
+        }).join('')}
+      </div>`
+    : `<p class="report-muted">未见足以改写主线的有名格。</p>`
 
-  // ── 局势拆解：文章段落风格
-  const analysisArticleHTML = detailInsights.map(item => `<div class=”mag-insight-block reveal”><span class=”mag-insight-label”>${item.label}</span><p class=”mag-insight-body”>${item.value}</p></div>`).join('')
+  const domainCards = Array.isArray(domainView?.axes)
+    ? domainView.axes.map((axis, index) => buildReportCard(axis, {
+        key: index === 0 ? 'target' : index === 1 ? 'environment' : 'custom',
+        label: axis.label,
+        symbol: axis.symbol,
+        tone: axis.tone,
+        verdict: axis.verdict,
+        evidence: axis.evidence
+      }))
+    : []
+  const fallbackYongshenCards = [
+    buildReportCard({}, {
+      key: 'subject',
+      label: '问测人状态',
+      symbol: formatSymbol('日干', dayStem || '-'),
+      tone: 'mixed',
+      verdict: displayBlocks?.situation || analysis.tensor || '以日干落宫观察求测人当前承接力与行动状态。',
+      evidence: analysis.yong_shen || '结合日干落宫的门、星、神、空亡与马星判断自身状态。'
+    }),
+    buildReportCard({}, {
+      key: 'target',
+      label: '目标事态',
+      symbol: formatSymbol('时干', hourStem || '-'),
+      tone: 'mixed',
+      verdict: displayBlocks?.support || analysis.yong_shen || '以时干或领域主用神观察目标事态。',
+      evidence: displayBlocks?.situation || analysis.yong_shen || '结合目标用神落宫与日时互动判断事情能否落地。'
+    }),
+    buildReportCard({}, {
+      key: 'environment',
+      label: '关键环境因素',
+      symbol: ju.zhi_shi ? `值使 ${ju.zhi_shi}` : (ju.zhi_fu ? `值符 ${ju.zhi_fu}` : '值使门'),
+      tone: displayBlocks?.risk ? 'warning' : 'mixed',
+      verdict: displayBlocks?.risk || analysis.god_help || '观察流程、环境和现实阻力。',
+      evidence: advice.risk || analysis.pattern || '结合值符、值使、格局、空亡和风险信号判断外部环境。'
+    })
+  ]
+  const yongshenCards = (Array.isArray(reportM2.yongshen_cards) && reportM2.yongshen_cards.length)
+    ? reportM2.yongshen_cards.map(card => buildReportCard(card))
+    : (domainCards.length ? domainCards : fallbackYongshenCards)
+  const yongshenCardsHTML = `<div class="yongshen-card-grid">
+    ${yongshenCards.map(card => `<article class="yongshen-card tone-${card.tone}">
+      <div class="yongshen-card-head">
+        <span>${card.label}</span>
+        <strong>${card.symbol || '-'}</strong>
+      </div>
+      <h4>${card.verdict || '暂无明确断语'}</h4>
+      <p>${card.evidence || '暂无依据说明'}</p>
+    </article>`).join('')}
+  </div>`
 
-  // ── 行动建议：编号列表
+  const relation = data.backend_score_audit?.relations?.[0]
+  // 翻译层：subject / target / environment（新字段名，保留旧名作 fallback）
+  const subjectState = reportM3.subject_state || reportM3.subject_day_stem_state || reportM3.self_state
+  const targetState = reportM3.target_state || reportM3.target_yongshen_state
+  const environmentState = reportM3.environment_state || null
+  // 提炼层
+  const supportState = reportM3.support_factors || reportM3.favorable_factors || null
+  const constraintState = reportM3.constraint_factors || reportM3.constraints
+  // 拍板层
+  const interactionDecision = reportM3.interaction_decision || reportM3.interaction_verdict
+
+  // macro 层文案用于 environment_state fallback
+  const macroAdjustments = (data.backend_score_audit?.adjustments || []).filter(h => h.layer === 'macro')
+  const macroReason = macroAdjustments.map(h => h.reason).filter(Boolean).join('；')
+
+  const inferenceCards = [
+    buildReportCard(subjectState, {
+      key: 'self',
+      label: '自身状态',
+      symbol: formatSymbol('日干', dayStem || '-'),
+      tone: 'mixed',
+      verdict: displayBlocks?.situation || analysis.tensor || '日干落宫，判断求测人当前承接力与行动状态。',
+      evidence: analysis.yong_shen || '需结合日干落宫的门、星、神、旺衰、空亡与马星综合判断。'
+    }),
+    buildReportCard(targetState, {
+      key: 'target',
+      label: '目标事态',
+      symbol: formatSymbol('时干', hourStem || '-'),
+      tone: 'mixed',
+      verdict: displayBlocks?.support || analysis.yong_shen || '目标用神落宫，判断事情本身能量与实现可能。',
+      evidence: domainView?.process?.evidence || analysis.yong_shen || '以时干或领域主用神观察目标事态的旺衰与空亡。'
+    }),
+    buildReportCard(interactionDecision, {
+      key: 'interaction',
+      label: '生克决断',
+      symbol: interactionDecision?.subject_symbol && interactionDecision?.target_symbol
+        ? `${interactionDecision.subject_symbol} ↔ ${interactionDecision.target_symbol}`
+        : '日干 ↔ 时干',
+      tone: relation?.effect > 0 ? 'positive' : relation?.effect < 0 ? 'warning' : 'mixed',
+      verdict: relation?.reason || displayBlocks?.situation || '综合自身、目标与环境，给出五行生克的方向性结论。',
+      evidence: relation?.reason || '若后端未给出明确生克关系，则以整体局势和用神强弱综合判断。'
+    })
+  ]
+
+  // 环境制约：翻译层第三段，fallback 来自 macro 层和值使门
+  const envTone = normalizeTone(environmentState?.tone || 'warning')
+  const envVerdict = toStr(environmentState?.verdict, '')
+    || macroReason
+    || displayBlocks?.situation
+    || '值使门与值符状态决定当前流程管道是否通畅。'
+  const envEvidence = toStr(environmentState?.evidence, '')
+    || domainView?.process?.evidence
+    || '需结合值使门、值符宫位与宏观层综合判断外部环境。'
+  const environmentCardHTML = `<article class="inference-card tone-${envTone}">
+    <div class="inference-body">
+      <div class="inference-head"><span>环境制约</span><strong>${toStr(environmentState?.symbol, '值使门')}</strong></div>
+      <h4>${envVerdict}</h4>
+      <p>${envEvidence}</p>
+    </div>
+  </article>`
+
+  // 有利因素：正向 fallback 来自正向格局命中或 scoreBasis.positive_signals
+  const positiveFormationHits = namedFormationHits.filter(h => String(h.effect).startsWith('+') || (h.type || '').includes('ji'))
+  const supportTone = normalizeTone(supportState?.tone || 'positive')
+  const supportPrimary = toStr(supportState?.summary, '')
+    || toStr(supportState?.primary_support, '')
+    || toStr(supportState?.verdict, '')
+    || toStr(displayBlocks?.support, '')
+    || (scoreBasis?.positive_signals?.[0] || '')
+    || '局面存在一定正向支撑，需结合用神旺相与格局综合判断。'
+  const supportEvidence = toStr(supportState?.reason, '')
+    || toStr(supportState?.evidence, '')
+    || (scoreBasis?.positive_signals?.slice(0, 2).filter(Boolean).join('；') || '')
+    || '正向信号来自用神旺相、吉格或主客关系。'
+  const supportItems = getFactorItems(supportState)
+  const supportFactorsHTML = renderFactorList(supportItems, 'positive')
+  const rawSupportFactors = supportItems.length
+    ? supportItems.map(f => f.name || f.label || '').filter(Boolean)
+    : positiveFormationHits.map(h => h.signal || h.name).filter(Boolean)
+  const supportTagsHTML = !supportFactorsHTML && rawSupportFactors.length
+    ? `<div class="support-factors">${rawSupportFactors.map(name => `<span class="support-factor-tag">${name}</span>`).join('')}</div>`
+    : ''
+  const supportCardHTML = `<article class="inference-card inference-support tone-${supportTone}">
+    <div class="inference-body">
+      <div class="inference-head"><span>有利因素</span></div>
+      <h4>${supportPrimary}</h4>
+      ${supportFactorsHTML || supportTagsHTML}
+      <p>${supportEvidence}</p>
+    </div>
+  </article>`
+
+  // 不利因素：提炼层，支持 factors[] 多要素列表
+  const constraintTone = normalizeTone(constraintState?.tone || 'warning')
+  const constraintPrimaryRisk = toStr(constraintState?.summary, '') || toStr(constraintState?.primary_risk, '')
+  const constraintVerdict = constraintPrimaryRisk || constraintState?.verdict || displayBlocks?.risk || advice.risk || '主要限制来自流程、空亡、凶格或现实条件。'
+  const constraintEvidence = constraintState?.reason || constraintState?.evidence || analysis.pattern || advice.risk || '需结合空亡、凶门、凶星、值使流程和有名格综合判断。'
+  const constraintItems = getFactorItems(constraintState)
+  const constraintFactorsHTML = renderFactorList(constraintItems, 'warning')
+  const rawFactors = constraintItems.length
+    ? constraintItems.map(f => f.name || f.label || '').filter(Boolean)
+    : namedFormationHits.map(h => h.signal || h.name).filter(Boolean)
+  const factorsTagsHTML = !constraintFactorsHTML && rawFactors.length
+    ? `<div class="constraint-factors">${rawFactors.map(name => `<span class="constraint-factor-tag">${name}</span>`).join('')}</div>`
+    : ''
+  const constraintCardHTML = `<article class="inference-card inference-constraint tone-${constraintTone}">
+    <div class="inference-body">
+      <div class="inference-head"><span>不利因素</span></div>
+      <h4>${constraintVerdict}</h4>
+      ${constraintFactorsHTML || factorsTagsHTML}
+      <p>${constraintEvidence}</p>
+    </div>
+  </article>`
+
+  const inferenceHTML = `<div class="inference-flow">
+    ${inferenceCards.slice(0, 2).map(card => `<article class="inference-card tone-${card.tone}">
+      <div class="inference-body">
+        <div class="inference-head"><span>${card.label}</span><strong>${card.symbol || '-'}</strong></div>
+        <h4>${card.verdict || '暂无明确断语'}</h4>
+        <p>${card.evidence || '暂无依据说明'}</p>
+      </div>
+    </article>`).join('')}
+    ${environmentCardHTML}
+    ${supportCardHTML}
+    ${constraintCardHTML}
+    ${inferenceCards.slice(2).map(card => `<article class="inference-card tone-${card.tone}">
+      <div class="inference-body">
+        <div class="inference-head"><span>${card.label}</span><strong>${card.symbol || '-'}</strong></div>
+        <h4>${card.verdict || '暂无明确断语'}</h4>
+        <p>${card.evidence || '暂无依据说明'}</p>
+      </div>
+    </article>`).join('')}
+  </div>`
+
+  const envGuide = reportM4.environment_fengshui || {}
+  const timingGuide = reportM4.timing_behavior || {}
+  const guidanceHTML = `<div class="guidance-grid">
+    <article class="guidance-card">
+      <div class="guidance-kicker">环境风水</div>
+      <h4>${envGuide.direction || luckyTips.direction || '暂无明确方位'}</h4>
+      ${envGuide.avoid_direction ? `<div class="guidance-avoid">避：${envGuide.avoid_direction}</div>` : ''}
+      <p>${envGuide.environment_advice || advice.risk || '优先选择信息更透明、沟通更顺畅的场景，不在压力和杂讯过重时强推。'}</p>
+      <small>${envGuide.reason || '依据用神宫位、值符值使与风险信号综合给出。'}</small>
+    </article>
+    <article class="guidance-card">
+      <div class="guidance-kicker">时空行为</div>
+      <h4>${timingGuide.best_window || luckyTips.time || '暂无明确窗口'}</h4>
+      ${timingGuide.wait_until ? `<div class="guidance-avoid">等：${timingGuide.wait_until}</div>` : ''}
+      <p>${timingGuide.action || luckyTips.action || '先观察再行动'}</p>
+      ${timingGuide.avoid_action ? `<p class="guidance-warning">避：${timingGuide.avoid_action}</p>` : ''}
+      <small>${timingGuide.reason || displayBlocks?.timing || analysis.dynamic_timing || '应期只代表启动和观察窗口，不代表结果必然落地。'}</small>
+    </article>
+  </div>`
+
   const magActionListHTML = primaryStrategies.length
-    ? primaryStrategies.map((s, i) => `<div class=”mag-action-item reveal” style=”transition-delay:${i * 70}ms”><div class=”mag-action-num”>0${i + 1}</div><div class=”mag-action-body”>${s}</div></div>`).join('')
-    : `<div class=”mag-action-item”><div class=”mag-action-num”>01</div><div class=”mag-action-body”>${summary.conclusion}</div></div>`
+    ? primaryStrategies.map((s, i) => `<div class="mag-action-item reveal" style="transition-delay:${i * 70}ms"><div class="mag-action-num">0${i + 1}</div><div class="mag-action-body">${s}</div></div>`).join('')
+    : `<div class="mag-action-item"><div class="mag-action-num">01</div><div class="mag-action-body">${summary.conclusion}</div></div>`
 
-  const hasAnalysis = domainArticleHTML || analysisArticleHTML || baziInsightHTML || scoreBasisInlineHTML || formationInlineHTML
-  const luckyTips = advice.lucky_tips || {}
-  const hasLuckyTips = luckyTips.direction || luckyTips.time || luckyTips.action
-
-  // ── Tab onclick（切换时激活当前 tab）
   const tabClick = (id) => `var tabs=this.closest('.mag-tabs').querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
-  return `<div class=”mag-result” style=”--theme-color:${THEME};--theme-color-dim:${THEME_DIM};”>
-    <nav class=”mag-tabs”>
-      <button class=”mag-tab mag-tab-active” onclick=”${tabClick('mag-verdict')}”>总判</button>
-      ${hasAnalysis ? `<button class=”mag-tab” onclick=”${tabClick('mag-analysis')}”>局势</button>` : ''}
-      <button class=”mag-tab” onclick=”${tabClick('mag-action')}”>建议</button>
-    </nav>
-
-    <section class=”mag-section” id=”mag-verdict”>
-      <div class=”mag-verdict-hero”>
-        <div class=”mag-verdict-main”>
-          <div class=”mag-kicker”><span class=”mag-verdict-badge mag-verdict-${vd.cls}”>${vd.label}</span>${summary.title || '本局断语'}</div>
-          <p class=”mag-oracle”>${summary.conclusion}</p>
-          ${summary.keyword ? `<div class=”mag-keyword”>${summary.keyword}</div>` : ''}
-          ${question ? `<blockquote class=”mag-question”>”${question}”</blockquote>` : ''}
+  return `<div class="mag-result tone-${heroTone}" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
+    <section class="mag-hero" id="mag-hero">
+      <div class="mag-hero-panel">
+        <div class="mag-score-inline"><strong id="vueScoreValue">${score}</strong><span>分</span></div>
+        <div class="mag-hero-tags">
+          <span class="mag-verdict-badge mag-verdict-${vd.cls}">${vd.label}</span>
+          <span>${reportM1.keyword || summary.keyword || '本局总判'}</span>
         </div>
-        <div class=”mag-score-box”>
-          <strong id=”vueScoreValue”>${score}</strong>
-          <small>分</small>
-        </div>
+        <h1>${reportM1.title || summary.title || '本局断语'}</h1>
+        <p>${reportM1.conclusion || summary.conclusion}</p>
       </div>
-      ${panInnerHTML ? `<div class=”mag-pan-block”>${panInnerHTML}</div>` : ''}
     </section>
 
-    ${hasAnalysis ? `<section class=”mag-section” id=”mag-analysis”>
-      <h2 class=”mag-section-title”>局势拆解</h2>
-      ${domainArticleHTML}
-      ${analysisArticleHTML}
-      ${baziInsightHTML}
-      ${scoreBasisInlineHTML}
-      ${formationInlineHTML}
-    </section>` : ''}
+    <nav class="mag-tabs">
+      <button class="mag-tab mag-tab-active" onclick="${tabClick('mag-m1')}">结论先行</button>
+      <button class="mag-tab" onclick="${tabClick('mag-m2')}">奇门定基</button>
+      <button class="mag-tab" onclick="${tabClick('mag-m3')}">局象推演</button>
+      <button class="mag-tab" onclick="${tabClick('mag-m4')}">开运指南</button>
+    </nav>
 
-    <section class=”mag-section” id=”mag-action”>
-      <h2 class=”mag-section-title”>行动建议</h2>
-      <div class=”mag-action-list”>${magActionListHTML}</div>
-      ${riskInlineHTML}
-      ${hasLuckyTips ? `<div class=”mag-metrics-row”>
-        ${luckyTips.direction ? `<div class=”mag-metric”><small>方位</small><strong>${luckyTips.direction}</strong></div>` : ''}
-        ${luckyTips.time ? `<div class=”mag-metric”><small>时机</small><strong>${luckyTips.time}</strong></div>` : ''}
-        ${luckyTips.action ? `<div class=”mag-metric”><small>动作</small><strong>${luckyTips.action}</strong></div>` : ''}
-      </div>` : ''}
+    <section class="mag-section" id="mag-m1">
+      <div class="module-heading"><h2>结论先行</h2></div>
+      ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
+      <div class="report-subtitle">行动建议</div>
+      <div class="mag-action-list">${magActionListHTML}</div>
+    </section>
+
+    <section class="mag-section" id="mag-m2">
+      <div class="module-heading"><h2>奇门定基</h2></div>
+      ${panInnerHTML ? `<div class="mag-pan-block">${panInnerHTML}</div>` : ''}
+      <div class="report-subtitle">格局吉凶</div>
+      ${formationTagsHTML}
+      <div class="report-subtitle">用神选取</div>
+      ${yongshenCardsHTML}
+    </section>
+
+    <section class="mag-section" id="mag-m3">
+      <div class="module-heading"><h2>局象推演</h2></div>
+      ${inferenceHTML}
+    </section>
+
+    <section class="mag-section" id="mag-m4">
+      <div class="module-heading"><h2>开运指南</h2></div>
+      ${guidanceHTML}
     </section>
   </div>`
 }
@@ -2927,21 +3192,21 @@ input::placeholder { color: var(--text-muted); }
 :deep(.domain-decision div) { display:flex; gap:9px; align-items:flex-start; padding:10px 12px; border-radius:10px; background:var(--paper-soft); color:var(--ink-muted); font-size:13px; line-height:1.65; overflow-wrap:anywhere; }
 :deep(.domain-decision span) { flex:0 0 auto; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:var(--gold-dim); color:var(--gold); font-size:11px; font-weight:700; }
 /* 九宫格 — 浅色古籍风格 */
-:deep(.pan-wrapper) { background:white; border:1px solid var(--line); border-radius:16px; padding:14px; position:relative; overflow:hidden; }
+:deep(.pan-wrapper) { background:transparent; border:0; border-radius:0; padding:0; position:relative; overflow:visible; }
 :deep(.pan-header) { text-align:center; margin-bottom:12px; }
-:deep(.pan-pillars) { font-family:var(--font-serif); font-size:16px; color:var(--ink); letter-spacing:3px; margin-bottom:5px; }
+:deep(.pan-pillars) { font-family:var(--font-body); font-size:14px; font-weight:600; color:var(--ink); letter-spacing:.08em; margin-bottom:5px; }
 :deep(.pan-info) { font-size:11px; color:var(--text-muted); line-height:1.75; }
 :deep(.pan-info b) { color:var(--gold); font-weight:600; }
-:deep(.pan-grid) { display:grid; grid-template-columns:repeat(3,1fr); gap:0; background:var(--line); border-radius:8px; overflow:hidden; border:1px solid var(--line); }
+:deep(.pan-grid) { display:grid; grid-template-columns:repeat(3,1fr); gap:0; background:var(--line); border-radius:0; overflow:hidden; border:1px solid var(--line); }
 :deep(.pan-cell) { background:var(--paper); aspect-ratio:1; position:relative; display:flex; flex-direction:column; align-items:center; justify-content:center; transition:background .2s; border-right:1px solid var(--line); border-bottom:1px solid var(--line); }
 :deep(.pan-cell:nth-child(3n)) { border-right:none; }
 :deep(.pan-cell:nth-child(n+7)) { border-bottom:none; }
 :deep(.pan-cell:hover) { background:var(--paper-soft); }
 :deep(.pan-center-earth) { font-size:30px; font-weight:900; color:rgba(11,11,11,0.1); font-family:'Noto Serif SC',serif; }
-:deep(.pan-god) { position:absolute; top:5px; font-size:8px; color:var(--text-muted); font-family:'Noto Serif SC',serif; }
-:deep(.pan-star) { font-size:11px; color:var(--ink-muted); margin-bottom:1px; z-index:2; font-family:'Noto Serif SC',serif; }
-:deep(.pan-door) { font-size:14px; font-weight:700; color:var(--ink); z-index:2; font-family:'Noto Serif SC',serif; }
-:deep(.pan-stem) { position:absolute; font-size:10px; font-weight:600; font-family:'Noto Serif SC',serif; }
+:deep(.pan-god) { position:absolute; top:5px; font-size:11px; color:var(--text-muted); font-family:'Noto Serif SC',serif; }
+:deep(.pan-star) { font-size:13px; color:var(--ink-muted); margin-bottom:1px; z-index:2; font-family:'Noto Serif SC',serif; }
+:deep(.pan-door) { font-size:16px; font-weight:700; color:var(--ink); z-index:2; font-family:'Noto Serif SC',serif; }
+:deep(.pan-stem) { position:absolute; font-size:12px; font-weight:600; font-family:'Noto Serif SC',serif; }
 :deep(.stem-sky) { top:5px; left:6px; color:var(--ink); }
 :deep(.stem-earth) { bottom:5px; right:6px; color:var(--ink-muted); }
 :deep(.ji-sky) { top:18px; left:6px; font-size:8px; color:var(--text-muted); }
@@ -3002,30 +3267,38 @@ input::placeholder { color: var(--text-muted); }
 :global(.ge-modal) {
   position:fixed; z-index:9999;
   top:50%; left:50%;
-  transform:translate(-50%,-46%) scale(0.94);
-  background:white;
-  border:1px solid var(--line, rgba(11,11,11,.12));
-  border-radius:18px; padding:22px 22px 20px;
-  min-width:260px; max-width:320px;
-  box-shadow:0 12px 40px rgba(0,0,0,.15);
+  transform:translate(-50%,-46%) scale(0.96);
+  background:rgba(247,244,238,0.98);
+  border:1px solid rgba(58,45,28,0.14);
+  border-radius:8px;
+  padding:20px 22px 22px;
+  width:min(340px, calc(100vw - 48px));
+  box-shadow:0 16px 42px rgba(42,31,17,.18);
   opacity:0; pointer-events:none;
   transition:opacity .2s ease, transform .25s cubic-bezier(0.34,1.56,0.64,1);
 }
 :global(.ge-modal.visible) { opacity:1; pointer-events:auto; transform:translate(-50%,-50%) scale(1); }
 :global(.ge-modal-close) {
   position:absolute; top:12px; right:14px;
-  width:24px; height:24px; padding:0;
+  width:26px; height:26px; padding:0;
   background:none; border:none;
-  color:var(--text-muted, #777b80); font-size:14px;
+  color:var(--text-muted, #777b80); font-size:15px;
   cursor:pointer; display:flex; align-items:center; justify-content:center;
   transition:color .15s;
 }
 :global(.ge-modal-close:hover) { color:var(--ink, #0b0b0b); }
-:global(.ge-pop-name) { font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; font-size:16px; letter-spacing:1.5px; margin-bottom:7px; padding-right:20px; }
-:global(.ge-pop-name.ji) { color:var(--gold, #b58d3b); }
+:global(.ge-pop-kicker) {
+  color:var(--text-muted, #777b80);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.12em;
+  margin-bottom:8px;
+}
+:global(.ge-pop-name) { font-family:Georgia, "Times New Roman", "Songti SC", serif; font-size:22px; line-height:1.25; font-weight:850; letter-spacing:0; margin-bottom:9px; padding-right:24px; }
+:global(.ge-pop-name.ji) { color:#0d9488; }
 :global(.ge-pop-name.xiong) { color:#dc2626; }
-:global(.ge-pop-divider) { height:1px; background:var(--line, rgba(11,11,11,.12)); margin:10px 0; }
-:global(.ge-pop-text) { font-size:13px; line-height:1.8; color:var(--ink-muted, #55595d); font-family:'ZCOOL XiaoWei','Noto Serif SC',serif; }
+:global(.ge-pop-divider) { height:1px; background:var(--line, rgba(11,11,11,.12)); margin:12px 0 14px; }
+:global(.ge-pop-text) { font-size:14px; line-height:1.8; color:var(--ink-muted, #55595d); font-family:var(--font-body); }
 /* 策略与风险 */
 :deep(.strategy-list) { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; }
 :deep(.strategy-list li) { position:relative; padding:12px 14px 12px 36px; background:var(--paper-soft); border:1px solid var(--line); border-radius:10px; color:var(--ink-muted); font-size:13px; line-height:1.7; transition:border-color .25s,background .25s; }
@@ -3051,14 +3324,121 @@ input::placeholder { color: var(--text-muted); }
   :deep(.score) { font-size:38px; }
 }
 
-/* ══ 杂志风占卜结果卡 (mag-*) ══ */
+/* ══ 奇门报告：总判 Hero + M1-M4 ══ */
 :deep(.mag-result) {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
   font-family: var(--font-body);
+  color: var(--ink);
 }
 
-/* ── 顶部 Tab 导航 ── */
+:deep(.mag-hero) {
+  position: relative;
+  min-height: min(52vh, 500px);
+  display: flex;
+  align-items: flex-end;
+  overflow: visible;
+  background:
+    radial-gradient(circle at 86% 12%, var(--theme-color-dim), transparent 34%),
+    linear-gradient(180deg, rgba(255,255,255,0.64), rgba(247,244,238,0.98));
+}
+:deep(.tone-auspicious .mag-hero) {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(13,148,136,0.18), transparent 34%),
+    linear-gradient(180deg, rgba(238,250,247,0.68), rgba(247,244,238,0.98));
+}
+:deep(.tone-neutral .mag-hero) {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(181,141,59,0.2), transparent 34%),
+    linear-gradient(180deg, rgba(252,246,231,0.72), rgba(247,244,238,0.98));
+}
+:deep(.tone-caution .mag-hero) {
+  background:
+    radial-gradient(circle at 86% 12%, rgba(200,74,69,0.18), transparent 34%),
+    linear-gradient(180deg, rgba(255,241,238,0.72), rgba(247,244,238,0.98));
+}
+:deep(.mag-hero-panel) {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  width: 100%;
+  min-width: 0;
+  padding: clamp(42px, 8vw, 78px) clamp(22px, 6vw, 54px) clamp(28px, 6vw, 56px);
+}
+:deep(.mag-hero-tags) {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.4;
+}
+:deep(.mag-verdict-badge) {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 13px;
+  border: 1px solid;
+  border-radius: 999px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+:deep(.mag-verdict-ji)    { color: #0d9488; background: rgba(13,148,136,0.08); border-color: rgba(13,148,136,0.25); }
+:deep(.mag-verdict-da-ji) { color: #047857; background: rgba(5,150,105,0.08); border-color: rgba(5,150,105,0.24); }
+:deep(.mag-verdict-ping)  { color: #9a6f1f; background: rgba(181,141,59,0.11); border-color: rgba(181,141,59,0.28); }
+:deep(.mag-verdict-warn)  { color: #b45309; background: rgba(217,119,6,0.08); border-color: rgba(217,119,6,0.22); }
+:deep(.mag-verdict-xiong) { color: #b91c1c; background: rgba(220,38,38,0.07); border-color: rgba(220,38,38,0.22); }
+:deep(.mag-hero-panel h1) {
+  margin: 0;
+  max-width: 12em;
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: clamp(34px, 6.2vw, 72px);
+  line-height: 1.08;
+  font-weight: 900;
+  letter-spacing: 0;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+:deep(.mag-hero-panel p) {
+  max-width: 36em;
+  margin: 18px 0 0;
+  color: var(--ink-muted);
+  font-size: clamp(15px, 2vw, 18px);
+  line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+:deep(.mag-score-inline) {
+  position: absolute;
+  top: clamp(22px, 5vw, 42px);
+  right: clamp(22px, 6vw, 54px);
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  width: fit-content;
+  margin-top: 0;
+  color: var(--theme-color);
+}
+:deep(.mag-score-inline strong) {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(42px, 8vw, 78px);
+  line-height: 0.9;
+  font-weight: 900;
+}
+:deep(.mag-score-inline span) {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink-dim);
+}
+
 :deep(.mag-tabs) {
   position: sticky;
   top: 66px;
@@ -3066,13 +3446,16 @@ input::placeholder { color: var(--text-muted); }
   display: flex;
   align-items: flex-end;
   gap: 20px;
+  overflow-x: auto;
   padding: 14px 0 10px;
   border-bottom: 1px solid var(--line);
   background: rgba(247,244,238,0.96);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   margin-bottom: 4px;
+  scrollbar-width: none;
 }
+:deep(.mag-tabs::-webkit-scrollbar) { display: none; }
 :deep(.mag-tab) {
   border: 0;
   background: transparent;
@@ -3101,248 +3484,39 @@ input::placeholder { color: var(--text-muted); }
   border-radius: 1px;
 }
 
-/* ── 内容 Section ── */
 :deep(.mag-section) {
-  padding-top: 24px;
   scroll-margin-top: 130px;
+  padding-top: 24px;
 }
 :deep(.mag-section + .mag-section) {
   border-top: 1px solid var(--line);
   margin-top: 24px;
   padding-top: 28px;
 }
-:deep(.mag-section-title) {
-  margin: 0 0 20px;
-  font-family: Georgia, "Times New Roman", "Songti SC", serif;
-  font-size: clamp(22px, 6vw, 28px);
-  font-weight: 900;
-  color: var(--ink);
-  letter-spacing: -0.01em;
-}
-
-/* ── 总判英雄区 ── */
-:deep(.mag-verdict-hero) {
-  display: grid;
-  grid-template-columns: minmax(0,1fr) 88px;
-  gap: 14px;
-  align-items: start;
+:deep(.module-heading) {
+  display: flex;
+  align-items: baseline;
   margin-bottom: 20px;
 }
-:deep(.mag-verdict-main) {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  min-width: 0;
-}
-:deep(.mag-kicker) {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-:deep(.mag-verdict-badge) {
-  display: inline-flex;
-  align-items: center;
-  font-family: var(--font-serif);
-  font-size: 13px;
-  font-weight: 600;
-  padding: 3px 12px;
-  border-radius: 999px;
-  border: 1px solid;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-}
-:deep(.mag-verdict-ji)    { color: #0d9488; background: rgba(13,148,136,0.07); border-color: rgba(13,148,136,0.22); }
-:deep(.mag-verdict-da-ji) { color: #059669; background: rgba(5,150,105,0.07); border-color: rgba(5,150,105,0.22); }
-:deep(.mag-verdict-ping)  { color: var(--gold); background: var(--gold-dim); border-color: var(--gold-border); }
-:deep(.mag-verdict-warn)  { color: #d97706; background: rgba(217,119,6,0.07); border-color: rgba(217,119,6,0.22); }
-:deep(.mag-verdict-xiong) { color: var(--crimson); background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.2); }
-:deep(.mag-oracle) {
+:deep(.module-heading h2) {
   margin: 0;
   font-family: Georgia, "Times New Roman", "Songti SC", serif;
-  font-size: 18px;
-  line-height: 1.7;
-  color: var(--ink-muted);
-}
-:deep(.mag-keyword) {
-  display: inline-block;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--gold);
-  border-bottom: 1px solid var(--gold-border);
-  padding-bottom: 1px;
+  font-size: clamp(18px, 4.6vw, 22px);
+  line-height: 1.2;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 :deep(.mag-question) {
-  margin: 4px 0 0;
-  padding: 10px 14px;
-  border-left: 2px solid var(--gold-border);
-  background: var(--gold-dim);
+  margin: 0 0 16px;
+  padding: 14px 16px;
+  border-left: 3px solid var(--theme-color);
   border-radius: 0 8px 8px 0;
-  font-size: 13px;
+  background: var(--theme-color-dim);
   color: var(--ink-muted);
-  font-style: italic;
-  line-height: 1.6;
-}
-
-/* ── 评分盒 ── */
-:deep(.mag-score-box) {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-height: 88px;
-  border-radius: 14px;
-  background: var(--paper-soft);
-  border: 1px solid var(--line);
-  gap: 2px;
-}
-:deep(.mag-score-box strong) {
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 40px;
-  line-height: 0.9;
-  color: var(--theme-color, var(--ink));
-  font-weight: 900;
-}
-:deep(.mag-score-box small) {
-  font-size: 11px;
-  color: var(--ink-dim);
-  letter-spacing: 1px;
-}
-
-/* ── 九宫格盘 ── */
-:deep(.mag-pan-block) {
-  margin-top: 4px;
-  margin-bottom: 8px;
-}
-
-/* ── 局势分析段落 ── */
-:deep(.mag-insight-block) {
-  padding: 14px 0;
-  border-bottom: 1px solid var(--line);
-}
-:deep(.mag-insight-block:last-child) { border-bottom: 0; }
-:deep(.mag-insight-label) {
-  display: block;
-  color: var(--gold);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin-bottom: 7px;
-}
-:deep(.mag-insight-body) {
-  margin: 0;
-  color: var(--ink-muted);
-  font-size: 14.5px;
-  line-height: 1.75;
-}
-
-/* ── 领域判断块 ── */
-:deep(.mag-domain-block) {
-  margin-bottom: 4px;
-}
-:deep(.mag-domain-title) {
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: var(--gold);
-  text-transform: uppercase;
-  margin-bottom: 12px;
-}
-:deep(.mag-axis-list) {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-:deep(.mag-axis-item) {
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
-}
-:deep(.mag-axis-head) {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 5px;
-}
-:deep(.mag-axis-name) {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--ink);
-  letter-spacing: 0.03em;
-}
-:deep(.mag-tone-badge) {
-  font-size: 10px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid;
-  letter-spacing: 1px;
-  white-space: nowrap;
-}
-:deep(.mag-tone-positive) { color: #0d9488; background: rgba(13,148,136,0.07); border-color: rgba(13,148,136,0.22); }
-:deep(.mag-tone-mixed)    { color: var(--gold); background: var(--gold-dim); border-color: var(--gold-border); }
-:deep(.mag-tone-warning)  { color: var(--crimson); background: rgba(220,38,38,0.06); border-color: rgba(220,38,38,0.2); }
-:deep(.mag-axis-verdict) {
   font-size: 14px;
-  color: var(--ink-muted);
-  line-height: 1.65;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
 }
-:deep(.mag-axis-evidence) {
-  margin: 5px 0 0;
-  font-size: 12px;
-  color: var(--ink-dim);
-  line-height: 1.6;
-}
-
-/* ── 过程 / 应期 mini 块 ── */
-:deep(.mag-mini-block) {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
-}
-:deep(.mag-mini-label) {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: var(--ink-dim);
-  text-transform: uppercase;
-}
-:deep(.mag-mini-body) {
-  font-size: 13.5px;
-  color: var(--ink-muted);
-  line-height: 1.6;
-}
-:deep(.mag-mini-evidence) {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--ink-dim);
-  line-height: 1.5;
-}
-
-/* ── 决策宜/避 ── */
-:deep(.mag-decision) {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 12px 0;
-  font-size: 13.5px;
-  color: var(--ink-muted);
-  line-height: 1.6;
-}
-:deep(.mag-decision-label) {
-  display: inline-block;
-  width: 20px;
-  font-weight: 700;
-  color: var(--gold);
-  margin-right: 6px;
-  flex-shrink: 0;
-}
-
-/* ── 行动建议列表 ── */
 :deep(.mag-action-list) {
   display: flex;
   flex-direction: column;
@@ -3352,78 +3526,331 @@ input::placeholder { color: var(--text-muted); }
   display: grid;
   grid-template-columns: 38px minmax(0,1fr);
   gap: 14px;
+  align-items: start;
   padding: 16px 0;
   border-bottom: 1px solid var(--line);
-  align-items: start;
 }
-:deep(.mag-action-item:last-child) { border-bottom: 0; }
+:deep(.mag-action-item:last-child) {
+  border-bottom: 0;
+}
 :deep(.mag-action-num) {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: var(--ink);
-  color: white;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: 15px;
-  font-weight: 900;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  background: var(--ink);
+  color: white;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 900;
 }
 :deep(.mag-action-body) {
-  font-size: 14.5px;
   color: var(--ink-muted);
+  font-size: 14.5px;
   line-height: 1.75;
   padding-top: 8px;
+  overflow-wrap: anywhere;
 }
-
-/* ── 风险提醒 ── */
-:deep(.mag-risk-quote) {
-  margin: 20px 0 0;
-  padding: 12px 16px;
-  border-left: 3px solid var(--crimson);
-  background: rgba(220,38,38,0.04);
-  border-radius: 0 8px 8px 0;
-  color: var(--ink-muted);
-  font-size: 13.5px;
-  line-height: 1.7;
+:deep(.report-evidence-block) {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
 }
-
-/* ── 吉运小格 ── */
-:deep(.mag-metrics-row) {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0,1fr));
-  gap: 10px;
-  margin-top: 20px;
+:deep(.report-subtitle) {
+  margin: 22px 0 12px;
+  color: var(--ink);
+  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: clamp(16px, 4vw, 20px);
+  line-height: 1.25;
+  font-weight: 850;
+  letter-spacing: 0;
 }
-:deep(.mag-metric) {
+:deep(.report-muted) {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.6;
+}
+:deep(.score-basis-body) {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  min-height: 68px;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  background: white;
-  padding: 10px 12px;
+  gap: 12px;
 }
-:deep(.mag-metric small) {
-  font-size: 10px;
+:deep(.sb-row-title) {
+  margin-bottom: 8px;
   color: var(--ink-dim);
-  letter-spacing: 1px;
+  font-size: 12px;
+  font-weight: 700;
 }
-:deep(.mag-metric strong) {
+:deep(.sb-tags) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+:deep(.sb-tag) {
+  display: inline-flex;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+:deep(.sb-tag.positive) { color: #0d9488; background: rgba(13,148,136,0.09); }
+:deep(.sb-tag.negative) { color: #b91c1c; background: rgba(220,38,38,0.07); }
+:deep(.sb-logic) {
+  color: var(--ink-muted);
   font-size: 13px;
-  font-weight: 600;
-  color: var(--gold);
-  line-height: 1.4;
+  line-height: 1.65;
 }
 
-/* ── 响应式 ── */
+:deep(.chart-meta-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  border-top: 1px solid var(--line);
+}
+:deep(.chart-meta-grid > div) {
+  min-height: auto;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+:deep(.chart-meta-grid span) {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ink-dim);
+  font-size: 11px;
+  font-weight: 700;
+}
+:deep(.chart-meta-grid strong) {
+  display: block;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.5;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+:deep(.mag-pan-block) {
+  margin: 14px 0 6px;
+}
+:deep(.formation-tag-row) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+:deep(.ge-tag) {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 32px;
+  padding: 5px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.52);
+  color: var(--ink-muted);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color .18s, opacity .18s;
+}
+:deep(.ge-tag:hover) {
+  opacity: .78;
+}
+:deep(.ge-dot) {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+:deep(.ge-tag.ji) { color: #0d9488; border-color: rgba(13,148,136,0.24); background: rgba(13,148,136,0.06); }
+:deep(.ge-tag.xiong) { color: #b91c1c; border-color: rgba(220,38,38,0.22); background: rgba(220,38,38,0.055); }
+
+:deep(.yongshen-card-grid) {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+:deep(.yongshen-card),
+:deep(.inference-card),
+:deep(.guidance-card) {
+  overflow-wrap: anywhere;
+}
+:deep(.yongshen-card) {
+  position: relative;
+  min-height: auto;
+  padding: 14px 0 16px;
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+:deep(.yongshen-card-head) {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+:deep(.yongshen-card-head strong) {
+  color: var(--theme-color);
+  font-size: 19px;
+  white-space: nowrap;
+}
+:deep(.yongshen-card h4),
+:deep(.inference-card h4),
+:deep(.guidance-card h4) {
+  margin: 14px 0 9px;
+  color: var(--ink);
+  font-size: 18px;
+  line-height: 1.42;
+  font-weight: 750;
+}
+:deep(.yongshen-card p),
+:deep(.inference-card p),
+:deep(.guidance-card p),
+:deep(.guidance-card small) {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 14px;
+  line-height: 1.7;
+}
+:deep(.inference-flow) {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--line);
+}
+:deep(.inference-card) {
+  display: block;
+  min-height: auto;
+  border-bottom: 1px solid var(--line);
+}
+:deep(.inference-body) {
+  padding: 18px 0;
+}
+:deep(.inference-factor-list) {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 10px;
+}
+:deep(.inference-factor-item) {
+  display: grid;
+  gap: 3px;
+  padding-left: 10px;
+  border-left: 2px solid var(--line);
+}
+:deep(.inference-factor-list.positive .inference-factor-item) {
+  border-left-color: rgba(13,148,136,0.36);
+}
+:deep(.inference-factor-list.warning .inference-factor-item) {
+  border-left-color: rgba(200,74,69,0.36);
+}
+:deep(.inference-factor-item span) {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+}
+:deep(.inference-factor-item p) {
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+:deep(.constraint-factors) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+:deep(.constraint-factor-tag) {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Noto Serif SC', serif;
+  color: var(--crimson, #c84a45);
+  background: rgba(200,74,69,0.07);
+  border: 1px solid rgba(200,74,69,0.18);
+  border-radius: 4px;
+  padding: 2px 8px;
+  letter-spacing: .04em;
+}
+:deep(.support-factors) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+:deep(.support-factor-tag) {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: 'Noto Serif SC', serif;
+  color: #3a7d4e;
+  background: rgba(58,125,78,0.07);
+  border: 1px solid rgba(58,125,78,0.22);
+  border-radius: 4px;
+  padding: 2px 8px;
+  letter-spacing: .04em;
+}
+:deep(.inference-head) {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--ink-dim);
+  font-size: 13px;
+}
+:deep(.inference-head strong) {
+  color: var(--theme-color);
+  font-size: 15px;
+}
+
+:deep(.guidance-grid) {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 28px;
+  border-top: 1px solid var(--line);
+}
+:deep(.guidance-card) {
+  min-height: auto;
+  padding: 16px 0 0;
+}
+:deep(.guidance-kicker) {
+  color: var(--theme-color);
+  font-size: 12px;
+  font-weight: 900;
+}
+:deep(.guidance-avoid),
+:deep(.guidance-warning) {
+  margin: 0 0 10px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+}
+:deep(.guidance-card small) {
+  display: block;
+  margin-top: 12px;
+  color: var(--ink-dim);
+}
+
+@media(max-width:760px) {
+  :deep(.mag-result) {
+    max-width: 100%;
+  }
+  :deep(.mag-hero) {
+    min-height: 52vh;
+    align-items: flex-end;
+  }
+  :deep(.mag-hero-panel) {
+    padding: 84px 24px 28px;
+  }
+  :deep(.mag-action-list),
+  :deep(.chart-meta-grid),
+  :deep(.guidance-grid) {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media(max-width:380px) {
-  :deep(.mag-verdict-hero) { grid-template-columns: 1fr; }
-  :deep(.mag-score-box) { flex-direction: row; min-height: auto; padding: 10px 14px; justify-content: flex-start; gap: 6px; }
-  :deep(.mag-metrics-row) { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  :deep(.mag-tab) {
+    font-size: 20px;
+  }
 }
 
 

@@ -4,27 +4,58 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('./HomeView.vue', import.meta.url), 'utf8')
 
-test('结果卡片在行动建议后插入领域判断模块', () => {
+test('奇门结果卡片按四个模块顺序渲染且不展示 M 编号', () => {
   assert.match(source, /const domainView = data\.domain_view/)
-  assert.match(source, /let domainViewHTML = ''/)
-  assert.match(source, /\$\{domainViewHTML\}\s*\n\s*\$\{chartHTML\}/)
+  assert.match(source, /<button class="mag-tab mag-tab-active" onclick="\$\{tabClick\('mag-m1'\)\}">结论先行<\/button>/)
+  assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m2'\)\}">奇门定基<\/button>/)
+  assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m3'\)\}">局象推演<\/button>/)
+  assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m4'\)\}">开运指南<\/button>/)
+  assert.doesNotMatch(source, />M[1-4]\s/)
+  assert.doesNotMatch(source, /M3\.\$\{index \+ 1\}/)
+  assert.doesNotMatch(source, /<div class="report-subtitle">分数依据<\/div>/)
 
-  const actionIndex = source.indexOf('<div class="ai-header-title">行动建议</div>')
-  const domainIndex = source.indexOf('${domainViewHTML}')
-  const chartIndex = source.indexOf('${chartHTML}')
+  const m1Index = source.indexOf('<section class="mag-section" id="mag-m1">')
+  const m2Index = source.indexOf('<section class="mag-section" id="mag-m2">')
+  const m3Index = source.indexOf('<section class="mag-section" id="mag-m3">')
+  const m4Index = source.indexOf('<section class="mag-section" id="mag-m4">')
 
-  assert.ok(actionIndex > -1)
-  assert.ok(domainIndex > actionIndex)
-  assert.ok(chartIndex > domainIndex)
+  assert.ok(m1Index > -1)
+  assert.ok(m2Index > m1Index)
+  assert.ok(m3Index > m2Index)
+  assert.ok(m4Index > m3Index)
 })
 
-test('领域判断模块包含核心轴、流程、应期和决策样式', () => {
-  assert.match(source, /domain-axis-grid/)
-  assert.match(source, /domain-axis-card/)
-  assert.match(source, /domain-section-grid/)
-  assert.match(source, /domain-decision/)
-  assert.match(source, /\.domain-axis-card/)
+test('奇门定基和局象推演包含用神、四段推演和开运样式', () => {
+  assert.match(source, /yongshen-card-grid/)
+  assert.match(source, /reportM2\.yongshen_cards/)
+  assert.match(source, /subject_day_stem_state/)
+  assert.match(source, /target_yongshen_state/)
+  assert.match(source, /constraint_factors/)
+  assert.match(source, /interaction_decision/)
+  assert.match(source, /target\?\.reading/)
+  assert.match(source, /support\?\.summary/)
+  assert.match(source, /itemsOf\(support\)/)
+  assert.match(source, /renderFactorList/)
+  assert.match(source, /card\?\.decision/)
+  assert.match(source, /card\?\.reason/)
+  assert.match(source, /reportM3\.self_state/)
+  assert.match(source, /reportM3\.target_state/)
+  assert.match(source, /reportM3\.constraints/)
+  assert.match(source, /reportM3\.interaction_verdict/)
+  assert.match(source, /environment_fengshui/)
+  assert.match(source, /timing_behavior/)
+  assert.match(source, /\.yongshen-card/)
+  assert.match(source, /\.inference-card/)
+  assert.match(source, /\.guidance-card/)
   assert.match(source, /overflow-wrap:\s*anywhere/)
+})
+
+test('奇门格局标签使用新容器恢复点击说明弹窗', () => {
+  assert.match(source, /data-ge-reasons/)
+  assert.match(source, /formation-tag-row/)
+  assert.match(source, /tag\.closest\('\.formation-tag-row, \.ge-tags-row'\)/)
+  assert.match(source, /ge-pop-kicker/)
+  assert.match(source, /:deep\(\.ge-tag\)[\s\S]{0,320}border-radius:\s*999px/)
 })
 
 test('奇门页使用顶部档案筛选器并移除旧八字注入开关', () => {
@@ -60,15 +91,27 @@ test('八字问答结果使用 mode 卡片而不是奇门分数泡泡', () => {
 })
 
 test('奇门占卜结果分数旁不展示格局吉凶数量角标', () => {
-  const summaryStart = source.indexOf('<section class="result-module summary-module reveal">', source.indexOf('const buildResultHTML'))
+  const summaryStart = source.indexOf('<section class="mag-hero" id="mag-hero">', source.indexOf('const buildCardHTML'))
   const summaryEnd = source.indexOf('</section>', summaryStart)
   const summarySource = source.slice(summaryStart, summaryEnd)
 
   assert.ok(summaryStart > -1)
   assert.ok(summaryEnd > summaryStart)
-  assert.match(summarySource, /verdict-badge/)
+  assert.match(summarySource, /mag-verdict-badge/)
   assert.doesNotMatch(summarySource, /ge-corner-badges/)
   assert.doesNotMatch(summarySource, /geCornerHTML/)
+})
+
+test('奇门结果动态 HTML 使用标准属性引号以保留样式 class', () => {
+  const cardStart = source.indexOf('const buildCardHTML = (data) => {')
+  const cardEnd = source.indexOf('\n</script>', cardStart)
+  const cardSource = source.slice(cardStart, cardEnd)
+
+  assert.ok(cardStart > -1)
+  assert.ok(cardEnd > cardStart)
+  assert.match(cardSource, /<div class="mag-result tone-\$\{heroTone\}"/)
+  assert.match(cardSource, /<div class="pan-cell"/)
+  assert.doesNotMatch(cardSource, /[“”]/)
 })
 
 test('八字问答结果把枚举 meta 渲染为用户可读标签', () => {
