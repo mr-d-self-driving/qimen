@@ -78,77 +78,107 @@
           </div>
         </section>
 
-        <div v-if="!canUseApp" class="glass-card auth-card mobile-auth-first" :class="{ 'signup-simple': !isLoginMode }">
-          <div class="auth-card-glow" aria-hidden="true"></div>
-          <div class="auth-head">
-            <div v-if="isLoginMode" class="auth-kicker">RETURNING SEEKER</div>
-            <h1>{{ isLoginMode ? '进入推演台' : '创建推演身份' }}</h1>
-            <p v-if="isLoginMode">同步历史记录、八字档案与运势缓存。</p>
-          </div>
+        <div v-if="!canUseApp" class="auth-landing-wrap mobile-auth-first">
 
-          <div v-if="isLoginMode" class="auth-oauth-row">
-            <button class="google-submit" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
-              <span class="google-mark" aria-hidden="true">
-                <svg viewBox="0 0 24 24" focusable="false">
-                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                  <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
-                  <path fill="#EA4335" d="M12 5.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.37 12 5.37z"/>
-                </svg>
-              </span>
-              <span>{{ googleAuthLoading ? '正在跳转...' : 'Google 继续' }}</span>
-            </button>
-            <button class="guest-submit" @click="handleGuestEntry">访客体验</button>
-          </div>
+          <!-- ── 首页未登录态 ── -->
+          <template v-if="authView === 'landing'">
+            <div class="auth-hero">
+              <div class="hero-scatter" aria-hidden="true">
+                <span class="hs e1">☰</span>
+                <span class="hs e2">☷</span>
+                <span class="hs e3">✦</span>
+                <span class="hs e4">☲</span>
+                <span class="hs e5">☵</span>
+              </div>
+              <div class="hero-brand">
+                <div class="hero-label">QIMEN DAO</div>
+                <h1 class="hero-name">奇门遁甲</h1>
+                <p class="hero-sub">洞见天机，<em>决断万事</em></p>
+              </div>
+            </div>
+            <div class="auth-btns">
+              <button class="abtn abtn--solid" @click="authView = 'login'">登录</button>
+              <button class="abtn abtn--border" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
+                <span class="google-mark" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" focusable="false">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.1c-.22-.66-.35-1.36-.35-2.1s.13-1.44.35-2.1V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.84z"/>
+                    <path fill="#EA4335" d="M12 5.37c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06L5.84 9.9C6.71 7.3 9.14 5.37 12 5.37z"/>
+                  </svg>
+                </span>
+                {{ googleAuthLoading ? '正在跳转...' : 'Google 登录' }}
+              </button>
+              <div class="abtn-divider"><span>——或者——</span></div>
+              <button class="abtn abtn--ghost" @click="handleGuestEntry">访客登录</button>
+              <button class="abtn-text" @click="authView = 'register'">注册</button>
+              <p class="auth-legal">
+                继续即表示同意
+                <router-link to="/terms">《用户协议》</router-link>与
+                <router-link to="/privacy">《隐私政策》</router-link>
+              </p>
+            </div>
+          </template>
 
-          <div v-if="isLoginMode" class="auth-divider"><span>或使用邮箱</span></div>
+          <!-- ── 登录页 ── -->
+          <template v-else-if="authView === 'login'">
+            <div class="auth-form-pg">
+              <button class="auth-back" type="button" @click="authView = 'landing'">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                返回
+              </button>
+              <h2 class="afm-title">登录</h2>
+              <div class="afm-fields">
+                <label class="afm-field">
+                  <span>邮箱</span>
+                  <input type="email" v-model="authForm.email" placeholder="name@example.com" autocomplete="email"/>
+                </label>
+                <label class="afm-field">
+                  <span>密码</span>
+                  <input type="password" v-model="authForm.password" placeholder="至少 6 位" autocomplete="current-password"/>
+                </label>
+              </div>
+              <button class="abtn abtn--solid" :disabled="authLoading" @click="handleAuth">
+                {{ authLoading ? '验证中...' : '登录' }}
+              </button>
+              <div class="afm-sub">
+                <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
+                  {{ resetEmailLoading ? '正在发送...' : '忘记密码' }}
+                </button>
+              </div>
+              <div v-if="resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
+            </div>
+          </template>
 
-          <div class="auth-fields">
-            <label class="auth-field">
-              <span>邮箱</span>
-              <input type="email" v-model="authForm.email" placeholder="name@example.com" autocomplete="email"/>
-            </label>
-            <label class="auth-field">
-              <span>密码</span>
-              <input
-                type="password"
-                v-model="authForm.password"
-                placeholder="至少 6 位"
-                :autocomplete="isLoginMode ? 'current-password' : 'new-password'"
-              />
-            </label>
-          </div>
+          <!-- ── 注册页 ── -->
+          <template v-else-if="authView === 'register'">
+            <div class="auth-form-pg">
+              <button class="auth-back" type="button" @click="authView = 'landing'">
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                返回
+              </button>
+              <h2 class="afm-title">注册</h2>
+              <div class="afm-fields">
+                <label class="afm-field">
+                  <span>邮箱</span>
+                  <input type="email" v-model="authForm.email" placeholder="name@example.com" autocomplete="email"/>
+                </label>
+                <label class="afm-field">
+                  <span>密码</span>
+                  <input type="password" v-model="authForm.password" placeholder="至少 6 位" autocomplete="new-password"/>
+                </label>
+              </div>
+              <button class="abtn abtn--solid" :disabled="authLoading" @click="handleAuth">
+                {{ authLoading ? '注册中...' : '注册' }}
+              </button>
+              <p class="auth-legal" style="margin-top:8px;">
+                继续即表示同意
+                <router-link to="/terms">《用户协议》</router-link>与
+                <router-link to="/privacy">《隐私政策》</router-link>
+              </p>
+            </div>
+          </template>
 
-          <div v-if="!isLoginMode" class="auth-terms">
-            继续即表示同意
-            <router-link to="/terms">《用户协议》</router-link>
-            与
-            <router-link to="/privacy">《隐私政策》</router-link>。
-          </div>
-
-          <button class="auth-submit" :disabled="authLoading" @click="handleAuth">
-            <span>{{ authLoading ? '验证中...' : (isLoginMode ? '登录' : '注册') }}</span>
-          </button>
-
-          <div v-if="isLoginMode" class="auth-inline-actions">
-            <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
-              {{ resetEmailLoading ? '正在发送...' : '忘记密码' }}
-            </button>
-            <router-link class="auth-engineering-link" to="/engineering">术数工程化</router-link>
-          </div>
-
-          <div v-if="isLoginMode && resetEmailNotice" class="auth-notice">{{ resetEmailNotice }}</div>
-
-          <div v-if="isLoginMode" class="auth-terms">
-            继续即表示同意
-            <router-link to="/terms">《用户协议》</router-link>
-            与
-            <router-link to="/privacy">《隐私政策》</router-link>。
-          </div>
-
-          <button class="auth-switch" type="button" @click="isLoginMode = !isLoginMode">
-            {{ isLoginMode ? '没有账号？创建一个' : '已有账号？返回登录' }}
-          </button>
         </div>
 
         <div v-else class="app-section">
@@ -562,7 +592,8 @@ const router = useRouter()
 const route = useRoute()
 
 const currentUser = ref(null)
-const isLoginMode = ref(true)
+const authView = ref('landing') // 'landing' | 'login' | 'register'
+const isLoginMode = computed(() => authView.value === 'login')
 const authLoading = ref(false)
 const googleAuthLoading = ref(false)
 const resetEmailLoading = ref(false)
@@ -907,7 +938,8 @@ let clockInterval = null
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
 const syncAuthModeFromRoute = () => {
-  isLoginMode.value = route.query.auth !== 'register'
+  if (route.query.auth === 'register') authView.value = 'register'
+  else if (route.query.auth === 'login') authView.value = 'login'
 }
 
 // ── 有名格断语字典 ──
@@ -2409,8 +2441,8 @@ const buildCardHTML = (data) => {
   font-size: 12px;
   line-height: 1.6;
 }
-.public-landing-container .auth-card {
-  margin-top: 24px;
+.public-landing-container .auth-landing-wrap {
+  margin-top: 0;
 }
 .seo-faq-section {
   grid-column: 1 / -1;
@@ -2507,7 +2539,7 @@ const buildCardHTML = (data) => {
   .seo-entry small {
     margin-top: 4px;
   }
-  .public-landing-container .auth-card {
+  .public-landing-container .auth-landing-wrap {
     margin-top: 0;
   }
   .seo-faq-section {
@@ -2550,149 +2582,237 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 .cta-text { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 500; color: #1a1000; letter-spacing: .15em; }
 .cta-hint { font-size: 11px; color: rgba(255,255,255,0.2); }
 
-.auth-card {
+/* ── Auth Landing Wrap ── */
+.auth-landing-wrap {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 28px;
   margin-bottom: 16px;
-  animation: riseIn 1s cubic-bezier(.22,1,.36,1) both;
+  animation: riseIn 0.7s cubic-bezier(.22,1,.36,1) both;
 }
-.auth-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  pointer-events: none;
+
+/* Hero section */
+.auth-hero {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: 260px;
+  padding-bottom: 36px;
+  overflow: hidden;
 }
-.auth-card-glow {
-  position: absolute;
-  top: -140px;
-  right: -120px;
-  width: 260px;
-  height: 260px;
-  background: radial-gradient(circle, rgba(232,204,128,0.14), transparent 66%);
-  pointer-events: none;
+
+/* Scattered decorative symbols */
+.hero-scatter { position: absolute; inset: 0; pointer-events: none; user-select: none; }
+.hs { position: absolute; font-family: var(--font-serif); line-height: 1; }
+.hs.e1 { top: 14%; left: 10%; font-size: 32px; color: rgba(212,175,55,0.22); transform: rotate(-6deg); }
+.hs.e2 { top: 6%;  right: 14%; font-size: 20px; color: rgba(212,175,55,0.13); transform: rotate(10deg); }
+.hs.e3 { top: 46%; right: 7%;  font-size: 13px; color: rgba(212,175,55,0.28); letter-spacing: 0; }
+.hs.e4 { top: 28%; left: 52%; font-size: 16px; color: rgba(212,175,55,0.10); transform: rotate(4deg); }
+.hs.e5 { top: 60%; left: 5%;  font-size: 11px; color: rgba(212,175,55,0.16); }
+
+/* Brand typography */
+.hero-brand { position: relative; }
+.hero-label {
+  font-size: 10px;
+  letter-spacing: 0.32em;
+  color: rgba(255,255,255,0.22);
+  font-family: 'SF Mono','Fira Code',monospace;
+  margin-bottom: 10px;
 }
-.auth-head { position: relative; display: flex; flex-direction: column; gap: 8px; padding-bottom: 4px; }
-.auth-kicker { font-size: 10px; color: rgba(78,205,196,0.78); letter-spacing: .2em; font-weight: 700; }
-.auth-head h1 { margin: 0; font-family: var(--font-serif); font-size: 26px; font-weight: 500; letter-spacing: .08em; color: var(--gold); }
-.auth-head p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.7; }
-.auth-card.signup-simple {
-  gap: 20px;
+.hero-name {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 54px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  line-height: 1.05;
 }
-.auth-card.signup-simple .auth-head {
-  align-items: center;
-  text-align: center;
-  padding: 4px 0 2px;
+.hero-sub {
+  margin: 14px 0 0;
+  font-family: var(--font-serif);
+  font-size: 16px;
+  color: rgba(240,237,230,0.42);
+  line-height: 1.5;
 }
-.auth-card.signup-simple .auth-head h1 {
-  font-size: 28px;
+.hero-sub em { font-style: normal; color: rgba(232,204,128,0.7); }
+
+/* Button stack */
+.auth-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 8px;
 }
-.auth-oauth-row { display: grid; grid-template-columns: minmax(0,1.45fr) minmax(118px,.75fr); gap: 10px; }
-.google-submit,
-.guest-submit,
-.auth-submit {
-  min-height: 48px;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: transform .2s, border-color .2s, background .2s, box-shadow .2s, opacity .2s;
-}
-.google-submit {
+
+/* Base flat button */
+.abtn {
   width: 100%;
-  padding: 12px 15px;
-  border: 1px solid var(--line);
-  background: white;
-  color: var(--ink);
-  font-size: 14px;
-  font-family: var(--font-body);
-  font-weight: 650;
+  height: 52px;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  box-shadow: 0 1px 4px rgba(0,0,0,.06);
-}
-.google-submit:hover { border-color: var(--gold-border); background: var(--paper-soft); }
-.google-submit:active, .guest-submit:active, .auth-submit:active, .auth-switch:active { transform: scale(0.985); }
-.google-submit:disabled, .auth-submit:disabled { opacity: 0.58; cursor: not-allowed; box-shadow: none; }
-.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 24px; height: 24px; flex: 0 0 24px; border-radius: 8px; background: rgba(255,255,255,0.96); box-shadow: 0 1px 0 rgba(255,255,255,0.35), 0 6px 14px rgba(0,0,0,0.2); }
-.google-mark svg { width: 16px; height: 16px; display: block; }
-.guest-submit {
-  width: 100%;
-  padding: 12px 14px;
-  border: 1px solid rgba(13,148,136,0.28);
-  background: rgba(13,148,136,0.06);
-  color: #0d9488;
-  font-size: 13px;
+  border: none;
+  border-radius: 4px;
+  font-size: 15px;
   font-family: var(--font-body);
-  font-weight: 650;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: opacity .18s, transform .15s, background .18s, border-color .18s;
 }
-.guest-submit:hover { border-color: rgba(13,148,136,0.5); background: rgba(13,148,136,0.1); }
-.auth-divider { display: flex; align-items: center; gap: 12px; color: var(--text-muted); font-size: 11px; }
-.auth-divider::before, .auth-divider::after { content: ''; flex: 1; height: 1px; background: var(--line); }
-.auth-fields { display: flex; flex-direction: column; gap: 12px; }
-.auth-field { display: flex; flex-direction: column; gap: 7px; }
-.auth-field span { color: var(--text-muted); font-size: 11px; letter-spacing: .12em; }
-input[type="email"], input[type="password"] {
-  width: 100%;
-  min-height: 48px;
-  background: white;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 13px 15px;
-  color: var(--ink);
-  font-size: 15px;
-  outline: none;
-  transition: border-color .2s, box-shadow .2s, background .2s;
-}
-input[type="email"]:focus, input[type="password"]:focus {
-  border-color: var(--gold-border);
-  box-shadow: 0 0 0 3px var(--gold-dim);
-}
-input::placeholder { color: var(--text-muted); }
-.auth-submit {
-  width: 100%;
-  padding: 14px 16px;
-  border: none;
-  background: linear-gradient(135deg, #F0D98F 0%, #C69A42 46%, #E3C36B 100%);
-  color: #0a0800;
-  font-size: 15px;
+.abtn:active { transform: scale(0.983); }
+.abtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* Solid — primary login */
+.abtn--solid {
+  background: rgba(240,237,230,0.95);
+  color: #080600;
   font-family: var(--font-serif);
-  font-weight: 700;
-  letter-spacing: .16em;
-  box-shadow: 0 14px 28px rgba(179,139,54,0.2), inset 0 1px 0 rgba(255,255,255,0.38);
+  letter-spacing: 0.08em;
 }
-.auth-inline-actions { display: flex; align-items: center; justify-content: center; gap: 16px; min-height: 20px; }
-.forgot-password-link,
-.auth-engineering-link {
-  border: none;
+.abtn--solid:not(:disabled):hover { background: #fff; }
+
+/* Bordered — Google */
+.abtn--border {
   background: transparent;
-  color: rgba(232,204,128,0.72);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(240,237,230,0.88);
+}
+.abtn--border:not(:disabled):hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.04); }
+
+/* Ghost — visitor */
+.abtn--ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.09);
+  color: rgba(240,237,230,0.62);
+}
+.abtn--ghost:hover { border-color: rgba(255,255,255,0.2); color: rgba(240,237,230,0.88); }
+
+/* Divider */
+.abtn-divider {
+  text-align: center;
+  color: rgba(255,255,255,0.22);
   font-size: 12px;
-  line-height: 1.4;
+  letter-spacing: 0.04em;
+  padding: 2px 0;
+}
+
+/* Text link — register */
+.abtn-text {
+  background: none;
+  border: none;
+  color: rgba(240,237,230,0.5);
+  font-size: 14px;
+  font-family: var(--font-body);
   cursor: pointer;
   text-align: center;
-  text-decoration: none;
+  padding: 4px;
+  transition: color .18s;
+}
+.abtn-text:hover { color: rgba(240,237,230,0.9); }
+
+/* Legal text */
+.auth-legal {
+  margin: 2px 0 0;
+  color: rgba(255,255,255,0.22);
+  font-size: 11px;
+  line-height: 1.6;
+  text-align: center;
+}
+.auth-legal a { color: rgba(255,255,255,0.36); text-decoration: none; }
+.auth-legal a:hover { color: rgba(212,175,55,0.7); }
+
+/* Google mark */
+.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px; background: rgba(255,255,255,0.96); }
+.google-mark svg { width: 15px; height: 15px; display: block; }
+
+/* ── Auth Form Page (login / register) ── */
+.auth-form-pg {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-top: 4px;
+  animation: riseIn 0.45s cubic-bezier(.22,1,.36,1) both;
+}
+
+.auth-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: transparent;
+  color: rgba(240,237,230,0.4);
+  font-size: 13px;
+  font-family: var(--font-body);
+  cursor: pointer;
+  padding: 0;
+  align-self: flex-start;
+  transition: color .18s;
+}
+.auth-back:hover { color: rgba(240,237,230,0.85); }
+
+.afm-title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 36px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
+}
+
+/* Underline-style fields */
+.afm-fields { display: flex; flex-direction: column; gap: 0; }
+.afm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  transition: border-color .2s;
+}
+.afm-field:focus-within { border-bottom-color: rgba(212,175,55,0.45); }
+.afm-field span {
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.3);
+}
+.afm-field input[type="email"],
+.afm-field input[type="password"] {
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 4px 0 !important;
+  min-height: auto !important;
+  font-size: 17px !important;
+  color: var(--text-primary) !important;
+  outline: none !important;
+  box-shadow: none !important;
+  width: 100%;
+}
+.afm-field input::placeholder { color: rgba(255,255,255,0.18) !important; }
+
+.afm-sub { display: flex; justify-content: flex-start; }
+
+/* Keep these shared helpers */
+.forgot-password-link {
+  border: none;
+  background: transparent;
+  color: rgba(232,204,128,0.6);
+  font-size: 13px;
+  line-height: 1.4;
+  cursor: pointer;
+  text-align: left;
+  padding: 0;
+  font-family: var(--font-body);
+  transition: color .18s;
 }
 .forgot-password-link:disabled { opacity: 0.6; cursor: not-allowed; }
-.forgot-password-link:hover, .auth-engineering-link:hover { color: var(--gold-light); }
-.auth-notice { padding: 10px 12px; border-radius: 12px; background: rgba(13,148,136,0.06); border: 1px solid rgba(13,148,136,0.2); color: var(--ink-muted); font-size: 12px; line-height: 1.6; text-align: center; }
-.auth-terms { color: var(--text-muted); font-size: 11px; line-height: 1.7; text-align: center; }
-.auth-terms a { color: var(--gold); text-decoration: none; }
-.auth-terms a:hover { color: var(--gold-light); text-decoration: underline; text-underline-offset: 3px; }
-.auth-switch {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: white;
-  color: var(--ink-muted);
-  font-size: 13px;
-  cursor: pointer;
-  transition: border-color .2s, background .2s, color .2s, transform .2s;
-}
-.auth-switch:hover { border-color: var(--gold-border); background: var(--gold-dim); color: var(--gold); }
+.forgot-password-link:hover { color: var(--gold-light); }
+.auth-notice { padding: 10px 12px; border-radius: 8px; background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; }
 
 .qimen-profile-panel { position: relative; z-index: 42; padding: 14px 16px; overflow: visible; margin-bottom: 16px; }
 .profile-switcher { position: relative; z-index: 60; }
@@ -3063,11 +3183,10 @@ input::placeholder { color: var(--text-muted); }
   .feedback-overlay { align-items: flex-end; justify-content: center; }
   .feedback-drawer { width: 100%; height: auto; max-height: 88vh; border-left: none; border-top: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; transform: translateY(24px); }
   .feedback-overlay.show .feedback-drawer { transform: translateY(0); }
-  .auth-card { padding: 22px; gap: 16px; }
-  .auth-head h1 { font-size: 23px; }
-  .auth-card.signup-simple .auth-head h1 { font-size: 25px; }
-  .auth-oauth-row { grid-template-columns: 1fr; }
-  .auth-inline-actions { justify-content: space-between; gap: 12px; }
+  .auth-landing-wrap { min-height: calc(100svh - 200px); justify-content: space-between; }
+  .auth-hero { min-height: 220px; padding-bottom: 28px; }
+  .hero-name { font-size: 46px; }
+  .afm-title { font-size: 30px; }
   .qimen-profile-panel { padding: 12px 14px; }
   .profile-switch-trigger,
   .add-bazi-profile-btn { min-height: 52px; }
