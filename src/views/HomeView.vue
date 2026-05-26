@@ -549,7 +549,7 @@ const getApiBase = () => {
   const configuredBase = String(import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
   if (configuredBase) return configuredBase
   if (typeof window !== 'undefined' && window.location.hostname.endsWith('.qimen-1ff.pages.dev')) {
-    return 'https://qimen.oceanjustinlin.workers.dev'
+    return 'https://qimen-preview.oceanjustinlin.workers.dev'
   }
   return ''
 }

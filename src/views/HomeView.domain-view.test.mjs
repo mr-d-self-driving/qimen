@@ -7,7 +7,7 @@ const source = readFileSync(new URL('./HomeView.vue', import.meta.url), 'utf8')
 test('奇门结果卡片按四个模块顺序渲染且不展示 M 编号', () => {
   assert.match(source, /const getApiBase = \(\) =>/)
   assert.match(source, /\.qimen-1ff\.pages\.dev/)
-  assert.match(source, /https:\/\/qimen\.oceanjustinlin\.workers\.dev/)
+  assert.match(source, /https:\/\/qimen-preview\.oceanjustinlin\.workers\.dev/)
   assert.match(source, /const domainView = data\.domain_view/)
   assert.match(source, /<button class="mag-tab mag-tab-active" onclick="\$\{tabClick\('mag-m1'\)\}">结论先行<\/button>/)
   assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m2'\)\}">奇门定基<\/button>/)
