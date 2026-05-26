@@ -42,6 +42,15 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://127.0.0.1:5173',
 ];
 
+function isAllowedPreviewOrigin(origin) {
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname === 'qimen-1ff.pages.dev' || hostname.endsWith('.qimen-1ff.pages.dev');
+  } catch {
+    return false;
+  }
+}
+
 function normalizeOrigin(origin) {
   return String(origin || '').trim().replace(/\/+$/, '');
 }
@@ -238,7 +247,7 @@ function getCorsHeaders(request, env, allowedHeaders = 'Content-Type, Authorizat
   const allowedOrigins = getAllowedOrigins(env);
   const allowOrigin = configuredOrigin === '*'
     ? '*'
-    : requestOrigin && allowedOrigins.includes(requestOrigin)
+    : requestOrigin && (allowedOrigins.includes(requestOrigin) || isAllowedPreviewOrigin(requestOrigin))
       ? requestOrigin
       : allowedOrigins[0] || '*';
 

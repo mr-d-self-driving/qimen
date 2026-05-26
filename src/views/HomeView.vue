@@ -545,9 +545,19 @@ import { BAZI_PROFILE_QIMEN_SELECT } from '../baziProfileFields.mjs'
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-const API_URL = "/api/qimen"
-const ROUTE_API_URL = "/api/divination-route"
-const BAZI_QUESTION_API_URL = "/api/bazi-question"
+const getApiBase = () => {
+  const configuredBase = String(import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+  if (configuredBase) return configuredBase
+  if (typeof window !== 'undefined' && window.location.hostname.endsWith('.qimen-1ff.pages.dev')) {
+    return 'https://qimen.oceanjustinlin.workers.dev'
+  }
+  return ''
+}
+const API_BASE = getApiBase()
+const apiPath = (path) => `${API_BASE}${path}`
+const API_URL = apiPath("/api/qimen")
+const ROUTE_API_URL = apiPath("/api/divination-route")
+const BAZI_QUESTION_API_URL = apiPath("/api/bazi-question")
 const router = useRouter()
 const route = useRoute()
 
