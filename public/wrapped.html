@@ -243,7 +243,7 @@ button{cursor:pointer;background:none;-webkit-appearance:none}
 
 .wiz-body{flex:1;overflow:hidden;position:relative;z-index:1}
 .wiz-slide{
-  position:absolute;inset:0;overflow:hidden;-webkit-overflow-scrolling:touch;
+  position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
   padding:14px 20px 16px;
   display:flex;flex-direction:column;gap:10px;
   max-width:460px;width:100%;margin:0 auto;
@@ -739,6 +739,30 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none}
 .tc-orange{ --tc:#fb923c; --tc-dim:rgba(251,146,60,.12); --tc-border:rgba(251,146,60,.30); --tc-glow:rgba(251,146,60,.2) }
 .tc-rose{ --tc:#f43f5e; --tc-dim:rgba(244,63,94,.12); --tc-border:rgba(244,63,94,.28); --tc-glow:rgba(244,63,94,.2) }
 .tc-red{ --tc:#dc2626; --tc-dim:rgba(220,38,38,.12); --tc-border:rgba(220,38,38,.28); --tc-glow:rgba(220,38,38,.18) }
+
+/* ── MOBILE ONE-SCREEN WIZARD (phones ≤500px wide) ── */
+@media screen and (max-width:500px){
+  .wiz-topbar{padding:6px 14px}
+  .wiz-slide{padding:8px 16px 10px;gap:7px}
+  .sl-tag{margin-bottom:1px}
+  .sl-title{font-size:20px}
+  .sl-sub{display:none}
+  .wiz-card{padding:8px 12px;gap:6px}
+  .f-label{font-size:10px;margin-bottom:1px}
+  .inp{height:38px;padding:7px 12px;font-size:14px}
+  .gender-chip{padding:7px 6px;font-size:14px}
+  .date-row{gap:6px}
+  .tst-toggle{margin-top:4px !important;font-size:11px}
+  .tst-chk{width:16px;height:16px}
+  .shi-header{margin-top:0}
+  .shi-skip{font-size:11px}
+  .shi-chk{width:16px;height:16px}
+  .shi-grid{gap:4px;margin-top:3px}
+  .shi-btn{padding:5px 2px 4px}
+  .shi-char{font-size:14px}
+  .shi-time{font-size:7px}
+  .btn-next{padding:10px 20px;font-size:15px}
+}
 </style>
 </head>
 <body>
