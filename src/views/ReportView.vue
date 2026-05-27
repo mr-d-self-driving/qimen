@@ -74,8 +74,6 @@ import AccountMenu from '../components/AccountMenu.vue'
 .report-view {
   min-height: 100vh;
   padding-bottom: 100px;
-  background-color: var(--paper-bg, #fcfaf6);
-  color: var(--ink, #2c2a27);
 }
 
 #siteHeader {
@@ -96,6 +94,7 @@ import AccountMenu from '../components/AccountMenu.vue'
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  filter: drop-shadow(0 0 12px rgba(212,175,55,0.45));
   letter-spacing: 0.15em;
   text-align: center;
   white-space: nowrap;
@@ -128,15 +127,15 @@ import AccountMenu from '../components/AccountMenu.vue'
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: rgba(212, 175, 55, 0.8);
   margin-bottom: 6px;
 }
 
 .section-title {
-  font-family: var(--font-serif);
+  font-family: 'Songti SC', 'STSong', var(--font-ganzhi);
   font-size: 28px;
   font-weight: 600;
-  color: var(--ink);
+  color: #fff;
   line-height: 1.1;
   margin-bottom: 6px;
   font-synthesis: none;
@@ -144,7 +143,7 @@ import AccountMenu from '../components/AccountMenu.vue'
 
 .section-sub {
   font-size: 13px;
-  color: var(--ink-muted);
+  color: rgba(240, 237, 230, 0.68);
   letter-spacing: 0.01em;
 }
 
@@ -158,12 +157,11 @@ import AccountMenu from '../components/AccountMenu.vue'
 .report-card {
   display: block;
   position: relative;
-  border-radius: 16px;
+  border-radius: 20px;
   overflow: hidden;
   text-decoration: none;
-  background: var(--bg-card, #ffffff);
-  border: 1px solid var(--line);
-  box-shadow: 0 1px 4px rgba(11,11,11,0.06);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   padding: 22px 20px;
 }
@@ -174,17 +172,17 @@ import AccountMenu from '../components/AccountMenu.vue'
 
 /* ── Active card hover ── */
 .card-friendship {
-  border-color: rgba(181, 141, 59, 0.3);
+  border-color: rgba(204, 255, 0, 0.18);
   cursor: pointer;
 }
 .card-friendship:hover {
-  border-color: rgba(181, 141, 59, 0.55);
-  box-shadow: 0 4px 20px rgba(181, 141, 59, 0.12);
+  border-color: rgba(204, 255, 0, 0.35);
+  box-shadow: 0 0 32px rgba(204, 255, 0, 0.08);
 }
 
 /* ── Locked card ── */
 .card-locked {
-  opacity: 0.6;
+  opacity: 0.72;
   cursor: default;
 }
 
@@ -195,15 +193,15 @@ import AccountMenu from '../components/AccountMenu.vue'
   right: -40px;
   width: 160px;
   height: 160px;
-  background: radial-gradient(circle, rgba(181, 141, 59, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(204, 255, 0, 0.18) 0%, transparent 70%);
   pointer-events: none;
   border-radius: 50%;
 }
 .card-glow-blue {
-  background: radial-gradient(circle, rgba(107, 143, 255, 0.08) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(107, 143, 255, 0.2) 0%, transparent 70%);
 }
 .card-glow-red {
-  background: radial-gradient(circle, rgba(220, 38, 38, 0.07) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 107, 157, 0.2) 0%, transparent 70%);
 }
 
 /* ── Card content ── */
@@ -226,14 +224,14 @@ import AccountMenu from '../components/AccountMenu.vue'
   justify-content: center;
   width: 46px;
   height: 46px;
-  background: var(--paper-soft, #ebe6da);
+  background: rgba(255, 255, 255, 0.08);
   border-radius: 12px;
-  border: 1px solid var(--line);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .report-icon-dim {
-  filter: grayscale(0.4);
-  opacity: 0.75;
+  filter: grayscale(0.5);
+  opacity: 0.7;
 }
 
 .card-tag {
@@ -243,47 +241,47 @@ import AccountMenu from '../components/AccountMenu.vue'
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(181, 141, 59, 0.12);
-  color: var(--gold);
-  border: 1px solid rgba(181, 141, 59, 0.3);
+  background: rgba(204, 255, 0, 0.12);
+  color: #CCFF00;
+  border: 1px solid rgba(204, 255, 0, 0.25);
 }
 
 .card-tag-soon {
-  background: var(--chrome, #efefef);
-  color: var(--ink-dim);
-  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(240, 237, 230, 0.65);
+  border-color: rgba(255, 255, 255, 0.18);
 }
 
 .report-title {
   font-family: var(--font-serif);
   font-size: 20px;
   font-weight: 600;
-  color: var(--ink);
+  color: #fff;
   margin-bottom: 4px;
   line-height: 1.2;
   letter-spacing: 0.02em;
 }
 
 .report-title-dim {
-  color: var(--ink-muted);
+  color: rgba(240, 237, 230, 0.82);
 }
 
 .report-subtitle {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
   letter-spacing: 0.14em;
-  color: var(--gold);
+  color: rgba(212, 175, 55, 0.88);
   text-transform: uppercase;
   margin-bottom: 8px;
 }
 
 .report-subtitle-dim {
-  color: var(--ink-dim);
+  color: rgba(240, 237, 230, 0.52);
 }
 
 .report-desc {
   font-size: 13px;
-  color: var(--ink-muted);
+  color: rgba(240, 237, 230, 0.72);
   line-height: 1.6;
   margin-bottom: 14px;
   letter-spacing: 0.01em;
@@ -294,7 +292,7 @@ import AccountMenu from '../components/AccountMenu.vue'
   bottom: 20px;
   right: 20px;
   font-size: 18px;
-  color: var(--gold);
+  color: rgba(204, 255, 0, 0.6);
   z-index: 1;
   transition: transform 0.2s, color 0.2s;
 }

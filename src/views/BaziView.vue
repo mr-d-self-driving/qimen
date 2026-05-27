@@ -1,112 +1,57 @@
 <template>
   <div class="bazi-view">
 
+    <header id="siteHeader">
+        <div class="site-logo">全息八字</div>
+        <div class="header-actions">
+            <OpenSourceLinks />
+            <AccountMenu />
+        </div>
+    </header>
+
     <div class="page-wrap">
         <div class="container">
-            <div class="profile-hero-block" :class="{ open: isProfileMenuOpen }">
-                <!-- Circular rerun button: top-right (only) -->
-                <div class="hero-top-actions">
-                    <button
-                        v-if="activeProfile"
-                        class="hero-icon-btn"
-                        :class="{ spinning: isAnalyzing }"
-                        :disabled="isAnalyzing"
-                        :title="rerunButtonLabel"
-                        @click="requestAiSummary({ force: true })"
-                    >
-                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
-                            <path d="M3 3v5h5"/>
-                        </svg>
-                    </button>
+            <div class="glass-card profile-card">
+                <div class="profile-card-head">
+                    <div>
+                        <div class="section-kicker">命主档案</div>
+                        <div class="section-title">选择或维护排盘资料</div>
+                    </div>
+                    <span v-if="activeProfile?.is_default" class="default-chip">默认</span>
                 </div>
 
-                <!-- Dates above name -->
-                <div v-if="activeProfile" class="hero-dates-top">
-                    <span class="hero-birth">{{ solarDateStr }}</span>
-                    <span class="hero-sep">·</span>
-                    <span class="hero-lunar">{{ lunarDateStr }}</span>
-                </div>
-
-                <div class="profile-strip-wrap" :class="{ open: isProfileMenuOpen }">
-                    <button class="hero-name-trigger" @click="toggleProfileMenu">
-                        <span class="hero-display-name">{{ activeProfileName }}</span>
-                        <span v-if="activeProfile?.is_default" class="profile-strip-badge">默认</span>
-                        <span class="profile-strip-caret" :class="{ open: isProfileMenuOpen }" aria-hidden="true"></span>
-                    </button>
-                    <div v-if="activeProfile" class="hero-meta">
-                        <div class="hero-badges">
-                            <span
-                                v-if="activeProfile.strong_weak"
-                                class="badge badge-blue badge-action hero-pill"
-                                role="button" tabindex="0"
-                                @click.stop="openInsightPanel('strength')"
-                            >{{ activeProfile.strong_weak }}</span>
-                            <span
-                                v-if="activeProfile.geju"
-                                class="badge badge-gold badge-action hero-pill"
-                                role="button" tabindex="0"
-                                @click.stop="openInsightPanel('geju')"
-                            >{{ patternFinalName }}</span>
+                <div class="profile-filter-row">
+                    <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
+                        <button class="profile-switch-trigger" :disabled="!showProfileSwitcher" @click="toggleProfileMenu">
+                            <span class="profile-switch-name">{{ activeProfileName }}</span>
+                            <span class="profile-switch-symbol" aria-hidden="true">⇄</span>
+                        </button>
+                        <div v-if="isProfileMenuOpen" class="profile-flyout">
+                            <button
+                                v-for="profile in baziProfiles"
+                                :key="profile.id"
+                                class="profile-flyout-item"
+                                :class="{ active: profile.id === selectedProfileId }"
+                                @click="selectProfile(profile.id)"
+                            >
+                                <span class="profile-item-main">{{ profile.name }}</span>
+                                <span class="profile-item-date">{{ formatSolarDate(profile.birth_date) }}</span>
+                                <span class="profile-item-meta">{{ profileMetaText(profile) }}</span>
+                            </button>
                         </div>
                     </div>
+                    <button class="icon-btn" title="新增档案" @click="openAddProfile">+</button>
                 </div>
 
-                <!-- Bottom Sheet (Teleported) -->
-                <Teleport to="body">
-                    <Transition name="sheet">
-                        <div v-if="isProfileMenuOpen" class="sheet-backdrop" @click="isProfileMenuOpen = false; swipedProfileId = null"></div>
-                    </Transition>
-                    <Transition name="sheet-up">
-                        <div v-if="isProfileMenuOpen" class="profile-bottom-sheet" @click.stop>
-                            <div class="sheet-handle"></div>
-                            <div class="sheet-header">
-                                <span class="sheet-title">切换档案</span>
-                                <div class="sheet-header-actions">
-                                    <button class="sheet-add-btn" title="新增档案" @click="openAddProfile">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
-                                            <path d="M12 5v14M5 12h14"/>
-                                        </svg>
-                                    </button>
-                                    <button class="sheet-close-btn" @click="isProfileMenuOpen = false; swipedProfileId = null">×</button>
-                                </div>
-                            </div>
-                            <div class="sheet-list">
-                                <div v-if="!baziProfiles.length" class="sheet-empty">暂无档案</div>
-                                <div
-                                    v-for="profile in baziProfiles"
-                                    :key="profile.id"
-                                    class="swipe-item"
-                                    :class="{ swiped: swipedProfileId === profile.id }"
-                                    @touchstart.passive="handleItemTouchStart"
-                                    @touchend.passive="handleItemTouchEnd(profile.id, $event)"
-                                >
-                                    <button
-                                        class="sheet-profile-btn"
-                                        :class="{ active: profile.id === selectedProfileId }"
-                                        @click="selectProfile(profile.id); swipedProfileId = null"
-                                    >
-                                        <span class="spi-indicator" :class="{ active: profile.id === selectedProfileId }"></span>
-                                        <span class="spi-name">{{ profile.name || '未命名' }}</span>
-                                        <span class="spi-date">{{ formatSolarDate(profile.birth_date) }}</span>
-                                        <span v-if="profile.is_default" class="spi-default">默认</span>
-                                    </button>
-                                    <div class="swipe-actions" v-if="!isGuest">
-                                        <button class="swa-btn swa-rename" @click.stop="renameProfileById(profile.id)">改昵称</button>
-                                        <button class="swa-btn swa-delete" @click.stop="deleteProfileById(profile.id)">删除</button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div v-if="activeProfile && !isGuest" class="sheet-footer">
-                                <button class="sheet-default-btn" :disabled="activeProfile.is_default" @click="setDefaultProfile">
-                                    {{ activeProfile.is_default ? '✓ 已设为默认' : '设为默认档案' }}
-                                </button>
-                            </div>
-                        </div>
-                    </Transition>
-                </Teleport>
-
                 <div v-if="isGuest" class="guest-limit-note">访客模式仅保存 1 个本地命主档案，登录后可维护多个云端档案。</div>
+
+                <div class="profile-actions" v-if="activeProfile && !isGuest">
+                    <button class="mini-action" :disabled="activeProfile.is_default" @click="setDefaultProfile">
+                        {{ activeProfile.is_default ? '已设为默认' : '设为默认' }}
+                    </button>
+                    <button class="mini-action" @click="openRenameProfile">修改昵称</button>
+                    <button class="mini-action danger" @click="deleteProfile">删除档案</button>
+                </div>
 
                 <div v-show="showRename" class="profile-form rename-form">
                     <div class="form-row">
@@ -341,7 +286,45 @@
                 </Teleport>
             </div>
 
-            <div v-if="activeProfile" class="glass-card dashboard-panel">
+            <div v-if="activeProfile" class="bazi-result-stack">
+
+                <!-- ══ 版块1：命主档案头部 ══ -->
+                <div class="bazi-result-module bazi-header-module">
+                
+                <div class="bazi-header">
+                    <div>
+                        <div class="name-row">
+                            <span class="bazi-name">{{ activeProfile.name }}</span>
+                            <span
+                                v-if="activeProfile.strong_weak"
+                                class="badge badge-blue badge-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看身强身弱依据"
+                                @click="openInsightPanel('strength')"
+                                @keydown.enter.prevent="openInsightPanel('strength')"
+                                @keydown.space.prevent="openInsightPanel('strength')"
+                            >{{ activeProfile.strong_weak }}</span>
+                            <span
+                                v-if="activeProfile.geju"
+                                class="badge badge-gold badge-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看格局判定"
+                                @click="openInsightPanel('geju')"
+                                @keydown.enter.prevent="openInsightPanel('geju')"
+                                @keydown.space.prevent="openInsightPanel('geju')"
+                            >{{ patternFinalName }}</span>
+                        </div>
+                        <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
+                        <div class="bazi-meta">阳历：{{ solarDateStr }}</div>
+                    </div>
+                    <div class="bazi-header-actions">
+                        <button class="btn-primary" :disabled="isAnalyzing" @click="requestAiSummary({ force: true })">
+                            {{ rerunButtonLabel }}
+                        </button>
+                    </div>
+                </div>
 
                 <Teleport to="body">
                     <div v-if="showGuestLoginGuide" class="modal-overlay" @click="showGuestLoginGuide = false">
@@ -358,34 +341,36 @@
                     </div>
                 </Teleport>
 
-                <div v-if="isAnalyzing || analysisNotice" class="analysis-status" :class="{ done: analysisNotice && !isAnalyzing }">
-                    <div class="loader-orbit" v-if="isAnalyzing">
-                        <span></span><span></span><span></span>
+                    <div v-if="isAnalyzing || analysisNotice" class="analysis-status" :class="{ done: analysisNotice && !isAnalyzing }">
+                        <div class="loader-orbit" v-if="isAnalyzing">
+                            <span></span><span></span><span></span>
+                        </div>
+                        <div class="analysis-copy">
+                            <div class="analysis-title">{{ isAnalyzing ? analysisSteps[analysisStageIndex] : analysisNotice }}</div>
+                            <div class="analysis-subtitle">{{ isAnalyzing ? '排盘、格局、岁运与喜忌正在同步校验' : '最新结果已写入当前档案' }}</div>
+                        </div>
+                        <div v-if="isAnalyzing" class="analysis-progress">
+                            <i :style="{ width: analysisProgress + '%' }"></i>
+                        </div>
                     </div>
-                    <div class="analysis-copy">
-                        <div class="analysis-title">{{ isAnalyzing ? analysisSteps[analysisStageIndex] : analysisNotice }}</div>
-                        <div class="analysis-subtitle">{{ isAnalyzing ? '排盘、格局、岁运与喜忌正在同步校验' : '最新结果已写入当前档案' }}</div>
-                    </div>
-                    <div v-if="isAnalyzing" class="analysis-progress">
-                        <i :style="{ width: analysisProgress + '%' }"></i>
-                    </div>
-                </div>
 
-                <div class="bazi-tab-bar">
-                    <button :class="['bazi-tab', { active: currentTab === 'basic' }]" @click="currentTab = 'basic'">基础排盘</button>
-                    <button :class="['bazi-tab', { active: currentTab === 'pro' }]" @click="currentTab = 'pro'">专业细盘</button>
-                    <button
-                        v-if="activeProfile && !needsUpgrade && !isGuest"
-                        :class="['bazi-tab', { active: currentTab === 'events' }]"
-                        @click="currentTab = 'events'"
-                    >
-                        断事笔记
-                        <span v-if="lifeEvents.length" class="bazi-tab-count">{{ lifeEvents.length }}</span>
-                    </button>
-                </div>
+                    <div class="bazi-tabs">
+                        <div class="bazi-tab" :class="{ active: currentTab === 'basic' }" @click="currentTab = 'basic'">基础排盘</div>
+                        <div class="bazi-tab" :class="{ active: currentTab === 'pro' }" @click="currentTab = 'pro'">专业细盘</div>
+                        <button
+                            v-if="activeProfile && !needsUpgrade && !isGuest"
+                            class="bazi-tab life-events-tab"
+                            :class="{ active: currentTab === 'events' }"
+                            @click="currentTab = 'events'"
+                        >
+                            断事笔记
+                            <span v-if="lifeEvents.length" class="life-events-tab-count">{{ lifeEvents.length }}</span>
+                        </button>
+                    </div>
+                </div><!-- /命主档案头部 -->
 
                 <!-- ══ 命主断事笔记 ══ -->
-                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
+                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="bazi-result-module">
                     <div class="ai-header-row notes-card-header">
                         <div class="ai-header-title">断事笔记</div>
                         <div class="context-card-top-actions">
@@ -453,7 +438,7 @@
                                     :class="{ active: eventForm.category === cat.value }"
                                     @click="eventForm.category = cat.value"
                                 >
-                                    {{ cat.label }}
+                                    {{ cat.icon }} {{ cat.label }}
                                 </button>
                             </div>
                         </div>
@@ -496,9 +481,9 @@
                             </button>
                         </div>
                     </div>
-                </div>
+                </div><!-- /断事笔记 -->
 
-                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
+                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="bazi-result-module">
                     <div class="ai-header-row notes-card-header">
                         <div class="ai-header-title">长期基调</div>
                         <div class="context-card-top-actions">
@@ -540,9 +525,9 @@
                             </article>
                         </div>
                     </div>
-                </div>
+                </div><!-- /长期基调 -->
 
-                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
+                <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="bazi-result-module">
                     <div class="ai-header-row notes-card-header">
                         <div class="ai-header-title">月度基调</div>
                         <div class="context-card-top-actions">
@@ -622,18 +607,23 @@
                 </div>
                 <!-- ══ /命主断事笔记 ══ -->
 
-                <BaziPillarTable
-                    v-if="resolvedMatrix && currentTab !== 'events'"
-                    :columns="displayColumns"
-                    :show-pillar-suffix="currentTab === 'basic'"
-                    @shensha-click="showShensha"
-                />
-
-                <div v-if="needsUpgrade && currentTab !== 'events'" class="matrix-fallback-note">
-                    基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
+                <!-- ══ 版块2：四柱排盘 ══ -->
+                <div v-if="currentTab !== 'events'" class="bazi-result-module bazi-pillar-module">
+                    <div class="ai-header-title" style="margin-bottom:14px;">命局四柱</div>
+                    <BaziPillarTable
+                        v-if="resolvedMatrix"
+                        :columns="displayColumns"
+                        :show-pillar-suffix="currentTab === 'basic'"
+                        @shensha-click="showShensha"
+                    />
+                    <div v-if="needsUpgrade" class="matrix-fallback-note">
+                        基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
+                    </div>
                 </div>
 
-                <div v-show="currentTab === 'pro' && dayunList.length" class="timeline-section">
+                <!-- ══ 版块3：大运流年 ══ -->
+                <div v-show="currentTab === 'pro' && dayunList.length" class="bazi-result-module">
+                    <div class="ai-header-title" style="margin-bottom:14px;">大运流年</div>
                     <BaziBackingPanel
                         :profile="activeProfile"
                         :result-data="baziTimelineResultData"
@@ -643,29 +633,29 @@
                         @update:selected-year="selectedLiunianYear = $event"
                     />
 
-                    <div v-if="interactions" class="ai-section" style="margin-top:20px;">
-                        <div class="timeline-title">生克合化注意</div>
-                        
-                        <div class="insight-card" v-if="intGroups.ganYuanju">
-                            <h4 style="color:var(--gold)">天干本命</h4>
-                            <p>{{ intGroups.ganYuanju }}</p>
+                    <div v-if="interactions" class="bazi-interaction-section">
+                        <div class="bazi-section-subtitle">生克合化注意</div>
+
+                        <div class="bazi-insight-strip bazi-accent-gold" v-if="intGroups.ganYuanju">
+                            <div class="bazi-strip-label">天干本命</div>
+                            <div class="bazi-strip-body">{{ intGroups.ganYuanju }}</div>
                         </div>
-                        <div class="insight-card" v-if="intGroups.zhiYuanju">
-                            <h4 style="color:var(--gold)">地支本命</h4>
-                            <p>{{ intGroups.zhiYuanju }}</p>
+                        <div class="bazi-insight-strip bazi-accent-gold" v-if="intGroups.zhiYuanju">
+                            <div class="bazi-strip-label">地支本命</div>
+                            <div class="bazi-strip-body">{{ intGroups.zhiYuanju }}</div>
                         </div>
-                        <div class="insight-card" v-if="intGroups.ganYun">
-                            <h4 style="color:#FF5E57">天干运势</h4>
-                            <p>{{ intGroups.ganYun }}</p>
+                        <div class="bazi-insight-strip bazi-accent-red" v-if="intGroups.ganYun">
+                            <div class="bazi-strip-label">天干运势</div>
+                            <div class="bazi-strip-body">{{ intGroups.ganYun }}</div>
                         </div>
-                        <div class="insight-card" v-if="intGroups.zhiYun">
-                            <h4 style="color:#FF5E57">地支运势</h4>
-                            <p>{{ intGroups.zhiYun }}</p>
+                        <div class="bazi-insight-strip bazi-accent-red" v-if="intGroups.zhiYun">
+                            <div class="bazi-strip-label">地支运势</div>
+                            <div class="bazi-strip-body">{{ intGroups.zhiYun }}</div>
                         </div>
-                        
-                        <div v-if="!intGroups.ganYuanju && !intGroups.zhiYuanju && !intGroups.ganYun && !intGroups.zhiYun" style="text-align:center;color:#666;font-size:12px;">暂无明显的合冲破害关系</div>
+
+                        <div v-if="!intGroups.ganYuanju && !intGroups.zhiYuanju && !intGroups.ganYun && !intGroups.zhiYun" class="bazi-empty-hint">暂无明显的合冲破害关系</div>
                     </div>
-                </div>
+                </div><!-- /大运流年 -->
 
                 <!-- 神煞解释弹窗 -->
                 <Teleport to="body">
@@ -975,54 +965,58 @@
                     </div>
                 </Teleport>
 
-                <!-- 命局天机分析版块 -->
-                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="rpt-section">
-                    <div class="rpt-head">
-                        <span class="rpt-kicker">命局天机</span>
+                <!-- ══ 版块4：命局天机 ══ -->
+                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="bazi-result-module">
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">命局天机</div>
                         <button class="info-button" title="查看命局判定" @click="openInsightPanel('strength')">i</button>
                     </div>
 
-                    <!-- 核心定性标题 -->
-                    <h2 class="rpt-h2">
-                        <span
-                            class="rpt-h2-tag tag-action"
-                            role="button" tabindex="0"
-                            title="查看身强身弱依据"
-                            @click="openStrengthPanel"
-                            @keydown.enter.prevent="openStrengthPanel"
-                            @keydown.space.prevent="openStrengthPanel"
-                        >{{ activeProfile.strong_weak }}</span>
-                        <span class="rpt-h2-sep">·</span>
-                        <span>{{ patternFinalName }}</span>
-                        <span v-if="showChengGeText" class="rpt-h2-badge">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
-                    </h2>
-                    <div v-if="strengthSummaryLine || gejuSummaryLine" class="rpt-byline">
-                        <div v-if="strengthSummaryLine">{{ strengthSummaryLine }}</div>
-                        <div v-if="gejuSummaryLine">{{ gejuSummaryLine }}</div>
-                    </div>
-                    <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
-
-                    <!-- 调候诊断 -->
-                    <div v-if="tiaohouPanelContent" class="rpt-sub">
-                        <div class="rpt-sub-head">
-                            <span class="rpt-kicker-sm">调候诊断</span>
-                            <strong class="rpt-sub-title">{{ tiaohouPanelContent.climateState }}</strong>
-                            <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
-                            <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
+                    <!-- 格局特性 -->
+                    <div class="bazi-geju-block">
+                        <div class="tag-row">
+                            <span
+                                class="tag-gold tag-action"
+                                role="button"
+                                tabindex="0"
+                                title="查看身强身弱依据"
+                                @click="openStrengthPanel"
+                                @keydown.enter.prevent="openStrengthPanel"
+                                @keydown.space.prevent="openStrengthPanel"
+                            >{{ activeProfile.strong_weak }}</span>
+                            <span class="tag-gold">{{ patternFinalName }}</span>
+                            <span v-if="showChengGeText" class="tag-gold tag-emerald">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
                         </div>
-                        <div class="rpt-stat-row">
-                            <span class="rpt-stat"><span class="rpt-stat-l">第一调候</span><strong>{{ tiaohouPanelContent.primary }}</strong></span>
-                            <span class="rpt-stat"><span class="rpt-stat-l">辅助调候</span><strong>{{ tiaohouPanelContent.secondary }}</strong></span>
-                            <span class="rpt-stat"><span class="rpt-stat-l">慎见</span><strong>{{ tiaohouPanelContent.avoid }}</strong></span>
-                        </div>
-                        <p class="rpt-prose">{{ tiaohouPanelContent.explanation }}</p>
-                        <p v-if="tiaohouPanelContent.warning" class="rpt-warn-line">{{ tiaohouPanelContent.warning }}</p>
+                        <div v-if="strengthSummaryLine" class="geju-summary-line">{{ strengthSummaryLine }}</div>
+                        <div v-if="gejuSummaryLine" class="geju-summary-line secondary">{{ gejuSummaryLine }}</div>
+                        <p class="geju-desc-text">{{ getGejuDesc(patternFinalName) }}</p>
                     </div>
 
-                    <!-- 五行能量池 -->
-                    <div v-if="activeProfile.bazi_detail.wuxing_ratio" class="rpt-sub">
-                        <div class="rpt-sub-head">
-                            <span class="rpt-kicker-sm">五行能量池</span>
+                    <!-- 调候诊断条 -->
+                    <div v-if="tiaohouPanelContent" class="bazi-insight-strip bazi-accent-teal" style="margin-top:10px;">
+                        <div class="bazi-strip-top">
+                            <div>
+                                <div class="bazi-strip-kicker">调候诊断</div>
+                                <div class="bazi-strip-label" style="font-size:14px;color:var(--text-primary);">{{ tiaohouPanelContent.climateState }}</div>
+                            </div>
+                            <div style="display:flex;align-items:center;gap:8px;">
+                                <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
+                                <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
+                            </div>
+                        </div>
+                        <div class="tiaohou-god-grid" style="margin-top:10px;">
+                            <div class="tiaohou-god-cell"><span>第一调候</span><strong>{{ tiaohouPanelContent.primary }}</strong></div>
+                            <div class="tiaohou-god-cell"><span>辅助调候</span><strong>{{ tiaohouPanelContent.secondary }}</strong></div>
+                            <div class="tiaohou-god-cell"><span>慎见</span><strong>{{ tiaohouPanelContent.avoid }}</strong></div>
+                        </div>
+                        <div class="bazi-strip-body" style="margin-top:8px;">{{ tiaohouPanelContent.explanation }}</div>
+                        <div v-if="tiaohouPanelContent.warning" class="tiaohou-warning" style="margin-top:8px;">{{ tiaohouPanelContent.warning }}</div>
+                    </div>
+
+                    <!-- 五行能量条 -->
+                    <div v-if="activeProfile.bazi_detail.wuxing_ratio" style="margin-top:10px;">
+                        <div class="bazi-section-subtitle">
+                            五行能量池
                             <span v-if="Object.values(activeProfile.bazi_detail.wuxing_ratio).some(r => r > 45)" class="overload-tag">能量偏盛</span>
                         </div>
                         <div class="wuxing-bar-container">
@@ -1035,107 +1029,128 @@
                             </div>
                         </div>
                     </div>
-                </div>
+                </div><!-- /命局天机 -->
 
-                <!-- 天机锦囊 -->
-                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="rpt-section">
-                    <div class="rpt-head">
-                        <span class="rpt-kicker">天机锦囊</span>
+                <!-- ══ 版块5：天机锦囊 ══ -->
+                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="bazi-result-module">
+                    <div class="ai-header-row">
+                        <div class="ai-header-title">天机锦囊</div>
                         <button class="info-button" title="查看用神决策链与四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
                     </div>
 
-                    <p v-if="fiveShenProfile?.summary" class="rpt-byline">{{ fiveShenProfile.summary }}</p>
+                    <!-- 命局定性一行 -->
+                    <div v-if="fiveShenProfile?.summary" class="jinnang-summary-line">{{ fiveShenProfile.summary }}</div>
 
-                    <!-- 五神横排 -->
-                    <div v-if="fiveShenProfile" class="rpt-shen-line">
-                        <span class="rpt-shen-tag is-yong" :title="fiveShenProfile.yongConfidence === 'LOW' ? '五行中和，用神参考' : '命局核心用神'">
-                            <span class="rpt-shen-role">用神</span>
-                            <span class="rpt-shen-val">{{ formatShenWithGan(fiveShenProfile.yong) }}</span>
-                            <span v-if="fiveShenProfile.yongConfidence === 'LOW'" class="rpt-shen-note">(参考)</span>
-                        </span>
-                        <span v-if="fiveShenProfile.xi?.length" class="rpt-shen-tag is-xi">
-                            <span class="rpt-shen-role">喜神</span>
-                            <span class="rpt-shen-val">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</span>
-                        </span>
-                        <span v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="rpt-shen-tag is-ji">
-                            <span class="rpt-shen-role">忌神</span>
-                            <span class="rpt-shen-val">{{ formatShenWithGan(s) }}</span>
-                        </span>
-                        <span v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="rpt-shen-tag is-chou">
-                            <span class="rpt-shen-role">仇神</span>
-                            <span class="rpt-shen-val">{{ formatShenWithGan(s) }}</span>
-                        </span>
-                    </div>
-                    <div v-else class="rpt-shen-line">
-                        <span class="rpt-shen-tag is-xi">
-                            <span class="rpt-shen-role">喜用神</span>
-                            <span class="rpt-shen-val favorable">{{ (activeProfile.favorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</span>
-                        </span>
-                        <span class="rpt-shen-tag is-ji">
-                            <span class="rpt-shen-role">忌仇神</span>
-                            <span class="rpt-shen-val unfavorable">{{ (activeProfile.unfavorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</span>
-                        </span>
+                    <!-- 五神分层行 -->
+                    <div v-if="fiveShenProfile" class="five-shen-row">
+                        <div class="five-shen-cell is-yong" :title="fiveShenProfile.yongConfidence === 'LOW' ? '五行中和，用神参考' : '命局核心用神'">
+                            <div class="five-shen-role">用神</div>
+                            <div class="five-shen-name">{{ formatShenWithGan(fiveShenProfile.yong) }}</div>
+                            <div v-if="fiveShenProfile.yongConfidence === 'LOW'" class="five-shen-note">参考</div>
+                        </div>
+                        <div v-if="fiveShenProfile.xi?.length" class="five-shen-cell is-xi">
+                            <div class="five-shen-role">喜神</div>
+                            <div class="five-shen-name">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</div>
+                        </div>
+                        <div v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="five-shen-cell is-ji">
+                            <div class="five-shen-role">忌神</div>
+                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
+                        </div>
+                        <div v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="five-shen-cell is-chou">
+                            <div class="five-shen-role">仇神</div>
+                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
+                        </div>
                     </div>
 
-                    <!-- 结构化断语 as flowing prose -->
+                    <!-- 旧式喜忌行（fallback，无 five_shens 时显示） -->
+                    <div v-else class="xiji-box">
+                        <div class="xiji-item">
+                            <div class="xiji-label">喜用神</div>
+                            <div class="xiji-val favorable">{{ (activeProfile.favorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</div>
+                        </div>
+                        <div class="xiji-item">
+                            <div class="xiji-label">忌仇神</div>
+                            <div class="xiji-val unfavorable">{{ (activeProfile.unfavorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</div>
+                        </div>
+                    </div>
+
+                    <!-- 结构化断语块 -->
                     <template v-if="fiveShenProfile?.userBlocks">
-                        <p class="rpt-prose"><strong class="rpt-lead-w">用神说明　</strong>{{ fiveShenProfile.userBlocks.yong_shen_text }}</p>
-                        <p class="rpt-prose"><strong class="rpt-lead-w">喜忌方向　</strong>{{ fiveShenProfile.userBlocks.xi_ji_text }}</p>
-                        <p class="rpt-prose"><strong class="rpt-lead-w">大运指引　</strong>{{ fiveShenProfile.userBlocks.dayun_guide }}</p>
-                        <p class="rpt-prose rpt-prose-warn"><strong class="rpt-lead-w">注意警示　</strong>{{ fiveShenProfile.userBlocks.avoid_text }}</p>
+                        <div class="jinnang-block">
+                            <div class="jinnang-block-label">用神说明</div>
+                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.yong_shen_text }}</p>
+                        </div>
+                        <div class="jinnang-block">
+                            <div class="jinnang-block-label">喜忌方向</div>
+                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.xi_ji_text }}</p>
+                        </div>
+                        <div class="jinnang-block">
+                            <div class="jinnang-block-label">大运指引</div>
+                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.dayun_guide }}</p>
+                        </div>
+                        <div class="jinnang-block jinnang-block-warn">
+                            <div class="jinnang-block-label">注意警示</div>
+                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.avoid_text }}</p>
+                        </div>
                     </template>
 
                     <!-- 原局核心 -->
-                    <div class="rpt-sub">
-                        <span class="rpt-kicker-sm">原局核心</span>
-                        <p class="rpt-prose" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
-                        <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
-                            <div class="rpt-feedback-head">
+                    <div class="bazi-insight-strip bazi-accent-gold" style="margin-top:12px;">
+                        <div class="bazi-strip-label">原局核心</div>
+                        <div class="bazi-strip-body">{{ resolvedYuanjuCore }}</div>
+                        <div v-if="feedbackCorrections.yuanju_core" class="feedback-correction-block" style="margin-top:10px;">
+                            <div class="feedback-correction-head">
                                 <span>命主反馈纠偏</span>
-                                <span v-if="feedbackCorrectionDate" class="rpt-feedback-date">{{ feedbackCorrectionDate }}</span>
+                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
                             </div>
-                            <p class="rpt-prose">{{ feedbackCorrections.yuanju_core }}</p>
+                            <p class="feedback-correction-copy">{{ feedbackCorrections.yuanju_core }}</p>
                         </div>
                     </div>
 
                     <!-- 岁运推演 -->
-                    <div class="rpt-sub">
-                        <span class="rpt-kicker-sm">岁运推演</span>
-                        <p class="rpt-prose" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
-                        <p class="rpt-prose"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
-                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
-                            <div class="rpt-feedback-head">
+                    <div class="bazi-insight-strip bazi-accent-indigo" style="margin-top:10px;">
+                        <div class="bazi-strip-label">岁运推演</div>
+                        <div class="bazi-strip-body">
+                            <p style="margin-bottom:6px;"><strong style="color:var(--gold)">【大运】</strong> {{ resolvedCurrentDayun }}</p>
+                            <p><strong style="color:var(--gold)">【流年】</strong> {{ resolvedCurrentLiunian }}</p>
+                        </div>
+                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="feedback-correction-block is-transit" style="margin-top:10px;">
+                            <div class="feedback-correction-head">
                                 <span>命主反馈纠偏</span>
-                                <span v-if="feedbackCorrectionDate" class="rpt-feedback-date">{{ feedbackCorrectionDate }}</span>
+                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
                             </div>
-                            <p v-if="feedbackCorrections.current_dayun" class="rpt-prose"><strong>大运修正　</strong>{{ feedbackCorrections.current_dayun }}</p>
-                            <p v-if="feedbackCorrections.current_liunian" class="rpt-prose"><strong>流年修正　</strong>{{ feedbackCorrections.current_liunian }}</p>
+                            <div v-if="feedbackCorrections.current_dayun" class="feedback-correction-line"><strong>【大运修正】</strong> {{ feedbackCorrections.current_dayun }}</div>
+                            <div v-if="feedbackCorrections.current_liunian" class="feedback-correction-line"><strong>【流年修正】</strong> {{ feedbackCorrections.current_liunian }}</div>
                         </div>
                     </div>
+                </div><!-- /天机锦囊 -->
+
+                <div v-else-if="currentTab !== 'events' && activeProfile.bazi_summary" class="bazi-result-module">
+                    <div class="ai-header-title" style="margin-bottom:10px;">命理总评</div>
+                    <p style="font-size:13px;color:#D0D0D8;line-height:1.75;">{{ activeProfile.bazi_summary }}</p>
                 </div>
 
-                <div v-else-if="currentTab !== 'events' && activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
-                    {{ activeProfile.bazi_summary }}
-                </div>
-
-                <!-- 古籍断语 -->
-                <div v-if="currentTab !== 'events' && classicVerdictText" class="rpt-section">
-                    <div class="rpt-head">
-                        <div class="rpt-head-left">
-                            <span class="rpt-kicker">古籍断语</span>
-                            <span class="rpt-src-note">{{ classicVerdict.source || '三命通会' }} · {{ classicVerdict.key }}</span>
+                <!-- ══ 版块6：古籍断语 ══ -->
+                <div v-if="currentTab !== 'events' && classicVerdictText" class="bazi-result-module">
+                    <div class="classic-header">
+                        <div>
+                            <div class="ai-header-title classic-main-title">古籍断语</div>
+                            <div class="classic-subtitle">{{ classicVerdict.source || '三命通会' }}</div>
                         </div>
+                        <span class="classic-key">{{ classicVerdict.key }}</span>
                     </div>
-                    <div class="rpt-classic-body">
+                    <div class="classic-body">
                         <p
                             v-for="(line, idx) in classicVerdictLines"
                             :key="'classic'+idx"
-                            :class="['rpt-prose', { 'rpt-classic-note': line.startsWith('#') }]"
-                        >{{ line }}</p>
+                            :class="{ note: line.startsWith('#') }"
+                        >
+                            {{ line }}
+                        </p>
                     </div>
-                </div>
+                </div><!-- /古籍断语 -->
 
-            </div>
+            </div><!-- /bazi-result-stack -->
         </div>
     </div>
   </div>
@@ -1297,28 +1312,6 @@ const currentTab = ref('basic')
 const showAdd = ref(false)
 const showRename = ref(false)
 const isProfileMenuOpen = ref(false)
-const swipedProfileId = ref(null)
-let _swipeTouchStartX = 0
-const handleItemTouchStart = (e) => { _swipeTouchStartX = e.touches[0].clientX }
-const handleItemTouchEnd = (profileId, e) => {
-    const dx = e.changedTouches[0].clientX - _swipeTouchStartX
-    if (dx < -50) swipedProfileId.value = swipedProfileId.value === profileId ? null : profileId
-    else if (dx > 20) swipedProfileId.value = null
-}
-const renameProfileById = (id) => {
-    selectedProfileId.value = id
-    setSelectedBaziProfileId(id)
-    swipedProfileId.value = null
-    isProfileMenuOpen.value = false
-    // small tick so activeProfile computed re-evaluates
-    setTimeout(() => openRenameProfile(), 50)
-}
-const deleteProfileById = async (id) => {
-    swipedProfileId.value = null
-    selectedProfileId.value = id
-    setSelectedBaziProfileId(id)
-    await deleteProfile()
-}
 const showGuestLoginGuide = ref(false)
 const isAnalyzing = ref(false)
 const isSavingProfileContext = ref(false)
@@ -1328,20 +1321,20 @@ const isFormOpen = ref(false)
 const isCalibrating = ref(false)
 
 const LIFE_EVENT_CATEGORIES = [
-    { value: 'career', label: '事业/学业', icon: '事' },
-    { value: 'wealth', label: '财富/资产', icon: '财' },
-    { value: 'relationship', label: '感情/婚姻', icon: '情' },
-    { value: 'health', label: '健康/灾厄', icon: '健' },
-    { value: 'family_parent', label: '父母', icon: '亲' },
-    { value: 'family_spouse', label: '配偶', icon: '婚' },
-    { value: 'family_child', label: '子女', icon: '嗣' },
-    { value: 'family_sibling', label: '兄弟姐妹', icon: '弟' },
+    { value: 'career', label: '事业/学业', icon: '💼' },
+    { value: 'wealth', label: '财富/资产', icon: '💰' },
+    { value: 'relationship', label: '感情/婚姻', icon: '💕' },
+    { value: 'health', label: '健康/灾厄', icon: '🏥' },
+    { value: 'family_parent', label: '父母', icon: '👨‍👩‍👧' },
+    { value: 'family_spouse', label: '配偶', icon: '💍' },
+    { value: 'family_child', label: '子女', icon: '👶' },
+    { value: 'family_sibling', label: '兄弟姐妹', icon: '🤝' },
 ]
 
 const IMPACT_OPTIONS = [
-    { value: 1, label: '顺遂/提升', cls: 'positive' },
-    { value: 0, label: '平稳/变动', cls: 'neutral' },
-    { value: -1, label: '坎坷/挫折', cls: 'negative' },
+    { value: 1, label: '🟢 顺遂/提升', cls: 'positive' },
+    { value: 0, label: '🟡 平稳/变动', cls: 'neutral' },
+    { value: -1, label: '🔴 坎坷/挫折', cls: 'negative' },
 ]
 
 const PROFILE_CONTEXT_SECTIONS = [
@@ -1559,6 +1552,7 @@ const notesMonthOptions = computed(() => {
     return options
 })
 const isGuest = computed(() => globalState.isGuest && !currentUser.value)
+const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeProfile.value?.name || (baziProfiles.value.length ? '请选择命主档案' : '暂无命主档案'))
 
 const formatSolarDate = (value) => {
@@ -2712,6 +2706,7 @@ const handleProfileSelect = () => {
 }
 
 const toggleProfileMenu = () => {
+    if (!showProfileSwitcher.value) return
     isProfileMenuOpen.value = !isProfileMenuOpen.value
 }
 
@@ -2729,7 +2724,7 @@ const selectProfile = (profileId) => {
 const handleDocumentClick = (event) => {
     const target = event.target
     if (!(target instanceof Element)) return
-    if (!target.closest('.profile-switcher') && !target.closest('.profile-strip-wrap') && !target.closest('.profile-bottom-sheet')) isProfileMenuOpen.value = false
+    if (!target.closest('.profile-switcher')) isProfileMenuOpen.value = false
 }
 
 const openAddProfile = () => {
@@ -3398,53 +3393,45 @@ const getShenColor = (shen) => {
 
 <style scoped>
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
-.bazi-view { width: 100%; min-height: 100vh; position: relative; background: linear-gradient(to bottom, var(--paper-soft) 0%, var(--paper) 215px); }
+.bazi-view { width: 100%; min-height: 100vh; position: relative;}
 
-#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: rgba(247,244,238,0.96); border-bottom: 1px solid var(--line); }
-.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
+#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
+.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
 .header-actions { position: absolute; right: 20px; top: 50%; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
 
-.page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 0 0 60px; }
-.container { width: 100%; max-width: 520px; }
+.page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
+.container { width: 100%; max-width: 520px; display: flex; flex-direction: column; gap: 14px; }
 
-.glass-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
+.glass-card { background: rgba(14,14,24,0.72); border: 1px solid rgba(232,204,128,0.12); border-radius: 18px; padding: 18px 14px; backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 4px 28px rgba(0,0,0,0.32), inset 0 1px 0 rgba(255,255,255,0.04); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 
 .profile-card { position: relative; z-index: 40; padding: 16px; overflow: visible; }
 .profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.section-kicker { color: var(--gold); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
+.section-kicker { color: rgba(232,204,128,0.72); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
 .section-title { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .default-chip { color: #101018; background: linear-gradient(135deg, var(--gold-light), var(--gold)); border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
 
 .profile-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: stretch; margin-bottom: 10px; }
 .profile-switcher { position: relative; z-index: 60; min-width: 0; }
-.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: var(--paper-soft); color: var(--ink); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); padding: 8px 12px; }
+.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color: var(--gold-light); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(212,175,55,0.14); padding: 8px 12px; }
 .profile-switch-trigger:disabled { opacity: .68; cursor: default; }
 .profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
-.profile-switch-symbol { color: var(--gold); font-size: 21px; line-height: 1; opacity: .92; }
-.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px var(--gold-border); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: white; border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
+.profile-switch-symbol { color: var(--gold-light); font-size: 21px; line-height: 1; opacity: .92; }
+.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
 .profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
-.profile-flyout-item.active { background: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-border); }
+.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
 .profile-item-main { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
 .profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); color: var(--gold); font-size: 22px; line-height: 1; cursor: pointer; }
-.guest-limit-note {
-    color: var(--ink-muted);
-    font-size: 12px;
-    line-height: 1.65;
-    margin: 10px 0 2px;
-    padding: 0;
-    border: 0;
-    background: transparent;
-}
+.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
+.guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--ink-muted); font-size: 12px; cursor: pointer; white-space: nowrap; }
-.mini-action:disabled { cursor: default; color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); }
-.mini-action.danger { color: var(--crimson); }
-.mini-action--subtle { color: var(--ink-dim); border-color: var(--line); background: var(--paper-soft); }
+.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; white-space: nowrap; }
+.mini-action:disabled { cursor: default; color: var(--gold-light); border-color: rgba(232,204,128,0.25); background: rgba(232,204,128,0.08); }
+.mini-action.danger { color: #FF8F88; }
+.mini-action--subtle { color: rgba(216,210,191,0.88); border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
 .btn-ghost { min-height: 36px; background: rgba(212,175,55,0.12); color: var(--gold-light); border: 1px solid rgba(232,204,128,0.35); padding: 0 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; white-space: nowrap; }
 .btn-ghost:hover { background: var(--gold); color: #000; }
 .btn-ghost:disabled { opacity: .7; cursor: default; }
@@ -3454,10 +3441,10 @@ const getShenColor = (shen) => {
 .btn-primary:active { transform: scale(0.95); }
 .btn-primary:disabled { opacity: .7; cursor: wait; }
 
-.profile-form { background: var(--paper-soft); padding: 14px; border-radius: 12px; border: 1px dashed var(--gold-border); margin-top: 10px; }
+.profile-form { background: rgba(255,255,255,0.025); padding: 14px; border-radius: 12px; border: 1px dashed rgba(232,204,128,0.16); margin-top: 10px; }
 .rename-form { margin-bottom: 2px; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
-.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: white; border: 1px solid var(--line); color: var(--ink); outline: none; font-family: var(--font-body); }
+.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; outline: none; font-family: var(--font-body); }
 .form-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 .picker-overlay {
@@ -3474,9 +3461,11 @@ const getShenColor = (shen) => {
     overflow: auto;
     overscroll-behavior: contain;
     border-radius: 24px;
-    border: 1px solid var(--line);
-    background: white;
-    box-shadow: 0 24px 72px rgba(0,0,0,0.15);
+    border: 1px solid rgba(232,204,128,0.16);
+    background:
+        radial-gradient(circle at top left, rgba(232,204,128,0.06), transparent 28%),
+        linear-gradient(180deg, rgba(18,18,30,0.98), rgba(10,10,18,0.98));
+    box-shadow: 0 24px 72px rgba(0,0,0,0.45);
     padding: 18px;
     color: var(--text-primary);
     animation: pickerSheetIn .24s ease both;
@@ -3485,7 +3474,7 @@ const getShenColor = (shen) => {
     width: 42px;
     height: 4px;
     border-radius: 999px;
-    background: var(--line);
+    background: rgba(255,255,255,0.2);
     margin: 0 auto 14px;
 }
 .picker-topbar {
@@ -3496,22 +3485,22 @@ const getShenColor = (shen) => {
     margin-bottom: 16px;
 }
 .picker-topcopy { min-width: 0; }
-.picker-heading { color: var(--ink); font-size: 16px; font-weight: 700; }
+.picker-heading { color: #F4EBDD; font-size: 16px; font-weight: 700; }
 .picker-mode-tabs {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 4px;
     padding: 4px;
     border-radius: 999px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(232,204,128,0.16);
 }
 .picker-mode-tab {
     min-height: 40px;
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: var(--ink-dim);
+    color: #AFA79A;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -3519,15 +3508,15 @@ const getShenColor = (shen) => {
 .picker-mode-tab.active {
     background: linear-gradient(135deg, rgba(232,204,128,0.94), rgba(212,175,55,0.94));
     color: #111114;
-    box-shadow: 0 4px 12px rgba(212,175,55,0.18);
+    box-shadow: 0 6px 18px rgba(212,175,55,0.18);
 }
 .picker-close.dark {
     position: relative;
     z-index: 2;
     justify-self: end;
-    background: var(--paper-soft);
-    color: var(--ink-muted);
-    border-color: var(--line);
+    background: rgba(255,255,255,0.04);
+    color: #B8AF9B;
+    border-color: rgba(232,204,128,0.16);
 }
 .picker-form-row {
     display: grid;
@@ -3543,7 +3532,7 @@ const getShenColor = (shen) => {
 .picker-gender-field > span {
     display: block;
     margin-bottom: 8px;
-    color: var(--ink-muted);
+    color: #D8D2BF;
     font-size: 12px;
     font-weight: 700;
 }
@@ -3551,56 +3540,56 @@ const getShenColor = (shen) => {
     width: 100%;
     min-height: 44px;
     border: none;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(232,204,128,0.18);
     border-radius: 0;
     background: transparent;
-    color: var(--ink);
+    color: #F4EBDD;
     padding: 0 2px;
     font-size: 14px;
     outline: none;
 }
 .picker-text-field input:focus {
-    border-color: var(--gold);
+    border-color: rgba(232,204,128,0.5);
 }
 .gender-segment {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     min-height: 44px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(232,204,128,0.18);
 }
 .gender-segment button {
     border: none;
     background: transparent;
-    color: var(--ink-dim);
+    color: #AFA79A;
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
 }
 .gender-segment button.active {
-    color: var(--ink);
-    box-shadow: inset 0 -2px 0 var(--gold);
+    color: #F4EBDD;
+    box-shadow: inset 0 -2px 0 var(--gold-light);
 }
 .picker-panel {
-    border-top: 1px solid var(--line);
+    border-top: 1px solid rgba(232,204,128,0.1);
     padding-top: 14px;
 }
 .picker-column { display: flex; flex-direction: column; gap: 8px; }
 .picker-column-label {
     text-align: left;
-    color: var(--ink-muted);
+    color: #E5D5AF;
     font-size: 14px;
     font-weight: 700;
 }
 .picker-preview-card {
     border-radius: 16px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(232,204,128,0.1);
     padding: 12px 14px;
-    color: var(--ink-muted);
+    color: #D8D2BF;
     line-height: 1.7;
     font-size: 13px;
 }
-.picker-preview-card.muted { color: var(--ink-dim); }
+.picker-preview-card.muted { color: #8D9098; }
 .date-input-panel {
     display: flex;
     flex-direction: column;
@@ -3609,21 +3598,24 @@ const getShenColor = (shen) => {
 }
 .date-input-card {
     border-radius: 18px;
-    border: 1px solid var(--line);
-    background: var(--paper-soft);
+    border: 1px solid rgba(232,204,128,0.14);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+        rgba(0,0,0,0.16);
     padding: 14px;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 .location-search-card {
     min-width: 0;
     position: relative;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    border-top: 1px solid rgba(232,204,128,0.1);
+    border-bottom: 1px solid rgba(232,204,128,0.1);
     padding: 13px 0 12px;
 }
 .location-search-field span {
     display: block;
     margin-bottom: 8px;
-    color: var(--ink-muted);
+    color: #D8D2BF;
     font-size: 12px;
     font-weight: 700;
 }
@@ -3633,16 +3625,16 @@ const getShenColor = (shen) => {
     align-items: center;
     gap: 9px;
     min-height: 48px;
-    border: 1px solid var(--line);
+    border: 1px solid rgba(232,204,128,0.14);
     border-radius: 999px;
-    background: white;
+    background: rgba(6,6,14,0.62);
     padding: 0 12px;
 }
 .location-search-input-wrap svg {
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
-    color: var(--ink-dim);
+    color: #AFA79A;
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -3654,21 +3646,21 @@ const getShenColor = (shen) => {
     min-width: 0;
     border: none;
     background: transparent;
-    color: var(--ink);
+    color: #F7F0E2;
     font-size: 14px;
     outline: none;
 }
 .location-search-input-wrap:focus-within {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 1px var(--gold-border);
+    border-color: rgba(232,204,128,0.34);
+    box-shadow: 0 0 0 1px rgba(232,204,128,0.12);
 }
 .location-clear-btn {
     width: 28px;
     height: 28px;
     border: none;
     border-radius: 50%;
-    background: var(--line);
-    color: var(--ink-muted);
+    background: rgba(255,255,255,0.06);
+    color: #D8D2BF;
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
@@ -3677,8 +3669,8 @@ const getShenColor = (shen) => {
     margin-top: 10px;
     max-height: 252px;
     overflow: auto;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
+    border-top: 1px solid rgba(255,255,255,0.06);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 .location-result-item {
     width: 100%;
@@ -3686,9 +3678,9 @@ const getShenColor = (shen) => {
     gap: 3px;
     padding: 13px 2px;
     border: none;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(255,255,255,0.055);
     background: transparent;
-    color: var(--ink);
+    color: #F4EBDD;
     text-align: left;
     cursor: pointer;
 }
@@ -3698,15 +3690,15 @@ const getShenColor = (shen) => {
     font-weight: 700;
 }
 .location-result-item small {
-    color: var(--ink-dim);
+    color: #928A7C;
     font-size: 11px;
 }
 .location-result-item:hover {
-    color: var(--gold);
+    color: var(--gold-light);
 }
 .location-empty {
     padding: 16px 2px;
-    color: var(--ink-dim);
+    color: #8D9098;
     font-size: 13px;
 }
 .time-toggle-row {
@@ -3720,7 +3712,7 @@ const getShenColor = (shen) => {
     align-items: center;
     gap: 8px;
     min-height: 30px;
-    color: var(--ink-dim);
+    color: #AFA79A;
     font-size: 13px;
     font-weight: 700;
 }
@@ -3730,7 +3722,7 @@ const getShenColor = (shen) => {
     accent-color: var(--gold);
 }
 .time-check.active {
-    color: var(--ink);
+    color: #F4EBDD;
 }
 .time-check.disabled {
     opacity: .62;
@@ -3738,7 +3730,7 @@ const getShenColor = (shen) => {
 .date-input-label {
     display: block;
     margin-bottom: 10px;
-    color: var(--ink);
+    color: #F4EBDD;
     font-size: 15px;
     font-weight: 700;
 }
@@ -3746,26 +3738,27 @@ const getShenColor = (shen) => {
     width: 100%;
     min-height: 54px;
     border-radius: 16px;
-    border: 1px solid var(--line);
-    background: white;
-    color: var(--ink);
+    border: 1px solid rgba(232,204,128,0.18);
+    background: rgba(6,6,14,0.72);
+    color: #F7F0E2;
     padding: 0 16px;
     font-size: 21px;
     letter-spacing: 0.14em;
     outline: none;
+    box-shadow: inset 0 0 18px rgba(0,0,0,0.24);
 }
 .date-input-card input::placeholder {
-    color: var(--ink-dim);
+    color: rgba(212,204,190,0.34);
     letter-spacing: normal;
     font-size: 15px;
 }
 .date-input-card input:focus {
-    border-color: var(--gold);
-    box-shadow: 0 0 0 1px var(--gold-border);
+    border-color: rgba(232,204,128,0.38);
+    box-shadow: 0 0 0 1px rgba(232,204,128,0.16), inset 0 0 18px rgba(0,0,0,0.24);
 }
 .date-input-hint {
     margin-top: 10px;
-    color: var(--ink-dim);
+    color: #9E988B;
     font-size: 12px;
     line-height: 1.6;
 }
@@ -3777,21 +3770,21 @@ const getShenColor = (shen) => {
 .date-segment {
     min-width: 0;
     border-radius: 16px;
-    border: 1px solid var(--line);
-    background: var(--paper-soft);
+    border: 1px solid rgba(232,204,128,0.1);
+    background: rgba(255,255,255,0.03);
     padding: 12px 6px;
     text-align: center;
 }
 .date-segment span {
     display: block;
     margin-bottom: 6px;
-    color: var(--ink-dim);
+    color: #928A7C;
     font-size: 11px;
     letter-spacing: 1px;
 }
 .date-segment strong {
     display: block;
-    color: var(--ink);
+    color: #F4EBDD;
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -3804,10 +3797,12 @@ const getShenColor = (shen) => {
 }
 .pillar-slot {
     min-height: 104px;
-    border: 1px solid var(--line);
+    border: 1px solid rgba(232,204,128,0.14);
     border-radius: 24px;
-    background: var(--paper-soft);
-    color: var(--ink-muted);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01)),
+        rgba(7,7,16,0.72);
+    color: #D8D2BF;
     padding: 12px 8px;
     display: flex;
     flex-direction: column;
@@ -3815,30 +3810,35 @@ const getShenColor = (shen) => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 .pillar-slot.derived {
-    background: white;
+    background: rgba(255,255,255,0.018);
 }
 .pillar-slot.active {
-    border-color: var(--gold-border);
-    background: var(--gold-dim);
-    box-shadow: inset 0 0 0 1px var(--gold-border);
+    border-color: rgba(232,204,128,0.46);
+    background:
+        linear-gradient(180deg, rgba(232,204,128,0.12), rgba(232,204,128,0.04)),
+        rgba(18,12,6,0.64);
+    box-shadow: inset 0 0 18px rgba(212,175,55,0.08);
 }
 .slot-label {
     font-size: 14px;
-    color: var(--ink-dim);
+    color: #AFA79A;
     font-weight: 700;
 }
 .slot-value {
     font-size: 26px;
-    color: var(--ink);
+    color: #F4EBDD;
     font-family: var(--font-ganzhi);
     font-weight: 600;
 }
 .pillar-choice-panel {
     border-radius: 24px;
-    border: 1px solid var(--line);
-    background: var(--paper-soft);
+    border: 1px solid rgba(232,204,128,0.12);
+    background:
+        radial-gradient(circle at top right, rgba(232,204,128,0.05), transparent 28%),
+        rgba(5,5,14,0.68);
     padding: 14px;
     margin-bottom: 14px;
 }
@@ -3857,12 +3857,12 @@ const getShenColor = (shen) => {
 }
 .pillar-rule-tip {
     margin-bottom: 12px;
-    color: var(--ink-dim);
+    color: #AFA79A;
     font-size: 12px;
     line-height: 1.6;
 }
 .orb-title {
-    color: var(--ink-muted);
+    color: #BBAF94;
     font-size: 12px;
     letter-spacing: 1px;
     margin-bottom: 10px;
@@ -3876,18 +3876,19 @@ const getShenColor = (shen) => {
 .choice-chip {
     min-height: 58px;
     border-radius: 18px;
-    border: 1px solid var(--line);
-    background: white;
+    border: 1px solid rgba(232,204,128,0.14);
+    background:
+        linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012)),
+        rgba(10,10,20,0.78);
     font-size: 24px;
     font-weight: 700;
     font-family: var(--font-ganzhi);
-    color: var(--ink);
     cursor: pointer;
 }
 .choice-chip.active {
-    border-color: var(--gold-border);
-    background: var(--gold-dim);
-    box-shadow: inset 0 0 0 1px var(--gold-border);
+    border-color: rgba(232,204,128,0.46);
+    background: rgba(212,175,55,0.12);
+    box-shadow: inset 0 0 16px rgba(212,175,55,0.08);
 }
 .choice-chip.disabled {
     opacity: .36;
@@ -3938,10 +3939,10 @@ const getShenColor = (shen) => {
     to { transform: translateX(0); opacity: 1; }
 }
 
-.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
+.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
 .bazi-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold); letter-spacing: 2px; font-weight: bold; }
+.bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px; font-weight: bold; }
 .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 2px; }
 
 .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: var(--font-body); letter-spacing: 1px; font-weight: 500; }
@@ -3951,17 +3952,17 @@ const getShenColor = (shen) => {
 .badge-action:hover, .badge-action:focus-visible { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(78,205,196,0.12); outline: none; }
 .pattern-tag { font-size: 10px; color: #E8CC80; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.2); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 4px; margin-top: 4px; }
 
-.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid var(--gold-border); border-radius: 12px; background: var(--gold-dim); }
-.analysis-status.done { border-color: rgba(13,148,136,0.22); background: rgba(13,148,136,0.07); }
+.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid rgba(232,204,128,0.16); border-radius: 12px; background: rgba(232,204,128,0.055); }
+.analysis-status.done { border-color: rgba(129,199,132,0.22); background: rgba(129,199,132,0.07); }
 .loader-orbit { position: relative; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid rgba(232,204,128,0.25); border-radius: 50%; animation: spin 1.6s linear infinite; }
 .loader-orbit span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--gold-light); box-shadow: 0 0 10px rgba(232,204,128,.65); }
 .loader-orbit span:nth-child(1) { top: -3px; left: 12px; }
 .loader-orbit span:nth-child(2) { right: 0; bottom: 4px; opacity: .7; }
 .loader-orbit span:nth-child(3) { left: 1px; bottom: 5px; opacity: .45; }
 .analysis-copy { min-width: 0; flex: 1; }
-.analysis-title { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.analysis-title { color: #F5E9CE; font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .analysis-subtitle { color: var(--text-muted); font-size: 11px; }
-.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
+.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.06); }
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -3992,66 +3993,66 @@ const getShenColor = (shen) => {
 .bazi-table-wrap { width: 100%; overflow: hidden; }
 .bazi-table {
     --bz-cell-py: 8px;
-    --bz-label-size: 12px;
-    --bz-meta-size: 12px;
-    --bz-char-size: 18px;
+    --bz-label-size: 10px;
+    --bz-meta-size: 10px;
+    --bz-char-size: 16px;
     table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
     text-align: center;
 }
-.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid var(--line); vertical-align: middle; word-wrap: break-word; }
-.bazi-table th { color: var(--gold); font-family: var(--font-serif); font-size: 13px; font-weight: normal; letter-spacing: 1px; }
-.bazi-table th:first-child, .bazi-table td:first-child { width: 48px; }
+.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; word-wrap: break-word; }
+.bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
+.bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
 
-.bz-label { color: var(--ink-muted); font-weight: 500; font-size: var(--bz-label-size); }
-.bz-star { font-size: var(--bz-meta-size); color: var(--ink); }
+.bz-label { color: var(--text-muted); font-weight: 500; font-size: var(--bz-label-size); }
+.bz-star { font-size: var(--bz-meta-size); color: var(--text-primary); }
 .bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
-.bz-sub { font-size: var(--bz-meta-size); color: var(--ink-muted); line-height: 1.4; }
-.bz-shensha { font-size: 11px; color: #7c5cbf; line-height: 1.4; }
+.bz-sub { font-size: var(--bz-meta-size); color: #aaa; line-height: 1.4; }
+.bz-shensha { font-size: 9px; color: #B39DDB; line-height: 1.4; }
 .matrix-fallback-note {
     margin-top: 12px;
     padding: 12px 14px;
     border-radius: 12px;
-    border: 1px solid var(--gold-border);
-    background: var(--gold-dim);
-    color: var(--gold);
+    border: 1px solid rgba(232,204,128,0.14);
+    background: rgba(232,204,128,0.05);
+    color: var(--gold-light);
     font-size: 12px;
     line-height: 1.7;
 }
 
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
 
-.timeline-section { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px; }
+.timeline-section { margin-top: 16px; border-top: 1px dashed var(--glass-border); padding-top: 16px; }
 .timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 0; font-family: var(--font-serif); text-align: center; font-weight: 500; }
 .timeline-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--gold); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.16); background: rgba(255,255,255,0.04); color: var(--gold-light); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .timeline-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.timeline-icon-btn.accent { background: var(--gold-dim); border-color: var(--gold-border); }
+.timeline-icon-btn.accent { background: rgba(212,175,55,0.14); border-color: rgba(232,204,128,0.26); }
 
-.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; overflow: hidden; }
-.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: var(--gold-dim); color: var(--gold); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid var(--line); flex-shrink: 0; line-height: 1.3; }
+.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
+.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
 .row-content { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 4px; flex: 1; scroll-snap-type: x proximity; }
 .row-content::-webkit-scrollbar { display: none; }
 
 .link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 58px; padding: 6px 4px; border-radius: 8px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: center; }
-.link-item.active { background: var(--gold-dim); border-color: var(--gold-border); }
+.link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
 .lr-item { min-width: 52px; }
 
-.item-header { font-size: 10px; color: var(--ink-dim); margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
+.item-header { font-size: 10px; color: #aaa; margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
 .item-body { display: flex; flex-direction: row; gap: 4px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 22px; }
 .stacked-ganzhi { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.xiaoyun-body { font-size: 14px; color: var(--ink-dim); margin-top: 8px; }
+.xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
 
 .char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; height: 20px; padding-right: 8px; flex: 0 0 auto; }
 .stacked-ganzhi .char-wrap { width: 100%; min-width: 0; height: 19px; padding-right: 10px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
-.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
-.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(247,244,238,0.72); pointer-events: none; }
-.fortune-guide-title { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-.fortune-guide-copy { color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
-.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--gold-border); border-radius: 999px; background: white; color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; }
+.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
+.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: linear-gradient(180deg, rgba(8,8,16,0.12), rgba(8,8,16,0.28)); pointer-events: none; }
+.fortune-guide-title { color: var(--gold-light); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.fortune-guide-copy { color: #D8D2BF; font-size: 12px; line-height: 1.6; }
+.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid rgba(232,204,128,0.3); border-radius: 999px; background: rgba(212,175,55,0.16); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .shi-shen { position: absolute; right: -14px; top: -1px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
 .shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
@@ -4077,14 +4078,14 @@ const getShenColor = (shen) => {
     }
 }
 .shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: riseIn 0.3s ease; }
-.shensha-modal h4 { color: var(--gold); font-size: 16px; margin: 0; font-family: var(--font-serif); }
-.shensha-modal p { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
+.shensha-modal h4 { color: var(--gold-light); font-size: 16px; margin: 0; font-family: var(--font-serif); }
+.shensha-modal p { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
 .shensha-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 10px; margin-bottom: 10px; }
 .shensha-nature-badge { font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
 .nature-吉 { background: rgba(72,187,120,0.18); color: #68D391; border: 1px solid rgba(72,187,120,0.4); }
 .nature-凶 { background: rgba(245,101,101,0.18); color: #FC8181; border: 1px solid rgba(245,101,101,0.4); }
 .nature-中性 { background: rgba(160,160,180,0.15); color: #CBD5E0; border: 1px solid rgba(160,160,180,0.3); }
-.shensha-summary { font-size: 13px; color: var(--ink-muted); line-height: 1.7; margin: 0 0 10px; }
+.shensha-summary { font-size: 13px; color: #D0D0D8; line-height: 1.7; margin: 0 0 10px; }
 .shensha-section { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.65; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; }
 .shensha-section-label { font-weight: 700; letter-spacing: 1px; flex-shrink: 0; font-size: 11px; padding-top: 1px; }
 .shensha-ji { background: rgba(72,187,120,0.08); color: #9AE6B4; }
@@ -4093,16 +4094,153 @@ const getShenColor = (shen) => {
 .shensha-xiong .shensha-section-label { color: #FC8181; }
 .shensha-note { background: rgba(212,175,55,0.07); color: #C8B87A; }
 .shensha-note .shensha-section-label { color: var(--gold); }
-.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid var(--line); background: white; box-shadow: 0 12px 40px rgba(0,0,0,.15); animation: riseIn 0.3s ease; }
+.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.24); background: linear-gradient(135deg, rgba(18,18,34,0.98), rgba(11,11,24,0.98)); box-shadow: 0 18px 48px rgba(0,0,0,0.58); animation: riseIn 0.3s ease; }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
-.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
-.guest-login-modal p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
-.guest-login-modal a { color: #2563eb; text-decoration: none; border-bottom: 1px solid rgba(37,99,235,0.3); }
-.guest-login-modal a:hover { color: #1d4ed8; border-bottom-color: rgba(29,78,216,0.6); }
+.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold-light); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
+.guest-login-modal p { margin: 0; color: rgba(240,237,230,0.84); font-size: 13px; line-height: 1.8; }
+.guest-login-modal a { color: #9DB7FF; text-decoration: none; border-bottom: 1px solid rgba(157,183,255,0.46); }
+.guest-login-modal a:hover { color: #C8D5FF; border-bottom-color: rgba(200,213,255,0.82); }
 .guest-login-close { position: absolute; right: 12px; top: 12px; }
 
 /* 关系可视化面板已经移除旧版CSS */
 
+/* ═══════════════════════════════════════════════════════════
+   杂志风布局：bazi-result-stack / bazi-result-module
+   对齐奇门分支 result-module 的版块流式排版
+   ═══════════════════════════════════════════════════════════ */
+.bazi-result-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+.bazi-result-module {
+    position: relative;
+    background: rgba(14,14,24,0.72);
+    border: 1px solid rgba(232,204,128,0.12);
+    border-radius: 18px;
+    padding: 18px 16px;
+    backdrop-filter: blur(20px) saturate(1.2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    box-shadow: 0 4px 28px rgba(0,0,0,0.30), inset 0 1px 0 rgba(255,255,255,0.04);
+    animation: riseIn 0.5s ease both;
+    overflow: visible;
+}
+
+/* 命主档案头部版块 */
+.bazi-header-module {
+    background:
+        radial-gradient(circle at top right, rgba(232,204,128,0.07), transparent 60%),
+        rgba(14,14,24,0.82);
+}
+
+/* 四柱排盘版块：无多余 padding top，内部 BaziPillarTable 自带间距 */
+.bazi-pillar-module {
+    padding-bottom: 14px;
+}
+
+/* ── 内嵌 Tabs（在 bazi-header-module 内） ─────────────── */
+.bazi-tabs {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-top: 14px;
+    border-top: 1px solid rgba(232,204,128,0.1);
+    padding-top: 12px;
+}
+.bazi-tab {
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 5px 0;
+    margin-right: 20px;
+    border: 0;
+    border-bottom: 2px solid transparent;
+    background: transparent;
+    transition: all 0.25s;
+    font-family: var(--font-body);
+}
+.bazi-tab.active {
+    color: var(--gold);
+    border-bottom-color: var(--gold);
+    font-weight: 500;
+}
+
+/* ── insight-strip：取代扁平 insight-card，杂志条状风格 ── */
+.bazi-insight-strip {
+    border-radius: 12px;
+    padding: 12px 14px;
+    border-left: 3px solid transparent;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-left-width: 3px;
+}
+.bazi-insight-strip + .bazi-insight-strip { margin-top: 8px; }
+.bazi-accent-gold { border-left-color: var(--gold) !important; background: rgba(232,204,128,0.05); }
+.bazi-accent-teal { border-left-color: #6FBCBA !important; background: rgba(111,188,186,0.06); }
+.bazi-accent-red  { border-left-color: #E57373 !important; background: rgba(229,115,115,0.05); }
+.bazi-accent-indigo { border-left-color: #9DB7FF !important; background: rgba(157,183,255,0.05); }
+
+.bazi-strip-top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 2px;
+}
+.bazi-strip-kicker {
+    font-size: 10px;
+    color: rgba(232,204,128,0.7);
+    letter-spacing: 1.5px;
+    margin-bottom: 3px;
+}
+.bazi-strip-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gold-light);
+    margin-bottom: 5px;
+}
+.bazi-strip-body {
+    font-size: 13px;
+    color: #D0CFC5;
+    line-height: 1.7;
+}
+
+/* ── 格局区块（替代 insight-card.geju-card） ─────────── */
+.bazi-geju-block {
+    padding-bottom: 12px;
+    border-bottom: 1px solid rgba(232,204,128,0.1);
+    margin-bottom: 0;
+}
+.geju-desc-text {
+    margin: 8px 0 0;
+    font-size: 13px;
+    color: #C8BFA8;
+    line-height: 1.7;
+}
+
+/* ── 辅助元素 ───────────────────────────────────────── */
+.bazi-section-subtitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: rgba(232,204,128,0.6);
+    letter-spacing: 1px;
+    margin-bottom: 8px;
+}
+.bazi-interaction-section {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+.bazi-empty-hint {
+    text-align: center;
+    color: #666;
+    font-size: 12px;
+    padding: 8px 0;
+}
+
+/* ── legacy .ai-section 兼容保留（modal 内部用到） ────── */
 .ai-section { margin-top: 16px; animation: riseIn 0.5s ease both; }
 .insight-summary { margin-bottom: 16px; }
 .ai-header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -4110,7 +4248,7 @@ const getShenColor = (shen) => {
 .ai-section > .ai-header-title { margin-bottom: 12px; }
 .ai-header-title::before { content: '✧'; font-size: 12px; }
 .info-button, .close-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(232,204,128,0.28); background: rgba(232,204,128,0.08); color: var(--gold-light); cursor: pointer; }
-.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: var(--font-display); font-style: italic; font-weight: 700; }
+.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: Georgia, serif; font-style: italic; font-weight: 700; }
 .close-button { width: 32px; height: 32px; border-radius: 8px; font-size: 22px; line-height: 1; }
 
 /* ── 天机锦囊 五神行 ─────────────────────────────── */
@@ -4121,7 +4259,7 @@ const getShenColor = (shen) => {
 .five-shen-cell.is-xi   { background: rgba(129,199,132,0.08); border-color: rgba(129,199,132,0.2); }
 .five-shen-cell.is-ji   { background: rgba(229,115,115,0.08); border-color: rgba(229,115,115,0.25); }
 .five-shen-cell.is-chou { background: rgba(200,70,70,0.07);   border-color: rgba(200,70,70,0.2); }
-.five-shen-cell.is-xian { background: var(--paper-soft); border-color: var(--line); }
+.five-shen-cell.is-xian { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); }
 .five-shen-role { font-size: 9px; color: var(--text-muted); margin-bottom: 3px; }
 .five-shen-name { font-size: 12px; font-weight: 500; }
 .five-shen-cell.is-yong .five-shen-name { color: var(--gold); }
@@ -4131,14 +4269,14 @@ const getShenColor = (shen) => {
 .five-shen-cell.is-xian .five-shen-name { color: var(--text-muted); }
 .five-shen-note { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
 /* ── 锦囊断语块 ─────────────────────────────────── */
-.jinnang-block { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.jinnang-block { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
 .jinnang-block:last-of-type { border-bottom: none; margin-bottom: 8px; }
 .jinnang-block-warn .jinnang-block-label { color: #E57373; opacity: 0.85; }
 .jinnang-block-label { font-size: 10px; color: var(--gold); opacity: 0.75; margin-bottom: 4px; letter-spacing: 0.5px; }
-.jinnang-block-text { font-size: 14px; color: var(--ink); line-height: 1.65; margin: 0; }
+.jinnang-block-text { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin: 0; }
 /* ── Scoring modal 决策链 + 新角色标签 ──────────── */
-.decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: var(--paper-soft); border-radius: 10px; border: 1px solid var(--line); }
-.decision-chain-item { padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
+.decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
+.decision-chain-item { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 2px; }
 .decision-chain-item:last-child { border-bottom: none; }
 .decision-layer { font-size: 10px; color: var(--gold); opacity: 0.8; }
 .decision-reason { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
@@ -4151,15 +4289,15 @@ const getShenColor = (shen) => {
 .shen-badge.shen-chou { background: rgba(200,70,70,0.1); color: #ef9a9a; }
 
 .xiji-box { display: flex; gap: 8px; margin-bottom: 14px; }
-.xiji-item { flex: 1; background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; }
+.xiji-item { flex: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 10px; padding: 10px; text-align: center; }
 .xiji-label { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
 .xiji-val { font-weight: 500; font-size: 13px; }
 .xiji-val.favorable { color: #81C784; }
 .xiji-val.unfavorable { color: #E57373; }
 
-.insight-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.insight-card h4 { color: var(--gold); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed var(--gold-border); padding-bottom: 6px; }
-.insight-card p { line-height: 1.65; font-size: 14px; color: var(--ink); }
+.insight-card { background: linear-gradient(180deg, rgba(232,204,128,0.06) 0%, rgba(255,255,255,0.015) 100%); border: 1px solid rgba(232,204,128,0.12); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
+.insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
 .tiaohou-card {
     border-color: rgba(111, 188, 186, 0.22);
     background: linear-gradient(180deg, rgba(111, 188, 186, 0.08) 0%, rgba(232,204,128,0.035) 100%);
@@ -4209,8 +4347,8 @@ const getShenColor = (shen) => {
     min-width: 0;
     padding: 9px 10px;
     border-radius: 10px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(0,0,0,0.16);
+    border: 1px solid rgba(255,255,255,0.07);
 }
 .tiaohou-god-cell span {
     display: block;
@@ -4220,7 +4358,7 @@ const getShenColor = (shen) => {
 }
 .tiaohou-god-cell strong {
     display: block;
-    color: var(--ink);
+    color: #eef1df;
     font-size: 12px;
     line-height: 1.4;
     overflow-wrap: anywhere;
@@ -4303,19 +4441,21 @@ const getShenColor = (shen) => {
     padding: 2px 10px;
 }
 .tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--gold-border); min-width: 0; }
-.verdict-line span { display: block; flex: 0 0 auto; color: var(--gold); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
-.verdict-line p { flex: 1; min-width: 0; color: var(--ink); font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); min-width: 0; }
+.verdict-line span { display: block; flex: 0 0 auto; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
+.verdict-line p { flex: 1; min-width: 0; color: #F3EBDD; font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .overload-tag { color: #FF8F88; font-size: 12px; animation: pulse 1.5s infinite; }
 
-.legacy-summary { background: var(--gold-dim); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: var(--ink-muted); line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
+.legacy-summary { background: rgba(212,175,55,0.05); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
 
 .classic-verdict-section {
-    border: 1px solid var(--gold-border);
+    border: 1px solid rgba(212,175,55,0.24);
     border-radius: 12px;
     padding: 14px;
-    background: var(--gold-dim);
+    background:
+        linear-gradient(180deg, rgba(232,204,128,0.08), rgba(0,0,0,0.08)),
+        rgba(255,255,255,0.02);
 }
 .classic-header {
     display: flex;
@@ -4324,7 +4464,7 @@ const getShenColor = (shen) => {
     gap: 12px;
     padding-bottom: 10px;
     margin-bottom: 12px;
-    border-bottom: 1px dashed var(--gold-border);
+    border-bottom: 1px dashed rgba(212,175,55,0.24);
 }
 .classic-main-title {
     margin-bottom: 6px;
@@ -4353,7 +4493,7 @@ const getShenColor = (shen) => {
 }
 .classic-body p {
     margin: 0;
-    color: var(--ink-muted);
+    color: #D8D2BF;
     font-size: 13px;
     line-height: 1.75;
     font-family: var(--font-body);
@@ -4363,205 +4503,8 @@ const getShenColor = (shen) => {
     font-size: 12px;
     font-family: var(--font-body);
     padding-left: 10px;
-    border-left: 2px solid var(--gold-border);
+    border-left: 2px solid rgba(212,175,55,0.2);
 }
-
-/* ── Article-style report sections ─────────────────────── */
-.rpt-section {
-    padding-top: 28px;
-    margin-top: 24px;
-    border-top: 1px solid var(--line);
-}
-.rpt-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 14px;
-}
-.rpt-head-left {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-}
-.rpt-kicker {
-    font-family: var(--font-serif);
-    font-size: 20px;
-    line-height: 1.25;
-    letter-spacing: 1px;
-    text-transform: none;
-    font-weight: 700;
-    color: var(--gold);
-}
-.rpt-h2 {
-    font-family: var(--font-display);
-    font-size: 22px;
-    font-weight: 600;
-    color: var(--ink);
-    margin: 0 0 6px;
-    line-height: 1.25;
-    letter-spacing: -0.3px;
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-}
-.rpt-h2-tag {
-    cursor: pointer;
-    color: var(--gold);
-    transition: opacity .15s;
-}
-.rpt-h2-tag:hover { opacity: .75; }
-.rpt-h2-sep { color: var(--line); font-weight: 300; }
-.rpt-h2-badge {
-    font-size: 13px;
-    color: #2e7d4a;
-    font-weight: 500;
-    background: rgba(46,125,74,0.08);
-    border: 1px solid rgba(46,125,74,0.18);
-    padding: 1px 8px;
-    border-radius: 4px;
-    font-family: var(--font-body);
-}
-.rpt-byline {
-    font-size: 12px;
-    color: var(--ink-muted);
-    margin: 0 0 12px;
-    line-height: 1.6;
-}
-.rpt-prose {
-    font-size: 14px;
-    color: var(--ink);
-    line-height: 1.72;
-    margin: 0 0 10px;
-}
-.rpt-prose-warn { color: var(--crimson, #c62828); opacity: 0.85; }
-/* Sub-section within article */
-.rpt-sub {
-    margin-top: 18px;
-    padding-top: 14px;
-    border-top: 1px solid var(--line);
-}
-.rpt-sub-head {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
-}
-.rpt-kicker-sm {
-    font-family: var(--font-serif);
-    font-size: 16px;
-    line-height: 1.3;
-    letter-spacing: 0.8px;
-    text-transform: none;
-    font-weight: 700;
-    color: var(--gold);
-}
-.rpt-sub-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: var(--ink);
-}
-/* Inline stat row (replaces god-grid boxes) */
-.rpt-stat-row {
-    display: flex;
-    gap: 0;
-    margin: 8px 0 14px;
-    padding: 8px 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-}
-.rpt-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    flex: 1;
-    padding: 0 10px;
-}
-.rpt-stat:first-child { padding-left: 0; }
-.rpt-stat:not(:last-child) { border-right: 1px solid var(--line); }
-.rpt-stat-l {
-    font-size: 10px;
-    color: var(--ink-muted);
-    letter-spacing: 0.5px;
-}
-.rpt-stat strong {
-    font-size: 13px;
-    color: var(--ink);
-    font-weight: 600;
-    word-break: keep-all;
-    overflow-wrap: anywhere;
-}
-/* Warning line */
-.rpt-warn-line {
-    font-size: 12px;
-    color: var(--crimson, #c62828);
-    opacity: 0.82;
-    border-left: 2px solid rgba(220,38,38,0.3);
-    padding: 3px 0 3px 10px;
-    margin: 6px 0 0;
-}
-/* Five-shen horizontal strip */
-.rpt-shen-line {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 20px;
-    margin: 8px 0 16px;
-    padding: 10px 0;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-}
-.rpt-shen-tag {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-}
-.rpt-shen-role {
-    font-size: 10px;
-    color: var(--ink-muted);
-    letter-spacing: 0.5px;
-}
-.rpt-shen-val {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--ink);
-}
-.rpt-shen-val.favorable { color: #2e7d32; }
-.rpt-shen-val.unfavorable { color: #c62828; }
-.rpt-shen-tag.is-yong .rpt-shen-role { color: var(--gold); }
-.rpt-shen-tag.is-ji .rpt-shen-val { color: rgba(192,57,43,0.8); }
-.rpt-shen-tag.is-chou .rpt-shen-val { color: rgba(192,57,43,0.55); }
-.rpt-shen-note { font-size: 10px; color: var(--ink-dim); }
-/* Lead word before prose */
-.rpt-lead-w {
-    color: var(--ink);
-    font-weight: 700;
-    margin-right: 2px;
-}
-.rpt-run-label {
-    color: var(--gold);
-    font-weight: 700;
-    margin-right: 6px;
-}
-/* Feedback block */
-.rpt-feedback {
-    margin-top: 10px;
-    border-left: 2px solid var(--line);
-    padding: 4px 0 2px 12px;
-}
-.rpt-feedback-head {
-    display: flex;
-    gap: 8px;
-    align-items: center;
-    font-size: 11px;
-    color: var(--ink-muted);
-    margin-bottom: 4px;
-}
-.rpt-feedback-date { color: var(--ink-dim); font-size: 10px; }
-/* 古籍断语 */
-.rpt-src-note { font-size: 11px; color: var(--ink-dim); }
-.rpt-classic-body { margin-top: 4px; }
-.rpt-classic-note { color: var(--ink-dim) !important; font-style: italic; }
 
 /* 命局天机 UI */
 .tag-gold {
@@ -4598,8 +4541,8 @@ const getShenColor = (shen) => {
     height: 28px;
     border-radius: 6px;
     overflow: hidden;
-    background: var(--paper-soft);
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
+    background: #2a2a2a;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
 }
 .wuxing-bar-segment {
     height: 100%;
@@ -4628,7 +4571,7 @@ const getShenColor = (shen) => {
     gap: 12px;
 }
 .scoring-item {
-    background: var(--paper-soft);
+    background: rgba(0,0,0,0.2);
     border-radius: 8px;
     padding: 12px;
     border-left: 3px solid transparent;
@@ -4644,7 +4587,7 @@ const getShenColor = (shen) => {
     gap: 12px;
     margin-bottom: 8px;
     padding-bottom: 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
 }
 .shen-badge {
     padding: 2px 6px;
@@ -4682,11 +4625,11 @@ const getShenColor = (shen) => {
     width: min(92vw, 460px);
     max-height: 78vh;
     overflow-y: auto;
-    background: white;
-    border: 1px solid var(--line);
+    background: rgba(13,13,22,0.96);
+    border: 1px solid rgba(232,204,128,0.24);
     border-radius: 16px;
     padding: 16px;
-    box-shadow: 0 12px 40px rgba(0,0,0,.14);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.58);
     animation: riseIn 0.25s ease;
 }
 .strength-drawer {
@@ -4710,9 +4653,9 @@ const getShenColor = (shen) => {
     min-height: 38px;
     padding: 0 8px;
     border-radius: 999px;
-    border: 1px solid var(--line);
-    background: var(--paper-soft);
-    color: var(--ink-muted);
+    border: 1px solid rgba(232,204,128,0.16);
+    background: rgba(255,255,255,0.03);
+    color: #cdbf96;
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -4730,10 +4673,10 @@ const getShenColor = (shen) => {
     gap: 12px;
     padding-bottom: 12px;
     margin-bottom: 12px;
-    border-bottom: 1px dashed var(--gold-border);
+    border-bottom: 1px dashed rgba(232,204,128,0.18);
 }
 .drawer-head h4 {
-    color: var(--gold);
+    color: var(--gold-light);
     font-size: 17px;
     font-family: var(--font-serif);
     font-weight: 500;
@@ -4742,8 +4685,8 @@ const getShenColor = (shen) => {
     padding: 14px;
     margin-bottom: 12px;
     border-radius: 8px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(232,204,128,0.12);
 }
 .strength-meter-top {
     display: flex;
@@ -4758,7 +4701,7 @@ const getShenColor = (shen) => {
     font-weight: 700;
 }
 .strength-meter-band {
-    color: var(--ink-muted);
+    color: #BDB39A;
     font-size: 12px;
 }
 .strength-meter-track {
@@ -4766,13 +4709,14 @@ const getShenColor = (shen) => {
     height: 10px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(91,141,239,0.42), rgba(232,204,128,0.28), rgba(218,87,72,0.44));
-    border: 1px solid var(--line);
+    border: 1px solid rgba(255,255,255,0.08);
 }
 .strength-meter-fill {
     height: 100%;
     min-width: 4px;
     border-radius: 999px;
-    background: var(--gold);
+    background: rgba(232,204,128,0.72);
+    box-shadow: 0 0 14px rgba(232,204,128,0.22);
 }
 .strength-meter-thumb {
     position: absolute;
@@ -4780,16 +4724,16 @@ const getShenColor = (shen) => {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--gold);
-    border: 2px solid white;
+    background: #F2D889;
+    border: 2px solid #201A10;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 3px var(--gold-border);
+    box-shadow: 0 0 0 3px rgba(242,216,137,0.18);
 }
 .strength-meter-axis {
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-    color: var(--ink-dim);
+    color: #8F846D;
     font-size: 11px;
 }
 .strength-section-list {
@@ -4800,8 +4744,8 @@ const getShenColor = (shen) => {
 .strength-section-card {
     padding: 13px 14px;
     border-radius: 8px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(232,204,128,0.1);
 }
 .strength-section-head {
     display: flex;
@@ -4819,14 +4763,14 @@ const getShenColor = (shen) => {
     flex-shrink: 0;
     padding: 2px 8px;
     border-radius: 999px;
-    background: var(--gold-dim);
-    border: 1px solid var(--gold-border);
-    color: var(--gold);
+    background: rgba(232,204,128,0.08);
+    border: 1px solid rgba(232,204,128,0.16);
+    color: #EBD08E;
     font-size: 11px;
     font-weight: 600;
 }
 .strength-section-card p {
-    color: var(--ink-muted);
+    color: #D8D2BF;
     font-size: 13px;
     line-height: 1.7;
 }
@@ -4834,21 +4778,21 @@ const getShenColor = (shen) => {
 .explain-section-card {
     padding: 14px;
     border-radius: 12px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(232,204,128,0.1);
 }
 .explain-summary-card {
     margin-bottom: 12px;
-    background: var(--gold-dim);
+    background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.025));
 }
 .explain-summary-title {
     margin-bottom: 8px;
-    color: var(--gold);
+    color: var(--gold-light);
     font-size: 13px;
     font-weight: 700;
 }
 .explain-summary-card p {
-    color: var(--ink-muted);
+    color: #f2ead5;
     font-size: 13px;
     line-height: 1.75;
 }
@@ -4873,9 +4817,9 @@ const getShenColor = (shen) => {
     flex-shrink: 0;
     padding: 3px 8px;
     border-radius: 999px;
-    border: 1px solid var(--gold-border);
-    background: var(--gold-dim);
-    color: var(--gold);
+    border: 1px solid rgba(232,204,128,0.16);
+    background: rgba(232,204,128,0.08);
+    color: #e7d5a3;
     font-size: 10px;
     letter-spacing: 0.4px;
 }
@@ -4883,9 +4827,9 @@ const getShenColor = (shen) => {
     margin: 0 0 10px;
     padding: 10px 12px;
     border-radius: 10px;
-    border-left: 3px solid var(--gold);
-    background: var(--gold-dim);
-    color: var(--ink-muted);
+    border-left: 3px solid rgba(232,204,128,0.44);
+    background: rgba(232,204,128,0.06);
+    color: #f2dfaf;
     font-size: 12px;
     line-height: 1.7;
 }
@@ -4896,7 +4840,7 @@ const getShenColor = (shen) => {
 }
 .explain-paragraphs p {
     margin: 0;
-    color: var(--ink-muted);
+    color: #d8d2bf;
     font-size: 13px;
     line-height: 1.75;
 }
@@ -4911,15 +4855,15 @@ const getShenColor = (shen) => {
     margin-bottom: 10px;
     padding: 9px 10px;
     border-radius: 10px;
-    border: 1px solid var(--line);
-    background: var(--paper-soft);
-    color: var(--ink);
-    font-size: 13px;
+    border: 1px solid rgba(232,204,128,0.12);
+    background: rgba(255,255,255,0.025);
+    color: #cfc6b0;
+    font-size: 12px;
     line-height: 1.6;
 }
 .geju-summary-line.secondary {
-    background: white;
-    color: var(--ink-dim);
+    background: rgba(255,255,255,0.02);
+    color: #bfb6a2;
 }
 .geju-modal-tags {
     display: flex;
@@ -4930,9 +4874,9 @@ const getShenColor = (shen) => {
 .geju-chip {
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid var(--gold-border);
-    background: var(--gold-dim);
-    color: var(--gold);
+    border: 1px solid rgba(232,204,128,0.18);
+    background: rgba(255,255,255,0.03);
+    color: #f1dfae;
     font-size: 12px;
     font-weight: 600;
 }
@@ -4969,7 +4913,7 @@ const getShenColor = (shen) => {
 }
 .context-card + .context-card {
     padding-top: 22px;
-    border-top: 1px dashed var(--gold-border);
+    border-top: 1px dashed rgba(232,204,128,0.14);
 }
 .context-card-head {
     display: flex;
@@ -4979,7 +4923,7 @@ const getShenColor = (shen) => {
     margin-bottom: 8px;
 }
 .context-card-title {
-    color: var(--gold);
+    color: var(--gold-light);
     font-size: 17px;
     font-family: var(--font-serif);
 }
@@ -4994,9 +4938,9 @@ const getShenColor = (shen) => {
     min-height: 34px;
     padding: 0 12px;
     border-radius: 10px;
-    border: 1px solid var(--line);
-    background: white;
-    color: var(--ink);
+    border: 1px solid rgba(232,204,128,0.14);
+    background: rgba(14,14,24,0.86);
+    color: #F4E6C0;
 }
 .context-card-desc {
     margin: 0 0 16px;
@@ -5015,7 +4959,7 @@ const getShenColor = (shen) => {
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(232,204,128,0.08);
 }
 .context-panel:last-child {
     padding-bottom: 0;
@@ -5023,11 +4967,11 @@ const getShenColor = (shen) => {
 }
 .context-panel-title {
     margin-bottom: 10px;
-    color: var(--gold);
+    color: var(--gold-light);
     font-size: 14px;
     font-weight: 700;
     padding-bottom: 8px;
-    border-bottom: 1px solid var(--line);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
 }
 .context-field {
     display: grid;
@@ -5038,7 +4982,7 @@ const getShenColor = (shen) => {
     margin-bottom: 0;
 }
 .context-field label {
-    color: var(--ink-muted);
+    color: #D9CCA8;
     font-size: 12px;
 }
 .context-field input,
@@ -5046,9 +4990,9 @@ const getShenColor = (shen) => {
 .context-field textarea {
     width: 100%;
     border-radius: 10px;
-    border: 1px solid var(--line);
-    background: white;
-    color: var(--ink);
+    border: 1px solid rgba(232,204,128,0.12);
+    background: rgba(10,10,18,0.84);
+    color: #F2E8D0;
     padding: 10px 12px;
     font-size: 13px;
     line-height: 1.5;
@@ -5063,7 +5007,7 @@ const getShenColor = (shen) => {
     gap: 8px;
 }
 .context-recent-title {
-    color: var(--ink-muted);
+    color: #D9CCA8;
     font-size: 12px;
 }
 .context-recent-item {
@@ -5074,24 +5018,24 @@ const getShenColor = (shen) => {
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px dashed var(--line);
+    border-bottom: 1px dashed rgba(232,204,128,0.08);
 }
 .context-recent-item:last-child {
     border-bottom: none;
 }
 .context-recent-month {
-    color: var(--gold);
+    color: var(--gold-light);
     font-size: 12px;
     font-weight: 700;
 }
 .context-recent-copy {
-    color: var(--ink-muted);
+    color: #D8D2BF;
     font-size: 12px;
     line-height: 1.6;
 }
 .context-notes-message {
     margin-top: 12px;
-    color: var(--gold);
+    color: #d5c495;
     font-size: 12px;
 }
 .screen-toast {
@@ -5107,17 +5051,19 @@ const getShenColor = (shen) => {
     max-width: min(78vw, 320px);
     padding: 14px 18px;
     border-radius: 14px;
-    border: 1px solid var(--line);
-    background: rgba(247,244,238,0.96);
-    box-shadow: 0 8px 28px rgba(0,0,0,.14);
-    color: var(--ink);
+    border: 1px solid rgba(232,204,128,0.24);
+    background: rgba(10,10,18,0.9);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.34);
+    color: #f4e6c0;
     font-size: 14px;
     line-height: 1.6;
     text-align: center;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
 }
 .screen-toast-card.is-error {
-    border-color: rgba(220,38,38,0.28);
-    color: var(--crimson);
+    border-color: rgba(255,143,136,0.26);
+    color: #ffd1cc;
 }
 
 @media (max-width: 760px) {
@@ -5167,34 +5113,34 @@ const getShenColor = (shen) => {
 .geju-modal-block {
     padding: 13px 14px;
     border-radius: 12px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(232,204,128,0.1);
     margin-bottom: 12px;
 }
 .geju-block-title {
     margin-bottom: 8px;
-    color: var(--gold);
+    color: rgba(232,204,128,0.72);
     font-size: 11px;
     letter-spacing: 1px;
 }
 .geju-block-main {
-    color: var(--ink);
+    color: #f5ebce;
     font-size: 15px;
     font-weight: 700;
     margin-bottom: 7px;
 }
 .geju-block-copy {
-    color: var(--ink-muted);
+    color: #d8d2bf;
     font-size: 13px;
     line-height: 1.7;
 }
 .geju-verdict-copy {
-    color: var(--ink);
+    color: #f3ebdd;
     font-weight: 600;
 }
 .geju-inline-note {
     margin-top: 9px;
-    color: #2563eb;
+    color: #9ec7ff;
     font-size: 12px;
     line-height: 1.6;
 }
@@ -5205,18 +5151,18 @@ const getShenColor = (shen) => {
 .pattern-step-item {
     padding: 9px 10px;
     border-radius: 8px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
+    background: rgba(0,0,0,0.16);
+    border: 1px solid rgba(255,255,255,0.055);
 }
 .pattern-step-item span {
     display: block;
     margin-bottom: 4px;
-    color: var(--gold);
+    color: #f0d58f;
     font-size: 12px;
     font-weight: 700;
 }
 .pattern-step-item p {
-    color: var(--ink-muted);
+    color: #d8d2bf;
     font-size: 12px;
     line-height: 1.6;
 }
@@ -5225,7 +5171,7 @@ const getShenColor = (shen) => {
     flex-wrap: wrap;
     gap: 8px 12px;
     margin-top: 10px;
-    color: var(--ink-muted);
+    color: #d7c89b;
     font-size: 12px;
 }
 .geju-inline-pairs-top {
@@ -5233,7 +5179,7 @@ const getShenColor = (shen) => {
 }
 .geju-subcopy {
     margin-top: 10px;
-    color: var(--ink-dim);
+    color: #cfc6b0;
 }
 .geju-bullet-row, .geju-bullet-list {
     display: flex;
@@ -5243,15 +5189,15 @@ const getShenColor = (shen) => {
 .geju-bullet-chip, .geju-list-chip {
     padding: 6px 10px;
     border-radius: 999px;
-    background: var(--paper-soft);
-    border: 1px solid var(--line);
-    color: var(--ink-muted);
+    background: rgba(255,255,255,0.045);
+    border: 1px solid rgba(255,255,255,0.06);
+    color: #e7ddc6;
     font-size: 12px;
 }
 .geju-bullet-list.warning .geju-list-chip {
-    color: var(--crimson);
-    border-color: rgba(220,38,38,0.2);
-    background: rgba(220,38,38,0.06);
+    color: #ffb3aa;
+    border-color: rgba(255,159,151,0.2);
+    background: rgba(255,159,151,0.08);
 }
 
 @media (max-width: 420px) {
@@ -5278,19 +5224,20 @@ const getShenColor = (shen) => {
     .bazi-header { flex-direction: column; }
     .bazi-header-actions { width: 100%; align-items: stretch; }
     .btn-primary { width: 100%; }
-    .dashboard-panel { padding: 16px 10px; }
-    .tabs { gap: 16px; }
-    .tab { font-size: 12px; }
+    .bazi-result-module { padding: 14px 12px; border-radius: 14px; }
+    .bazi-result-stack { gap: 10px; }
+    .bazi-tabs { gap: 0; }
+    .bazi-tab { font-size: 12px; margin-right: 14px; }
     .bazi-table {
-        --bz-cell-py: 7px;
-        --bz-label-size: 11px;
-        --bz-meta-size: 11px;
-        --bz-char-size: 18px;
+        --bz-cell-py: 6px;
+        --bz-label-size: 9px;
+        --bz-meta-size: 9px;
+        --bz-char-size: 17px;
     }
-    .bazi-table th { font-size: 12px; letter-spacing: .5px; }
-    .bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
-    .bz-sub { line-height: 1.35; }
-    .bz-shensha { font-size: 10px; line-height: 1.35; }
+    .bazi-table th { font-size: 11px; letter-spacing: .5px; }
+    .bazi-table th:first-child, .bazi-table td:first-child { width: 40px; }
+    .bz-sub { line-height: 1.3; }
+    .bz-shensha { font-size: 8px; line-height: 1.3; }
     .tiaohou-card-head { align-items: stretch; flex-direction: column; }
     .tiaohou-urgency { align-self: flex-start; }
     .tiaohou-god-grid { grid-template-columns: 1fr; }
@@ -5580,596 +5527,5 @@ const getShenColor = (shen) => {
 @media (max-width: 420px) {
     .le-form-row { grid-template-columns: 1fr; }
     .le-impacts { grid-template-columns: 1fr; }
-}
-
-/* ══════════════════════════════════════════════════
-   杂志信纸风 — Magazine / Stationery Style Overrides
-   去圆角矩形化 + Editorial Typography
-   ══════════════════════════════════════════════════ */
-
-/* ─── 1. 去圆角：所有容器清零 ─────────────────────────── */
-.glass-card,
-.insight-card, .tiaohou-card, .geju-card,
-.life-events-card, .le-card, .le-form,
-.strength-meter-card, .strength-section-card,
-.explain-summary-card, .explain-section-card,
-.geju-modal-block, .pattern-step-item, .geju-summary-line,
-.detail-drawer, .insight-detail-drawer, .geju-detail-drawer,
-.shensha-modal, .guest-login-modal,
-.le-guide-card, .le-guide-block, .le-guide-example, .le-guide-tip,
-.analysis-status, .matrix-fallback-note,
-.tiaohou-god-cell, .tiaohou-warning, .decision-chain-list, .scoring-item,
-.profile-form, .profile-flyout, .profile-flyout-item,
-.xiji-item, .five-shen-cell, .link-item, .linkage-row,
-.classic-verdict-section, .feedback-correction-block,
-.fortune-guide-card, .screen-toast-card,
-.date-input-card, .date-segment,
-.pillar-slot, .pillar-choice-panel, .choice-chip,
-.picker-preview-card, .picker-mode-tabs,
-.profile-picker-modal { border-radius: 0; }
-
-.context-field input, .context-field select, .context-field textarea,
-.le-field input, .le-field select, .le-field textarea,
-.context-month-select, .form-row input, .form-row select { border-radius: 0; }
-
-.btn-ghost, .btn-primary, .mini-action, .icon-btn,
-.le-toggle-btn, .fortune-guide-btn, .le-impact-btn,
-.picker-mode-tab, .picker-save-btn, .timeline-icon-btn,
-.profile-switch-trigger, .location-search-input-wrap,
-.insight-tab { border-radius: 0; }
-
-/* ─── 2. Glass-card → 纸页横截面（去阴影，仅留上下边线）─── */
-.glass-card {
-    border-radius: 0;
-    box-shadow: none;
-    border-left: none;
-    border-right: none;
-    border-top: 1px solid var(--line);
-    border-bottom: 1px solid var(--line);
-}
-.dashboard-panel {
-    border-top: none;
-    background: transparent;
-    margin-top: 0;
-}
-
-/* ─── 3. Modal / Drawer 扁平化 ──────────────────────────── */
-.profile-picker-modal {
-    border-radius: 0;
-    box-shadow: 0 0 0 1px var(--line), 0 20px 60px rgba(0,0,0,0.12);
-}
-.picker-mode-tab.active { border-radius: 0; }
-
-.detail-drawer, .insight-detail-drawer, .geju-detail-drawer {
-    border-radius: 0;
-    box-shadow: 0 0 0 1px var(--line);
-}
-.shensha-modal {
-    border-radius: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.14);
-    border: 1px solid var(--gold-border);
-}
-.guest-login-modal {
-    border-radius: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
-    border: 1px solid var(--line);
-}
-.screen-toast-card {
-    border-radius: 0;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-}
-.le-guide-card {
-    border-radius: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.14);
-}
-
-/* ─── 4. 段落标题编辑风 Section headers ──────────────────── */
-.section-kicker {
-    text-transform: uppercase;
-    letter-spacing: 3px;
-    font-size: 9px;
-    font-family: var(--font-body);
-}
-
-/* ai-section: horizontal rule before each section */
-.ai-section {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid var(--line);
-    animation: none;
-}
-.insight-summary { border-top: none; margin-top: 8px; padding-top: 0; }
-
-/* ai-header: section label row */
-.ai-header-row {
-    padding-bottom: 0;
-    border-bottom: none;
-    margin-bottom: 14px;
-}
-.ai-header-title { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; font-family: var(--font-body); font-weight: 600; color: var(--ink-muted); }
-.ai-header-title::before { display: none; }
-
-/* ─── 5. 报告区域 → 杂志编辑风（无矩形套矩形）────────────── */
-
-/* 格局卡 → gold left-bar callout */
-.insight-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    padding: 0 0 0 14px;
-    border-left: 3px solid var(--gold-border);
-    margin-bottom: 22px;
-}
-.insight-card h4 {
-    font-size: 9px;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    color: var(--gold);
-    font-family: var(--font-body);
-    font-weight: 600;
-    margin-bottom: 8px;
-    border-bottom: none;
-    padding-bottom: 0;
-    opacity: 0.8;
-}
-.insight-card p { font-size: 14px; color: var(--ink); line-height: 1.72; }
-
-/* 格局首行卡 */
-.geju-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    padding: 0 0 0 14px;
-    border-left: 3px solid var(--gold-border);
-    margin-bottom: 20px;
-}
-
-/* 调候卡 → teal left-bar callout */
-.tiaohou-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    padding: 0 0 0 14px;
-    border-left: 3px solid rgba(13,148,136,0.5);
-    margin-bottom: 20px;
-}
-.tiaohou-card-head h4 { color: var(--teal); border: none; padding-bottom: 0; margin-bottom: 0; font-size: 14px; font-weight: 600; font-family: var(--font-body); }
-.tiaohou-god-grid { gap: 0; grid-template-columns: repeat(3,1fr); margin-bottom: 10px; }
-.tiaohou-god-cell {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    border-right: 1px solid var(--line);
-    padding: 8px 10px 8px 0;
-}
-.tiaohou-god-cell:last-child { border-right: none; }
-.tiaohou-warning {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    border-left: 2px solid rgba(220,38,38,0.35);
-    padding: 4px 0 4px 10px;
-    color: var(--crimson);
-    opacity: 0.82;
-    font-size: 12px;
-}
-
-/* 格局摘要行 → subtle left callout */
-.geju-summary-line {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    border-left: 2px solid var(--gold-border);
-    padding: 2px 0 2px 12px;
-    margin-bottom: 10px;
-    color: var(--ink-muted);
-    font-size: 13px;
-}
-.geju-summary-line.secondary { border-left-color: var(--line); color: var(--ink-dim); }
-
-/* 五行池 → no box */
-.wuxing-pool-card {
-    background: transparent;
-    border: none;
-    box-shadow: none;
-    padding: 0;
-    margin-bottom: 20px;
-}
-.wuxing-pool-card h4 { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; margin-bottom: 10px; }
-
-/* 古籍断语 → editorial left-border */
-.classic-verdict-section {
-    border: none;
-    background: transparent;
-    border-radius: 0;
-    border-top: 1px solid var(--line);
-    padding: 20px 0 0 14px;
-    border-left: 3px solid var(--gold-border);
-    margin-top: 4px;
-}
-.classic-header { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
-.classic-body p { color: var(--ink); font-size: 14px; line-height: 1.72; }
-.classic-subtitle { color: var(--ink-dim); font-size: 12px; }
-.classic-key { background: transparent; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 0; font-size: 11px; padding: 2px 8px; }
-
-/* 反馈纠偏块 */
-.feedback-correction-block {
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    border-left: 2px solid var(--line);
-    padding: 8px 0 4px 12px;
-    margin-top: 12px;
-}
-
-/* 其他 callout accents */
-.analysis-status      { border-left: 2px solid var(--gold-border); }
-.analysis-status.done { border-left: 2px solid rgba(13,148,136,0.4); }
-.matrix-fallback-note { border-left: 2px solid var(--gold-border); }
-.life-events-card     { border-left: 2px solid var(--line); }
-.insight-tab.active   { box-shadow: none; }
-
-/* ─── 6. 紧凑档案条 Compact profile strip ───────────────── */
-/* ── Bloomberg-style Profile Hero ─────────────────────────── */
-.profile-hero-block {
-    position: relative;
-    z-index: 40;
-    overflow: visible;
-    padding: 24px 16px 18px;
-    background: transparent;
-}
-
-/* Top-right action button group */
-.hero-top-actions {
-    position: absolute;
-    top: 18px;
-    right: 16px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    z-index: 2;
-}
-.hero-icon-btn {
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    border: 1px solid var(--line);
-    background: transparent;
-    color: var(--ink-dim);
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    transition: color .18s, border-color .18s;
-    flex-shrink: 0;
-}
-.hero-icon-btn svg { width: 15px; height: 15px; }
-.hero-icon-btn:hover { color: var(--gold); border-color: var(--gold-border); }
-.hero-icon-btn:disabled { opacity: 0.4; cursor: default; }
-.hero-icon-btn.spinning svg { animation: spin 1s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-
-/* Dates above name */
-.hero-dates-top {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    margin-bottom: 6px;
-    padding-right: 50px; /* clear 1 button */
-}
-.hero-birth, .hero-lunar {
-    font-size: 11px;
-    color: var(--ink-muted);
-    font-family: var(--font-body);
-    letter-spacing: 0.3px;
-    white-space: nowrap;
-}
-.hero-sep { font-size: 11px; color: var(--ink-dim); }
-
-/* Name trigger — wraps name + caret tightly */
-.hero-name-trigger {
-    display: inline-flex;
-    align-items: center;
-    gap: 10px;
-    max-width: calc(100% - 54px); /* clear rerun button */
-    border: none;
-    background: transparent;
-    padding: 0;
-    cursor: pointer;
-    text-align: left;
-}
-.hero-display-name {
-    font-family: var(--font-display);
-    font-size: 42px;
-    font-weight: 400;
-    color: var(--ink);
-    letter-spacing: -0.5px;
-    line-height: 1.1;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-.profile-strip-badge {
-    font-size: 10px;
-    padding: 1px 7px;
-    color: var(--gold);
-    border: 1px solid var(--gold-border);
-    background: var(--gold-dim);
-    border-radius: 2px;
-    flex-shrink: 0;
-    letter-spacing: 1px;
-}
-/* CSS-drawn chevron caret */
-.profile-strip-caret {
-    display: inline-block;
-    width: 9px;
-    height: 9px;
-    border-right: 2px solid var(--ink-muted);
-    border-bottom: 2px solid var(--ink-muted);
-    transform: rotate(45deg) translateY(-3px);
-    flex-shrink: 0;
-    transition: transform .22s var(--ease);
-}
-.profile-strip-caret.open {
-    transform: rotate(225deg) translateY(-3px);
-}
-
-/* Badges row — pills, left-aligned */
-.hero-meta { margin-top: 18px; }
-.hero-badges {
-    display: flex;
-    align-items: center;
-    justify-content: flex-start;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-/* Override magazine border-radius:0 for hero pills */
-.hero-pill {
-    border-radius: 999px !important;
-    padding: 4px 14px !important;
-    font-size: 12px !important;
-    letter-spacing: 0.5px;
-}
-
-/* Profile strip wrap (still used for flyout positioning) */
-.profile-strip-wrap {
-    position: relative;
-    z-index: 60;
-    overflow: visible;
-}
-.profile-strip-wrap.open .hero-name-trigger {
-    padding-bottom: 12px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 0;
-}
-
-/* (flyout replaced by bottom sheet) */
-
-.flyout-mgmt-row {
-    display: flex;
-    gap: 6px;
-    flex-wrap: wrap;
-    padding: 8px 8px 10px;
-    border-top: 1px solid var(--line);
-    margin-top: 4px;
-    position: sticky;
-    bottom: 0;
-    background: #fff;
-    z-index: 1;
-}
-.flyout-mgmt-btn {
-    min-height: 28px;
-    padding: 0 10px;
-    border: 1px solid var(--line);
-    background: var(--paper-soft);
-    color: var(--ink-muted);
-    font-size: 11px;
-    cursor: pointer;
-    white-space: nowrap;
-    border-radius: 0;
-}
-.flyout-mgmt-btn:disabled { color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); cursor: default; }
-.flyout-mgmt-btn.is-danger { color: var(--crimson); }
-
-/* ─── 7. 奇门风格标签导航 Qimen-style tab bar ───────────── */
-.bazi-tab-bar {
-    display: flex;
-    gap: 0;
-    padding: 0;
-    background: transparent;
-    border: none;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 16px;
-    border-radius: 0;
-    overflow-x: auto;
-    scrollbar-width: none;
-}
-.bazi-tab-bar::-webkit-scrollbar { display: none; }
-.bazi-tab {
-    flex: none;
-    min-height: 40px;
-    padding: 8px 20px;
-    border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
-    background: transparent;
-    color: var(--ink-dim);
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    font-family: var(--font-body);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    transition: color .2s, border-color .2s;
-    border-radius: 0;
-    white-space: nowrap;
-}
-.bazi-tab.active {
-    color: var(--ink);
-    border-bottom-color: var(--ink);
-    font-weight: 600;
-    background: transparent;
-    box-shadow: none;
-}
-.bazi-tab-count {
-    min-width: 16px; height: 16px; padding: 0 4px;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--gold) 18%, transparent);
-    border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
-    color: var(--gold-light); font-size: 9px; font-weight: 700;
-    display: inline-flex; align-items: center; justify-content: center;
-}
-
-/* ─── 8. Bottom Sheet ──────────────────────────────────── */
-.sheet-backdrop {
-    position: fixed; inset: 0; z-index: 199;
-    background: rgba(0,0,0,.38);
-}
-.profile-bottom-sheet {
-    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
-    background: #fff;
-    border-radius: 20px 20px 0 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
-    max-height: 80vh;
-    display: flex; flex-direction: column;
-}
-.sheet-handle {
-    width: 36px; height: 4px;
-    background: var(--chrome-muted);
-    border-radius: 2px;
-    margin: 10px auto 0;
-    flex-shrink: 0;
-    opacity: 0.4;
-}
-.sheet-header {
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 14px 20px 10px;
-    flex-shrink: 0;
-}
-.sheet-title {
-    font-size: 17px; font-weight: 700; color: var(--ink);
-    font-family: var(--font-body);
-}
-.sheet-header-actions {
-    display: flex; align-items: center; gap: 8px;
-}
-.sheet-add-btn {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: 1px solid var(--line); background: transparent; color: var(--ink-muted);
-    cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
-}
-.sheet-add-btn svg { width: 14px; height: 14px; }
-.sheet-add-btn:hover { color: var(--gold); border-color: var(--gold-border); }
-.sheet-close-btn {
-    width: 28px; height: 28px; border-radius: 50%;
-    border: none; background: var(--chrome); color: var(--ink-muted);
-    font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
-}
-.sheet-list {
-    flex: 1; overflow-y: auto;
-    padding: 4px 0 8px;
-}
-.sheet-empty {
-    padding: 20px;
-    color: var(--ink-muted);
-    font-size: 13px;
-    line-height: 1.6;
-    text-align: center;
-}
-
-/* Swipe-to-reveal item */
-.swipe-item {
-    position: relative;
-    overflow: hidden;
-}
-.sheet-profile-btn {
-    width: 100%;
-    display: flex; align-items: center; gap: 12px;
-    padding: 14px 20px;
-    border: none; background: #fff;
-    cursor: pointer; text-align: left;
-    transition: transform .28s cubic-bezier(0.25,1,0.5,1);
-    position: relative; z-index: 1;
-}
-.swipe-item.swiped .sheet-profile-btn {
-    transform: translateX(-140px);
-}
-.sheet-profile-btn.active { background: #fefaf3; }
-.spi-indicator {
-    width: 8px; height: 8px; border-radius: 50%;
-    border: 1.5px solid var(--chrome-muted);
-    flex-shrink: 0;
-    transition: background .18s, border-color .18s;
-}
-.spi-indicator.active { background: var(--gold); border-color: var(--gold); }
-.spi-name {
-    font-size: 16px; font-weight: 600; color: var(--ink); font-family: var(--font-body);
-    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.sheet-profile-btn.active .spi-name { color: var(--gold); }
-.spi-date { font-size: 12px; color: var(--ink-muted); flex-shrink: 0; }
-.spi-default {
-    font-size: 10px; color: var(--gold);
-    border: 1px solid var(--gold-border); background: var(--gold-dim);
-    border-radius: 999px; padding: 1px 8px; flex-shrink: 0; letter-spacing: .5px;
-}
-
-/* Swipe actions (revealed from right) */
-.swipe-actions {
-    position: absolute; top: 0; right: 0; bottom: 0;
-    width: 140px;
-    display: flex; align-items: stretch;
-    z-index: 0;
-}
-.swa-btn {
-    flex: 1; border: none; cursor: pointer; font-size: 13px;
-    font-family: var(--font-body); font-weight: 600;
-    display: flex; align-items: center; justify-content: center;
-}
-.swa-rename { background: #636e7b; color: #fff; }
-.swa-delete { background: #e53e3e; color: #fff; }
-
-/* Sheet footer */
-.sheet-footer {
-    padding: 10px 20px 16px;
-    border-top: 1px solid var(--line);
-    flex-shrink: 0;
-}
-.sheet-default-btn {
-    width: 100%; min-height: 46px;
-    border: 1px solid var(--line); background: var(--paper-soft);
-    color: var(--ink-muted); font-size: 13px; font-family: var(--font-body);
-    cursor: pointer; border-radius: 0;
-    transition: background .18s;
-}
-.sheet-default-btn:disabled {
-    color: var(--gold); border-color: var(--gold-border);
-    background: var(--gold-dim); cursor: default;
-}
-
-/* Sheet slide-up transition */
-.sheet-enter-active, .sheet-leave-active { transition: opacity .22s; }
-.sheet-enter-from, .sheet-leave-to { opacity: 0; }
-.sheet-up-enter-active, .sheet-up-leave-active { transition: transform .3s cubic-bezier(0.25,1,0.5,1); }
-.sheet-up-enter-from, .sheet-up-leave-to { transform: translateY(100%); }
-
-/* ─── 9. 响应式清零遗留圆角 ─────────────────────────────── */
-@media (min-width: 780px) {
-    .profile-picker-modal { border-radius: 0; }
-}
-@media (max-width: 420px) {
-    .profile-picker-modal, .pillar-slot, .choice-chip,
-    .date-segment, .pillar-choice-panel,
-    .le-guide-card, .picker-close.dark { border-radius: 0; }
-    .geju-detail-drawer {
-        border-radius: 0;
-        border-bottom: 1px solid var(--line);
-    }
 }
 </style>
