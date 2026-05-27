@@ -20,9 +20,11 @@ import { calculateQimenScore } from '../../lib/qimenScoringEngine.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import baziCore from '../../lib/baziCore.js';
 import qimenLlmOutput from '../../lib/qimenLlmOutput.js';
+import accountQuota from '../../lib/accountQuota.js';
 
 const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache, hasLatestEngineCache, hasExistingLlm, CALIBRATION_VERSION, computeEventsHash, hasValidCalibration } = baziCore;
 const { normalizeQimenLlmOutput } = qimenLlmOutput;
+const { assertDailyProfileActionQuota, assertDailyQimenQuota, isWhitelistedEmail, recordProfileAction } = accountQuota;
 
 
 const { buildBaziSemanticRoutePrompt, buildGeminiRoutePrompt, classifyDivinationQuestion, ruleRouteHint } = divinationRouter;
@@ -1007,9 +1009,8 @@ async function handleQimen(request, env) {
   const body = await readJson(request);
 
   // Quota enforcement
-  const whitelist = (env.WHITELIST_EMAILS || "").split(',').map(email => email.trim().toLowerCase());
   const currentUserEmail = user?.email ? user.email.toLowerCase() : "";
-  const isVIP = whitelist.includes(currentUserEmail);
+  const isVIP = isWhitelistedEmail(currentUserEmail, env.WHITELIST_EMAILS || '');
 
   if (isGuestRequest) {
     console.log(`👤 访客账户 [${guestId}] 发起一次推演`);
@@ -1018,12 +1019,10 @@ async function handleQimen(request, env) {
   } else {
     try {
       const supabase = createSupabaseClient(env);
-      const { count, error } = await supabase.from('qimen_records').select('*', { count: 'exact', head: true }).eq('user_id', userId);
-      if (!error && count >= 3) {
-        return json({ error: "您的 3 次免费天机推演额度已用尽" }, { status: 403 }, request, env);
-      }
+      await assertDailyQimenQuota({ supabase, userId });
     } catch (quotaErr) {
       console.warn('[qimen-api] quota check failed:', quotaErr);
+      return json({ error: quotaErr.message || '额度检查失败' }, { status: quotaErr.status || 500 }, request, env);
     }
   }
 
@@ -1475,20 +1474,12 @@ async function handleBazi(request, env) {
     const promptData = body.promptData;
     if (!promptData || !promptData.profileId) return json({ error: "缺少档案 ID" }, { status: 400 }, request, env);
 
-    const whitelist = (env.WHITELIST_EMAILS || "").split(',').map(e => e.trim().toLowerCase());
-    const isVIP = whitelist.includes(user.email?.toLowerCase() || "");
+    const isVIP = isWhitelistedEmail(user.email || '', env.WHITELIST_EMAILS || '');
 
     const supabase = createSupabaseClient(env);
     const { data: existingProfile, error: profileError } = await supabase.from('bazi_profiles').select('*').eq('id', promptData.profileId).single();
     if (profileError || !existingProfile) return json({ error: "档案不存在" }, { status: 404 }, request, env);
     if (existingProfile.user_id !== user.id) return json({ error: "无权操作该档案" }, { status: 403 }, request, env);
-
-    if (!isVIP) {
-        const { count } = await supabase.from('bazi_profiles').select('*', { count: 'exact', head: true }).eq('user_id', user.id).not('bazi_summary', 'is', null);
-        if (count >= 3 && (!existingProfile || !existingProfile.bazi_summary)) {
-            return json({ error: "免费额度已用尽" }, { status: 403 }, request, env);
-        }
-    }
 
     const forceRegenerate = promptData.force === true;
     const engineUpToDate = hasLatestEngineCache(existingProfile);
@@ -1502,6 +1493,10 @@ async function handleBazi(request, env) {
             bazi_detail: existingProfile.bazi_detail || {},
             cached: true,
         }, { status: 200 }, request, env);
+    }
+
+    if (!isVIP) {
+        await assertDailyProfileActionQuota({ supabase, userId: user.id });
     }
 
     // ── 公共：解析出生信息、运行引擎 ──────────────────────────────────────────
@@ -1567,6 +1562,12 @@ async function handleBazi(request, env) {
         };
         const { error: dbError } = await supabase.from('bazi_profiles').update(dbUpdatePayload).eq('id', promptData.profileId);
         if (dbError) console.error('[bazi] 引擎刷新写入失败:', dbError);
+        await recordProfileAction({
+            supabase,
+            userId: user.id,
+            profileId: promptData.profileId,
+            metadata: { mode: 'engine_refresh', force: false }
+        });
         return json({
             result: combinedResultText,
             bazi_detail: finalBaziDetail,
@@ -1643,6 +1644,15 @@ ${promptData.daYunStr}
 
     const { error: dbError } = await supabase.from('bazi_profiles').update(dbUpdatePayload).eq('id', promptData.profileId);
     if (dbError) throw dbError;
+    await recordProfileAction({
+        supabase,
+        userId: user.id,
+        profileId: promptData.profileId,
+        metadata: {
+            mode: existingProfile.bazi_summary ? 'profile_refresh' : 'profile_add',
+            force: forceRegenerate
+        }
+    });
 
     const outputPayload = {
         result: combinedResultText,
