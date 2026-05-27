@@ -928,18 +928,25 @@ async function handleBaziCalibrate(request, env) {
     if (!profileId || !prompt) return json({ error: '缺少 profileId 或 prompt' }, { status: 400 }, request, env);
 
     const supabase = createSupabaseClient(env);
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('bazi_profiles')
       .select('id, user_id, life_events, calibrated_yuanju_core, calibrated_current_dayun, calibrated_current_liunian, calibrated_version')
       .eq('id', profileId)
       .single();
-    if (!profile || profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
+    if (profileError) {
+      if (profileError.code === 'PGRST116') return json({ error: '档案不存在' }, { status: 404 }, request, env);
+      console.error('[qimen-api] bazi-calibrate profile fetch failed:', profileError);
+      return json({ error: '读取档案失败', details: profileError.message }, { status: 500 }, request, env);
+    }
+    if (!profile) return json({ error: '档案不存在' }, { status: 404 }, request, env);
+    if (profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
 
     if (hasValidCalibration(profile, profile.life_events)) {
       return json({
         yuanju_core: profile.calibrated_yuanju_core,
         current_dayun: profile.calibrated_current_dayun,
         current_liunian: profile.calibrated_current_liunian,
+        calibrated_version: profile.calibrated_version,
         cached: true,
       }, { status: 200 }, request, env);
     }
@@ -949,12 +956,13 @@ async function handleBaziCalibrate(request, env) {
       return json({ error: 'LLM 返回格式不符预期' }, { status: 500 }, request, env);
     }
 
+    const calibratedVersion = `${CALIBRATION_VERSION}:${computeEventsHash(profile.life_events)}`;
     const { error: dbError } = await supabase.from('bazi_profiles').update({
       calibrated_yuanju_core: llmJson.yuanju_core,
       calibrated_current_dayun: llmJson.current_dayun,
       calibrated_current_liunian: llmJson.current_liunian,
       calibrated_at: new Date().toISOString(),
-      calibrated_version: `${CALIBRATION_VERSION}:${computeEventsHash(profile.life_events)}`,
+      calibrated_version: calibratedVersion,
     }).eq('id', profileId);
 
     if (dbError) throw dbError;
@@ -963,6 +971,7 @@ async function handleBaziCalibrate(request, env) {
       yuanju_core: llmJson.yuanju_core,
       current_dayun: llmJson.current_dayun,
       current_liunian: llmJson.current_liunian,
+      calibrated_version: calibratedVersion,
     }, { status: 200 }, request, env);
   } catch (error) {
     console.error('[qimen-api] bazi-calibrate error:', error);

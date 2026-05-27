@@ -3164,6 +3164,7 @@ const saveLifeEvents = async (events) => {
             calibrated_current_dayun: null,
             calibrated_current_liunian: null,
             calibrated_at: null,
+            calibrated_version: null,
         }
         : { life_events: events }
     const { error } = await supabase
@@ -3242,6 +3243,7 @@ const triggerCalibration = async ({ profileId = activeProfile.value?.id, force =
                     calibrated_current_dayun: data.current_dayun,
                     calibrated_current_liunian: data.current_liunian,
                     calibrated_at: calibratedAt,
+                    calibrated_version: data.calibrated_version || null,
                 })
                 .eq('id', profileId)
             if (dbError) throw dbError
@@ -3251,6 +3253,7 @@ const triggerCalibration = async ({ profileId = activeProfile.value?.id, force =
                 calibrated_current_dayun: data.current_dayun,
                 calibrated_current_liunian: data.current_liunian,
                 calibrated_at: calibratedAt,
+                calibrated_version: data.calibrated_version || null,
             }
         }
     } catch (err) {
