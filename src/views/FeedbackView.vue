@@ -118,14 +118,14 @@ const copyEmail = async () => {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  color: rgba(232,204,128,0.76);
+  color: var(--ink-dim);
   text-decoration: none;
   font-size: 14px;
   transition: color .2s, transform .2s;
 }
 
 .back-link:hover {
-  color: var(--gold-light);
+  color: var(--gold);
   transform: translateX(-2px);
 }
 
@@ -143,9 +143,9 @@ const copyEmail = async () => {
   display: grid;
   place-items: center;
   border-radius: 50%;
-  color: var(--gold-light);
-  border: 1px solid rgba(232,204,128,0.24);
-  background: rgba(212,175,55,0.09);
+  color: var(--gold);
+  border: 1px solid rgba(181,141,59,0.18);
+  background: rgba(181,141,59,0.08);
 }
 
 .card-mark svg {
@@ -170,7 +170,7 @@ const copyEmail = async () => {
 
 .feedback-copy h1 {
   margin: 0 0 14px;
-  color: var(--gold-light);
+  color: var(--gold);
   font-family: var(--font-serif);
   font-size: clamp(26px, 6vw, 34px);
   font-weight: 500;
@@ -180,30 +180,30 @@ const copyEmail = async () => {
 
 .feedback-copy p {
   margin: 0;
-  color: rgba(240,237,230,0.74);
+  color: var(--ink-muted);
   font-size: 14px;
   line-height: 1.9;
 }
 
 .feedback-copy .feedback-lead {
   margin-bottom: 12px;
-  color: rgba(240,237,230,0.9);
+  color: var(--ink);
 }
 
 .feedback-copy .open-source-note {
   margin-top: 14px;
-  color: rgba(232,204,128,0.82);
+  color: #6f5a2a;
 }
 
 .feedback-copy .open-source-note a {
-  color: rgba(178,239,234,0.96);
+  color: #04756f;
   text-decoration: none;
-  border-bottom: 1px solid rgba(178,239,234,0.35);
+  border-bottom: 1px solid rgba(4,117,111,0.32);
 }
 
 .feedback-copy .open-source-note a:hover {
-  color: #d4fffb;
-  border-bottom-color: rgba(178,239,234,0.72);
+  color: #075e59;
+  border-bottom-color: rgba(4,117,111,0.66);
 }
 
 .contact-strip {
@@ -212,13 +212,13 @@ const copyEmail = async () => {
   padding: 13px 14px;
   display: grid;
   gap: 7px;
-  border: 1px solid rgba(78,205,196,0.16);
+  border: 1px solid rgba(13,148,136,0.2);
   border-radius: 12px;
-  background: rgba(78,205,196,0.045);
+  background: rgba(13,148,136,0.055);
 }
 
 .contact-strip > span {
-  color: var(--text-muted);
+  color: var(--ink-dim);
   font-size: 11px;
 }
 
@@ -231,7 +231,7 @@ const copyEmail = async () => {
 
 .email-line a {
   min-width: 0;
-  color: rgba(178,239,234,0.96);
+  color: #04756f;
   font-size: 14px;
   text-decoration: none;
   overflow-wrap: anywhere;
@@ -242,9 +242,9 @@ const copyEmail = async () => {
   height: 28px;
   padding: 0 10px;
   border-radius: 999px;
-  border: 1px solid rgba(78,205,196,0.24);
-  background: rgba(78,205,196,0.07);
-  color: rgba(178,239,234,0.92);
+  border: 1px solid rgba(13,148,136,0.26);
+  background: rgba(13,148,136,0.08);
+  color: #04756f;
   font-family: var(--font-body);
   font-size: 12px;
   cursor: pointer;
@@ -252,9 +252,9 @@ const copyEmail = async () => {
 }
 
 .copy-email-mini:hover {
-  border-color: rgba(78,205,196,0.44);
-  background: rgba(78,205,196,0.12);
-  color: #d4fffb;
+  border-color: rgba(13,148,136,0.44);
+  background: rgba(13,148,136,0.13);
+  color: #075e59;
 }
 
 .feedback-actions {
@@ -285,9 +285,9 @@ const copyEmail = async () => {
 }
 
 .secondary-action {
-  color: rgba(240,237,230,0.82);
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.035);
+  color: var(--ink-muted);
+  border: 1px solid var(--line);
+  background: rgba(255,255,255,0.45);
 }
 
 .primary-action:hover,
@@ -314,7 +314,7 @@ const copyEmail = async () => {
 .privacy-note {
   position: relative;
   margin: 16px 0 0;
-  color: rgba(142,142,147,0.9);
+  color: var(--ink-dim);
   font-size: 12px;
   line-height: 1.7;
 }
