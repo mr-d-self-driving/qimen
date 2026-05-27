@@ -700,126 +700,132 @@
                 <Teleport to="body">
                     <div v-if="activeInfoPanel === 'insight' && (strengthPanelContent || gejuPanelContent)" class="modal-overlay" @click="activeInfoPanel = null">
                         <div class="detail-drawer insight-detail-drawer" @click.stop>
-                            <div class="drawer-head">
-                                <div>
-                                    <div class="section-kicker">命局判定</div>
-                                    <h4>{{ insightPanelTitle }}</h4>
+                            <!-- sticky header -->
+                            <div class="insight-sticky-head">
+                                <div class="drawer-head">
+                                    <div class="drawer-head-title">命局天机</div>
+                                    <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                                 </div>
-                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
+                                <div class="insight-tab-bar">
+                                    <button class="insight-bazi-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">身强/身弱</button>
+                                    <button class="insight-bazi-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
+                                    <button class="insight-bazi-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
+                                </div>
                             </div>
-                            <div class="insight-switcher">
-                                <button class="insight-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">身强/身弱判定</button>
-                                <button class="insight-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
-                                <button class="insight-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
+                            <!-- scrollable content -->
+                            <div class="insight-scroll-body">
+                                <template v-if="insightTab === 'strength' && strengthPanelContent">
+                                    <div v-if="strengthPanelContent.meter" class="strength-meter-card">
+                                        <div class="strength-meter-top">
+                                            <span class="strength-meter-label">{{ strengthPanelContent.meter.verdict }}</span>
+                                            <span class="strength-meter-band">{{ strengthPanelContent.meter.label }}</span>
+                                        </div>
+                                        <div class="strength-meter-track" aria-label="日主旺衰仪表盘">
+                                            <div class="strength-meter-fill" :style="{ width: `${strengthPanelContent.meter.percent}%` }"></div>
+                                            <div class="strength-meter-thumb" :style="{ left: `${strengthPanelContent.meter.percent}%` }"></div>
+                                        </div>
+                                        <div class="strength-meter-axis">
+                                            <span>弱</span>
+                                            <span>中</span>
+                                            <span>强</span>
+                                        </div>
+                                    </div>
+                                    <div v-if="strengthPanelContent.sections.length" class="insight-prose-list">
+                                        <div v-for="section in strengthPanelContent.sections" :key="section.key" class="insight-prose-item">
+                                            <div class="insight-prose-head">
+                                                <span class="insight-prose-label">{{ section.title }}</span>
+                                                <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
+                                            </div>
+                                            <p class="insight-prose-text">{{ section.text }}</p>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else-if="insightTab === 'geju' && gejuPanelContent">
+                                    <div class="insight-prose-kicker-row">
+                                        <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
+                                        <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent is-text">{{ gejuPanelContent.chengGe }}</span>
+                                        <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeStatus }}</span>
+                                    </div>
+                                    <div class="insight-prose-list">
+                                        <div class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">立格依据</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.gejuBasis }}</p>
+                                            <p class="insight-prose-text">{{ gejuPanelContent.judgeBase }}</p>
+                                            <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.extractionSteps.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">取格步骤</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="step in gejuPanelContent.extractionSteps" :key="step.key" class="insight-step-row">
+                                                    <span class="insight-step-label">{{ step.label }}</span>
+                                                    <span class="insight-step-val">{{ step.value }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">顺逆与成败</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.chengGeStatus }}</p>
+                                            <p class="insight-prose-text">{{ gejuPanelContent.chengGeReason }}</p>
+                                        </div>
+                                        <div v-if="gejuPanelContent.climateAdjustment" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">调候影响</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.climateAdjustment.title }}</p>
+                                            <p class="insight-prose-text">{{ gejuPanelContent.climateAdjustment.text }}</p>
+                                        </div>
+                                        <div v-if="gejuPanelContent.personality.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">格局气质</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.personality" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot">—</span>
+                                                    <span class="insight-step-val">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.goodFor.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">适合方向</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.goodFor" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot">—</span>
+                                                    <span class="insight-step-val">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.relationshipHealth.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">关系与身心节奏</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.relationshipHealth" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot">—</span>
+                                                    <span class="insight-step-val">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.watchOut.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">注意事项</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.watchOut" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot insight-dot-warn">—</span>
+                                                    <span class="insight-step-val insight-val-warn">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else-if="explanationPanelContent">
+                                    <p class="insight-explain-summary">{{ explanationPanelContent.summary }}</p>
+                                    <div class="insight-prose-list">
+                                        <div v-for="section in explanationPanelContent.sections" :key="section.key" class="insight-prose-item">
+                                            <div class="insight-prose-head">
+                                                <span class="insight-prose-label">{{ section.title }}</span>
+                                                <span v-if="section.source" class="insight-source-inline">《{{ section.source }}》</span>
+                                            </div>
+                                            <p v-if="section.quote" class="insight-quote-line">「{{ section.quote }}」</p>
+                                            <div class="explain-paragraphs">
+                                                <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
-                            <template v-if="insightTab === 'strength' && strengthPanelContent">
-                                <div v-if="strengthPanelContent.meter" class="strength-meter-card">
-                                    <div class="strength-meter-top">
-                                        <span class="strength-meter-label">{{ strengthPanelContent.meter.verdict }}</span>
-                                        <span class="strength-meter-band">{{ strengthPanelContent.meter.label }}</span>
-                                    </div>
-                                    <div class="strength-meter-track" aria-label="日主旺衰仪表盘">
-                                        <div class="strength-meter-fill" :style="{ width: `${strengthPanelContent.meter.percent}%` }"></div>
-                                        <div class="strength-meter-thumb" :style="{ left: `${strengthPanelContent.meter.percent}%` }"></div>
-                                    </div>
-                                    <div class="strength-meter-axis">
-                                        <span>弱</span>
-                                        <span>中</span>
-                                        <span>强</span>
-                                    </div>
-                                </div>
-                                <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
-                                    <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
-                                        <div class="strength-section-head">
-                                            <h5>{{ section.title }}</h5>
-                                            <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
-                                        </div>
-                                        <p>{{ section.text }}</p>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else-if="insightTab === 'geju' && gejuPanelContent">
-                                <div class="geju-modal-tags">
-                                    <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
-                                    <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent is-text">{{ gejuPanelContent.chengGe }}</span>
-                                    <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeStatus }}</span>
-                                </div>
-                                <div class="geju-modal-block">
-                                    <div class="geju-block-title">立格依据</div>
-                                    <div class="geju-block-main">{{ gejuPanelContent.gejuBasis }}</div>
-                                    <p class="geju-block-copy">{{ gejuPanelContent.judgeBase }}</p>
-                                    <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
-                                </div>
-                                <div v-if="gejuPanelContent.extractionSteps.length" class="geju-modal-block">
-                                    <div class="geju-block-title">取格步骤</div>
-                                    <div class="pattern-step-list">
-                                        <div v-for="step in gejuPanelContent.extractionSteps" :key="step.key" class="pattern-step-item">
-                                            <span>{{ step.label }}</span>
-                                            <p>{{ step.value }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="geju-modal-block">
-                                    <div class="geju-block-title">顺逆与成败</div>
-                                    <div class="geju-block-main">{{ gejuPanelContent.chengGeStatus }}</div>
-                                    <p class="geju-block-copy">{{ gejuPanelContent.chengGeReason }}</p>
-                                    <div v-if="gejuPanelContent.showChengGe" class="geju-inline-pairs geju-inline-pairs-top">
-                                        <span>小格：{{ gejuPanelContent.chengGe }}</span>
-                                        <span>用神：{{ gejuPanelContent.yongShen }}</span>
-                                        <span>相神：{{ gejuPanelContent.xianShen }}</span>
-                                    </div>
-                                    <div v-if="gejuPanelContent.evaluationPairs.length" class="geju-inline-pairs">
-                                        <span v-for="item in gejuPanelContent.evaluationPairs" :key="item.label">{{ item.label }}：{{ item.value }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.climateAdjustment" class="geju-modal-block">
-                                    <div class="geju-block-title">调候影响</div>
-                                    <div class="geju-block-main">{{ gejuPanelContent.climateAdjustment.title }}</div>
-                                    <p class="geju-block-copy">{{ gejuPanelContent.climateAdjustment.text }}</p>
-                                </div>
-                                <div v-if="gejuPanelContent.personality.length" class="geju-modal-block">
-                                    <div class="geju-block-title">格局气质</div>
-                                    <div class="geju-bullet-row">
-                                        <span v-for="item in gejuPanelContent.personality" :key="item" class="geju-bullet-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.goodFor.length" class="geju-modal-block">
-                                    <div class="geju-block-title">适合方向</div>
-                                    <div class="geju-bullet-list">
-                                        <span v-for="item in gejuPanelContent.goodFor" :key="item" class="geju-list-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.relationshipHealth.length" class="geju-modal-block">
-                                    <div class="geju-block-title">关系与身心节奏</div>
-                                    <div class="geju-bullet-list">
-                                        <span v-for="item in gejuPanelContent.relationshipHealth" :key="item" class="geju-list-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.watchOut.length" class="geju-modal-block">
-                                    <div class="geju-block-title">注意事项</div>
-                                    <div class="geju-bullet-list warning">
-                                        <span v-for="item in gejuPanelContent.watchOut" :key="item" class="geju-list-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else-if="explanationPanelContent">
-                                <div class="explain-summary-card">
-                                    <div class="explain-summary-title">一句总结</div>
-                                    <p>{{ explanationPanelContent.summary }}</p>
-                                </div>
-                                <div class="explain-section-list">
-                                    <div v-for="section in explanationPanelContent.sections" :key="section.key" class="explain-section-card">
-                                        <div class="explain-section-head">
-                                            <h5>{{ section.title }}</h5>
-                                            <span class="explain-source-chip">{{ section.source }}</span>
-                                        </div>
-                                        <blockquote v-if="section.quote" class="explain-quote">{{ section.quote }}</blockquote>
-                                        <div class="explain-paragraphs">
-                                            <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
                         </div>
                     </div>
                 </Teleport>
@@ -989,16 +995,12 @@
                     <!-- 旺衰格局标题行 -->
                     <div class="rpt-sub-head" style="margin-bottom: 8px;">
                         <span class="rpt-kicker-sm">旺衰格局</span>
-                        <span
-                            class="tiaohou-urgency is-mid wangshui-label tag-action"
-                            role="button" tabindex="0"
-                            title="查看身强身弱依据"
-                            @click="openStrengthPanel"
-                            @keydown.enter.prevent="openStrengthPanel"
-                            @keydown.space.prevent="openStrengthPanel"
-                        >{{ activeProfile.strong_weak }}</span>
-                        <span class="tiaohou-urgency is-low geju-label">{{ patternFinalName }}</span>
-                        <span v-if="showChengGeText" class="rpt-h2-badge">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                        <span class="wangge-inline">
+                            <span class="wangge-val">{{ activeProfile.strong_weak }}</span>
+                            <span class="wangge-sep">·</span>
+                            <span class="wangge-val">{{ patternFinalName }}</span>
+                            <span v-if="showChengGeText" class="rpt-h2-badge" style="margin-left:6px;">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                        </span>
                     </div>
                     <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
 
@@ -1044,7 +1046,7 @@
                         <button class="info-button" title="查看用神决策链与四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
                     </div>
 
-                    <p v-if="fiveShenProfile?.summary" class="rpt-byline">{{ fiveShenProfile.summary }}</p>
+
 
                     <!-- 五神横排 -->
                     <div v-if="fiveShenProfile" class="rpt-shen-line">
@@ -4149,12 +4151,12 @@ const getShenColor = (shen) => {
 .shensha-summary { font-size: 13px; color: var(--ink-muted); line-height: 1.7; margin: 0 0 10px; }
 .shensha-section { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.65; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; }
 .shensha-section-label { font-weight: 700; letter-spacing: 1px; flex-shrink: 0; font-size: 11px; padding-top: 1px; }
-.shensha-ji { background: rgba(72,187,120,0.08); color: #9AE6B4; }
-.shensha-ji .shensha-section-label { color: #68D391; }
-.shensha-xiong { background: rgba(245,101,101,0.08); color: #FEB2B2; }
-.shensha-xiong .shensha-section-label { color: #FC8181; }
-.shensha-note { background: rgba(212,175,55,0.07); color: #C8B87A; }
-.shensha-note .shensha-section-label { color: var(--gold); }
+.shensha-ji { background: rgba(72,187,120,0.1); color: #276749; }
+.shensha-ji .shensha-section-label { color: #276749; }
+.shensha-xiong { background: rgba(245,101,101,0.08); color: #9b2c2c; }
+.shensha-xiong .shensha-section-label { color: #c53030; }
+.shensha-note { background: rgba(212,175,55,0.08); color: #7b5e0a; }
+.shensha-note .shensha-section-label { color: #b7791f; }
 .guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: white; box-shadow: 0 -4px 40px rgba(0,0,0,.15); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
 .guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
@@ -4801,20 +4803,217 @@ const getShenColor = (shen) => {
     border-color: transparent;
 }
 .drawer-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px dashed var(--gold-border);
+    display: grid;
+    grid-template-columns: 32px 1fr 32px;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 0;
 }
+.drawer-head .drawer-head-title {
+    text-align: center;
+    grid-column: 2;
+}
+.drawer-head .close-button {
+    grid-column: 3;
+    justify-self: end;
+}
+
 .drawer-head h4 {
     color: var(--gold);
     font-size: 17px;
     font-family: var(--font-serif);
     font-weight: 500;
 }
+/* Bottom sheet 命局天机 标题 */
+.drawer-head-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.5px;
+    align-self: center;
+}
+/* 旺衰格局行内展示 */
+.wangge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    font-family: var(--font-display);
+}
+.wangge-val {
+    color: var(--ink);
+}
+.wangge-sep {
+    color: var(--ink-muted);
+    font-weight: 300;
+    margin: 0 1px;
+}
+/* insight bottom sheet tab bar 对齐主页 bazi-tab */
+.insight-tab-bar {
+    display: flex;
+    gap: 0;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+    margin: 0 -16px 0;
+    padding: 0 16px;
+}
+.insight-bazi-tab {
+    flex: none;
+    min-height: 40px;
+    padding: 8px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    color: var(--ink-dim);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-body);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: color .2s, border-color .2s;
+    border-radius: 0;
+    white-space: nowrap;
+}
+/* insight drawer 结构：sticky头 + 可滚动内容 */
+.insight-sticky-head {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 2;
+    padding-top: 4px;
+    margin: 0 -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.insight-bazi-tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    font-weight: 800;
+    background: transparent;
+    box-shadow: none;
+}
+
+.insight-scroll-body {
+    padding-top: 16px;
+}
+/* 杂志/信纸风格 prose 列表 */
+.insight-prose-list {
+    display: flex;
+    flex-direction: column;
+}
+.insight-prose-item {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+.insight-prose-item:last-child {
+    border-bottom: none;
+}
+.insight-prose-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.insight-prose-label {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    text-transform: none;
+}
+.insight-prose-main {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    font-family: var(--font-display);
+    margin: 0 0 6px;
+    line-height: 1.3;
+}
+.insight-prose-text {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.72;
+    margin: 0;
+}
+.insight-prose-kicker-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+/* 判定说明 summary */
+.insight-explain-summary {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.7;
+    margin: 0 0 8px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+/* 取格步骤行内 */
+.insight-step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+.insight-step-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+}
+.insight-step-label {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 52px;
+}
+.insight-step-val {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+}
+/* 行内列表（—符号 + 内容）*/
+.insight-inline-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+.insight-inline-dot {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--ink-dim);
+    line-height: 1.6;
+}
+.insight-dot-warn { color: #c53030; }
+.insight-val-warn { color: #9b2c2c; }
+/* 判定说明：书名行内 + 楷体引用 */
+.insight-source-inline {
+    font-size: 11px;
+    color: var(--ink-dim);
+    font-style: normal;
+    letter-spacing: 0.2px;
+}
+.insight-quote-line {
+    margin: 6px 0 8px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.75;
+    font-style: italic;
+    padding-left: 12px;
+    border-left: 2px solid var(--gold-border);
+}
+
 .strength-meter-card {
     padding: 14px;
     margin-bottom: 12px;
