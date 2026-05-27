@@ -22,7 +22,7 @@
             <div class="card-glow"></div>
             <div class="report-card-content">
               <div class="card-top-row">
-                <div class="report-icon"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></div>
+                <div class="report-icon">✨</div>
               </div>
               <h3 class="report-title">八字双人合盘</h3>
               <p class="report-subtitle">朋友缘分</p>
@@ -36,14 +36,14 @@
             <div class="card-glow card-glow-blue"></div>
             <div class="report-card-content">
               <div class="card-top-row">
-                <div class="report-icon report-icon-dim"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/><path d="M7.2 4.8A9 9 0 0 1 20.6 17"/></svg></div>
+                <div class="report-icon report-icon-dim">🔮</div>
                 <span class="card-tag card-tag-soon">即将上线</span>
               </div>
               <h3 class="report-title report-title-dim">本命大运推演</h3>
               <p class="report-subtitle report-subtitle-dim">流年运势</p>
               <p class="report-desc">逐年解析大运流年，识别关键节点</p>
             </div>
-            <div class="locked-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <div class="locked-badge">🔒</div>
           </div>
 
           <!-- 占位卡 2 -->
@@ -51,14 +51,14 @@
             <div class="card-glow card-glow-red"></div>
             <div class="report-card-content">
               <div class="card-top-row">
-                <div class="report-icon report-icon-dim"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></div>
+                <div class="report-icon report-icon-dim">💼</div>
                 <span class="card-tag card-tag-soon">即将上线</span>
               </div>
               <h3 class="report-title report-title-dim">事业财运报告</h3>
               <p class="report-subtitle report-subtitle-dim">格局分析</p>
               <p class="report-desc">用神喜忌、财官格局与行动策略</p>
             </div>
-            <div class="locked-badge"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></div>
+            <div class="locked-badge">🔒</div>
           </div>
         </div>
       </div>
@@ -74,6 +74,8 @@ import AccountMenu from '../components/AccountMenu.vue'
 .report-view {
   min-height: 100vh;
   padding-bottom: 100px;
+  background-color: var(--paper-bg, #fcfaf6);
+  color: var(--ink, #2c2a27);
 }
 
 #siteHeader {
@@ -94,7 +96,6 @@ import AccountMenu from '../components/AccountMenu.vue'
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  filter: drop-shadow(0 0 12px rgba(212,175,55,0.45));
   letter-spacing: 0.15em;
   text-align: center;
   white-space: nowrap;
@@ -127,15 +128,15 @@ import AccountMenu from '../components/AccountMenu.vue'
   font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: rgba(212, 175, 55, 0.8);
+  color: var(--gold);
   margin-bottom: 6px;
 }
 
 .section-title {
-  font-family: 'Songti SC', 'STSong', var(--font-ganzhi);
+  font-family: var(--font-serif);
   font-size: 28px;
   font-weight: 600;
-  color: #fff;
+  color: var(--ink);
   line-height: 1.1;
   margin-bottom: 6px;
   font-synthesis: none;
@@ -143,7 +144,8 @@ import AccountMenu from '../components/AccountMenu.vue'
 
 .section-sub {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--ink-muted);
+  letter-spacing: 0.01em;
 }
 
 .report-list {
@@ -156,11 +158,12 @@ import AccountMenu from '../components/AccountMenu.vue'
 .report-card {
   display: block;
   position: relative;
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
   text-decoration: none;
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card, #ffffff);
+  border: 1px solid var(--line);
+  box-shadow: 0 1px 4px rgba(11,11,11,0.06);
   transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
   padding: 22px 20px;
 }
@@ -171,17 +174,17 @@ import AccountMenu from '../components/AccountMenu.vue'
 
 /* ── Active card hover ── */
 .card-friendship {
-  border-color: rgba(204, 255, 0, 0.18);
+  border-color: rgba(181, 141, 59, 0.3);
   cursor: pointer;
 }
 .card-friendship:hover {
-  border-color: rgba(204, 255, 0, 0.35);
-  box-shadow: 0 0 32px rgba(204, 255, 0, 0.08);
+  border-color: rgba(181, 141, 59, 0.55);
+  box-shadow: 0 4px 20px rgba(181, 141, 59, 0.12);
 }
 
 /* ── Locked card ── */
 .card-locked {
-  opacity: 0.55;
+  opacity: 0.6;
   cursor: default;
 }
 
@@ -192,15 +195,15 @@ import AccountMenu from '../components/AccountMenu.vue'
   right: -40px;
   width: 160px;
   height: 160px;
-  background: radial-gradient(circle, rgba(204, 255, 0, 0.18) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(181, 141, 59, 0.1) 0%, transparent 70%);
   pointer-events: none;
   border-radius: 50%;
 }
 .card-glow-blue {
-  background: radial-gradient(circle, rgba(107, 143, 255, 0.2) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(107, 143, 255, 0.08) 0%, transparent 70%);
 }
 .card-glow-red {
-  background: radial-gradient(circle, rgba(255, 107, 157, 0.2) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(220, 38, 38, 0.07) 0%, transparent 70%);
 }
 
 /* ── Card content ── */
@@ -217,20 +220,20 @@ import AccountMenu from '../components/AccountMenu.vue'
 }
 
 .report-icon {
+  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 46px;
   height: 46px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--paper-soft, #ebe6da);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: var(--gold, #b58d3b);
+  border: 1px solid var(--line);
 }
 
 .report-icon-dim {
-  filter: grayscale(0.5);
-  opacity: 0.7;
+  filter: grayscale(0.4);
+  opacity: 0.75;
 }
 
 .card-tag {
@@ -240,48 +243,50 @@ import AccountMenu from '../components/AccountMenu.vue'
   font-weight: 700;
   padding: 3px 8px;
   border-radius: 6px;
-  background: rgba(204, 255, 0, 0.12);
-  color: #CCFF00;
-  border: 1px solid rgba(204, 255, 0, 0.25);
+  background: rgba(181, 141, 59, 0.12);
+  color: var(--gold);
+  border: 1px solid rgba(181, 141, 59, 0.3);
 }
 
 .card-tag-soon {
-  background: rgba(255, 255, 255, 0.07);
-  color: rgba(255, 255, 255, 0.4);
-  border-color: rgba(255, 255, 255, 0.12);
+  background: var(--chrome, #efefef);
+  color: var(--ink-dim);
+  border-color: var(--line);
 }
 
 .report-title {
   font-family: var(--font-serif);
   font-size: 20px;
-  font-weight: 500;
-  color: #fff;
-  margin-bottom: 2px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
   line-height: 1.2;
+  letter-spacing: 0.02em;
 }
 
 .report-title-dim {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--ink-muted);
 }
 
 .report-subtitle {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  letter-spacing: 0.12em;
-  color: rgba(212, 175, 55, 0.7);
+  letter-spacing: 0.14em;
+  color: var(--gold);
   text-transform: uppercase;
   margin-bottom: 8px;
 }
 
 .report-subtitle-dim {
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--ink-dim);
 }
 
 .report-desc {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.55);
-  line-height: 1.5;
+  color: var(--ink-muted);
+  line-height: 1.6;
   margin-bottom: 14px;
+  letter-spacing: 0.01em;
 }
 
 .card-arrow {
@@ -289,7 +294,7 @@ import AccountMenu from '../components/AccountMenu.vue'
   bottom: 20px;
   right: 20px;
   font-size: 18px;
-  color: rgba(204, 255, 0, 0.6);
+  color: var(--gold);
   z-index: 1;
   transition: transform 0.2s, color 0.2s;
 }
@@ -303,15 +308,7 @@ import AccountMenu from '../components/AccountMenu.vue'
   position: absolute;
   bottom: 20px;
   right: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.5);
+  font-size: 16px;
   z-index: 1;
 }
 </style>

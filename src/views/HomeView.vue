@@ -1,11 +1,11 @@
 <template>
   <div class="home-view">
-    <header id="siteHeader">
+    <header id="siteHeader" :class="{ 'result-header': viewState === 'result' }">
       <button class="hamburger" :class="{ open: globalState.isDrawerOpen }" @click="toggleDrawer" aria-label="历史记录">
         <span></span><span></span><span></span>
       </button>
-      <div class="site-logo" @click="resetToInput" style="cursor: pointer;" title="返回首页">奇门遁甲</div>
-      <div class="header-actions">
+      <div v-if="viewState !== 'result'" class="site-logo" @click="resetToInput" style="cursor: pointer;" title="返回首页">奇门道</div>
+      <div v-if="viewState !== 'result'" class="header-actions">
         <OpenSourceLinks />
         <AccountMenu />
       </div>
@@ -15,11 +15,17 @@
     <Teleport to="#drawer-host">
       <div id="historyDrawer" :class="{ open: globalState.isDrawerOpen }">
         <div class="drawer-head">
-          <div class="drawer-label">HISTORY</div>
+          <div class="drawer-topbar">
+            <div class="drawer-brand">奇门道</div>
+            <button class="drawer-close" type="button" @click="globalState.isDrawerOpen = false" aria-label="关闭历史记录">×</button>
+          </div>
+          <button class="drawer-new-session" type="button" @click="startNewSession">
+            <span>再起一局</span>
+            <span aria-hidden="true">↗</span>
+          </button>
           <div class="drawer-title-txt">推演回溯</div>
         </div>
         <div class="drawer-filter">
-          <label class="filter-select-label" for="historyCategorySelect">分类查阅</label>
           <div class="filter-select-wrap">
             <select id="historyCategorySelect" v-model="activeCategory" class="filter-select" aria-label="分类查阅">
               <option v-for="cat in categories" :key="cat.value" :value="cat.value">
@@ -54,7 +60,7 @@
       </div>
     </Teleport>
 
-    <div class="page-wrap">
+    <div class="page-wrap" :class="{ 'result-page-wrap': viewState === 'result' }">
       <div class="container" :class="{ 'public-landing-container': !canUseApp && viewState === 'input' }">
         <section v-if="!canUseApp && viewState === 'input'" class="seo-landing" aria-labelledby="seoLandingTitle">
           <h1 id="seoLandingTitle">奇门遁甲在线排盘与 AI 解盘</h1>
@@ -79,26 +85,35 @@
         </section>
 
         <div v-if="!canUseApp" class="auth-landing-wrap mobile-auth-first">
-
-          <!-- ── 首页未登录态 ── -->
           <template v-if="authView === 'landing'">
             <div class="auth-hero">
               <div class="hero-scatter" aria-hidden="true">
-                <span class="hs e1">☰</span>
                 <span class="hs e2">☷</span>
                 <span class="hs e3">✦</span>
                 <span class="hs e4">☲</span>
                 <span class="hs e5">☵</span>
               </div>
+              <div class="auth-taiji-wrap" aria-hidden="true">
+                <svg class="auth-taiji-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="60" cy="60" r="55" fill="none" stroke="rgba(181,141,59,0.15)" stroke-width="1"/>
+                  <circle cx="60" cy="60" r="37" fill="none" stroke="rgba(181,141,59,0.14)" stroke-width="1" stroke-dasharray="5 5" stroke-linecap="round"/>
+                  <circle cx="60" cy="60" r="24" fill="rgba(181,141,59,0.055)" stroke="rgba(181,141,59,0.16)" stroke-width="1"/>
+                  <path d="M60,36 A12,12 0 0,1 60,60 A12,12 0 0,0 60,84 A24,24 0 0,1 60,36" fill="rgba(181,141,59,0.18)"/>
+                  <path d="M60,36 Q73,48 60,60 Q47,72 60,84" fill="none" stroke="rgba(181,141,59,0.2)" stroke-width="1"/>
+                  <circle cx="60" cy="48" r="3" fill="rgba(181,141,59,0.42)"/>
+                  <circle cx="60" cy="72" r="3" fill="rgba(247,244,238,0.84)"/>
+                  <circle cx="60" cy="60" r="4" fill="rgba(181,141,59,0.24)"/>
+                </svg>
+              </div>
               <div class="hero-brand">
                 <div class="hero-label">QIMEN DAO</div>
-                <h1 class="hero-name">奇门遁甲</h1>
-                <p class="hero-sub">洞见天机，<em>决断万事</em></p>
+                <h1 class="hero-name">奇门道</h1>
+                <p class="hero-sub">洞察天机，<em>决胜千里</em></p>
               </div>
             </div>
             <div class="auth-btns">
-              <button class="abtn abtn--solid" @click="authView = 'login'">登录</button>
-              <button class="abtn abtn--border" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
+              <button class="abtn abtn--solid" type="button" @click="authView = 'login'">登录</button>
+              <button class="abtn abtn--border" type="button" :disabled="googleAuthLoading || authLoading" @click="handleGoogleAuth">
                 <span class="google-mark" aria-hidden="true">
                   <svg viewBox="0 0 24 24" focusable="false">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -110,8 +125,8 @@
                 {{ googleAuthLoading ? '正在跳转...' : 'Google 登录' }}
               </button>
               <div class="abtn-divider"><span>——或者——</span></div>
-              <button class="abtn abtn--ghost" @click="handleGuestEntry">访客登录</button>
-              <button class="abtn-text" @click="authView = 'register'">注册</button>
+              <button class="abtn abtn--ghost" type="button" @click="handleGuestEntry">访客登录</button>
+              <button class="abtn-text" type="button" @click="authView = 'register'">注册</button>
               <p class="auth-legal">
                 继续即表示同意
                 <router-link to="/terms">《用户协议》</router-link>与
@@ -120,7 +135,6 @@
             </div>
           </template>
 
-          <!-- ── 登录页 ── -->
           <template v-else-if="authView === 'login'">
             <div class="auth-form-pg">
               <button class="auth-back" type="button" @click="authView = 'landing'">
@@ -138,11 +152,11 @@
                   <input type="password" v-model="authForm.password" placeholder="至少 6 位" autocomplete="current-password"/>
                 </label>
               </div>
-              <button class="abtn abtn--solid" :disabled="authLoading" @click="handleAuth">
+              <button class="abtn abtn--solid" type="button" :disabled="authLoading" @click="handleAuth">
                 {{ authLoading ? '验证中...' : '登录' }}
               </button>
               <div class="afm-sub">
-                <button class="forgot-password-link" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
+                <button class="forgot-password-link" type="button" :disabled="resetEmailLoading" @click="handleResetPasswordEmail">
                   {{ resetEmailLoading ? '正在发送...' : '忘记密码' }}
                 </button>
               </div>
@@ -150,7 +164,6 @@
             </div>
           </template>
 
-          <!-- ── 注册页 ── -->
           <template v-else-if="authView === 'register'">
             <div class="auth-form-pg">
               <button class="auth-back" type="button" @click="authView = 'landing'">
@@ -168,17 +181,16 @@
                   <input type="password" v-model="authForm.password" placeholder="至少 6 位" autocomplete="new-password"/>
                 </label>
               </div>
-              <button class="abtn abtn--solid" :disabled="authLoading" @click="handleAuth">
+              <button class="abtn abtn--solid" type="button" :disabled="authLoading" @click="handleAuth">
                 {{ authLoading ? '注册中...' : '注册' }}
               </button>
-              <p class="auth-legal" style="margin-top:8px;">
+              <p class="auth-legal">
                 继续即表示同意
                 <router-link to="/terms">《用户协议》</router-link>与
                 <router-link to="/privacy">《隐私政策》</router-link>
               </p>
             </div>
           </template>
-
         </div>
 
         <div v-else class="app-section">
@@ -592,7 +604,7 @@ const router = useRouter()
 const route = useRoute()
 
 const currentUser = ref(null)
-const authView = ref('landing') // 'landing' | 'login' | 'register'
+const authView = ref('landing')
 const isLoginMode = computed(() => authView.value === 'login')
 const authLoading = ref(false)
 const googleAuthLoading = ref(false)
@@ -1297,6 +1309,11 @@ const resetToInput = () => {
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
   showBaziBackingAnchor.value = false
+}
+
+const startNewSession = () => {
+  resetToInput()
+  globalState.isDrawerOpen = false
 }
 
 const syncBaziBackingAnchor = () => {
@@ -2309,7 +2326,17 @@ const buildCardHTML = (data) => {
   background: rgba(247, 244, 238, 0.96);
   border-bottom: 1px solid var(--line);
 }
+#siteHeader.result-header {
+  position: absolute;
+  justify-content: flex-start;
+  padding: 18px 24px;
+  background: transparent;
+  border-bottom: 0;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
 .hamburger { width: 38px; height: 38px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; cursor: pointer; border-radius: 10px; transition: background .2s; border: none; background: transparent; flex-shrink: 0; }
+#siteHeader.result-header .hamburger { width: 34px; height: 34px; }
 .hamburger span { display: block; width: 18px; height: 1.5px; background: var(--ink); border-radius: 2px; transition: all .35s var(--spring); transform-origin: center; }
 .hamburger.open span:nth-child(1) { transform: translateY(6.5px) rotate(45deg); }
 .hamburger.open span:nth-child(2) { opacity: 0; transform: scaleX(0); }
@@ -2321,11 +2348,60 @@ const buildCardHTML = (data) => {
 
 /* 抽屉 */
 #historyDrawer { position: absolute; inset: 0; width: 100%; z-index: 1; display: flex; flex-direction: column; background: var(--paper); border-right: 1px solid var(--line); }
-.drawer-head { padding: 64px 22px 18px; border-bottom: 1px solid var(--line); }
+.drawer-head { padding: 26px 20px 18px; }
+.drawer-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 22px;
+}
+.drawer-brand {
+  font-family: 'Noto Serif SC', serif;
+  font-size: 17px;
+  letter-spacing: .15em;
+  font-weight: 500;
+  color: var(--gold);
+}
+.drawer-close {
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.68);
+  color: var(--ink);
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+.drawer-new-session {
+  width: 100%;
+  min-height: 48px;
+  margin: 0 0 22px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.58);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: 16px;
+  letter-spacing: .08em;
+  cursor: pointer;
+}
+.drawer-new-session span:last-child {
+  color: var(--gold);
+  font-family: var(--font-body);
+  letter-spacing: 0;
+}
 .drawer-label { font-size: 10px; color: var(--text-muted); letter-spacing: .25em; margin-bottom: 4px; font-family: var(--font-serif); }
 .drawer-title-txt { font-size: 20px; font-weight: 300; letter-spacing: .05em; color: var(--ink); }
-.drawer-filter { padding: 12px 16px 14px; border-bottom: 1px solid var(--line); }
-.filter-select-label { display: block; font-size: 10px; color: var(--text-muted); letter-spacing: .2em; margin-bottom: 8px; }
+.drawer-filter { padding: 12px 16px 14px; }
+.filter-select-label { display: none; }
 .filter-select-wrap { position: relative; width: 100%; }
 .filter-select {
   width: 100%;
@@ -2335,6 +2411,7 @@ const buildCardHTML = (data) => {
   border-radius: 10px;
   background: white;
   color: var(--ink);
+  font-family: var(--font-serif);
   font-size: 13px;
   line-height: 38px;
   padding: 0 38px 0 13px;
@@ -2364,12 +2441,13 @@ const buildCardHTML = (data) => {
 .d-hist-dot.xiong { background: var(--crimson); box-shadow: 0 0 6px var(--crimson); }
 .d-hist-dot.ping { background: var(--gold); box-shadow: 0 0 6px var(--gold-dim); }
 .d-hist-info { flex: 1; overflow: hidden; }
-.d-hist-q { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
-.d-hist-meta { font-size: 10px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
-.d-hist-badge { font-size: 10px; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; border: 1px solid; }
+.d-hist-q { font-family: var(--font-serif); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+.d-hist-meta { font-family: var(--font-serif); font-size: 10px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; }
+.d-hist-badge { font-family: var(--font-serif); font-size: 10px; padding: 2px 7px; border-radius: 20px; flex-shrink: 0; border: 1px solid; }
 
 /* 页面 */
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 24px 72px; overflow-x: visible !important; }
+.result-page-wrap { padding-top: 0; }
 .container { width: 100%; max-width: 520px; }
 .public-landing-container {
   max-width: 1040px;
@@ -2442,7 +2520,7 @@ const buildCardHTML = (data) => {
   line-height: 1.6;
 }
 .public-landing-container .auth-landing-wrap {
-  margin-top: 0;
+  margin-top: 24px;
 }
 .seo-faq-section {
   grid-column: 1 / -1;
@@ -2496,6 +2574,7 @@ const buildCardHTML = (data) => {
 
 @media(max-width:920px) {
   .page-wrap { padding: 76px 18px 60px; }
+  .result-page-wrap { padding-top: 0; }
   .public-landing-container {
     max-width: 520px;
     display: flex;
@@ -2555,6 +2634,23 @@ const buildCardHTML = (data) => {
   }
 }
 
+@media(max-width:760px) {
+  .seo-landing,
+  .seo-faq-section {
+    display: none;
+  }
+  .auth-landing-wrap {
+    min-height: calc(100svh - 136px);
+  }
+  .auth-btns {
+    margin-top: auto;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+  .auth-taiji-wrap {
+    display: block;
+  }
+}
+
 .glass-card, .input-box {
   background: var(--bg-card); border: 1px solid var(--line);
   border-radius: var(--radius-card);
@@ -2582,16 +2678,13 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 .cta-text { font-family: 'Noto Serif SC', serif; font-size: 17px; font-weight: 500; color: #1a1000; letter-spacing: .15em; }
 .cta-hint { font-size: 11px; color: rgba(255,255,255,0.2); }
 
-/* ── Auth Landing Wrap ── */
 .auth-landing-wrap {
   width: 100%;
   display: flex;
   flex-direction: column;
   margin-bottom: 16px;
-  animation: riseIn 0.7s cubic-bezier(.22,1,.36,1) both;
+  animation: riseIn .7s cubic-bezier(.22,1,.36,1) both;
 }
-
-/* Hero section */
 .auth-hero {
   position: relative;
   display: flex;
@@ -2601,52 +2694,62 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
   padding-bottom: 36px;
   overflow: hidden;
 }
-
-/* Scattered decorative symbols */
 .hero-scatter { position: absolute; inset: 0; pointer-events: none; user-select: none; }
 .hs { position: absolute; font-family: var(--font-serif); line-height: 1; }
-.hs.e1 { top: 14%; left: 10%; font-size: 32px; color: rgba(212,175,55,0.22); transform: rotate(-6deg); }
-.hs.e2 { top: 6%;  right: 14%; font-size: 20px; color: rgba(212,175,55,0.13); transform: rotate(10deg); }
-.hs.e3 { top: 46%; right: 7%;  font-size: 13px; color: rgba(212,175,55,0.28); letter-spacing: 0; }
-.hs.e4 { top: 28%; left: 52%; font-size: 16px; color: rgba(212,175,55,0.10); transform: rotate(4deg); }
-.hs.e5 { top: 60%; left: 5%;  font-size: 11px; color: rgba(212,175,55,0.16); }
-
-/* Brand typography */
+.hs.e1 { top: 14%; left: 10%; font-size: 32px; color: rgba(181,141,59,0.22); transform: rotate(-6deg); }
+.hs.e2 { top: 6%; right: 14%; font-size: 20px; color: rgba(181,141,59,0.13); transform: rotate(10deg); }
+.hs.e3 { top: 46%; right: 7%; font-size: 13px; color: rgba(181,141,59,0.28); letter-spacing: 0; }
+.hs.e4 { top: 28%; left: 52%; font-size: 16px; color: rgba(181,141,59,0.10); transform: rotate(4deg); }
+.hs.e5 { top: 60%; left: 5%; font-size: 11px; color: rgba(181,141,59,0.16); }
+.auth-taiji-wrap {
+  display: none;
+  position: absolute;
+  top: 16px;
+  right: 8px;
+  width: 128px;
+  height: 128px;
+  opacity: .46;
+  pointer-events: none;
+}
+.auth-taiji-svg {
+  width: 100%;
+  height: 100%;
+  animation: auth-taiji-spin 22s linear infinite;
+}
+@keyframes auth-taiji-spin {
+  to { transform: rotate(360deg); }
+}
 .hero-brand { position: relative; }
 .hero-label {
-  font-size: 10px;
-  letter-spacing: 0.32em;
-  color: rgba(255,255,255,0.22);
-  font-family: 'SF Mono','Fira Code',monospace;
   margin-bottom: 10px;
+  color: var(--ink-dim);
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  font-size: 10px;
+  letter-spacing: .32em;
 }
 .hero-name {
   margin: 0;
+  color: var(--ink);
   font-family: var(--font-serif);
   font-size: 54px;
   font-weight: 700;
-  letter-spacing: 0.06em;
-  color: var(--text-primary);
+  letter-spacing: .06em;
   line-height: 1.05;
 }
 .hero-sub {
   margin: 14px 0 0;
+  color: var(--ink-muted);
   font-family: var(--font-serif);
   font-size: 16px;
-  color: rgba(240,237,230,0.42);
   line-height: 1.5;
 }
-.hero-sub em { font-style: normal; color: rgba(232,204,128,0.7); }
-
-/* Button stack */
+.hero-sub em { font-style: normal; color: var(--gold); }
 .auth-btns {
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding-top: 8px;
 }
-
-/* Base flat button */
 .abtn {
   width: 100%;
   height: 52px;
@@ -2656,163 +2759,153 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
   gap: 10px;
   border: none;
   border-radius: 4px;
-  font-size: 15px;
   font-family: var(--font-body);
+  font-size: 15px;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: .03em;
   cursor: pointer;
   transition: opacity .18s, transform .15s, background .18s, border-color .18s;
 }
-.abtn:active { transform: scale(0.983); }
-.abtn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-/* Solid — primary login */
+.abtn:active { transform: scale(.983); }
+.abtn:disabled { opacity: .5; cursor: not-allowed; }
 .abtn--solid {
-  background: rgba(240,237,230,0.95);
-  color: #080600;
+  background: var(--ink);
+  color: var(--paper);
   font-family: var(--font-serif);
-  letter-spacing: 0.08em;
+  letter-spacing: .08em;
 }
-.abtn--solid:not(:disabled):hover { background: #fff; }
-
-/* Bordered — Google */
+.abtn--solid:not(:disabled):hover { background: #000; }
 .abtn--border {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.14);
-  color: rgba(240,237,230,0.88);
+  border: 1px solid var(--line);
+  color: var(--ink);
 }
-.abtn--border:not(:disabled):hover { border-color: rgba(255,255,255,0.28); background: rgba(255,255,255,0.04); }
-
-/* Ghost — visitor */
+.abtn--border:not(:disabled):hover { border-color: var(--gold-border); background: rgba(181,141,59,0.06); }
 .abtn--ghost {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.09);
-  color: rgba(240,237,230,0.62);
+  border: 1px solid rgba(11,11,11,.08);
+  color: var(--ink-muted);
 }
-.abtn--ghost:hover { border-color: rgba(255,255,255,0.2); color: rgba(240,237,230,0.88); }
-
-/* Divider */
+.abtn--ghost:hover { border-color: var(--line); color: var(--ink); }
 .abtn-divider {
-  text-align: center;
-  color: rgba(255,255,255,0.22);
-  font-size: 12px;
-  letter-spacing: 0.04em;
   padding: 2px 0;
-}
-
-/* Text link — register */
-.abtn-text {
-  background: none;
-  border: none;
-  color: rgba(240,237,230,0.5);
-  font-size: 14px;
-  font-family: var(--font-body);
-  cursor: pointer;
+  color: var(--ink-dim);
+  font-size: 12px;
+  letter-spacing: .04em;
   text-align: center;
+}
+.abtn-text {
   padding: 4px;
+  border: none;
+  background: none;
+  color: var(--ink-muted);
+  font-family: var(--font-body);
+  font-size: 14px;
+  text-align: center;
+  cursor: pointer;
   transition: color .18s;
 }
-.abtn-text:hover { color: rgba(240,237,230,0.9); }
-
-/* Legal text */
+.abtn-text:hover { color: var(--ink); }
 .auth-legal {
   margin: 2px 0 0;
-  color: rgba(255,255,255,0.22);
+  color: var(--text-muted);
   font-size: 11px;
   line-height: 1.6;
   text-align: center;
 }
-.auth-legal a { color: rgba(255,255,255,0.36); text-decoration: none; }
-.auth-legal a:hover { color: rgba(212,175,55,0.7); }
-
-/* Google mark */
-.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px; background: rgba(255,255,255,0.96); }
+.auth-legal a { color: var(--gold); text-decoration: none; }
+.auth-legal a:hover { color: var(--gold-light); }
+.google-mark { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; flex: 0 0 22px; border-radius: 6px; background: rgba(255,255,255,.96); }
 .google-mark svg { width: 15px; height: 15px; display: block; }
-
-/* ── Auth Form Page (login / register) ── */
 .auth-form-pg {
   display: flex;
   flex-direction: column;
   gap: 22px;
   padding-top: 4px;
-  animation: riseIn 0.45s cubic-bezier(.22,1,.36,1) both;
+  animation: riseIn .45s cubic-bezier(.22,1,.36,1) both;
 }
-
 .auth-back {
   display: inline-flex;
   align-items: center;
+  align-self: flex-start;
   gap: 5px;
+  padding: 0;
   border: none;
   background: transparent;
-  color: rgba(240,237,230,0.4);
-  font-size: 13px;
+  color: var(--ink-muted);
   font-family: var(--font-body);
+  font-size: 13px;
   cursor: pointer;
-  padding: 0;
-  align-self: flex-start;
   transition: color .18s;
 }
-.auth-back:hover { color: rgba(240,237,230,0.85); }
-
+.auth-back:hover { color: var(--ink); }
 .afm-title {
   margin: 0;
+  color: var(--ink);
   font-family: var(--font-serif);
   font-size: 36px;
   font-weight: 600;
-  color: var(--text-primary);
-  letter-spacing: 0.04em;
+  letter-spacing: .04em;
 }
-
-/* Underline-style fields */
 .afm-fields { display: flex; flex-direction: column; gap: 0; }
 .afm-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
   padding: 14px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.10);
+  border-bottom: 1px solid var(--line);
   transition: border-color .2s;
 }
-.afm-field:focus-within { border-bottom-color: rgba(212,175,55,0.45); }
+.afm-field:focus-within { border-bottom-color: var(--gold-border); }
 .afm-field span {
+  color: var(--text-muted);
   font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(255,255,255,0.3);
+  letter-spacing: .18em;
+}
+input[type="email"], input[type="password"] {
+  width: 100%;
+  min-height: 48px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 13px 15px;
+  color: var(--ink);
+  font-size: 15px;
+  outline: none;
+  transition: border-color .2s, box-shadow .2s, background .2s;
+}
+input[type="email"]:focus, input[type="password"]:focus {
+  border-color: var(--gold-border);
+  box-shadow: 0 0 0 3px var(--gold-dim);
 }
 .afm-field input[type="email"],
 .afm-field input[type="password"] {
-  background: transparent !important;
+  min-height: auto !important;
+  padding: 4px 0 !important;
   border: none !important;
   border-radius: 0 !important;
-  padding: 4px 0 !important;
-  min-height: auto !important;
-  font-size: 17px !important;
-  color: var(--text-primary) !important;
-  outline: none !important;
+  background: transparent !important;
   box-shadow: none !important;
-  width: 100%;
+  color: var(--ink) !important;
+  font-size: 17px !important;
 }
-.afm-field input::placeholder { color: rgba(255,255,255,0.18) !important; }
-
+input::placeholder { color: var(--text-muted); }
 .afm-sub { display: flex; justify-content: flex-start; }
-
-/* Keep these shared helpers */
 .forgot-password-link {
   border: none;
   background: transparent;
-  color: rgba(232,204,128,0.6);
+  color: var(--gold);
+  font-family: var(--font-body);
   font-size: 13px;
   line-height: 1.4;
   cursor: pointer;
-  text-align: left;
   padding: 0;
-  font-family: var(--font-body);
-  transition: color .18s;
+  text-align: left;
+  text-decoration: none;
 }
 .forgot-password-link:disabled { opacity: 0.6; cursor: not-allowed; }
 .forgot-password-link:hover { color: var(--gold-light); }
-.auth-notice { padding: 10px 12px; border-radius: 8px; background: rgba(78,205,196,0.08); border: 1px solid rgba(78,205,196,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; }
+.auth-notice { padding: 10px 12px; border-radius: 12px; background: rgba(13,148,136,0.06); border: 1px solid rgba(13,148,136,0.2); color: var(--ink-muted); font-size: 12px; line-height: 1.6; text-align: center; }
 
 .qimen-profile-panel { position: relative; z-index: 42; padding: 14px 16px; overflow: visible; margin-bottom: 16px; }
 .profile-switcher { position: relative; z-index: 60; }
@@ -3158,6 +3251,7 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
     overflow-x: hidden;
     box-sizing: border-box;
   }
+  .result-page-wrap { padding-top: 0; }
   .public-landing-container {
     width: 100%;
     max-width: 100%;
@@ -3171,22 +3265,18 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
     box-sizing: border-box;
   }
   .seo-landing {
-    width: 100%;
-    max-width: 100%;
-    box-sizing: border-box;
+    display: none;
   }
-  .seo-landing h1 {
-    font-size: 26px;
-    line-height: 1.34;
-    overflow-wrap: anywhere;
+  .seo-faq-section {
+    display: none;
   }
   .feedback-overlay { align-items: flex-end; justify-content: center; }
   .feedback-drawer { width: 100%; height: auto; max-height: 88vh; border-left: none; border-top: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; transform: translateY(24px); }
   .feedback-overlay.show .feedback-drawer { transform: translateY(0); }
-  .auth-landing-wrap { min-height: calc(100svh - 200px); justify-content: space-between; }
   .auth-hero { min-height: 220px; padding-bottom: 28px; }
-  .hero-name { font-size: 46px; }
-  .afm-title { font-size: 30px; }
+  .auth-taiji-wrap { display: block; }
+  .hero-name { font-size: 44px; }
+  .afm-title { font-size: 32px; }
   .qimen-profile-panel { padding: 12px 14px; }
   .profile-switch-trigger,
   .add-bazi-profile-btn { min-height: 52px; }
@@ -3584,6 +3674,9 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
   margin-bottom: 4px;
   scrollbar-width: none;
 }
+.result-page-wrap :deep(.mag-tabs) {
+  top: 0;
+}
 :deep(.mag-tabs::-webkit-scrollbar) { display: none; }
 :deep(.mag-tab) {
   border: 0;
@@ -3616,6 +3709,9 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 :deep(.mag-section) {
   scroll-margin-top: 130px;
   padding-top: 24px;
+}
+.result-page-wrap :deep(.mag-section) {
+  scroll-margin-top: 60px;
 }
 :deep(.mag-section + .mag-section) {
   border-top: 1px solid var(--line);

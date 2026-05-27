@@ -52,7 +52,7 @@
           <td v-for="col in columns" :key="'nayin-' + col.name" class="bz-sub">{{ col.nayin || '-' }}</td>
         </tr>
         <tr>
-          <td class="bz-label">神煞<br><span style="font-size:8px;color:#666">(点击查看)</span></td>
+          <td class="bz-label">神煞<br><span class="shensha-hint">(点击)</span></td>
           <td v-for="col in columns" :key="'shen-' + col.name" class="bz-shensha">
             <div
               v-for="s in sortedShensha(col.shensha)"
@@ -97,9 +97,9 @@ function normalizeHiddenStems(stems) {
 .bazi-table-wrap { width: 100%; overflow: hidden; }
 .bazi-table {
   --bz-cell-py: 8px;
-  --bz-label-size: 10px;
-  --bz-meta-size: 10px;
-  --bz-char-size: 16px;
+  --bz-label-size: 12px;
+  --bz-meta-size: 12px;
+  --bz-char-size: 20px;
   table-layout: fixed;
   width: 100%;
   border-collapse: collapse;
@@ -107,31 +107,44 @@ function normalizeHiddenStems(stems) {
 }
 .bazi-table th, .bazi-table td {
   padding: var(--bz-cell-py) 0;
-  border-bottom: 1px solid rgba(255,255,255,0.03);
+  border-bottom: 1px solid var(--line, rgba(0,0,0,0.08));
   vertical-align: middle;
   word-wrap: break-word;
 }
-.bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
-.bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
-.bz-label { color: var(--text-muted); font-weight: 500; font-size: var(--bz-label-size); }
-.bz-star { font-size: var(--bz-meta-size); color: var(--text-primary); }
+.bazi-table th { color: var(--gold); font-family: var(--font-serif); font-size: 13px; font-weight: normal; letter-spacing: 1px; }
+.bazi-table th:first-child, .bazi-table td:first-child { width: 48px; }
+/* higher specificity to beat .bazi-table th on <th class="bz-label"> */
+.bazi-table th.bz-label { color: var(--ink-muted, #55595d); font-size: var(--bz-label-size); letter-spacing: 0; }
+.bz-label { color: var(--ink-muted, #55595d); font-weight: 500; font-size: var(--bz-label-size); }
+.bz-star { font-size: var(--bz-meta-size); color: var(--ink, #0b0b0b); }
 .bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
-.bz-sub { font-size: var(--bz-meta-size); color: #aaa; line-height: 1.4; }
-.bz-shensha { font-size: 9px; color: #B39DDB; line-height: 1.4; }
+.bz-sub { font-size: var(--bz-meta-size); color: var(--ink-muted, #55595d); line-height: 1.45; }
+.bz-shensha { font-size: 11px; color: #7c5cbf; line-height: 1.45; }
+.shensha-hint { font-size: 9px; color: var(--ink-dim, #777b80); }
 .clickable-shensha { display: block; cursor: pointer; padding: 1px 4px; border-radius: 4px; transition: background 0.2s; margin: 1px 0; white-space: nowrap; }
-.clickable-shensha:hover { background: rgba(212,175,55,0.2); color: var(--gold-light) !important; }
-.ss-吉 { color: #68D391; }
-.ss-中性 { color: #B39DDB; }
-.ss-凶 { color: #FC8181; }
-.wx-jin { color: #E8CC80; }
-.wx-mu { color: #81C784; }
-.wx-shui { color: #64B5F6; }
-.wx-huo { color: #E57373; }
-.wx-tu { color: #DCE775; }
-.wx-none { color: #666; }
-.cg-line { display: block; line-height: 1.5; }
-.cg-shen { color: #888; font-size: 10px; margin-left: 1px; }
+.clickable-shensha:hover { background: rgba(181,141,59,0.12); color: var(--gold) !important; }
+.ss-吉 { color: #2e7d49; }
+.ss-中性 { color: #7c5cbf; }
+.ss-凶 { color: #c0392b; }
+/* five-element colours adapted for paper background */
+.wx-jin { color: #9a7a1a; }
+.wx-mu { color: #2e7d32; }
+.wx-shui { color: #1565c0; }
+.wx-huo { color: #c62828; }
+.wx-tu { color: #7b5e00; }
+.wx-none { color: var(--ink-muted, #55595d); }
+.cg-line { display: block; line-height: 1.55; }
+.cg-shen { color: var(--ink-muted, #55595d); font-size: 11px; margin-left: 2px; }
 @media (max-width: 640px) {
-  .bazi-table { --bz-char-size: 14px; }
+  .bazi-table {
+    --bz-label-size: 11px;
+    --bz-meta-size: 11px;
+    --bz-char-size: 18px;
+  }
+  .bazi-table th { font-size: 12px; letter-spacing: .5px; }
+  .bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
+  .bz-sub { line-height: 1.35; }
+  .bz-shensha { font-size: 10px; line-height: 1.35; }
+  .cg-shen { font-size: 10px; }
 }
 </style>

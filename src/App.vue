@@ -19,13 +19,15 @@
     <nav v-if="isBottomNavVisible" id="globalBottomNav">
       <router-link to="/" class="nav-item" active-class="active">
         <div class="nav-icon">
-          <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M14 3.5 23 14l-9 10.5L5 14 14 3.5Z"/><path d="M14 8v12M8 14h12"/></svg>
+          <!-- 问事：八射线占卜轮（指向八方，问事起卦）-->
+          <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4v5M14 19v5M4 14h5M19 14h5M18 10l3-3M10 10l-3-3M18 18l3 3M10 18l-3 3M9 14a5 5 0 1 0 10 0a5 5 0 1 0-10 0"/></svg>
         </div>
-        <div class="nav-label">奇门</div>
+        <div class="nav-label">问事</div>
       </router-link>
       <router-link to="/bazi" class="nav-item" active-class="active">
         <div class="nav-icon">
-          <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M7 5h14v18H7zM7 11h14M7 17h14M14 5v18"/></svg>
+          <!-- 八字：2×4连通网格（四柱×天干地支）-->
+          <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h22v14H3zM8.5 7v14M14 7v14M19.5 7v14M3 14h22"/></svg>
         </div>
         <div class="nav-label">八字</div>
       </router-link>

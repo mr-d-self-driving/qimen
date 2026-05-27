@@ -28,6 +28,23 @@ test('奇门结果卡片按四个模块顺序渲染且不展示 M 编号', () =>
   assert.ok(m4Index > m3Index)
 })
 
+test('结果页隐藏顶部标题和右侧入口但首页输入框保留', () => {
+  assert.match(source, /<header id="siteHeader" :class="\{ 'result-header': viewState === 'result' \}">/)
+  assert.match(source, /v-if="viewState !== 'result'" class="site-logo"/)
+  assert.match(source, /v-if="viewState !== 'result'" class="header-actions"/)
+  assert.match(source, /class="page-wrap" :class="\{ 'result-page-wrap': viewState === 'result' \}"/)
+  assert.match(source, /#siteHeader\.result-header/)
+  assert.match(source, /#siteHeader\.result-header \{[\s\S]{0,180}position:\s*absolute/)
+  assert.match(source, /\.result-page-wrap \{ padding-top: 0; \}/)
+  assert.match(source, /\.result-page-wrap :deep\(\.mag-tabs\)/)
+})
+
+test('历史抽屉顶部提供再起一局入口返回首页', () => {
+  assert.match(source, /class="drawer-new-session" type="button" @click="startNewSession"/)
+  assert.match(source, />再起一局</)
+  assert.match(source, /const startNewSession = \(\) => \{[\s\S]{0,120}resetToInput\(\)[\s\S]{0,120}globalState\.isDrawerOpen = false/)
+})
+
 test('奇门定基和局象推演包含用神、四段推演和开运样式', () => {
   assert.match(source, /yongshen-card-grid/)
   assert.match(source, /reportM2\.yongshen_cards/)
@@ -82,6 +99,14 @@ test('奇门占卜提交不再强制要求八字档案且仅 hybrid 携带已选
 })
 
 test('登录或注册落地页显式覆盖访客应用视图', () => {
+  assert.match(source, /const authView = ref\('landing'\)/)
+  assert.match(source, /const isLoginMode = computed\(\(\) => authView\.value === 'login'\)/)
+  assert.match(source, /authView === 'landing'/)
+  assert.match(source, /authView === 'login'/)
+  assert.match(source, /authView === 'register'/)
+  assert.match(source, /auth-taiji-wrap/)
+  assert.match(source, /@media\(max-width:760px\)[\s\S]{0,120}\.seo-landing,[\s\S]{0,160}\.seo-faq-section[\s\S]{0,80}display:\s*none/)
+  assert.match(source, /@media\(max-width:760px\)[\s\S]{0,420}\.auth-taiji-wrap[\s\S]{0,80}display:\s*block/)
   assert.match(source, /const isAuthLanding = computed\(\(\) => \['login', 'register'\]\.includes\(route\.query\.auth\)\)/)
   assert.match(source, /const canUseApp = computed\(\(\) => Boolean\(currentUser\.value \|\| \(isGuest\.value && globalState\.guestAccessUnlocked && !isAuthLanding\.value\)\)\)/)
   assert.match(source, /enterGuestMode\(\)/)

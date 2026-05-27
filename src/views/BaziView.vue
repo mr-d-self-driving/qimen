@@ -1,57 +1,112 @@
 <template>
   <div class="bazi-view">
 
-    <header id="siteHeader">
-        <div class="site-logo">全息八字</div>
-        <div class="header-actions">
-            <OpenSourceLinks />
-            <AccountMenu />
-        </div>
-    </header>
-
     <div class="page-wrap">
         <div class="container">
-            <div class="glass-card profile-card">
-                <div class="profile-card-head">
-                    <div>
-                        <div class="section-kicker">命主档案</div>
-                        <div class="section-title">选择或维护排盘资料</div>
-                    </div>
-                    <span v-if="activeProfile?.is_default" class="default-chip">默认</span>
+            <div class="profile-hero-block" :class="{ open: isProfileMenuOpen }">
+                <!-- Circular rerun button: top-right (only) -->
+                <div class="hero-top-actions">
+                    <button
+                        v-if="activeProfile"
+                        class="hero-icon-btn"
+                        :class="{ spinning: isAnalyzing }"
+                        :disabled="isAnalyzing"
+                        :title="rerunButtonLabel"
+                        @click="requestAiSummary({ force: true })"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="profile-filter-row">
-                    <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
-                        <button class="profile-switch-trigger" :disabled="!showProfileSwitcher" @click="toggleProfileMenu">
-                            <span class="profile-switch-name">{{ activeProfileName }}</span>
-                            <span class="profile-switch-symbol" aria-hidden="true">⇄</span>
-                        </button>
-                        <div v-if="isProfileMenuOpen" class="profile-flyout">
-                            <button
-                                v-for="profile in baziProfiles"
-                                :key="profile.id"
-                                class="profile-flyout-item"
-                                :class="{ active: profile.id === selectedProfileId }"
-                                @click="selectProfile(profile.id)"
-                            >
-                                <span class="profile-item-main">{{ profile.name }}</span>
-                                <span class="profile-item-date">{{ formatSolarDate(profile.birth_date) }}</span>
-                                <span class="profile-item-meta">{{ profileMetaText(profile) }}</span>
-                            </button>
+                <!-- Dates above name -->
+                <div v-if="activeProfile" class="hero-dates-top">
+                    <span class="hero-birth">{{ solarDateStr }}</span>
+                    <span class="hero-sep">·</span>
+                    <span class="hero-lunar">{{ lunarDateStr }}</span>
+                </div>
+
+                <div class="profile-strip-wrap" :class="{ open: isProfileMenuOpen }">
+                    <button class="hero-name-trigger" @click="toggleProfileMenu">
+                        <span class="hero-display-name">{{ activeProfileName }}</span>
+                        <span v-if="activeProfile?.is_default" class="profile-strip-badge">默认</span>
+                        <span class="profile-strip-caret" :class="{ open: isProfileMenuOpen }" aria-hidden="true"></span>
+                    </button>
+                    <div v-if="activeProfile" class="hero-meta">
+                        <div class="hero-badges">
+                            <span
+                                v-if="activeProfile.strong_weak"
+                                class="badge badge-blue badge-action hero-pill"
+                                role="button" tabindex="0"
+                                @click.stop="openInsightPanel('strength')"
+                            >{{ activeProfile.strong_weak }}</span>
+                            <span
+                                v-if="activeProfile.geju"
+                                class="badge badge-gold badge-action hero-pill"
+                                role="button" tabindex="0"
+                                @click.stop="openInsightPanel('geju')"
+                            >{{ patternFinalName }}</span>
                         </div>
                     </div>
-                    <button class="icon-btn" title="新增档案" @click="openAddProfile">+</button>
                 </div>
+
+                <!-- Bottom Sheet (Teleported) -->
+                <Teleport to="body">
+                    <Transition name="sheet">
+                        <div v-if="isProfileMenuOpen" class="sheet-backdrop" @click="isProfileMenuOpen = false; swipedProfileId = null"></div>
+                    </Transition>
+                    <Transition name="sheet-up">
+                        <div v-if="isProfileMenuOpen" class="profile-bottom-sheet" @click.stop>
+                            <div class="sheet-handle"></div>
+                            <div class="sheet-header">
+                                <span class="sheet-title">切换档案</span>
+                                <div class="sheet-header-actions">
+                                    <button class="sheet-add-btn" title="新增档案" @click="openAddProfile">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                            <path d="M12 5v14M5 12h14"/>
+                                        </svg>
+                                    </button>
+                                    <button class="sheet-close-btn" @click="isProfileMenuOpen = false; swipedProfileId = null">×</button>
+                                </div>
+                            </div>
+                            <div class="sheet-list">
+                                <div v-if="!baziProfiles.length" class="sheet-empty">暂无档案</div>
+                                <div
+                                    v-for="profile in baziProfiles"
+                                    :key="profile.id"
+                                    class="swipe-item"
+                                    :class="{ swiped: swipedProfileId === profile.id }"
+                                    @touchstart.passive="handleItemTouchStart"
+                                    @touchend.passive="handleItemTouchEnd(profile.id, $event)"
+                                >
+                                    <button
+                                        class="sheet-profile-btn"
+                                        :class="{ active: profile.id === selectedProfileId }"
+                                        @click="selectProfile(profile.id); swipedProfileId = null"
+                                    >
+                                        <span class="spi-indicator" :class="{ active: profile.id === selectedProfileId }"></span>
+                                        <span class="spi-name">{{ profile.name || '未命名' }}</span>
+                                        <span class="spi-date">{{ formatSolarDate(profile.birth_date) }}</span>
+                                        <span v-if="profile.is_default" class="spi-default">默认</span>
+                                    </button>
+                                    <div class="swipe-actions" v-if="!isGuest">
+                                        <button class="swa-btn swa-rename" @click.stop="renameProfileById(profile.id)">改昵称</button>
+                                        <button class="swa-btn swa-delete" @click.stop="deleteProfileById(profile.id)">删除</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="activeProfile && !isGuest" class="sheet-footer">
+                                <button class="sheet-default-btn" :disabled="activeProfile.is_default" @click="setDefaultProfile">
+                                    {{ activeProfile.is_default ? '✓ 已设为默认' : '设为默认档案' }}
+                                </button>
+                            </div>
+                        </div>
+                    </Transition>
+                </Teleport>
 
                 <div v-if="isGuest" class="guest-limit-note">访客模式仅保存 1 个本地命主档案，登录后可维护多个云端档案。</div>
-
-                <div class="profile-actions" v-if="activeProfile && !isGuest">
-                    <button class="mini-action" :disabled="activeProfile.is_default" @click="setDefaultProfile">
-                        {{ activeProfile.is_default ? '已设为默认' : '设为默认' }}
-                    </button>
-                    <button class="mini-action" @click="openRenameProfile">修改昵称</button>
-                    <button class="mini-action danger" @click="deleteProfile">删除档案</button>
-                </div>
 
                 <div v-show="showRename" class="profile-form rename-form">
                     <div class="form-row">
@@ -287,41 +342,6 @@
             </div>
 
             <div v-if="activeProfile" class="glass-card dashboard-panel">
-                
-                <div class="bazi-header">
-                    <div>
-                        <div class="name-row">
-                            <span class="bazi-name">{{ activeProfile.name }}</span>
-                            <span
-                                v-if="activeProfile.strong_weak"
-                                class="badge badge-blue badge-action"
-                                role="button"
-                                tabindex="0"
-                                title="查看身强身弱依据"
-                                @click="openInsightPanel('strength')"
-                                @keydown.enter.prevent="openInsightPanel('strength')"
-                                @keydown.space.prevent="openInsightPanel('strength')"
-                            >{{ activeProfile.strong_weak }}</span>
-                            <span
-                                v-if="activeProfile.geju"
-                                class="badge badge-gold badge-action"
-                                role="button"
-                                tabindex="0"
-                                title="查看格局判定"
-                                @click="openInsightPanel('geju')"
-                                @keydown.enter.prevent="openInsightPanel('geju')"
-                                @keydown.space.prevent="openInsightPanel('geju')"
-                            >{{ patternFinalName }}</span>
-                        </div>
-                        <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
-                        <div class="bazi-meta">阳历：{{ solarDateStr }}</div>
-                    </div>
-                    <div class="bazi-header-actions">
-                        <button class="btn-primary" :disabled="isAnalyzing" @click="requestAiSummary({ force: true })">
-                            {{ rerunButtonLabel }}
-                        </button>
-                    </div>
-                </div>
 
                 <Teleport to="body">
                     <div v-if="showGuestLoginGuide" class="modal-overlay" @click="showGuestLoginGuide = false">
@@ -351,17 +371,16 @@
                     </div>
                 </div>
 
-                <div class="tabs">
-                    <div class="tab" :class="{ active: currentTab === 'basic' }" @click="currentTab = 'basic'">基础排盘</div>
-                    <div class="tab" :class="{ active: currentTab === 'pro' }" @click="currentTab = 'pro'">专业细盘</div>
+                <div class="bazi-tab-bar">
+                    <button :class="['bazi-tab', { active: currentTab === 'basic' }]" @click="currentTab = 'basic'">基础排盘</button>
+                    <button :class="['bazi-tab', { active: currentTab === 'pro' }]" @click="currentTab = 'pro'">专业细盘</button>
                     <button
                         v-if="activeProfile && !needsUpgrade && !isGuest"
-                        class="tab life-events-tab"
-                        :class="{ active: currentTab === 'events' }"
+                        :class="['bazi-tab', { active: currentTab === 'events' }]"
                         @click="currentTab = 'events'"
                     >
                         断事笔记
-                        <span v-if="lifeEvents.length" class="life-events-tab-count">{{ lifeEvents.length }}</span>
+                        <span v-if="lifeEvents.length" class="bazi-tab-count">{{ lifeEvents.length }}</span>
                     </button>
                 </div>
 
@@ -957,74 +976,58 @@
                 </Teleport>
 
                 <!-- 命局天机分析版块 -->
-                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
-                    <div class="ai-header-row">
-                        <div class="ai-header-title">命局天机</div>
+                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="rpt-section">
+                    <div class="rpt-head">
+                        <span class="rpt-kicker">命局天机</span>
                         <button class="info-button" title="查看命局判定" @click="openInsightPanel('strength')">i</button>
                     </div>
-                    
-                    <!-- 1. 格局特性卡片 -->
-                    <div class="insight-card geju-card">
-                        <div class="geju-card-head">
-                            <div class="tag-row">
-                                <span
-                                    class="tag-gold tag-action"
-                                    role="button"
-                                    tabindex="0"
-                                    title="查看身强身弱依据"
-                                    @click="openStrengthPanel"
-                                    @keydown.enter.prevent="openStrengthPanel"
-                                    @keydown.space.prevent="openStrengthPanel"
-                                >{{ activeProfile.strong_weak }}</span>
-                                <span class="tag-gold">{{ patternFinalName }}</span>
-                                <span v-if="showChengGeText" class="tag-gold tag-emerald">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
-                            </div>
+
+                    <!-- 核心定性标题 -->
+                    <h2 class="rpt-h2">
+                        <span
+                            class="rpt-h2-tag tag-action"
+                            role="button" tabindex="0"
+                            title="查看身强身弱依据"
+                            @click="openStrengthPanel"
+                            @keydown.enter.prevent="openStrengthPanel"
+                            @keydown.space.prevent="openStrengthPanel"
+                        >{{ activeProfile.strong_weak }}</span>
+                        <span class="rpt-h2-sep">·</span>
+                        <span>{{ patternFinalName }}</span>
+                        <span v-if="showChengGeText" class="rpt-h2-badge">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                    </h2>
+                    <div v-if="strengthSummaryLine || gejuSummaryLine" class="rpt-byline">
+                        <div v-if="strengthSummaryLine">{{ strengthSummaryLine }}</div>
+                        <div v-if="gejuSummaryLine">{{ gejuSummaryLine }}</div>
+                    </div>
+                    <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
+
+                    <!-- 调候诊断 -->
+                    <div v-if="tiaohouPanelContent" class="rpt-sub">
+                        <div class="rpt-sub-head">
+                            <span class="rpt-kicker-sm">调候诊断</span>
+                            <strong class="rpt-sub-title">{{ tiaohouPanelContent.climateState }}</strong>
+                            <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
+                            <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
                         </div>
-                        <div v-if="strengthSummaryLine" class="geju-summary-line">{{ strengthSummaryLine }}</div>
-                        <div v-if="gejuSummaryLine" class="geju-summary-line secondary">{{ gejuSummaryLine }}</div>
-                        <p>
-                            {{ getGejuDesc(patternFinalName) }}
-                        </p>
+                        <div class="rpt-stat-row">
+                            <span class="rpt-stat"><span class="rpt-stat-l">第一调候</span><strong>{{ tiaohouPanelContent.primary }}</strong></span>
+                            <span class="rpt-stat"><span class="rpt-stat-l">辅助调候</span><strong>{{ tiaohouPanelContent.secondary }}</strong></span>
+                            <span class="rpt-stat"><span class="rpt-stat-l">慎见</span><strong>{{ tiaohouPanelContent.avoid }}</strong></span>
+                        </div>
+                        <p class="rpt-prose">{{ tiaohouPanelContent.explanation }}</p>
+                        <p v-if="tiaohouPanelContent.warning" class="rpt-warn-line">{{ tiaohouPanelContent.warning }}</p>
                     </div>
 
-                    <div class="insight-card tiaohou-card" v-if="tiaohouPanelContent">
-                        <div class="tiaohou-card-head">
-                            <div>
-                                <div class="section-kicker">调候诊断</div>
-                                <h4>{{ tiaohouPanelContent.climateState }}</h4>
-                            </div>
-                            <div class="tiaohou-card-head-right">
-                                <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
-                                <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
-                            </div>
-                        </div>
-                        <div class="tiaohou-god-grid">
-                            <div class="tiaohou-god-cell">
-                                <span>第一调候</span>
-                                <strong>{{ tiaohouPanelContent.primary }}</strong>
-                            </div>
-                            <div class="tiaohou-god-cell">
-                                <span>辅助调候</span>
-                                <strong>{{ tiaohouPanelContent.secondary }}</strong>
-                            </div>
-                            <div class="tiaohou-god-cell">
-                                <span>慎见</span>
-                                <strong>{{ tiaohouPanelContent.avoid }}</strong>
-                            </div>
-                        </div>
-                        <p>{{ tiaohouPanelContent.explanation }}</p>
-                        <div v-if="tiaohouPanelContent.warning" class="tiaohou-warning">{{ tiaohouPanelContent.warning }}</div>
-                    </div>
-
-                    <!-- 2. 五行能量占比条 -->
-                    <div class="insight-card wuxing-pool-card" v-if="activeProfile.bazi_detail.wuxing_ratio">
-                        <h4 class="card-heading">
-                            <span>五行能量池</span>
+                    <!-- 五行能量池 -->
+                    <div v-if="activeProfile.bazi_detail.wuxing_ratio" class="rpt-sub">
+                        <div class="rpt-sub-head">
+                            <span class="rpt-kicker-sm">五行能量池</span>
                             <span v-if="Object.values(activeProfile.bazi_detail.wuxing_ratio).some(r => r > 45)" class="overload-tag">能量偏盛</span>
-                        </h4>
+                        </div>
                         <div class="wuxing-bar-container">
-                            <div v-for="(ratio, wx) in activeProfile.bazi_detail.wuxing_ratio" :key="wx" 
-                                 class="wuxing-bar-segment" 
+                            <div v-for="(ratio, wx) in activeProfile.bazi_detail.wuxing_ratio" :key="wx"
+                                 class="wuxing-bar-segment"
                                  :class="'bg-' + getWuxingClass(wx)"
                                  :style="{ width: ratio + '%' }"
                                  :title="wx + ' ' + Math.round(ratio) + '%'">
@@ -1032,101 +1035,81 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="ai-section" style="display: block;">
-                    <div class="ai-header-row">
-                        <div class="ai-header-title">天机锦囊</div>
+                <!-- 天机锦囊 -->
+                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="rpt-section">
+                    <div class="rpt-head">
+                        <span class="rpt-kicker">天机锦囊</span>
                         <button class="info-button" title="查看用神决策链与四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
                     </div>
 
-                    <!-- 命局定性一行 -->
-                    <div v-if="fiveShenProfile?.summary" class="jinnang-summary-line">{{ fiveShenProfile.summary }}</div>
+                    <p v-if="fiveShenProfile?.summary" class="rpt-byline">{{ fiveShenProfile.summary }}</p>
 
-                    <!-- 五神分层行 -->
-                    <div v-if="fiveShenProfile" class="five-shen-row">
-                        <div class="five-shen-cell is-yong" :title="fiveShenProfile.yongConfidence === 'LOW' ? '五行中和，用神参考' : '命局核心用神'">
-                            <div class="five-shen-role">用神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(fiveShenProfile.yong) }}</div>
-                            <div v-if="fiveShenProfile.yongConfidence === 'LOW'" class="five-shen-note">参考</div>
-                        </div>
-                        <div v-if="fiveShenProfile.xi?.length" class="five-shen-cell is-xi">
-                            <div class="five-shen-role">喜神</div>
-                            <div class="five-shen-name">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</div>
-                        </div>
-                        <div v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="five-shen-cell is-ji">
-                            <div class="five-shen-role">忌神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
-                        </div>
-                        <div v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="five-shen-cell is-chou">
-                            <div class="five-shen-role">仇神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
-                        </div>
+                    <!-- 五神横排 -->
+                    <div v-if="fiveShenProfile" class="rpt-shen-line">
+                        <span class="rpt-shen-tag is-yong" :title="fiveShenProfile.yongConfidence === 'LOW' ? '五行中和，用神参考' : '命局核心用神'">
+                            <span class="rpt-shen-role">用神</span>
+                            <span class="rpt-shen-val">{{ formatShenWithGan(fiveShenProfile.yong) }}</span>
+                            <span v-if="fiveShenProfile.yongConfidence === 'LOW'" class="rpt-shen-note">(参考)</span>
+                        </span>
+                        <span v-if="fiveShenProfile.xi?.length" class="rpt-shen-tag is-xi">
+                            <span class="rpt-shen-role">喜神</span>
+                            <span class="rpt-shen-val">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</span>
+                        </span>
+                        <span v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="rpt-shen-tag is-ji">
+                            <span class="rpt-shen-role">忌神</span>
+                            <span class="rpt-shen-val">{{ formatShenWithGan(s) }}</span>
+                        </span>
+                        <span v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="rpt-shen-tag is-chou">
+                            <span class="rpt-shen-role">仇神</span>
+                            <span class="rpt-shen-val">{{ formatShenWithGan(s) }}</span>
+                        </span>
+                    </div>
+                    <div v-else class="rpt-shen-line">
+                        <span class="rpt-shen-tag is-xi">
+                            <span class="rpt-shen-role">喜用神</span>
+                            <span class="rpt-shen-val favorable">{{ (activeProfile.favorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</span>
+                        </span>
+                        <span class="rpt-shen-tag is-ji">
+                            <span class="rpt-shen-role">忌仇神</span>
+                            <span class="rpt-shen-val unfavorable">{{ (activeProfile.unfavorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</span>
+                        </span>
                     </div>
 
-                    <!-- 旧式喜忌行（fallback，无 five_shens 时显示） -->
-                    <div v-else class="xiji-box">
-                        <div class="xiji-item">
-                            <div class="xiji-label">喜用神</div>
-                            <div class="xiji-val favorable">{{ (activeProfile.favorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</div>
-                        </div>
-                        <div class="xiji-item">
-                            <div class="xiji-label">忌仇神</div>
-                            <div class="xiji-val unfavorable">{{ (activeProfile.unfavorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</div>
-                        </div>
-                    </div>
-
-                    <!-- 结构化断语块 -->
+                    <!-- 结构化断语 as flowing prose -->
                     <template v-if="fiveShenProfile?.userBlocks">
-                        <div class="jinnang-block">
-                            <div class="jinnang-block-label">用神说明</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.yong_shen_text }}</p>
-                        </div>
-                        <div class="jinnang-block">
-                            <div class="jinnang-block-label">喜忌方向</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.xi_ji_text }}</p>
-                        </div>
-                        <div class="jinnang-block">
-                            <div class="jinnang-block-label">大运指引</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.dayun_guide }}</p>
-                        </div>
-                        <div class="jinnang-block jinnang-block-warn">
-                            <div class="jinnang-block-label">注意警示</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.avoid_text }}</p>
-                        </div>
+                        <p class="rpt-prose"><strong class="rpt-lead-w">用神说明　</strong>{{ fiveShenProfile.userBlocks.yong_shen_text }}</p>
+                        <p class="rpt-prose"><strong class="rpt-lead-w">喜忌方向　</strong>{{ fiveShenProfile.userBlocks.xi_ji_text }}</p>
+                        <p class="rpt-prose"><strong class="rpt-lead-w">大运指引　</strong>{{ fiveShenProfile.userBlocks.dayun_guide }}</p>
+                        <p class="rpt-prose rpt-prose-warn"><strong class="rpt-lead-w">注意警示　</strong>{{ fiveShenProfile.userBlocks.avoid_text }}</p>
                     </template>
 
-                    <div class="insight-card">
-                        <h4>原局核心</h4>
-                        <p>{{ resolvedYuanjuCore }}</p>
-                        <div v-if="feedbackCorrections.yuanju_core" class="feedback-correction-block">
-                            <div class="feedback-correction-head">
+                    <!-- 原局核心 -->
+                    <div class="rpt-sub">
+                        <span class="rpt-kicker-sm">原局核心</span>
+                        <p class="rpt-prose" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
+                            <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
-                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
+                                <span v-if="feedbackCorrectionDate" class="rpt-feedback-date">{{ feedbackCorrectionDate }}</span>
                             </div>
-                            <p class="feedback-correction-copy">{{ feedbackCorrections.yuanju_core }}</p>
+                            <p class="rpt-prose">{{ feedbackCorrections.yuanju_core }}</p>
                         </div>
                     </div>
-                    <div class="insight-card">
-                        <h4>岁运推演</h4>
-                        <p style="margin-bottom: 8px;">
-                            <strong style="color:var(--gold)">【大运】</strong> {{ resolvedCurrentDayun }}
-                        </p>
-                        <p>
-                            <strong style="color:var(--gold)">【流年】</strong> {{ resolvedCurrentLiunian }}
-                        </p>
-                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="feedback-correction-block is-transit">
-                            <div class="feedback-correction-head">
+
+                    <!-- 岁运推演 -->
+                    <div class="rpt-sub">
+                        <span class="rpt-kicker-sm">岁运推演</span>
+                        <p class="rpt-prose" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
+                        <p class="rpt-prose"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
+                            <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
-                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
+                                <span v-if="feedbackCorrectionDate" class="rpt-feedback-date">{{ feedbackCorrectionDate }}</span>
                             </div>
-                            <div v-if="feedbackCorrections.current_dayun" class="feedback-correction-line">
-                                <strong>【大运修正】</strong> {{ feedbackCorrections.current_dayun }}
-                            </div>
-                            <div v-if="feedbackCorrections.current_liunian" class="feedback-correction-line">
-                                <strong>【流年修正】</strong> {{ feedbackCorrections.current_liunian }}
-                            </div>
+                            <p v-if="feedbackCorrections.current_dayun" class="rpt-prose"><strong>大运修正　</strong>{{ feedbackCorrections.current_dayun }}</p>
+                            <p v-if="feedbackCorrections.current_liunian" class="rpt-prose"><strong>流年修正　</strong>{{ feedbackCorrections.current_liunian }}</p>
                         </div>
                     </div>
                 </div>
@@ -1135,22 +1118,20 @@
                     {{ activeProfile.bazi_summary }}
                 </div>
 
-                <div v-if="currentTab !== 'events' && classicVerdictText" class="ai-section classic-verdict-section">
-                    <div class="classic-header">
-                        <div>
-                            <div class="ai-header-title classic-main-title">古籍断语</div>
-                            <div class="classic-subtitle">{{ classicVerdict.source || '三命通会' }}</div>
+                <!-- 古籍断语 -->
+                <div v-if="currentTab !== 'events' && classicVerdictText" class="rpt-section">
+                    <div class="rpt-head">
+                        <div class="rpt-head-left">
+                            <span class="rpt-kicker">古籍断语</span>
+                            <span class="rpt-src-note">{{ classicVerdict.source || '三命通会' }} · {{ classicVerdict.key }}</span>
                         </div>
-                        <span class="classic-key">{{ classicVerdict.key }}</span>
                     </div>
-                    <div class="classic-body">
+                    <div class="rpt-classic-body">
                         <p
                             v-for="(line, idx) in classicVerdictLines"
                             :key="'classic'+idx"
-                            :class="{ note: line.startsWith('#') }"
-                        >
-                            {{ line }}
-                        </p>
+                            :class="['rpt-prose', { 'rpt-classic-note': line.startsWith('#') }]"
+                        >{{ line }}</p>
                     </div>
                 </div>
 
@@ -1316,6 +1297,28 @@ const currentTab = ref('basic')
 const showAdd = ref(false)
 const showRename = ref(false)
 const isProfileMenuOpen = ref(false)
+const swipedProfileId = ref(null)
+let _swipeTouchStartX = 0
+const handleItemTouchStart = (e) => { _swipeTouchStartX = e.touches[0].clientX }
+const handleItemTouchEnd = (profileId, e) => {
+    const dx = e.changedTouches[0].clientX - _swipeTouchStartX
+    if (dx < -50) swipedProfileId.value = swipedProfileId.value === profileId ? null : profileId
+    else if (dx > 20) swipedProfileId.value = null
+}
+const renameProfileById = (id) => {
+    selectedProfileId.value = id
+    setSelectedBaziProfileId(id)
+    swipedProfileId.value = null
+    isProfileMenuOpen.value = false
+    // small tick so activeProfile computed re-evaluates
+    setTimeout(() => openRenameProfile(), 50)
+}
+const deleteProfileById = async (id) => {
+    swipedProfileId.value = null
+    selectedProfileId.value = id
+    setSelectedBaziProfileId(id)
+    await deleteProfile()
+}
 const showGuestLoginGuide = ref(false)
 const isAnalyzing = ref(false)
 const isSavingProfileContext = ref(false)
@@ -1556,7 +1559,6 @@ const notesMonthOptions = computed(() => {
     return options
 })
 const isGuest = computed(() => globalState.isGuest && !currentUser.value)
-const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeProfile.value?.name || (baziProfiles.value.length ? '请选择命主档案' : '暂无命主档案'))
 
 const formatSolarDate = (value) => {
@@ -2710,7 +2712,6 @@ const handleProfileSelect = () => {
 }
 
 const toggleProfileMenu = () => {
-    if (!showProfileSwitcher.value) return
     isProfileMenuOpen.value = !isProfileMenuOpen.value
 }
 
@@ -2728,7 +2729,7 @@ const selectProfile = (profileId) => {
 const handleDocumentClick = (event) => {
     const target = event.target
     if (!(target instanceof Element)) return
-    if (!target.closest('.profile-switcher')) isProfileMenuOpen.value = false
+    if (!target.closest('.profile-switcher') && !target.closest('.profile-strip-wrap') && !target.closest('.profile-bottom-sheet')) isProfileMenuOpen.value = false
 }
 
 const openAddProfile = () => {
@@ -3397,13 +3398,13 @@ const getShenColor = (shen) => {
 
 <style scoped>
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
-.bazi-view { width: 100%; min-height: 100vh; position: relative;}
+.bazi-view { width: 100%; min-height: 100vh; position: relative; background: linear-gradient(to bottom, var(--paper-soft) 0%, var(--paper) 215px); }
 
 #siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: rgba(247,244,238,0.96); border-bottom: 1px solid var(--line); }
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
 .header-actions { position: absolute; right: 20px; top: 50%; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
 
-.page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
+.page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 0 0 60px; }
 .container { width: 100%; max-width: 520px; }
 
 .glass-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
@@ -3430,7 +3431,15 @@ const getShenColor = (shen) => {
 .profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
 .profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 .icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); color: var(--gold); font-size: 22px; line-height: 1; cursor: pointer; }
-.guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid var(--line); background: var(--paper-soft); }
+.guest-limit-note {
+    color: var(--ink-muted);
+    font-size: 12px;
+    line-height: 1.65;
+    margin: 10px 0 2px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
 .mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--ink-muted); font-size: 12px; cursor: pointer; white-space: nowrap; }
 .mini-action:disabled { cursor: default; color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); }
@@ -3983,23 +3992,23 @@ const getShenColor = (shen) => {
 .bazi-table-wrap { width: 100%; overflow: hidden; }
 .bazi-table {
     --bz-cell-py: 8px;
-    --bz-label-size: 10px;
-    --bz-meta-size: 10px;
-    --bz-char-size: 16px;
+    --bz-label-size: 12px;
+    --bz-meta-size: 12px;
+    --bz-char-size: 18px;
     table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
     text-align: center;
 }
 .bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid var(--line); vertical-align: middle; word-wrap: break-word; }
-.bazi-table th { color: var(--gold); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
-.bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
+.bazi-table th { color: var(--gold); font-family: var(--font-serif); font-size: 13px; font-weight: normal; letter-spacing: 1px; }
+.bazi-table th:first-child, .bazi-table td:first-child { width: 48px; }
 
-.bz-label { color: var(--text-muted); font-weight: 500; font-size: var(--bz-label-size); }
-.bz-star { font-size: var(--bz-meta-size); color: var(--text-primary); }
+.bz-label { color: var(--ink-muted); font-weight: 500; font-size: var(--bz-label-size); }
+.bz-star { font-size: var(--bz-meta-size); color: var(--ink); }
 .bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
-.bz-sub { font-size: var(--bz-meta-size); color: var(--ink-dim); line-height: 1.4; }
-.bz-shensha { font-size: 9px; color: #7c5cbf; line-height: 1.4; }
+.bz-sub { font-size: var(--bz-meta-size); color: var(--ink-muted); line-height: 1.4; }
+.bz-shensha { font-size: 11px; color: #7c5cbf; line-height: 1.4; }
 .matrix-fallback-note {
     margin-top: 12px;
     padding: 12px 14px;
@@ -4126,7 +4135,7 @@ const getShenColor = (shen) => {
 .jinnang-block:last-of-type { border-bottom: none; margin-bottom: 8px; }
 .jinnang-block-warn .jinnang-block-label { color: #E57373; opacity: 0.85; }
 .jinnang-block-label { font-size: 10px; color: var(--gold); opacity: 0.75; margin-bottom: 4px; letter-spacing: 0.5px; }
-.jinnang-block-text { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin: 0; }
+.jinnang-block-text { font-size: 14px; color: var(--ink); line-height: 1.65; margin: 0; }
 /* ── Scoring modal 决策链 + 新角色标签 ──────────── */
 .decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: var(--paper-soft); border-radius: 10px; border: 1px solid var(--line); }
 .decision-chain-item { padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
@@ -4150,7 +4159,7 @@ const getShenColor = (shen) => {
 
 .insight-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .insight-card h4 { color: var(--gold); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed var(--gold-border); padding-bottom: 6px; }
-.insight-card p { line-height: 1.65; font-size: 13px; color: var(--ink-muted); }
+.insight-card p { line-height: 1.65; font-size: 14px; color: var(--ink); }
 .tiaohou-card {
     border-color: rgba(111, 188, 186, 0.22);
     background: linear-gradient(180deg, rgba(111, 188, 186, 0.08) 0%, rgba(232,204,128,0.035) 100%);
@@ -4356,6 +4365,203 @@ const getShenColor = (shen) => {
     padding-left: 10px;
     border-left: 2px solid var(--gold-border);
 }
+
+/* ── Article-style report sections ─────────────────────── */
+.rpt-section {
+    padding-top: 28px;
+    margin-top: 24px;
+    border-top: 1px solid var(--line);
+}
+.rpt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.rpt-head-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.rpt-kicker {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: 1px;
+    text-transform: none;
+    font-weight: 700;
+    color: var(--gold);
+}
+.rpt-h2 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 6px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.rpt-h2-tag {
+    cursor: pointer;
+    color: var(--gold);
+    transition: opacity .15s;
+}
+.rpt-h2-tag:hover { opacity: .75; }
+.rpt-h2-sep { color: var(--line); font-weight: 300; }
+.rpt-h2-badge {
+    font-size: 13px;
+    color: #2e7d4a;
+    font-weight: 500;
+    background: rgba(46,125,74,0.08);
+    border: 1px solid rgba(46,125,74,0.18);
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-family: var(--font-body);
+}
+.rpt-byline {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin: 0 0 12px;
+    line-height: 1.6;
+}
+.rpt-prose {
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.72;
+    margin: 0 0 10px;
+}
+.rpt-prose-warn { color: var(--crimson, #c62828); opacity: 0.85; }
+/* Sub-section within article */
+.rpt-sub {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.rpt-sub-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.rpt-kicker-sm {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.3;
+    letter-spacing: 0.8px;
+    text-transform: none;
+    font-weight: 700;
+    color: var(--gold);
+}
+.rpt-sub-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+}
+/* Inline stat row (replaces god-grid boxes) */
+.rpt-stat-row {
+    display: flex;
+    gap: 0;
+    margin: 8px 0 14px;
+    padding: 8px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.rpt-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    padding: 0 10px;
+}
+.rpt-stat:first-child { padding-left: 0; }
+.rpt-stat:not(:last-child) { border-right: 1px solid var(--line); }
+.rpt-stat-l {
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.5px;
+}
+.rpt-stat strong {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 600;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+/* Warning line */
+.rpt-warn-line {
+    font-size: 12px;
+    color: var(--crimson, #c62828);
+    opacity: 0.82;
+    border-left: 2px solid rgba(220,38,38,0.3);
+    padding: 3px 0 3px 10px;
+    margin: 6px 0 0;
+}
+/* Five-shen horizontal strip */
+.rpt-shen-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 8px 0 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.rpt-shen-tag {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+.rpt-shen-role {
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.5px;
+}
+.rpt-shen-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.rpt-shen-val.favorable { color: #2e7d32; }
+.rpt-shen-val.unfavorable { color: #c62828; }
+.rpt-shen-tag.is-yong .rpt-shen-role { color: var(--gold); }
+.rpt-shen-tag.is-ji .rpt-shen-val { color: rgba(192,57,43,0.8); }
+.rpt-shen-tag.is-chou .rpt-shen-val { color: rgba(192,57,43,0.55); }
+.rpt-shen-note { font-size: 10px; color: var(--ink-dim); }
+/* Lead word before prose */
+.rpt-lead-w {
+    color: var(--ink);
+    font-weight: 700;
+    margin-right: 2px;
+}
+.rpt-run-label {
+    color: var(--gold);
+    font-weight: 700;
+    margin-right: 6px;
+}
+/* Feedback block */
+.rpt-feedback {
+    margin-top: 10px;
+    border-left: 2px solid var(--line);
+    padding: 4px 0 2px 12px;
+}
+.rpt-feedback-head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-bottom: 4px;
+}
+.rpt-feedback-date { color: var(--ink-dim); font-size: 10px; }
+/* 古籍断语 */
+.rpt-src-note { font-size: 11px; color: var(--ink-dim); }
+.rpt-classic-body { margin-top: 4px; }
+.rpt-classic-note { color: var(--ink-dim) !important; font-style: italic; }
 
 /* 命局天机 UI */
 .tag-gold {
@@ -4707,8 +4913,8 @@ const getShenColor = (shen) => {
     border-radius: 10px;
     border: 1px solid var(--line);
     background: var(--paper-soft);
-    color: var(--ink-muted);
-    font-size: 12px;
+    color: var(--ink);
+    font-size: 13px;
     line-height: 1.6;
 }
 .geju-summary-line.secondary {
@@ -5076,15 +5282,15 @@ const getShenColor = (shen) => {
     .tabs { gap: 16px; }
     .tab { font-size: 12px; }
     .bazi-table {
-        --bz-cell-py: 6px;
-        --bz-label-size: 9px;
-        --bz-meta-size: 9px;
-        --bz-char-size: 17px;
+        --bz-cell-py: 7px;
+        --bz-label-size: 11px;
+        --bz-meta-size: 11px;
+        --bz-char-size: 18px;
     }
-    .bazi-table th { font-size: 11px; letter-spacing: .5px; }
-    .bazi-table th:first-child, .bazi-table td:first-child { width: 40px; }
-    .bz-sub { line-height: 1.3; }
-    .bz-shensha { font-size: 8px; line-height: 1.3; }
+    .bazi-table th { font-size: 12px; letter-spacing: .5px; }
+    .bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
+    .bz-sub { line-height: 1.35; }
+    .bz-shensha { font-size: 10px; line-height: 1.35; }
     .tiaohou-card-head { align-items: stretch; flex-direction: column; }
     .tiaohou-urgency { align-self: flex-start; }
     .tiaohou-god-grid { grid-template-columns: 1fr; }
@@ -5421,6 +5627,11 @@ const getShenColor = (shen) => {
     border-top: 1px solid var(--line);
     border-bottom: 1px solid var(--line);
 }
+.dashboard-panel {
+    border-top: none;
+    background: transparent;
+    margin-top: 0;
+}
 
 /* ─── 3. Modal / Drawer 扁平化 ──────────────────────────── */
 .profile-picker-modal {
@@ -5460,25 +5671,495 @@ const getShenColor = (shen) => {
     font-family: var(--font-body);
 }
 
-/* ai-header 加横线分割 */
-.ai-header-row {
-    padding-bottom: 10px;
-    border-bottom: 1px solid var(--line);
-    margin-bottom: 16px;
+/* ai-section: horizontal rule before each section */
+.ai-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    animation: none;
 }
-.ai-header-title { font-size: 14px; letter-spacing: 1px; }
+.insight-summary { border-top: none; margin-top: 8px; padding-top: 0; }
+
+/* ai-header: section label row */
+.ai-header-row {
+    padding-bottom: 0;
+    border-bottom: none;
+    margin-bottom: 14px;
+}
+.ai-header-title { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; font-family: var(--font-body); font-weight: 600; color: var(--ink-muted); }
 .ai-header-title::before { display: none; }
 
-/* ─── 5. 旁注左竖线 Left-rule callout accents ─────────────── */
-.insight-card         { border-left: 2px solid var(--gold-border); }
-.tiaohou-card         { border-left: 2px solid rgba(111,188,186,0.35); }
+/* ─── 5. 报告区域 → 杂志编辑风（无矩形套矩形）────────────── */
+
+/* 格局卡 → gold left-bar callout */
+.insight-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 0 0 14px;
+    border-left: 3px solid var(--gold-border);
+    margin-bottom: 22px;
+}
+.insight-card h4 {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-family: var(--font-body);
+    font-weight: 600;
+    margin-bottom: 8px;
+    border-bottom: none;
+    padding-bottom: 0;
+    opacity: 0.8;
+}
+.insight-card p { font-size: 14px; color: var(--ink); line-height: 1.72; }
+
+/* 格局首行卡 */
+.geju-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 0 0 14px;
+    border-left: 3px solid var(--gold-border);
+    margin-bottom: 20px;
+}
+
+/* 调候卡 → teal left-bar callout */
+.tiaohou-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 0 0 14px;
+    border-left: 3px solid rgba(13,148,136,0.5);
+    margin-bottom: 20px;
+}
+.tiaohou-card-head h4 { color: var(--teal); border: none; padding-bottom: 0; margin-bottom: 0; font-size: 14px; font-weight: 600; font-family: var(--font-body); }
+.tiaohou-god-grid { gap: 0; grid-template-columns: repeat(3,1fr); margin-bottom: 10px; }
+.tiaohou-god-cell {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid var(--line);
+    padding: 8px 10px 8px 0;
+}
+.tiaohou-god-cell:last-child { border-right: none; }
+.tiaohou-warning {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-left: 2px solid rgba(220,38,38,0.35);
+    padding: 4px 0 4px 10px;
+    color: var(--crimson);
+    opacity: 0.82;
+    font-size: 12px;
+}
+
+/* 格局摘要行 → subtle left callout */
+.geju-summary-line {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-left: 2px solid var(--gold-border);
+    padding: 2px 0 2px 12px;
+    margin-bottom: 10px;
+    color: var(--ink-muted);
+    font-size: 13px;
+}
+.geju-summary-line.secondary { border-left-color: var(--line); color: var(--ink-dim); }
+
+/* 五行池 → no box */
+.wuxing-pool-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 20px;
+}
+.wuxing-pool-card h4 { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; margin-bottom: 10px; }
+
+/* 古籍断语 → editorial left-border */
+.classic-verdict-section {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    border-top: 1px solid var(--line);
+    padding: 20px 0 0 14px;
+    border-left: 3px solid var(--gold-border);
+    margin-top: 4px;
+}
+.classic-header { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
+.classic-body p { color: var(--ink); font-size: 14px; line-height: 1.72; }
+.classic-subtitle { color: var(--ink-dim); font-size: 12px; }
+.classic-key { background: transparent; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 0; font-size: 11px; padding: 2px 8px; }
+
+/* 反馈纠偏块 */
+.feedback-correction-block {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-left: 2px solid var(--line);
+    padding: 8px 0 4px 12px;
+    margin-top: 12px;
+}
+
+/* 其他 callout accents */
 .analysis-status      { border-left: 2px solid var(--gold-border); }
-.analysis-status.done { border-left: 2px solid rgba(13,148,136,0.4); border-left-width: 2px; }
+.analysis-status.done { border-left: 2px solid rgba(13,148,136,0.4); }
 .matrix-fallback-note { border-left: 2px solid var(--gold-border); }
 .life-events-card     { border-left: 2px solid var(--line); }
 .insight-tab.active   { box-shadow: none; }
 
-/* ─── 6. 响应式清零遗留圆角 ─────────────────────────────── */
+/* ─── 6. 紧凑档案条 Compact profile strip ───────────────── */
+/* ── Bloomberg-style Profile Hero ─────────────────────────── */
+.profile-hero-block {
+    position: relative;
+    z-index: 40;
+    overflow: visible;
+    padding: 24px 16px 18px;
+    background: transparent;
+}
+
+/* Top-right action button group */
+.hero-top-actions {
+    position: absolute;
+    top: 18px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 2;
+}
+.hero-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: color .18s, border-color .18s;
+    flex-shrink: 0;
+}
+.hero-icon-btn svg { width: 15px; height: 15px; }
+.hero-icon-btn:hover { color: var(--gold); border-color: var(--gold-border); }
+.hero-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.hero-icon-btn.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Dates above name */
+.hero-dates-top {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 6px;
+    padding-right: 50px; /* clear 1 button */
+}
+.hero-birth, .hero-lunar {
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-family: var(--font-body);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.hero-sep { font-size: 11px; color: var(--ink-dim); }
+
+/* Name trigger — wraps name + caret tightly */
+.hero-name-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: calc(100% - 54px); /* clear rerun button */
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+}
+.hero-display-name {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 400;
+    color: var(--ink);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.profile-strip-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    color: var(--gold);
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    border-radius: 2px;
+    flex-shrink: 0;
+    letter-spacing: 1px;
+}
+/* CSS-drawn chevron caret */
+.profile-strip-caret {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-right: 2px solid var(--ink-muted);
+    border-bottom: 2px solid var(--ink-muted);
+    transform: rotate(45deg) translateY(-3px);
+    flex-shrink: 0;
+    transition: transform .22s var(--ease);
+}
+.profile-strip-caret.open {
+    transform: rotate(225deg) translateY(-3px);
+}
+
+/* Badges row — pills, left-aligned */
+.hero-meta { margin-top: 18px; }
+.hero-badges {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+/* Override magazine border-radius:0 for hero pills */
+.hero-pill {
+    border-radius: 999px !important;
+    padding: 4px 14px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.5px;
+}
+
+/* Profile strip wrap (still used for flyout positioning) */
+.profile-strip-wrap {
+    position: relative;
+    z-index: 60;
+    overflow: visible;
+}
+.profile-strip-wrap.open .hero-name-trigger {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 0;
+}
+
+/* (flyout replaced by bottom sheet) */
+
+.flyout-mgmt-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 8px 10px;
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    z-index: 1;
+}
+.flyout-mgmt-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-radius: 0;
+}
+.flyout-mgmt-btn:disabled { color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); cursor: default; }
+.flyout-mgmt-btn.is-danger { color: var(--crimson); }
+
+/* ─── 7. 奇门风格标签导航 Qimen-style tab bar ───────────── */
+.bazi-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 16px;
+    border-radius: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.bazi-tab-bar::-webkit-scrollbar { display: none; }
+.bazi-tab {
+    flex: none;
+    min-height: 40px;
+    padding: 8px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    color: var(--ink-dim);
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    font-family: var(--font-body);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: color .2s, border-color .2s;
+    border-radius: 0;
+    white-space: nowrap;
+}
+.bazi-tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    font-weight: 600;
+    background: transparent;
+    box-shadow: none;
+}
+.bazi-tab-count {
+    min-width: 16px; height: 16px; padding: 0 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gold) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+    color: var(--gold-light); font-size: 9px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ─── 8. Bottom Sheet ──────────────────────────────────── */
+.sheet-backdrop {
+    position: fixed; inset: 0; z-index: 199;
+    background: rgba(0,0,0,.38);
+}
+.profile-bottom-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+}
+.sheet-handle {
+    width: 36px; height: 4px;
+    background: var(--chrome-muted);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+    opacity: 0.4;
+}
+.sheet-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 10px;
+    flex-shrink: 0;
+}
+.sheet-title {
+    font-size: 17px; font-weight: 700; color: var(--ink);
+    font-family: var(--font-body);
+}
+.sheet-header-actions {
+    display: flex; align-items: center; gap: 8px;
+}
+.sheet-add-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.sheet-add-btn svg { width: 14px; height: 14px; }
+.sheet-add-btn:hover { color: var(--gold); border-color: var(--gold-border); }
+.sheet-close-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; background: var(--chrome); color: var(--ink-muted);
+    font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.sheet-list {
+    flex: 1; overflow-y: auto;
+    padding: 4px 0 8px;
+}
+.sheet-empty {
+    padding: 20px;
+    color: var(--ink-muted);
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+/* Swipe-to-reveal item */
+.swipe-item {
+    position: relative;
+    overflow: hidden;
+}
+.sheet-profile-btn {
+    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    border: none; background: #fff;
+    cursor: pointer; text-align: left;
+    transition: transform .28s cubic-bezier(0.25,1,0.5,1);
+    position: relative; z-index: 1;
+}
+.swipe-item.swiped .sheet-profile-btn {
+    transform: translateX(-140px);
+}
+.sheet-profile-btn.active { background: #fefaf3; }
+.spi-indicator {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 1.5px solid var(--chrome-muted);
+    flex-shrink: 0;
+    transition: background .18s, border-color .18s;
+}
+.spi-indicator.active { background: var(--gold); border-color: var(--gold); }
+.spi-name {
+    font-size: 16px; font-weight: 600; color: var(--ink); font-family: var(--font-body);
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sheet-profile-btn.active .spi-name { color: var(--gold); }
+.spi-date { font-size: 12px; color: var(--ink-muted); flex-shrink: 0; }
+.spi-default {
+    font-size: 10px; color: var(--gold);
+    border: 1px solid var(--gold-border); background: var(--gold-dim);
+    border-radius: 999px; padding: 1px 8px; flex-shrink: 0; letter-spacing: .5px;
+}
+
+/* Swipe actions (revealed from right) */
+.swipe-actions {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: 140px;
+    display: flex; align-items: stretch;
+    z-index: 0;
+}
+.swa-btn {
+    flex: 1; border: none; cursor: pointer; font-size: 13px;
+    font-family: var(--font-body); font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+}
+.swa-rename { background: #636e7b; color: #fff; }
+.swa-delete { background: #e53e3e; color: #fff; }
+
+/* Sheet footer */
+.sheet-footer {
+    padding: 10px 20px 16px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+}
+.sheet-default-btn {
+    width: 100%; min-height: 46px;
+    border: 1px solid var(--line); background: var(--paper-soft);
+    color: var(--ink-muted); font-size: 13px; font-family: var(--font-body);
+    cursor: pointer; border-radius: 0;
+    transition: background .18s;
+}
+.sheet-default-btn:disabled {
+    color: var(--gold); border-color: var(--gold-border);
+    background: var(--gold-dim); cursor: default;
+}
+
+/* Sheet slide-up transition */
+.sheet-enter-active, .sheet-leave-active { transition: opacity .22s; }
+.sheet-enter-from, .sheet-leave-to { opacity: 0; }
+.sheet-up-enter-active, .sheet-up-leave-active { transition: transform .3s cubic-bezier(0.25,1,0.5,1); }
+.sheet-up-enter-from, .sheet-up-leave-to { transform: translateY(100%); }
+
+/* ─── 9. 响应式清零遗留圆角 ─────────────────────────────── */
 @media (min-width: 780px) {
     .profile-picker-modal { border-radius: 0; }
 }

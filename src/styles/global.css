@@ -1,5 +1,5 @@
 /* src/styles/global.css */
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&family=ZCOOL+XiaoWei&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap');
 :root {
     --gold:          #b58d3b;
     --gold-light:    #9d7a2f;
@@ -21,7 +21,7 @@
     --text-dim:      rgba(11,11,11,0.28);
     --radius-card:   16px;
     --radius-item:   12px;
-    --font-serif:    'ZCOOL XiaoWei','Noto Serif SC',serif;
+    --font-serif:    'Noto Serif SC','Songti SC','STSong',serif;
     --font-display:  Georgia,"Times New Roman","Songti SC",serif;
     --font-ganzhi:   'Noto Serif SC','Songti SC','STSong','SimSun',serif;
     --font-body:     'PingFang SC',-apple-system,sans-serif;

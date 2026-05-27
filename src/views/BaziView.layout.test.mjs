@@ -64,3 +64,15 @@ test('访客添加档案后生成排盘按钮可点击并触发登录引导', ()
   assert.match(source, /登录后可生成完整云端命理解读与日运联动/)
   assert.doesNotMatch(source, /:disabled="isAnalyzing \|\| isGuest"/)
 })
+
+test('访客或空档案状态也能展开命主菜单', () => {
+  assert.match(source, /const toggleProfileMenu = \(\) => \{\s*isProfileMenuOpen\.value = !isProfileMenuOpen\.value\s*\}/)
+  assert.doesNotMatch(source, /if \(!showProfileSwitcher\.value\) return/)
+  assert.match(source, /class="sheet-empty"/)
+})
+
+test('访客档案限制说明不再使用圆角提示框', () => {
+  assert.match(source, /\.guest-limit-note\s*\{[^}]*border:\s*0;/s)
+  assert.match(source, /\.guest-limit-note\s*\{[^}]*background:\s*transparent;/s)
+  assert.doesNotMatch(source, /\.guest-limit-note\s*\{[^}]*border-radius:/s)
+})
