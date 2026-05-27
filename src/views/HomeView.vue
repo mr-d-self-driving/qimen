@@ -850,7 +850,7 @@ const addWatermark = (sourceCanvas) => {
   // 品牌字
   const scale = sourceCanvas.width / 375 // 基于 375px 基准
   const fontSize = Math.round(13 * scale)
-  ctx.font = `500 ${fontSize}px 'PingFang SC', 'Hiragino Sans GB', sans-serif`
+  ctx.font = `500 ${fontSize}px 'Noto Serif SC', 'Songti SC', 'STSong', serif`
   ctx.fillStyle = 'rgba(212,175,55,0.85)'
   ctx.textBaseline = 'middle'
   ctx.fillText('奇门遁甲 AI 推演', 24, wmY + wmH / 2)
@@ -2661,7 +2661,7 @@ const buildCardHTML = (data) => {
 .input-card { padding: 22px; margin-bottom: 16px; }
 .input-label { font-family: var(--font-serif); font-size: 11px; letter-spacing: .2em; color: var(--text-muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
 .input-label::before, .input-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent); }
-.route-info-trigger { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(232,204,128,0.42); background: rgba(232,204,128,0.08); color: var(--gold-light); font-size: 11px; font-family: ui-serif, Georgia, serif; font-weight: 700; line-height: 1; cursor: pointer; transition: border-color .2s, background .2s, color .2s; flex-shrink: 0; letter-spacing: 0; }
+.route-info-trigger { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(232,204,128,0.42); background: rgba(232,204,128,0.08); color: var(--gold-light); font-size: 11px; font-family: var(--font-display); font-weight: 700; line-height: 1; cursor: pointer; transition: border-color .2s, background .2s, color .2s; flex-shrink: 0; letter-spacing: 0; }
 .route-info-trigger:hover { border-color: rgba(232,204,128,0.8); background: rgba(232,204,128,0.16); color: #fff; }
 textarea { width: 100%; min-height: 130px; background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius-item); padding: 16px; color: var(--ink); font-family: 'Noto Serif SC', serif; font-size: 15px; line-height: 1.8; resize: none; outline: none; transition: all .4s; }
 textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--gold-dim); }
@@ -3513,7 +3513,7 @@ input::placeholder { color: var(--text-muted); }
   letter-spacing:.12em;
   margin-bottom:8px;
 }
-:global(.ge-pop-name) { font-family:Georgia, "Times New Roman", "Songti SC", serif; font-size:22px; line-height:1.25; font-weight:850; letter-spacing:0; margin-bottom:9px; padding-right:24px; }
+:global(.ge-pop-name) { font-family:var(--font-display); font-size:22px; line-height:1.25; font-weight:850; letter-spacing:0; margin-bottom:9px; padding-right:24px; }
 :global(.ge-pop-name.ji) { color:#0d9488; }
 :global(.ge-pop-name.xiong) { color:#dc2626; }
 :global(.ge-pop-divider) { height:1px; background:var(--line, rgba(11,11,11,.12)); margin:12px 0 14px; }
@@ -3619,7 +3619,7 @@ input::placeholder { color: var(--text-muted); }
 :deep(.mag-hero-panel h1) {
   margin: 0;
   max-width: 12em;
-  font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+  font-family: var(--font-display);
   font-size: clamp(30px, 5.5vw, 60px);
   line-height: 1.08;
   font-weight: 850;
@@ -3647,7 +3647,7 @@ input::placeholder { color: var(--text-muted); }
   color: var(--theme-color);
 }
 :deep(.mag-score-inline strong) {
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
   font-size: clamp(36px, 7vw, 64px);
   line-height: 0.9;
   font-weight: 900;
@@ -3683,7 +3683,7 @@ input::placeholder { color: var(--text-muted); }
   background: transparent;
   padding: 0 0 8px;
   color: var(--ink-dim);
-  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-family: var(--font-display);
   font-size: clamp(20px, 6vw, 28px);
   font-weight: 850;
   line-height: 1;
@@ -3725,7 +3725,7 @@ input::placeholder { color: var(--text-muted); }
 }
 :deep(.module-heading h2) {
   margin: 0;
-  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-family: var(--font-display);
   font-size: clamp(18px, 4.6vw, 22px);
   line-height: 1.2;
   font-weight: 850;
@@ -3767,7 +3767,7 @@ input::placeholder { color: var(--text-muted); }
   justify-content: center;
   background: var(--ink);
   color: white;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--font-display);
   font-size: 14px;
   font-weight: 900;
 }
@@ -3786,7 +3786,7 @@ input::placeholder { color: var(--text-muted); }
 :deep(.report-subtitle) {
   margin: 22px 0 12px;
   color: var(--ink);
-  font-family: Georgia, "Times New Roman", "Songti SC", serif;
+  font-family: var(--font-display);
   font-size: clamp(16px, 4vw, 20px);
   line-height: 1.25;
   font-weight: 850;

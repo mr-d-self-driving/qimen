@@ -272,7 +272,7 @@ const promises = [
 }
 .step-index {
   color: var(--gold);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 800;
 }

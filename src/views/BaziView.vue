@@ -4110,7 +4110,7 @@ const getShenColor = (shen) => {
 .ai-section > .ai-header-title { margin-bottom: 12px; }
 .ai-header-title::before { content: '✧'; font-size: 12px; }
 .info-button, .close-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(232,204,128,0.28); background: rgba(232,204,128,0.08); color: var(--gold-light); cursor: pointer; }
-.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: Georgia, serif; font-style: italic; font-weight: 700; }
+.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: var(--font-display); font-style: italic; font-weight: 700; }
 .close-button { width: 32px; height: 32px; border-radius: 8px; font-size: 22px; line-height: 1; }
 
 /* ── 天机锦囊 五神行 ─────────────────────────────── */
