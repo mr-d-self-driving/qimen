@@ -1,57 +1,116 @@
 <template>
   <div class="bazi-view">
 
-    <header id="siteHeader">
-        <div class="site-logo">全息八字</div>
-        <div class="header-actions">
-            <OpenSourceLinks />
-            <AccountMenu />
-        </div>
-    </header>
-
     <div class="page-wrap">
         <div class="container">
-            <div class="glass-card profile-card">
-                <div class="profile-card-head">
-                    <div>
-                        <div class="section-kicker">命主档案</div>
-                        <div class="section-title">选择或维护排盘资料</div>
-                    </div>
-                    <span v-if="activeProfile?.is_default" class="default-chip">默认</span>
+            <div
+                class="profile-hero-block"
+                :class="{ open: isProfileMenuOpen, condensed: heroCollapseProgress > 0.98 }"
+                :style="heroStickyStyle"
+            >
+                <!-- Circular rerun button: top-right (only) -->
+                <div class="hero-top-actions">
+                    <button
+                        v-if="activeProfile"
+                        class="hero-icon-btn"
+                        :class="{ spinning: isAnalyzing }"
+                        :disabled="isAnalyzing"
+                        :title="rerunButtonLabel"
+                        @click="requestAiSummary({ force: true })"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                    </button>
                 </div>
 
-                <div class="profile-filter-row">
-                    <div class="profile-switcher" :class="{ open: isProfileMenuOpen }">
-                        <button class="profile-switch-trigger" :disabled="!showProfileSwitcher" @click="toggleProfileMenu">
-                            <span class="profile-switch-name">{{ activeProfileName }}</span>
-                            <span class="profile-switch-symbol" aria-hidden="true">⇄</span>
-                        </button>
-                        <div v-if="isProfileMenuOpen" class="profile-flyout">
-                            <button
-                                v-for="profile in baziProfiles"
-                                :key="profile.id"
-                                class="profile-flyout-item"
-                                :class="{ active: profile.id === selectedProfileId }"
-                                @click="selectProfile(profile.id)"
-                            >
-                                <span class="profile-item-main">{{ profile.name }}</span>
-                                <span class="profile-item-date">{{ formatSolarDate(profile.birth_date) }}</span>
-                                <span class="profile-item-meta">{{ profileMetaText(profile) }}</span>
-                            </button>
+                <!-- Dates above name -->
+                <div v-if="activeProfile" class="hero-dates-top">
+                    <span class="hero-birth">{{ solarDateStr }}</span>
+                    <span class="hero-sep">·</span>
+                    <span class="hero-lunar">{{ lunarDateStr }}</span>
+                </div>
+
+                <div class="profile-strip-wrap" :class="{ open: isProfileMenuOpen }">
+                    <button class="hero-name-trigger" @click="toggleProfileMenu">
+                        <span class="hero-display-name">{{ activeProfileName }}</span>
+                        <span v-if="activeProfile?.is_default" class="profile-strip-badge">默认</span>
+                        <span class="profile-strip-caret" :class="{ open: isProfileMenuOpen }" aria-hidden="true"></span>
+                    </button>
+                    <div v-if="activeProfile" class="hero-meta">
+                        <div class="hero-badges">
+                            <span
+                                v-if="activeProfile.strong_weak"
+                                class="badge badge-blue badge-action hero-pill"
+                                role="button" tabindex="0"
+                                @click.stop="openInsightPanel('strength')"
+                            >{{ activeProfile.strong_weak }}</span>
+                            <span
+                                v-if="activeProfile.geju"
+                                class="badge badge-gold badge-action hero-pill"
+                                role="button" tabindex="0"
+                                @click.stop="openInsightPanel('geju')"
+                            >{{ patternFinalName }}</span>
                         </div>
                     </div>
-                    <button class="icon-btn" title="新增档案" @click="openAddProfile">+</button>
                 </div>
+
+                <!-- Bottom Sheet (Teleported) -->
+                <Teleport to="body">
+                    <Transition name="sheet">
+                        <div v-if="isProfileMenuOpen" class="sheet-backdrop" @click="isProfileMenuOpen = false; swipedProfileId = null"></div>
+                    </Transition>
+                    <Transition name="sheet-up">
+                        <div v-if="isProfileMenuOpen" class="profile-bottom-sheet" @click.stop>
+                            <div class="sheet-handle"></div>
+                            <div class="sheet-header">
+                                <span class="sheet-title">切换档案</span>
+                                <div class="sheet-header-actions">
+                                    <button class="sheet-add-btn" title="新增档案" @click="openAddProfile">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+                                            <path d="M12 5v14M5 12h14"/>
+                                        </svg>
+                                    </button>
+                                    <button class="sheet-close-btn" @click="isProfileMenuOpen = false; swipedProfileId = null">×</button>
+                                </div>
+                            </div>
+                            <div class="sheet-list">
+                                <div v-if="!baziProfiles.length" class="sheet-empty">暂无档案</div>
+                                <div
+                                    v-for="profile in baziProfiles"
+                                    :key="profile.id"
+                                    class="swipe-item"
+                                    :class="{ swiped: swipedProfileId === profile.id }"
+                                    @touchstart.passive="handleItemTouchStart"
+                                    @touchend.passive="handleItemTouchEnd(profile.id, $event)"
+                                >
+                                    <button
+                                        class="sheet-profile-btn"
+                                        :class="{ active: profile.id === selectedProfileId }"
+                                        @click="selectProfile(profile.id); swipedProfileId = null"
+                                    >
+                                        <span class="spi-indicator" :class="{ active: profile.id === selectedProfileId }"></span>
+                                        <span class="spi-name">{{ profile.name || '未命名' }}</span>
+                                        <span class="spi-date">{{ formatSolarDate(profile.birth_date) }}</span>
+                                        <span v-if="profile.is_default" class="spi-default">默认</span>
+                                    </button>
+                                    <div class="swipe-actions" v-if="!isGuest">
+                                        <button class="swa-btn swa-rename" @click.stop="renameProfileById(profile.id)">改昵称</button>
+                                        <button class="swa-btn swa-delete" @click.stop="deleteProfileById(profile.id)">删除</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="activeProfile && !isGuest" class="sheet-footer">
+                                <button class="sheet-default-btn" :disabled="activeProfile.is_default" @click="setDefaultProfile">
+                                    {{ activeProfile.is_default ? '✓ 已设为默认' : '设为默认档案' }}
+                                </button>
+                            </div>
+                        </div>
+                    </Transition>
+                </Teleport>
 
                 <div v-if="isGuest" class="guest-limit-note">访客模式仅保存 1 个本地命主档案，登录后可维护多个云端档案。</div>
-
-                <div class="profile-actions" v-if="activeProfile && !isGuest">
-                    <button class="mini-action" :disabled="activeProfile.is_default" @click="setDefaultProfile">
-                        {{ activeProfile.is_default ? '已设为默认' : '设为默认' }}
-                    </button>
-                    <button class="mini-action" @click="openRenameProfile">修改昵称</button>
-                    <button class="mini-action danger" @click="deleteProfile">删除档案</button>
-                </div>
 
                 <div v-show="showRename" class="profile-form rename-form">
                     <div class="form-row">
@@ -61,6 +120,19 @@
                         <button class="btn-ghost" style="border:none;color:var(--text-muted)" @click="showRename = false">取消</button>
                         <button class="btn-ghost" @click="renameProfile">保存昵称</button>
                     </div>
+                </div>
+
+                <div v-if="activeProfile" class="bazi-tab-bar">
+                    <button :class="['bazi-tab', { active: currentTab === 'basic' }]" @click="currentTab = 'basic'">基础排盘</button>
+                    <button :class="['bazi-tab', { active: currentTab === 'pro' }]" @click="currentTab = 'pro'">专业细盘</button>
+                    <button
+                        v-if="activeProfile && !needsUpgrade && !isGuest"
+                        :class="['bazi-tab', { active: currentTab === 'events' }]"
+                        @click="currentTab = 'events'"
+                    >
+                        断事笔记
+                        <span v-if="lifeEvents.length" class="bazi-tab-count">{{ lifeEvents.length }}</span>
+                    </button>
                 </div>
 
                 <Teleport to="body">
@@ -287,41 +359,6 @@
             </div>
 
             <div v-if="activeProfile" class="glass-card dashboard-panel">
-                
-                <div class="bazi-header">
-                    <div>
-                        <div class="name-row">
-                            <span class="bazi-name">{{ activeProfile.name }}</span>
-                            <span
-                                v-if="activeProfile.strong_weak"
-                                class="badge badge-blue badge-action"
-                                role="button"
-                                tabindex="0"
-                                title="查看身强身弱依据"
-                                @click="openInsightPanel('strength')"
-                                @keydown.enter.prevent="openInsightPanel('strength')"
-                                @keydown.space.prevent="openInsightPanel('strength')"
-                            >{{ activeProfile.strong_weak }}</span>
-                            <span
-                                v-if="activeProfile.geju"
-                                class="badge badge-gold badge-action"
-                                role="button"
-                                tabindex="0"
-                                title="查看格局判定"
-                                @click="openInsightPanel('geju')"
-                                @keydown.enter.prevent="openInsightPanel('geju')"
-                                @keydown.space.prevent="openInsightPanel('geju')"
-                            >{{ patternFinalName }}</span>
-                        </div>
-                        <div class="bazi-meta">农历：{{ lunarDateStr }}</div>
-                        <div class="bazi-meta">阳历：{{ solarDateStr }}</div>
-                    </div>
-                    <div class="bazi-header-actions">
-                        <button class="btn-primary" :disabled="isAnalyzing" @click="requestAiSummary({ force: true })">
-                            {{ rerunButtonLabel }}
-                        </button>
-                    </div>
-                </div>
 
                 <Teleport to="body">
                     <div v-if="showGuestLoginGuide" class="modal-overlay" @click="showGuestLoginGuide = false">
@@ -349,20 +386,6 @@
                     <div v-if="isAnalyzing" class="analysis-progress">
                         <i :style="{ width: analysisProgress + '%' }"></i>
                     </div>
-                </div>
-
-                <div class="tabs">
-                    <div class="tab" :class="{ active: currentTab === 'basic' }" @click="currentTab = 'basic'">基础排盘</div>
-                    <div class="tab" :class="{ active: currentTab === 'pro' }" @click="currentTab = 'pro'">专业细盘</div>
-                    <button
-                        v-if="activeProfile && !needsUpgrade && !isGuest"
-                        class="tab life-events-tab"
-                        :class="{ active: currentTab === 'events' }"
-                        @click="currentTab = 'events'"
-                    >
-                        断事笔记
-                        <span v-if="lifeEvents.length" class="life-events-tab-count">{{ lifeEvents.length }}</span>
-                    </button>
                 </div>
 
                 <!-- ══ 命主断事笔记 ══ -->
@@ -434,7 +457,7 @@
                                     :class="{ active: eventForm.category === cat.value }"
                                     @click="eventForm.category = cat.value"
                                 >
-                                    {{ cat.icon }} {{ cat.label }}
+                                    {{ cat.label }}
                                 </button>
                             </div>
                         </div>
@@ -677,206 +700,180 @@
                 <Teleport to="body">
                     <div v-if="activeInfoPanel === 'insight' && (strengthPanelContent || gejuPanelContent)" class="modal-overlay" @click="activeInfoPanel = null">
                         <div class="detail-drawer insight-detail-drawer" @click.stop>
-                            <div class="drawer-head">
-                                <div>
-                                    <div class="section-kicker">命局判定</div>
-                                    <h4>{{ insightPanelTitle }}</h4>
+                            <!-- sticky header -->
+                            <div class="insight-sticky-head">
+                                <div class="drawer-head">
+                                    <div class="drawer-head-title">命局天机</div>
+                                    <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                                 </div>
-                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
+                                <div class="insight-tab-bar">
+                                    <button class="insight-bazi-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">身强/身弱</button>
+                                    <button class="insight-bazi-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
+                                    <button class="insight-bazi-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
+                                </div>
                             </div>
-                            <div class="insight-switcher">
-                                <button class="insight-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">身强/身弱判定</button>
-                                <button class="insight-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
-                                <button class="insight-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
+                            <!-- scrollable content -->
+                            <div class="insight-scroll-body">
+                                <template v-if="insightTab === 'strength' && strengthPanelContent">
+                                    <div v-if="strengthPanelContent.meter" class="strength-meter-card">
+                                        <div class="strength-meter-top">
+                                            <span class="strength-meter-label">{{ strengthPanelContent.meter.verdict }}</span>
+                                            <span class="strength-meter-band">{{ strengthPanelContent.meter.label }}</span>
+                                        </div>
+                                        <div class="strength-meter-track" aria-label="日主旺衰仪表盘">
+                                            <div class="strength-meter-fill" :style="{ width: `${strengthPanelContent.meter.percent}%` }"></div>
+                                            <div class="strength-meter-thumb" :style="{ left: `${strengthPanelContent.meter.percent}%` }"></div>
+                                        </div>
+                                        <div class="strength-meter-axis">
+                                            <span>弱</span>
+                                            <span>中</span>
+                                            <span>强</span>
+                                        </div>
+                                    </div>
+                                    <div v-if="strengthPanelContent.sections.length" class="insight-prose-list">
+                                        <div v-for="section in strengthPanelContent.sections" :key="section.key" class="insight-prose-item">
+                                            <div class="insight-prose-head">
+                                                <span class="insight-prose-label">{{ section.title }}</span>
+                                                <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
+                                            </div>
+                                            <p class="insight-prose-text">{{ section.text }}</p>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else-if="insightTab === 'geju' && gejuPanelContent">
+                                    <div class="insight-prose-kicker-row">
+                                        <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
+                                        <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent is-text">{{ gejuPanelContent.chengGe }}</span>
+                                        <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeStatus }}</span>
+                                    </div>
+                                    <div class="insight-prose-list">
+                                        <div class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">立格依据</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.gejuBasis }}</p>
+                                            <p class="insight-prose-text">{{ gejuPanelContent.judgeBase }}</p>
+                                            <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.extractionSteps.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">取格步骤</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="step in gejuPanelContent.extractionSteps" :key="step.key" class="insight-step-row">
+                                                    <span class="insight-step-label">{{ step.label }}</span>
+                                                    <span class="insight-step-val">{{ step.value }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">顺逆与成败</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.chengGeStatus }}</p>
+                                            <p class="insight-prose-text">{{ gejuPanelContent.chengGeReason }}</p>
+                                        </div>
+                                        <div v-if="gejuPanelContent.climateAdjustment" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">调候影响</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.climateAdjustment.title }}</p>
+                                            <p class="insight-prose-text">{{ gejuPanelContent.climateAdjustment.text }}</p>
+                                        </div>
+                                        <div v-if="gejuPanelContent.personality.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">格局气质</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.personality" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot">—</span>
+                                                    <span class="insight-step-val">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.goodFor.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">适合方向</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.goodFor" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot">—</span>
+                                                    <span class="insight-step-val">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.relationshipHealth.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">关系与身心节奏</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.relationshipHealth" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot">—</span>
+                                                    <span class="insight-step-val">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.watchOut.length" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">注意事项</span></div>
+                                            <div class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.watchOut" :key="item" class="insight-inline-row">
+                                                    <span class="insight-inline-dot insight-dot-warn">—</span>
+                                                    <span class="insight-step-val insight-val-warn">{{ item }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
+                                <template v-else-if="explanationPanelContent">
+                                    <p class="insight-explain-summary">{{ explanationPanelContent.summary }}</p>
+                                    <div class="insight-prose-list">
+                                        <div v-for="section in explanationPanelContent.sections" :key="section.key" class="insight-prose-item">
+                                            <div class="insight-prose-head">
+                                                <span class="insight-prose-label">{{ section.title }}</span>
+                                                <span v-if="section.source" class="insight-source-inline">《{{ section.source }}》</span>
+                                            </div>
+                                            <p v-if="section.quote" class="insight-quote-line">「{{ section.quote }}」</p>
+                                            <div class="explain-paragraphs">
+                                                <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </template>
                             </div>
-                            <template v-if="insightTab === 'strength' && strengthPanelContent">
-                                <div v-if="strengthPanelContent.meter" class="strength-meter-card">
-                                    <div class="strength-meter-top">
-                                        <span class="strength-meter-label">{{ strengthPanelContent.meter.verdict }}</span>
-                                        <span class="strength-meter-band">{{ strengthPanelContent.meter.label }}</span>
-                                    </div>
-                                    <div class="strength-meter-track" aria-label="日主旺衰仪表盘">
-                                        <div class="strength-meter-fill" :style="{ width: `${strengthPanelContent.meter.percent}%` }"></div>
-                                        <div class="strength-meter-thumb" :style="{ left: `${strengthPanelContent.meter.percent}%` }"></div>
-                                    </div>
-                                    <div class="strength-meter-axis">
-                                        <span>弱</span>
-                                        <span>中</span>
-                                        <span>强</span>
-                                    </div>
-                                </div>
-                                <div v-if="strengthPanelContent.sections.length" class="strength-section-list">
-                                    <div v-for="section in strengthPanelContent.sections" :key="section.key" class="strength-section-card">
-                                        <div class="strength-section-head">
-                                            <h5>{{ section.title }}</h5>
-                                            <span v-if="section.scoreLabel" class="strength-score-chip">{{ section.scoreLabel }}</span>
-                                        </div>
-                                        <p>{{ section.text }}</p>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else-if="insightTab === 'geju' && gejuPanelContent">
-                                <div class="geju-modal-tags">
-                                    <span class="geju-chip">{{ gejuPanelContent.baseGeju }}</span>
-                                    <span v-if="gejuPanelContent.showChengGe" class="geju-chip accent is-text">{{ gejuPanelContent.chengGe }}</span>
-                                    <span class="geju-chip" :class="gejuPanelContent.resultClass">{{ gejuPanelContent.chengGeStatus }}</span>
-                                </div>
-                                <div class="geju-modal-block">
-                                    <div class="geju-block-title">立格依据</div>
-                                    <div class="geju-block-main">{{ gejuPanelContent.gejuBasis }}</div>
-                                    <p class="geju-block-copy">{{ gejuPanelContent.judgeBase }}</p>
-                                    <div v-if="gejuPanelContent.monthMergeLine" class="geju-inline-note">{{ gejuPanelContent.monthMergeLine }}</div>
-                                </div>
-                                <div v-if="gejuPanelContent.extractionSteps.length" class="geju-modal-block">
-                                    <div class="geju-block-title">取格步骤</div>
-                                    <div class="pattern-step-list">
-                                        <div v-for="step in gejuPanelContent.extractionSteps" :key="step.key" class="pattern-step-item">
-                                            <span>{{ step.label }}</span>
-                                            <p>{{ step.value }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="geju-modal-block">
-                                    <div class="geju-block-title">顺逆与成败</div>
-                                    <div class="geju-block-main">{{ gejuPanelContent.chengGeStatus }}</div>
-                                    <p class="geju-block-copy">{{ gejuPanelContent.chengGeReason }}</p>
-                                    <div v-if="gejuPanelContent.showChengGe" class="geju-inline-pairs geju-inline-pairs-top">
-                                        <span>小格：{{ gejuPanelContent.chengGe }}</span>
-                                        <span>用神：{{ gejuPanelContent.yongShen }}</span>
-                                        <span>相神：{{ gejuPanelContent.xianShen }}</span>
-                                    </div>
-                                    <div v-if="gejuPanelContent.evaluationPairs.length" class="geju-inline-pairs">
-                                        <span v-for="item in gejuPanelContent.evaluationPairs" :key="item.label">{{ item.label }}：{{ item.value }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.climateAdjustment" class="geju-modal-block">
-                                    <div class="geju-block-title">调候影响</div>
-                                    <div class="geju-block-main">{{ gejuPanelContent.climateAdjustment.title }}</div>
-                                    <p class="geju-block-copy">{{ gejuPanelContent.climateAdjustment.text }}</p>
-                                </div>
-                                <div v-if="gejuPanelContent.personality.length" class="geju-modal-block">
-                                    <div class="geju-block-title">格局气质</div>
-                                    <div class="geju-bullet-row">
-                                        <span v-for="item in gejuPanelContent.personality" :key="item" class="geju-bullet-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.goodFor.length" class="geju-modal-block">
-                                    <div class="geju-block-title">适合方向</div>
-                                    <div class="geju-bullet-list">
-                                        <span v-for="item in gejuPanelContent.goodFor" :key="item" class="geju-list-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.relationshipHealth.length" class="geju-modal-block">
-                                    <div class="geju-block-title">关系与身心节奏</div>
-                                    <div class="geju-bullet-list">
-                                        <span v-for="item in gejuPanelContent.relationshipHealth" :key="item" class="geju-list-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                                <div v-if="gejuPanelContent.watchOut.length" class="geju-modal-block">
-                                    <div class="geju-block-title">注意事项</div>
-                                    <div class="geju-bullet-list warning">
-                                        <span v-for="item in gejuPanelContent.watchOut" :key="item" class="geju-list-chip">{{ item }}</span>
-                                    </div>
-                                </div>
-                            </template>
-                            <template v-else-if="explanationPanelContent">
-                                <div class="explain-summary-card">
-                                    <div class="explain-summary-title">一句总结</div>
-                                    <p>{{ explanationPanelContent.summary }}</p>
-                                </div>
-                                <div class="explain-section-list">
-                                    <div v-for="section in explanationPanelContent.sections" :key="section.key" class="explain-section-card">
-                                        <div class="explain-section-head">
-                                            <h5>{{ section.title }}</h5>
-                                            <span class="explain-source-chip">{{ section.source }}</span>
-                                        </div>
-                                        <blockquote v-if="section.quote" class="explain-quote">{{ section.quote }}</blockquote>
-                                        <div class="explain-paragraphs">
-                                            <p v-for="paragraph in section.paragraphs" :key="paragraph">{{ paragraph }}</p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </template>
                         </div>
                     </div>
                 </Teleport>
 
                 <Teleport to="body">
                     <div v-if="activeInfoPanel === 'scoring' && activeProfile.bazi_detail?.scoring_details" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer" @click.stop>
-                            <div class="drawer-head">
-                                <div>
-                                    <div class="section-kicker">用神依据</div>
-                                    <h4>五神剖析 · 取用依据</h4>
-                                </div>
-                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
-                            </div>
-
-                            <!-- 决策链 -->
-                            <div v-if="activeProfile.bazi_detail.decision_chain?.length" class="decision-chain-list">
-                                <div v-for="step in activeProfile.bazi_detail.decision_chain" :key="step.layer" class="decision-chain-item">
-                                    <span class="decision-layer">{{ step.layer }}</span>
-                                    <span class="decision-reason">{{ step.reason }}</span>
-                                    <span v-if="step.override" class="decision-override">{{ step.override }}</span>
+                        <div class="detail-drawer insight-detail-drawer scoring-detail-drawer" @click.stop>
+                            <div class="insight-sticky-head">
+                                <div class="drawer-head">
+                                    <div class="drawer-head-title">天机锦囊</div>
+                                    <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                                 </div>
                             </div>
 
-                            <div class="scoring-section-title">五维影响概览</div>
-                            <div class="scoring-list">
-                                <!-- 用神 -->
-                                <div v-if="fiveShenProfile?.yong" class="scoring-item scoring-yong-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge shen-yong">{{ formatShenWithGan(fiveShenProfile.yong) }}</span>
-                                        <span class="shen-role-tag">用神</span>
+                            <div class="insight-scroll-body">
+                                <div v-if="activeProfile.bazi_detail.decision_chain?.length" class="insight-prose-list scoring-prose-list">
+                                    <div class="insight-prose-item scoring-overview-head scoring-section-heading">
+                                        <div class="insight-prose-head"><span class="insight-prose-label">喜用分析</span></div>
                                     </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tiaohou > 0 ? 'dim-pos' : 'dim-neg'" title="气候冷暖平衡">调候{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].geju > 0 ? 'dim-pos' : 'dim-neg'" title="格局主轴取用">格局{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].fuyi > 0 ? 'dim-pos' : 'dim-neg'" title="日主强弱生克">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].bingyao > 0 ? 'dim-pos' : 'dim-neg'" title="五行偏枯制衡">病药{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tongguan > 0 ? 'dim-pos' : 'dim-neg'" title="两行克战化解">通关{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tongguan > 0 ? '↑' : '↓' }}</span>
+                                    <div v-for="step in activeProfile.bazi_detail.decision_chain" :key="step.layer" class="insight-prose-item">
+                                        <div class="insight-prose-head">
+                                            <span class="insight-prose-label">{{ step.layer }}</span>
+                                            <span v-if="step.override" class="insight-source-inline scoring-override">{{ step.override }}</span>
+                                        </div>
+                                        <p class="insight-prose-text">{{ step.reason }}</p>
                                     </div>
                                 </div>
-                                <!-- 喜神 -->
-                                <div v-for="shen in fiveShenProfile?.xi" :key="'xi'+shen" class="scoring-item fav-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge favorable">{{ formatShenWithGan(shen) }}</span>
-                                        <span class="shen-role-tag">喜神</span>
+
+                                <div v-if="scoringInfluenceRows.length" class="insight-prose-list scoring-prose-list">
+                                    <div class="insight-prose-item scoring-overview-head scoring-section-heading">
+                                        <div class="insight-prose-head"><span class="insight-prose-label">五维影响概览</span></div>
                                     </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? 'dim-pos' : 'dim-neg'">调候{{ activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? 'dim-pos' : 'dim-neg'">格局{{ activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? 'dim-pos' : 'dim-neg'">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? 'dim-pos' : 'dim-neg'">病药{{ activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? 'dim-pos' : 'dim-neg'">通关{{ activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? '↑' : '↓' }}</span>
-                                    </div>
-                                </div>
-                                <!-- 忌神 -->
-                                <div v-for="shen in fiveShenProfile?.ji" :key="'ji'+shen" class="scoring-item unfav-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge unfavorable">{{ formatShenWithGan(shen) }}</span>
-                                        <span class="shen-role-tag">忌神</span>
-                                    </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? 'dim-pos' : 'dim-neg'">调候{{ activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? 'dim-pos' : 'dim-neg'">格局{{ activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? 'dim-pos' : 'dim-neg'">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? 'dim-pos' : 'dim-neg'">病药{{ activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? 'dim-pos' : 'dim-neg'">通关{{ activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? '↑' : '↓' }}</span>
-                                    </div>
-                                </div>
-                                <!-- 仇神 -->
-                                <div v-for="shen in fiveShenProfile?.chou" :key="'chou'+shen" class="scoring-item chou-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge shen-chou">{{ formatShenWithGan(shen) }}</span>
-                                        <span class="shen-role-tag">仇神</span>
-                                    </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? 'dim-pos' : 'dim-neg'">调候{{ activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? 'dim-pos' : 'dim-neg'">格局{{ activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? 'dim-pos' : 'dim-neg'">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? 'dim-pos' : 'dim-neg'">病药{{ activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? 'dim-pos' : 'dim-neg'">通关{{ activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? '↑' : '↓' }}</span>
+                                    <div v-for="row in scoringInfluenceRows" :key="row.key" class="insight-prose-item scoring-prose-item">
+                                        <div class="insight-prose-head">
+                                            <span class="insight-prose-label" :class="`scoring-role-${row.roleKey}`">{{ row.role }}</span>
+                                            <span class="insight-source-inline">{{ row.name }}</span>
+                                        </div>
+                                        <div class="scoring-inline-dims">
+                                            <span
+                                                v-for="dim in row.dimensions"
+                                                :key="dim.key"
+                                                class="scoring-inline-dim"
+                                                :class="dim.value > 0 ? 'dim-pos' : 'dim-neg'"
+                                            >
+                                                <span>{{ dim.label }}</span>
+                                                <strong>{{ dim.value > 0 ? '↑' : '↓' }}</strong>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -957,74 +954,49 @@
                 </Teleport>
 
                 <!-- 命局天机分析版块 -->
-                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="ai-section insight-summary">
-                    <div class="ai-header-row">
-                        <div class="ai-header-title">命局天机</div>
+                <div v-if="currentTab !== 'events' && activeProfile.bazi_detail && activeProfile.bazi_detail.scoring_details" class="rpt-section">
+                    <div class="rpt-head">
+                        <span class="rpt-kicker">命局天机</span>
                         <button class="info-button" title="查看命局判定" @click="openInsightPanel('strength')">i</button>
                     </div>
-                    
-                    <!-- 1. 格局特性卡片 -->
-                    <div class="insight-card geju-card">
-                        <div class="geju-card-head">
-                            <div class="tag-row">
-                                <span
-                                    class="tag-gold tag-action"
-                                    role="button"
-                                    tabindex="0"
-                                    title="查看身强身弱依据"
-                                    @click="openStrengthPanel"
-                                    @keydown.enter.prevent="openStrengthPanel"
-                                    @keydown.space.prevent="openStrengthPanel"
-                                >{{ activeProfile.strong_weak }}</span>
-                                <span class="tag-gold">{{ patternFinalName }}</span>
-                                <span v-if="showChengGeText" class="tag-gold tag-emerald">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
-                            </div>
+
+                    <!-- 旺衰格局标题行 -->
+                    <div class="rpt-sub-head" style="margin-bottom: 8px;">
+                        <span class="rpt-kicker-sm">旺衰格局</span>
+                        <span class="wangge-inline">
+                            <span class="wangge-val">{{ activeProfile.strong_weak }}</span>
+                            <span class="wangge-sep">·</span>
+                            <span class="wangge-val">{{ patternFinalName }}</span>
+                            <span v-if="showChengGeText" class="rpt-h2-badge" style="margin-left:6px;">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                        </span>
+                    </div>
+                    <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
+
+                    <!-- 调候诊断 -->
+                    <div v-if="tiaohouPanelContent" class="rpt-sub">
+                        <div class="rpt-sub-head">
+                            <span class="rpt-kicker-sm">调候诊断</span>
+                            <strong class="rpt-sub-title">{{ tiaohouPanelContent.climateState }}</strong>
+                            <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
                         </div>
-                        <div v-if="strengthSummaryLine" class="geju-summary-line">{{ strengthSummaryLine }}</div>
-                        <div v-if="gejuSummaryLine" class="geju-summary-line secondary">{{ gejuSummaryLine }}</div>
-                        <p>
-                            {{ getGejuDesc(patternFinalName) }}
-                        </p>
+                        <div class="rpt-stat-row">
+                            <span class="rpt-stat"><span class="rpt-stat-l">第一调候</span><strong>{{ tiaohouPanelContent.primary }}</strong></span>
+                            <span class="rpt-stat"><span class="rpt-stat-l">辅助调候</span><strong>{{ tiaohouPanelContent.secondary }}</strong></span>
+                            <span class="rpt-stat"><span class="rpt-stat-l">慎见</span><strong>{{ tiaohouPanelContent.avoid }}</strong></span>
+                        </div>
+                        <p class="rpt-prose">{{ tiaohouPanelContent.explanation }}</p>
+                        <p v-if="tiaohouPanelContent.warning" class="rpt-warn-line">{{ tiaohouPanelContent.warning }}</p>
                     </div>
 
-                    <div class="insight-card tiaohou-card" v-if="tiaohouPanelContent">
-                        <div class="tiaohou-card-head">
-                            <div>
-                                <div class="section-kicker">调候诊断</div>
-                                <h4>{{ tiaohouPanelContent.climateState }}</h4>
-                            </div>
-                            <div class="tiaohou-card-head-right">
-                                <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
-                                <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
-                            </div>
-                        </div>
-                        <div class="tiaohou-god-grid">
-                            <div class="tiaohou-god-cell">
-                                <span>第一调候</span>
-                                <strong>{{ tiaohouPanelContent.primary }}</strong>
-                            </div>
-                            <div class="tiaohou-god-cell">
-                                <span>辅助调候</span>
-                                <strong>{{ tiaohouPanelContent.secondary }}</strong>
-                            </div>
-                            <div class="tiaohou-god-cell">
-                                <span>慎见</span>
-                                <strong>{{ tiaohouPanelContent.avoid }}</strong>
-                            </div>
-                        </div>
-                        <p>{{ tiaohouPanelContent.explanation }}</p>
-                        <div v-if="tiaohouPanelContent.warning" class="tiaohou-warning">{{ tiaohouPanelContent.warning }}</div>
-                    </div>
-
-                    <!-- 2. 五行能量占比条 -->
-                    <div class="insight-card wuxing-pool-card" v-if="activeProfile.bazi_detail.wuxing_ratio">
-                        <h4 class="card-heading">
-                            <span>五行能量池</span>
+                    <!-- 五行能量池 -->
+                    <div v-if="activeProfile.bazi_detail.wuxing_ratio" class="rpt-sub">
+                        <div class="rpt-sub-head">
+                            <span class="rpt-kicker-sm">五行能量池</span>
                             <span v-if="Object.values(activeProfile.bazi_detail.wuxing_ratio).some(r => r > 45)" class="overload-tag">能量偏盛</span>
-                        </h4>
+                        </div>
                         <div class="wuxing-bar-container">
-                            <div v-for="(ratio, wx) in activeProfile.bazi_detail.wuxing_ratio" :key="wx" 
-                                 class="wuxing-bar-segment" 
+                            <div v-for="(ratio, wx) in activeProfile.bazi_detail.wuxing_ratio" :key="wx"
+                                 class="wuxing-bar-segment"
                                  :class="'bg-' + getWuxingClass(wx)"
                                  :style="{ width: ratio + '%' }"
                                  :title="wx + ' ' + Math.round(ratio) + '%'">
@@ -1032,101 +1004,81 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
 
-                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="ai-section" style="display: block;">
-                    <div class="ai-header-row">
-                        <div class="ai-header-title">天机锦囊</div>
+                <!-- 天机锦囊 -->
+                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="rpt-section">
+                    <div class="rpt-head">
+                        <span class="rpt-kicker">天机锦囊</span>
                         <button class="info-button" title="查看用神决策链与四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
                     </div>
 
-                    <!-- 命局定性一行 -->
-                    <div v-if="fiveShenProfile?.summary" class="jinnang-summary-line">{{ fiveShenProfile.summary }}</div>
 
-                    <!-- 五神分层行 -->
-                    <div v-if="fiveShenProfile" class="five-shen-row">
-                        <div class="five-shen-cell is-yong" :title="fiveShenProfile.yongConfidence === 'LOW' ? '五行中和，用神参考' : '命局核心用神'">
-                            <div class="five-shen-role">用神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(fiveShenProfile.yong) }}</div>
-                            <div v-if="fiveShenProfile.yongConfidence === 'LOW'" class="five-shen-note">参考</div>
-                        </div>
-                        <div v-if="fiveShenProfile.xi?.length" class="five-shen-cell is-xi">
-                            <div class="five-shen-role">喜神</div>
-                            <div class="five-shen-name">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</div>
-                        </div>
-                        <div v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="five-shen-cell is-ji">
-                            <div class="five-shen-role">忌神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
-                        </div>
-                        <div v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="five-shen-cell is-chou">
-                            <div class="five-shen-role">仇神</div>
-                            <div class="five-shen-name">{{ formatShenWithGan(s) }}</div>
-                        </div>
+
+                    <!-- 五神横排 -->
+                    <div v-if="fiveShenProfile" class="rpt-shen-line">
+                        <span class="rpt-shen-tag is-yong" :title="fiveShenProfile.yongConfidence === 'LOW' ? '五行中和，用神参考' : '命局核心用神'">
+                            <span class="rpt-shen-role">用神</span>
+                            <span class="rpt-shen-val">{{ formatShenWithGan(fiveShenProfile.yong) }}</span>
+                            <span v-if="fiveShenProfile.yongConfidence === 'LOW'" class="rpt-shen-note">(参考)</span>
+                        </span>
+                        <span v-if="fiveShenProfile.xi?.length" class="rpt-shen-tag is-xi">
+                            <span class="rpt-shen-role">喜神</span>
+                            <span class="rpt-shen-val">{{ fiveShenProfile.xi.map(formatShenWithGan).join(' · ') }}</span>
+                        </span>
+                        <span v-for="s in fiveShenProfile.ji" :key="'ji'+s" class="rpt-shen-tag is-ji">
+                            <span class="rpt-shen-role">忌神</span>
+                            <span class="rpt-shen-val">{{ formatShenWithGan(s) }}</span>
+                        </span>
+                        <span v-for="s in fiveShenProfile.chou" :key="'chou'+s" class="rpt-shen-tag is-chou">
+                            <span class="rpt-shen-role">仇神</span>
+                            <span class="rpt-shen-val">{{ formatShenWithGan(s) }}</span>
+                        </span>
+                    </div>
+                    <div v-else class="rpt-shen-line">
+                        <span class="rpt-shen-tag is-xi">
+                            <span class="rpt-shen-role">喜用神</span>
+                            <span class="rpt-shen-val favorable">{{ (activeProfile.favorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</span>
+                        </span>
+                        <span class="rpt-shen-tag is-ji">
+                            <span class="rpt-shen-role">忌仇神</span>
+                            <span class="rpt-shen-val unfavorable">{{ (activeProfile.unfavorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</span>
+                        </span>
                     </div>
 
-                    <!-- 旧式喜忌行（fallback，无 five_shens 时显示） -->
-                    <div v-else class="xiji-box">
-                        <div class="xiji-item">
-                            <div class="xiji-label">喜用神</div>
-                            <div class="xiji-val favorable">{{ (activeProfile.favorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</div>
-                        </div>
-                        <div class="xiji-item">
-                            <div class="xiji-label">忌仇神</div>
-                            <div class="xiji-val unfavorable">{{ (activeProfile.unfavorable_elements || []).map(formatShenWithGan).join('、') || '-' }}</div>
-                        </div>
-                    </div>
-
-                    <!-- 结构化断语块 -->
+                    <!-- 结构化断语 as flowing prose -->
                     <template v-if="fiveShenProfile?.userBlocks">
-                        <div class="jinnang-block">
-                            <div class="jinnang-block-label">用神说明</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.yong_shen_text }}</p>
-                        </div>
-                        <div class="jinnang-block">
-                            <div class="jinnang-block-label">喜忌方向</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.xi_ji_text }}</p>
-                        </div>
-                        <div class="jinnang-block">
-                            <div class="jinnang-block-label">大运指引</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.dayun_guide }}</p>
-                        </div>
-                        <div class="jinnang-block jinnang-block-warn">
-                            <div class="jinnang-block-label">注意警示</div>
-                            <p class="jinnang-block-text">{{ fiveShenProfile.userBlocks.avoid_text }}</p>
-                        </div>
+                        <p class="rpt-prose"><strong class="rpt-lead-w">用神说明　</strong>{{ fiveShenProfile.userBlocks.yong_shen_text }}</p>
+                        <p class="rpt-prose"><strong class="rpt-lead-w">喜忌方向　</strong>{{ fiveShenProfile.userBlocks.xi_ji_text }}</p>
+                        <p class="rpt-prose"><strong class="rpt-lead-w">大运指引　</strong>{{ fiveShenProfile.userBlocks.dayun_guide }}</p>
+                        <p class="rpt-prose rpt-prose-warn"><strong class="rpt-lead-w">注意警示　</strong>{{ fiveShenProfile.userBlocks.avoid_text }}</p>
                     </template>
 
-                    <div class="insight-card">
-                        <h4>原局核心</h4>
-                        <p>{{ resolvedYuanjuCore }}</p>
-                        <div v-if="feedbackCorrections.yuanju_core" class="feedback-correction-block">
-                            <div class="feedback-correction-head">
+                    <!-- 原局核心 -->
+                    <div class="rpt-sub">
+                        <span class="rpt-kicker-sm">原局核心</span>
+                        <p class="rpt-prose" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
+                            <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
-                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
+                                <span v-if="feedbackCorrectionDate" class="rpt-feedback-date">{{ feedbackCorrectionDate }}</span>
                             </div>
-                            <p class="feedback-correction-copy">{{ feedbackCorrections.yuanju_core }}</p>
+                            <p class="rpt-prose">{{ feedbackCorrections.yuanju_core }}</p>
                         </div>
                     </div>
-                    <div class="insight-card">
-                        <h4>岁运推演</h4>
-                        <p style="margin-bottom: 8px;">
-                            <strong style="color:var(--gold)">【大运】</strong> {{ resolvedCurrentDayun }}
-                        </p>
-                        <p>
-                            <strong style="color:var(--gold)">【流年】</strong> {{ resolvedCurrentLiunian }}
-                        </p>
-                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="feedback-correction-block is-transit">
-                            <div class="feedback-correction-head">
+
+                    <!-- 岁运推演 -->
+                    <div class="rpt-sub">
+                        <span class="rpt-kicker-sm">岁运推演</span>
+                        <p class="rpt-prose" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
+                        <p class="rpt-prose"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
+                            <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
-                                <span v-if="feedbackCorrectionDate" class="feedback-correction-date">{{ feedbackCorrectionDate }}</span>
+                                <span v-if="feedbackCorrectionDate" class="rpt-feedback-date">{{ feedbackCorrectionDate }}</span>
                             </div>
-                            <div v-if="feedbackCorrections.current_dayun" class="feedback-correction-line">
-                                <strong>【大运修正】</strong> {{ feedbackCorrections.current_dayun }}
-                            </div>
-                            <div v-if="feedbackCorrections.current_liunian" class="feedback-correction-line">
-                                <strong>【流年修正】</strong> {{ feedbackCorrections.current_liunian }}
-                            </div>
+                            <p v-if="feedbackCorrections.current_dayun" class="rpt-prose"><strong>大运修正　</strong>{{ feedbackCorrections.current_dayun }}</p>
+                            <p v-if="feedbackCorrections.current_liunian" class="rpt-prose"><strong>流年修正　</strong>{{ feedbackCorrections.current_liunian }}</p>
                         </div>
                     </div>
                 </div>
@@ -1135,22 +1087,20 @@
                     {{ activeProfile.bazi_summary }}
                 </div>
 
-                <div v-if="currentTab !== 'events' && classicVerdictText" class="ai-section classic-verdict-section">
-                    <div class="classic-header">
-                        <div>
-                            <div class="ai-header-title classic-main-title">古籍断语</div>
-                            <div class="classic-subtitle">{{ classicVerdict.source || '三命通会' }}</div>
+                <!-- 古籍断语 -->
+                <div v-if="currentTab !== 'events' && classicVerdictText" class="rpt-section">
+                    <div class="rpt-head">
+                        <div class="rpt-head-left">
+                            <span class="rpt-kicker">古籍断语</span>
+                            <span class="rpt-src-note">{{ classicVerdict.source || '三命通会' }} · {{ classicVerdict.key }}</span>
                         </div>
-                        <span class="classic-key">{{ classicVerdict.key }}</span>
                     </div>
-                    <div class="classic-body">
+                    <div class="rpt-classic-body">
                         <p
                             v-for="(line, idx) in classicVerdictLines"
                             :key="'classic'+idx"
-                            :class="{ note: line.startsWith('#') }"
-                        >
-                            {{ line }}
-                        </p>
+                            :class="['rpt-prose', { 'rpt-classic-note': line.startsWith('#') }]"
+                        >{{ line }}</p>
                     </div>
                 </div>
 
@@ -1316,6 +1266,28 @@ const currentTab = ref('basic')
 const showAdd = ref(false)
 const showRename = ref(false)
 const isProfileMenuOpen = ref(false)
+const swipedProfileId = ref(null)
+let _swipeTouchStartX = 0
+const handleItemTouchStart = (e) => { _swipeTouchStartX = e.touches[0].clientX }
+const handleItemTouchEnd = (profileId, e) => {
+    const dx = e.changedTouches[0].clientX - _swipeTouchStartX
+    if (dx < -50) swipedProfileId.value = swipedProfileId.value === profileId ? null : profileId
+    else if (dx > 20) swipedProfileId.value = null
+}
+const renameProfileById = (id) => {
+    selectedProfileId.value = id
+    setSelectedBaziProfileId(id)
+    swipedProfileId.value = null
+    isProfileMenuOpen.value = false
+    // small tick so activeProfile computed re-evaluates
+    setTimeout(() => openRenameProfile(), 50)
+}
+const deleteProfileById = async (id) => {
+    swipedProfileId.value = null
+    selectedProfileId.value = id
+    setSelectedBaziProfileId(id)
+    await deleteProfile()
+}
 const showGuestLoginGuide = ref(false)
 const isAnalyzing = ref(false)
 const isSavingProfileContext = ref(false)
@@ -1325,20 +1297,20 @@ const isFormOpen = ref(false)
 const isCalibrating = ref(false)
 
 const LIFE_EVENT_CATEGORIES = [
-    { value: 'career', label: '事业/学业', icon: '💼' },
-    { value: 'wealth', label: '财富/资产', icon: '💰' },
-    { value: 'relationship', label: '感情/婚姻', icon: '💕' },
-    { value: 'health', label: '健康/灾厄', icon: '🏥' },
-    { value: 'family_parent', label: '父母', icon: '👨‍👩‍👧' },
-    { value: 'family_spouse', label: '配偶', icon: '💍' },
-    { value: 'family_child', label: '子女', icon: '👶' },
-    { value: 'family_sibling', label: '兄弟姐妹', icon: '🤝' },
+    { value: 'career', label: '事业/学业', icon: '事' },
+    { value: 'wealth', label: '财富/资产', icon: '财' },
+    { value: 'relationship', label: '感情/婚姻', icon: '情' },
+    { value: 'health', label: '健康/灾厄', icon: '健' },
+    { value: 'family_parent', label: '父母', icon: '亲' },
+    { value: 'family_spouse', label: '配偶', icon: '婚' },
+    { value: 'family_child', label: '子女', icon: '嗣' },
+    { value: 'family_sibling', label: '兄弟姐妹', icon: '弟' },
 ]
 
 const IMPACT_OPTIONS = [
-    { value: 1, label: '🟢 顺遂/提升', cls: 'positive' },
-    { value: 0, label: '🟡 平稳/变动', cls: 'neutral' },
-    { value: -1, label: '🔴 坎坷/挫折', cls: 'negative' },
+    { value: 1, label: '顺遂/提升', cls: 'positive' },
+    { value: 0, label: '平稳/变动', cls: 'neutral' },
+    { value: -1, label: '坎坷/挫折', cls: 'negative' },
 ]
 
 const PROFILE_CONTEXT_SECTIONS = [
@@ -1556,7 +1528,6 @@ const notesMonthOptions = computed(() => {
     return options
 })
 const isGuest = computed(() => globalState.isGuest && !currentUser.value)
-const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeProfile.value?.name || (baziProfiles.value.length ? '请选择命主档案' : '暂无命主档案'))
 
 const formatSolarDate = (value) => {
@@ -2254,6 +2225,41 @@ const fiveShenProfile = computed(() => {
     }
 })
 
+const SCORING_DIMENSION_LABELS = [
+    ['tiaohou', '调候'],
+    ['geju', '格局'],
+    ['fuyi', '扶抑'],
+    ['bingyao', '病药'],
+    ['tongguan', '通关']
+]
+
+const buildScoringInfluenceRows = (profile, breakdown = {}) => {
+    if (!profile) return []
+    const roleGroups = [
+        { role: '用神', roleKey: 'yong', items: profile.yong ? [profile.yong] : [] },
+        { role: '喜神', roleKey: 'xi', items: profile.xi || [] },
+        { role: '忌神', roleKey: 'ji', items: profile.ji || [] },
+        { role: '仇神', roleKey: 'chou', items: profile.chou || [] }
+    ]
+    return roleGroups.flatMap(group => group.items.map(shen => {
+        const dims = breakdown?.[shen] || {}
+        return {
+            key: `${group.roleKey}-${shen}`,
+            role: group.role,
+            roleKey: group.roleKey,
+            name: formatShenWithGan(shen),
+            dimensions: SCORING_DIMENSION_LABELS
+                .map(([key, label]) => ({ key, label, value: Number(dims[key] || 0) }))
+                .filter(dim => dim.value !== 0)
+        }
+    })).filter(row => row.dimensions.length)
+}
+
+const scoringInfluenceRows = computed(() => buildScoringInfluenceRows(
+    fiveShenProfile.value,
+    activeProfile.value?.bazi_detail?.dimension_breakdown || {}
+))
+
 const tiaohouPanelContent = computed(() => {
     const detail = activeProfile.value?.bazi_detail?.tiaohou_detail
     if (!detail) return null
@@ -2520,9 +2526,61 @@ const lunarDateStr = computed(() => {
     return `${l.getYearInGanZhi()}年${l.getMonthInChinese()}月${l.getDayInChinese()} ${l.getTimeZhi()}时 ${activeProfile.value.gender==='M'?'乾造':'坤造'}`
 })
 
+const heroCollapseProgress = ref(0)
+const heroStickyStyle = computed(() => {
+    const p = heroCollapseProgress.value
+    return {
+        '--hero-collapse': p,
+        '--hero-pad-top': `${24 - (12 * p)}px`,
+        '--hero-pad-bottom': `${10 + (2 * p)}px`,
+        '--hero-action-top': `${18 - (6 * p)}px`,
+        '--hero-bg-alpha': 0.72 + (0.24 * p),
+        '--hero-border-alpha': 0.18 + (0.82 * p),
+        '--hero-blur': `${2 + (10 * p)}px`,
+        '--hero-shadow-y': `${10 * p}px`,
+        '--hero-shadow-blur': `${28 * p}px`,
+        '--hero-shadow-alpha': 0.08 * p,
+        '--hero-dates-margin': `${6 - (6 * p)}px`,
+        '--hero-dates-height': `${22 * (1 - p)}px`,
+        '--hero-dates-opacity': Math.max(0, 1 - (p * 1.15)),
+        '--hero-dates-offset': `${-6 * p}px`,
+        '--hero-name-size': `${42 - (22 * p)}px`,
+        '--hero-meta-margin': `${18 - (18 * p)}px`,
+        '--hero-meta-height': `${34 * (1 - p)}px`,
+        '--hero-meta-opacity': Math.max(0, 1 - (p * 1.2)),
+        '--hero-meta-offset': `${-5 * p}px`,
+        '--hero-strip-gap': `${18 - (10 * p)}px`,
+        '--hero-side-opacity': Math.max(0, 1 - (p * 1.35)),
+        '--hero-badge-width': `${48 * (1 - p)}px`,
+        '--hero-caret-width': `${9 * (1 - p)}px`,
+        '--hero-action-opacity': Math.max(0, 1 - (p * 1.35)),
+        '--hero-note-height': `${42 * (1 - p)}px`,
+        '--hero-note-opacity': Math.max(0, 1 - (p * 1.2)),
+    }
+})
+let heroScrollRaf = 0
+let heroScrollElement = null
+const getProfileScrollElement = () => document.querySelector('.main-viewport') || window
+const updateProfileHeroCollapse = () => {
+    const scrollTop = heroScrollElement && heroScrollElement !== window
+        ? heroScrollElement.scrollTop
+        : window.scrollY || document.documentElement.scrollTop || 0
+    heroCollapseProgress.value = Math.min(1, Math.max(0, scrollTop / 128))
+}
+const scheduleProfileHeroCollapse = () => {
+    if (heroScrollRaf) return
+    heroScrollRaf = window.requestAnimationFrame(() => {
+        heroScrollRaf = 0
+        updateProfileHeroCollapse()
+    })
+}
+
 // 生命周期
 onMounted(async () => {
     document.addEventListener('click', handleDocumentClick)
+    heroScrollElement = getProfileScrollElement()
+    heroScrollElement.addEventListener('scroll', scheduleProfileHeroCollapse, { passive: true })
+    updateProfileHeroCollapse()
     notesMonthKey.value = currentMonthKey.value
     syncBaziRouteState()
     const { data: { session } } = await supabase.auth.getSession()
@@ -2538,6 +2596,14 @@ onMounted(async () => {
 
 onUnmounted(() => {
     document.removeEventListener('click', handleDocumentClick)
+    if (heroScrollElement) {
+        heroScrollElement.removeEventListener('scroll', scheduleProfileHeroCollapse)
+        heroScrollElement = null
+    }
+    if (heroScrollRaf) {
+        window.cancelAnimationFrame(heroScrollRaf)
+        heroScrollRaf = 0
+    }
     stopAnalysisMotion()
     if (toastTimer) window.clearTimeout(toastTimer)
 })
@@ -2710,7 +2776,6 @@ const handleProfileSelect = () => {
 }
 
 const toggleProfileMenu = () => {
-    if (!showProfileSwitcher.value) return
     isProfileMenuOpen.value = !isProfileMenuOpen.value
 }
 
@@ -2728,7 +2793,7 @@ const selectProfile = (profileId) => {
 const handleDocumentClick = (event) => {
     const target = event.target
     if (!(target instanceof Element)) return
-    if (!target.closest('.profile-switcher')) isProfileMenuOpen.value = false
+    if (!target.closest('.profile-switcher') && !target.closest('.profile-strip-wrap') && !target.closest('.profile-bottom-sheet')) isProfileMenuOpen.value = false
 }
 
 const openAddProfile = () => {
@@ -3397,45 +3462,54 @@ const getShenColor = (shen) => {
 
 <style scoped>
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
-.bazi-view { width: 100%; min-height: 100vh; position: relative;}
+.bazi-view { width: 100%; min-height: 100vh; position: relative; background: linear-gradient(to bottom, var(--paper-soft) 0%, var(--paper) 215px); }
 
-#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; backdrop-filter: blur(24px) saturate(1.5); -webkit-backdrop-filter: blur(24px) saturate(1.5); background: rgba(5,5,10,0.65); border-bottom: 1px solid rgba(255,255,255,0.04); }
-.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
+#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: rgba(247,244,238,0.96); border-bottom: 1px solid var(--line); }
+.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
 .header-actions { position: absolute; right: 20px; top: 50%; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
 
-.page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 76px 14px 60px; }
+.page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 0 0 60px; }
 .container { width: 100%; max-width: 520px; }
 
-.glass-card { background: rgba(14,14,24,0.72); border: 1px solid rgba(232,204,128,0.12); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; backdrop-filter: blur(20px) saturate(1.2); box-shadow: 0 4px 32px rgba(0,0,0,0.35); animation: riseIn 0.5s ease both; }
+.glass-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
 
 .profile-card { position: relative; z-index: 40; padding: 16px; overflow: visible; }
 .profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
-.section-kicker { color: rgba(232,204,128,0.72); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
+.section-kicker { color: var(--gold); font-size: 10px; letter-spacing: 2px; margin-bottom: 4px; }
 .section-title { color: var(--text-primary); font-size: 14px; font-weight: 600; }
 .default-chip { color: #101018; background: linear-gradient(135deg, var(--gold-light), var(--gold)); border-radius: 999px; padding: 4px 9px; font-size: 11px; font-weight: 700; }
 
 .profile-filter-row { display: grid; grid-template-columns: minmax(0, 1fr) 48px; gap: 8px; align-items: stretch; margin-bottom: 10px; }
 .profile-switcher { position: relative; z-index: 60; min-width: 0; }
-.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(212,175,55,0.06)); color: var(--gold-light); cursor: pointer; box-shadow: inset 0 0 0 1px rgba(212,175,55,0.14); padding: 8px 12px; }
+.profile-switch-trigger { width: 100%; min-height: 48px; display: flex; align-items: center; justify-content: center; gap: 12px; border: none; border-radius: 14px; background: var(--paper-soft); color: var(--ink); cursor: pointer; box-shadow: inset 0 0 0 1px var(--line); padding: 8px 12px; }
 .profile-switch-trigger:disabled { opacity: .68; cursor: default; }
 .profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
-.profile-switch-symbol { color: var(--gold-light); font-size: 21px; line-height: 1; opacity: .92; }
-.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px rgba(212,175,55,0.24), 0 0 20px rgba(212,175,55,0.08); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: rgba(12,12,22,0.98); border: 1px solid rgba(212,175,55,0.2); box-shadow: 0 16px 40px rgba(0,0,0,0.45); backdrop-filter: blur(24px); }
+.profile-switch-symbol { color: var(--gold); font-size: 21px; line-height: 1; opacity: .92; }
+.profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px var(--gold-border); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: white; border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
 .profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
-.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
+.profile-flyout-item.active { background: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-border); }
 .profile-item-main { font-size: 14px; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
 .profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid rgba(232,204,128,0.32); background: rgba(212,175,55,0.1); color: var(--gold-light); font-size: 22px; line-height: 1; cursor: pointer; }
-.guest-limit-note { color: var(--text-muted); font-size: 11px; line-height: 1.6; margin-bottom: 12px; padding: 9px 11px; border-radius: 10px; border: 1px solid rgba(232,204,128,0.12); background: rgba(212,175,55,0.05); }
+.icon-btn { width: 48px; min-height: 48px; height: 100%; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); color: var(--gold); font-size: 22px; line-height: 1; cursor: pointer; }
+.guest-limit-note {
+    color: var(--ink-muted);
+    font-size: 12px;
+    line-height: 1.65;
+    margin: 10px 0 2px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+}
 .profile-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px; }
-.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); background: rgba(255,255,255,0.035); color: #D8D2BF; font-size: 12px; cursor: pointer; white-space: nowrap; }
-.mini-action:disabled { cursor: default; color: var(--gold-light); border-color: rgba(232,204,128,0.25); background: rgba(232,204,128,0.08); }
-.mini-action.danger { color: #FF8F88; }
-.mini-action--subtle { color: rgba(216,210,191,0.88); border-color: rgba(255,255,255,0.06); background: rgba(255,255,255,0.02); }
+.mini-action { min-height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--ink-muted); font-size: 12px; cursor: pointer; white-space: nowrap; }
+.mini-action:disabled { cursor: default; color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); }
+.mini-action.danger { color: var(--crimson); }
+.mini-action--subtle { color: var(--ink-dim); border-color: var(--line); background: var(--paper-soft); }
 .btn-ghost { min-height: 36px; background: rgba(212,175,55,0.12); color: var(--gold-light); border: 1px solid rgba(232,204,128,0.35); padding: 0 14px; border-radius: 8px; cursor: pointer; font-size: 13px; transition: all .2s; white-space: nowrap; }
 .btn-ghost:hover { background: var(--gold); color: #000; }
 .btn-ghost:disabled { opacity: .7; cursor: default; }
@@ -3445,10 +3519,10 @@ const getShenColor = (shen) => {
 .btn-primary:active { transform: scale(0.95); }
 .btn-primary:disabled { opacity: .7; cursor: wait; }
 
-.profile-form { background: rgba(255,255,255,0.025); padding: 14px; border-radius: 12px; border: 1px dashed rgba(232,204,128,0.16); margin-top: 10px; }
+.profile-form { background: var(--paper-soft); padding: 14px; border-radius: 12px; border: 1px dashed var(--gold-border); margin-top: 10px; }
 .rename-form { margin-bottom: 2px; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
-.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.4); border: 1px solid var(--glass-border); color: white; outline: none; font-family: var(--font-body); }
+.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: white; border: 1px solid var(--line); color: var(--ink); outline: none; font-family: var(--font-body); }
 .form-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 .picker-overlay {
@@ -3465,11 +3539,9 @@ const getShenColor = (shen) => {
     overflow: auto;
     overscroll-behavior: contain;
     border-radius: 24px;
-    border: 1px solid rgba(232,204,128,0.16);
-    background:
-        radial-gradient(circle at top left, rgba(232,204,128,0.06), transparent 28%),
-        linear-gradient(180deg, rgba(18,18,30,0.98), rgba(10,10,18,0.98));
-    box-shadow: 0 24px 72px rgba(0,0,0,0.45);
+    border: 1px solid var(--line);
+    background: white;
+    box-shadow: 0 24px 72px rgba(0,0,0,0.15);
     padding: 18px;
     color: var(--text-primary);
     animation: pickerSheetIn .24s ease both;
@@ -3478,7 +3550,7 @@ const getShenColor = (shen) => {
     width: 42px;
     height: 4px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.2);
+    background: var(--line);
     margin: 0 auto 14px;
 }
 .picker-topbar {
@@ -3489,22 +3561,22 @@ const getShenColor = (shen) => {
     margin-bottom: 16px;
 }
 .picker-topcopy { min-width: 0; }
-.picker-heading { color: #F4EBDD; font-size: 16px; font-weight: 700; }
+.picker-heading { color: var(--ink); font-size: 16px; font-weight: 700; }
 .picker-mode-tabs {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     gap: 4px;
     padding: 4px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(232,204,128,0.16);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .picker-mode-tab {
     min-height: 40px;
     border: none;
     border-radius: 999px;
     background: transparent;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
@@ -3512,15 +3584,15 @@ const getShenColor = (shen) => {
 .picker-mode-tab.active {
     background: linear-gradient(135deg, rgba(232,204,128,0.94), rgba(212,175,55,0.94));
     color: #111114;
-    box-shadow: 0 6px 18px rgba(212,175,55,0.18);
+    box-shadow: 0 4px 12px rgba(212,175,55,0.18);
 }
 .picker-close.dark {
     position: relative;
     z-index: 2;
     justify-self: end;
-    background: rgba(255,255,255,0.04);
-    color: #B8AF9B;
-    border-color: rgba(232,204,128,0.16);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
+    border-color: var(--line);
 }
 .picker-form-row {
     display: grid;
@@ -3536,7 +3608,7 @@ const getShenColor = (shen) => {
 .picker-gender-field > span {
     display: block;
     margin-bottom: 8px;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 12px;
     font-weight: 700;
 }
@@ -3544,56 +3616,56 @@ const getShenColor = (shen) => {
     width: 100%;
     min-height: 44px;
     border: none;
-    border-bottom: 1px solid rgba(232,204,128,0.18);
+    border-bottom: 1px solid var(--line);
     border-radius: 0;
     background: transparent;
-    color: #F4EBDD;
+    color: var(--ink);
     padding: 0 2px;
     font-size: 14px;
     outline: none;
 }
 .picker-text-field input:focus {
-    border-color: rgba(232,204,128,0.5);
+    border-color: var(--gold);
 }
 .gender-segment {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
     min-height: 44px;
-    border-bottom: 1px solid rgba(232,204,128,0.18);
+    border-bottom: 1px solid var(--line);
 }
 .gender-segment button {
     border: none;
     background: transparent;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
 }
 .gender-segment button.active {
-    color: #F4EBDD;
-    box-shadow: inset 0 -2px 0 var(--gold-light);
+    color: var(--ink);
+    box-shadow: inset 0 -2px 0 var(--gold);
 }
 .picker-panel {
-    border-top: 1px solid rgba(232,204,128,0.1);
+    border-top: 1px solid var(--line);
     padding-top: 14px;
 }
 .picker-column { display: flex; flex-direction: column; gap: 8px; }
 .picker-column-label {
     text-align: left;
-    color: #E5D5AF;
+    color: var(--ink-muted);
     font-size: 14px;
     font-weight: 700;
 }
 .picker-preview-card {
     border-radius: 16px;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
     padding: 12px 14px;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     line-height: 1.7;
     font-size: 13px;
 }
-.picker-preview-card.muted { color: #8D9098; }
+.picker-preview-card.muted { color: var(--ink-dim); }
 .date-input-panel {
     display: flex;
     flex-direction: column;
@@ -3602,24 +3674,21 @@ const getShenColor = (shen) => {
 }
 .date-input-card {
     border-radius: 18px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
-        rgba(0,0,0,0.16);
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
     padding: 14px;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 .location-search-card {
     min-width: 0;
     position: relative;
-    border-top: 1px solid rgba(232,204,128,0.1);
-    border-bottom: 1px solid rgba(232,204,128,0.1);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
     padding: 13px 0 12px;
 }
 .location-search-field span {
     display: block;
     margin-bottom: 8px;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 12px;
     font-weight: 700;
 }
@@ -3629,16 +3698,16 @@ const getShenColor = (shen) => {
     align-items: center;
     gap: 9px;
     min-height: 48px;
-    border: 1px solid rgba(232,204,128,0.14);
+    border: 1px solid var(--line);
     border-radius: 999px;
-    background: rgba(6,6,14,0.62);
+    background: white;
     padding: 0 12px;
 }
 .location-search-input-wrap svg {
     width: 18px;
     height: 18px;
     flex: 0 0 auto;
-    color: #AFA79A;
+    color: var(--ink-dim);
     fill: none;
     stroke: currentColor;
     stroke-width: 1.8;
@@ -3650,21 +3719,21 @@ const getShenColor = (shen) => {
     min-width: 0;
     border: none;
     background: transparent;
-    color: #F7F0E2;
+    color: var(--ink);
     font-size: 14px;
     outline: none;
 }
 .location-search-input-wrap:focus-within {
-    border-color: rgba(232,204,128,0.34);
-    box-shadow: 0 0 0 1px rgba(232,204,128,0.12);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold-border);
 }
 .location-clear-btn {
     width: 28px;
     height: 28px;
     border: none;
     border-radius: 50%;
-    background: rgba(255,255,255,0.06);
-    color: #D8D2BF;
+    background: var(--line);
+    color: var(--ink-muted);
     font-size: 20px;
     line-height: 1;
     cursor: pointer;
@@ -3673,8 +3742,8 @@ const getShenColor = (shen) => {
     margin-top: 10px;
     max-height: 252px;
     overflow: auto;
-    border-top: 1px solid rgba(255,255,255,0.06);
-    border-bottom: 1px solid rgba(255,255,255,0.06);
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
 }
 .location-result-item {
     width: 100%;
@@ -3682,9 +3751,9 @@ const getShenColor = (shen) => {
     gap: 3px;
     padding: 13px 2px;
     border: none;
-    border-bottom: 1px solid rgba(255,255,255,0.055);
+    border-bottom: 1px solid var(--line);
     background: transparent;
-    color: #F4EBDD;
+    color: var(--ink);
     text-align: left;
     cursor: pointer;
 }
@@ -3694,15 +3763,15 @@ const getShenColor = (shen) => {
     font-weight: 700;
 }
 .location-result-item small {
-    color: #928A7C;
+    color: var(--ink-dim);
     font-size: 11px;
 }
 .location-result-item:hover {
-    color: var(--gold-light);
+    color: var(--gold);
 }
 .location-empty {
     padding: 16px 2px;
-    color: #8D9098;
+    color: var(--ink-dim);
     font-size: 13px;
 }
 .time-toggle-row {
@@ -3716,7 +3785,7 @@ const getShenColor = (shen) => {
     align-items: center;
     gap: 8px;
     min-height: 30px;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 13px;
     font-weight: 700;
 }
@@ -3726,7 +3795,7 @@ const getShenColor = (shen) => {
     accent-color: var(--gold);
 }
 .time-check.active {
-    color: #F4EBDD;
+    color: var(--ink);
 }
 .time-check.disabled {
     opacity: .62;
@@ -3734,7 +3803,7 @@ const getShenColor = (shen) => {
 .date-input-label {
     display: block;
     margin-bottom: 10px;
-    color: #F4EBDD;
+    color: var(--ink);
     font-size: 15px;
     font-weight: 700;
 }
@@ -3742,27 +3811,26 @@ const getShenColor = (shen) => {
     width: 100%;
     min-height: 54px;
     border-radius: 16px;
-    border: 1px solid rgba(232,204,128,0.18);
-    background: rgba(6,6,14,0.72);
-    color: #F7F0E2;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
     padding: 0 16px;
     font-size: 21px;
     letter-spacing: 0.14em;
     outline: none;
-    box-shadow: inset 0 0 18px rgba(0,0,0,0.24);
 }
 .date-input-card input::placeholder {
-    color: rgba(212,204,190,0.34);
+    color: var(--ink-dim);
     letter-spacing: normal;
     font-size: 15px;
 }
 .date-input-card input:focus {
-    border-color: rgba(232,204,128,0.38);
-    box-shadow: 0 0 0 1px rgba(232,204,128,0.16), inset 0 0 18px rgba(0,0,0,0.24);
+    border-color: var(--gold);
+    box-shadow: 0 0 0 1px var(--gold-border);
 }
 .date-input-hint {
     margin-top: 10px;
-    color: #9E988B;
+    color: var(--ink-dim);
     font-size: 12px;
     line-height: 1.6;
 }
@@ -3774,21 +3842,21 @@ const getShenColor = (shen) => {
 .date-segment {
     min-width: 0;
     border-radius: 16px;
-    border: 1px solid rgba(232,204,128,0.1);
-    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
     padding: 12px 6px;
     text-align: center;
 }
 .date-segment span {
     display: block;
     margin-bottom: 6px;
-    color: #928A7C;
+    color: var(--ink-dim);
     font-size: 11px;
     letter-spacing: 1px;
 }
 .date-segment strong {
     display: block;
-    color: #F4EBDD;
+    color: var(--ink);
     font-size: 16px;
     font-weight: 700;
     letter-spacing: 0.06em;
@@ -3801,12 +3869,10 @@ const getShenColor = (shen) => {
 }
 .pillar-slot {
     min-height: 104px;
-    border: 1px solid rgba(232,204,128,0.14);
+    border: 1px solid var(--line);
     border-radius: 24px;
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.025), rgba(255,255,255,0.01)),
-        rgba(7,7,16,0.72);
-    color: #D8D2BF;
+    background: var(--paper-soft);
+    color: var(--ink-muted);
     padding: 12px 8px;
     display: flex;
     flex-direction: column;
@@ -3814,35 +3880,30 @@ const getShenColor = (shen) => {
     align-items: center;
     justify-content: center;
     cursor: pointer;
-    box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
 }
 .pillar-slot.derived {
-    background: rgba(255,255,255,0.018);
+    background: white;
 }
 .pillar-slot.active {
-    border-color: rgba(232,204,128,0.46);
-    background:
-        linear-gradient(180deg, rgba(232,204,128,0.12), rgba(232,204,128,0.04)),
-        rgba(18,12,6,0.64);
-    box-shadow: inset 0 0 18px rgba(212,175,55,0.08);
+    border-color: var(--gold-border);
+    background: var(--gold-dim);
+    box-shadow: inset 0 0 0 1px var(--gold-border);
 }
 .slot-label {
     font-size: 14px;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-weight: 700;
 }
 .slot-value {
     font-size: 26px;
-    color: #F4EBDD;
+    color: var(--ink);
     font-family: var(--font-ganzhi);
     font-weight: 600;
 }
 .pillar-choice-panel {
     border-radius: 24px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background:
-        radial-gradient(circle at top right, rgba(232,204,128,0.05), transparent 28%),
-        rgba(5,5,14,0.68);
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
     padding: 14px;
     margin-bottom: 14px;
 }
@@ -3861,12 +3922,12 @@ const getShenColor = (shen) => {
 }
 .pillar-rule-tip {
     margin-bottom: 12px;
-    color: #AFA79A;
+    color: var(--ink-dim);
     font-size: 12px;
     line-height: 1.6;
 }
 .orb-title {
-    color: #BBAF94;
+    color: var(--ink-muted);
     font-size: 12px;
     letter-spacing: 1px;
     margin-bottom: 10px;
@@ -3880,19 +3941,18 @@ const getShenColor = (shen) => {
 .choice-chip {
     min-height: 58px;
     border-radius: 18px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background:
-        linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.012)),
-        rgba(10,10,20,0.78);
+    border: 1px solid var(--line);
+    background: white;
     font-size: 24px;
     font-weight: 700;
     font-family: var(--font-ganzhi);
+    color: var(--ink);
     cursor: pointer;
 }
 .choice-chip.active {
-    border-color: rgba(232,204,128,0.46);
-    background: rgba(212,175,55,0.12);
-    box-shadow: inset 0 0 16px rgba(212,175,55,0.08);
+    border-color: var(--gold-border);
+    background: var(--gold-dim);
+    box-shadow: inset 0 0 0 1px var(--gold-border);
 }
 .choice-chip.disabled {
     opacity: .36;
@@ -3943,10 +4003,10 @@ const getShenColor = (shen) => {
     to { transform: translateX(0); opacity: 1; }
 }
 
-.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid rgba(232,204,128,0.12); padding-bottom: 14px; margin-bottom: 14px; }
+.bazi-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 14px; margin-bottom: 14px; }
 .bazi-header-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
 .name-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
-.bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold-light); letter-spacing: 2px; font-weight: bold; }
+.bazi-name { font-family: var(--font-serif); font-size: 20px; color: var(--gold); letter-spacing: 2px; font-weight: bold; }
 .bazi-meta { font-size: 11px; color: var(--text-muted); line-height: 1.6; margin-top: 2px; }
 
 .badge { font-size: 10px; padding: 2px 6px; border-radius: 4px; font-family: var(--font-body); letter-spacing: 1px; font-weight: 500; }
@@ -3956,17 +4016,17 @@ const getShenColor = (shen) => {
 .badge-action:hover, .badge-action:focus-visible { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(78,205,196,0.12); outline: none; }
 .pattern-tag { font-size: 10px; color: #E8CC80; background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.2); padding: 2px 6px; border-radius: 4px; display: inline-block; margin-right: 4px; margin-top: 4px; }
 
-.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid rgba(232,204,128,0.16); border-radius: 12px; background: rgba(232,204,128,0.055); }
-.analysis-status.done { border-color: rgba(129,199,132,0.22); background: rgba(129,199,132,0.07); }
+.analysis-status { position: relative; display: flex; align-items: center; gap: 12px; overflow: hidden; margin: -2px 0 14px; padding: 12px; border: 1px solid var(--gold-border); border-radius: 12px; background: var(--gold-dim); }
+.analysis-status.done { border-color: rgba(13,148,136,0.22); background: rgba(13,148,136,0.07); }
 .loader-orbit { position: relative; width: 30px; height: 30px; flex: 0 0 30px; border: 1px solid rgba(232,204,128,0.25); border-radius: 50%; animation: spin 1.6s linear infinite; }
 .loader-orbit span { position: absolute; width: 5px; height: 5px; border-radius: 50%; background: var(--gold-light); box-shadow: 0 0 10px rgba(232,204,128,.65); }
 .loader-orbit span:nth-child(1) { top: -3px; left: 12px; }
 .loader-orbit span:nth-child(2) { right: 0; bottom: 4px; opacity: .7; }
 .loader-orbit span:nth-child(3) { left: 1px; bottom: 5px; opacity: .45; }
 .analysis-copy { min-width: 0; flex: 1; }
-.analysis-title { color: #F5E9CE; font-size: 13px; font-weight: 700; margin-bottom: 3px; }
+.analysis-title { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .analysis-subtitle { color: var(--text-muted); font-size: 11px; }
-.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(255,255,255,0.06); }
+.analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -3997,66 +4057,66 @@ const getShenColor = (shen) => {
 .bazi-table-wrap { width: 100%; overflow: hidden; }
 .bazi-table {
     --bz-cell-py: 8px;
-    --bz-label-size: 10px;
-    --bz-meta-size: 10px;
-    --bz-char-size: 16px;
+    --bz-label-size: 12px;
+    --bz-meta-size: 12px;
+    --bz-char-size: 18px;
     table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
     text-align: center;
 }
-.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid rgba(255,255,255,0.03); vertical-align: middle; word-wrap: break-word; }
-.bazi-table th { color: var(--gold-light); font-family: var(--font-serif); font-size: 12px; font-weight: normal; letter-spacing: 1px; }
-.bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
+.bazi-table th, .bazi-table td { padding: var(--bz-cell-py) 0; border-bottom: 1px solid var(--line); vertical-align: middle; word-wrap: break-word; }
+.bazi-table th { color: var(--gold); font-family: var(--font-serif); font-size: 13px; font-weight: normal; letter-spacing: 1px; }
+.bazi-table th:first-child, .bazi-table td:first-child { width: 48px; }
 
-.bz-label { color: var(--text-muted); font-weight: 500; font-size: var(--bz-label-size); }
-.bz-star { font-size: var(--bz-meta-size); color: var(--text-primary); }
+.bz-label { color: var(--ink-muted); font-weight: 500; font-size: var(--bz-label-size); }
+.bz-star { font-size: var(--bz-meta-size); color: var(--ink); }
 .bz-char { font-size: var(--bz-char-size); font-weight: 600; font-family: var(--font-ganzhi); margin: 2px 0; }
-.bz-sub { font-size: var(--bz-meta-size); color: #aaa; line-height: 1.4; }
-.bz-shensha { font-size: 9px; color: #B39DDB; line-height: 1.4; }
+.bz-sub { font-size: var(--bz-meta-size); color: var(--ink-muted); line-height: 1.4; }
+.bz-shensha { font-size: 11px; color: #7c5cbf; line-height: 1.4; }
 .matrix-fallback-note {
     margin-top: 12px;
     padding: 12px 14px;
     border-radius: 12px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background: rgba(232,204,128,0.05);
-    color: var(--gold-light);
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    color: var(--gold);
     font-size: 12px;
     line-height: 1.7;
 }
 
 .wx-jin { color: #E8CC80; } .wx-mu { color: #81C784; } .wx-shui { color: #64B5F6; } .wx-huo { color: #E57373; } .wx-tu { color: #DCE775; } .wx-none { color: #666; }
 
-.timeline-section { margin-top: 16px; border-top: 1px dashed var(--glass-border); padding-top: 16px; }
+.timeline-section { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px; }
 .timeline-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .timeline-title { font-size: 14px; color: var(--gold); margin-bottom: 0; font-family: var(--font-serif); text-align: center; font-weight: 500; }
 .timeline-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid rgba(232,204,128,0.16); background: rgba(255,255,255,0.04); color: var(--gold-light); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.timeline-icon-btn { width: 30px; height: 30px; border-radius: 999px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--gold); display: inline-flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
 .timeline-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.timeline-icon-btn.accent { background: rgba(212,175,55,0.14); border-color: rgba(232,204,128,0.26); }
+.timeline-icon-btn.accent { background: var(--gold-dim); border-color: var(--gold-border); }
 
-.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; background: rgba(0,0,0,0.25); overflow: hidden; }
-.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: rgba(212,175,55,0.06); color: var(--gold-light); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid rgba(255,255,255,0.05); flex-shrink: 0; line-height: 1.3; }
+.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; overflow: hidden; }
+.row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: var(--gold-dim); color: var(--gold); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid var(--line); flex-shrink: 0; line-height: 1.3; }
 .row-content { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 4px; flex: 1; scroll-snap-type: x proximity; }
 .row-content::-webkit-scrollbar { display: none; }
 
 .link-item { display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 58px; padding: 6px 4px; border-radius: 8px; cursor: pointer; transition: all 0.2s; flex-shrink: 0; border: 1px solid transparent; scroll-snap-align: center; }
-.link-item.active { background: rgba(255,255,255,0.05); border-color: rgba(212,175,55,0.4); box-shadow: inset 0 0 15px rgba(212,175,55,0.08); }
+.link-item.active { background: var(--gold-dim); border-color: var(--gold-border); }
 .lr-item { min-width: 52px; }
 
-.item-header { font-size: 10px; color: #aaa; margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
+.item-header { font-size: 10px; color: var(--ink-dim); margin-bottom: 5px; text-align: center; line-height: 1.35; min-height: 28px; display: flex; align-items: center; justify-content: center; }
 .item-body { display: flex; flex-direction: row; gap: 4px; align-items: center; justify-content: center; flex-wrap: nowrap; min-height: 22px; }
 .stacked-ganzhi { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.xiaoyun-body { font-size: 14px; color: #777; margin-top: 8px; }
+.xiaoyun-body { font-size: 14px; color: var(--ink-dim); margin-top: 8px; }
 
 .char-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 18px; min-width: 18px; height: 20px; padding-right: 8px; flex: 0 0 auto; }
 .stacked-ganzhi .char-wrap { width: 100%; min-width: 0; height: 19px; padding-right: 10px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
-.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.14); background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.02)); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
-.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: linear-gradient(180deg, rgba(8,8,16,0.12), rgba(8,8,16,0.28)); pointer-events: none; }
-.fortune-guide-title { color: var(--gold-light); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
-.fortune-guide-copy { color: #D8D2BF; font-size: 12px; line-height: 1.6; }
-.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid rgba(232,204,128,0.3); border-radius: 999px; background: rgba(212,175,55,0.16); color: var(--gold-light); font-size: 12px; font-weight: 700; cursor: pointer; }
+.fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
+.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(247,244,238,0.72); pointer-events: none; }
+.fortune-guide-title { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.fortune-guide-copy { color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
+.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--gold-border); border-radius: 999px; background: white; color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .shi-shen { position: absolute; right: -14px; top: -1px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
 .shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
@@ -4069,7 +4129,8 @@ const getShenColor = (shen) => {
 .ss-吉 { color: #68D391; }
 .ss-中性 { color: #B39DDB; }
 .ss-凶 { color: #FC8181; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+/* ── Bottom Sheet overlay（所有小 i 弹出均从底部滑出）──────── */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
 .modal-overlay.picker-overlay {
     align-items: flex-end;
     justify-content: center;
@@ -4081,29 +4142,29 @@ const getShenColor = (shen) => {
         padding: 0;
     }
 }
-.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: riseIn 0.3s ease; }
-.shensha-modal h4 { color: var(--gold-light); font-size: 16px; margin: 0; font-family: var(--font-serif); }
-.shensha-modal p { font-size: 13px; color: #D0D0D8; line-height: 1.6; }
+.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 560px; box-shadow: 0 -4px 40px rgba(0,0,0,0.25); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
+.shensha-modal h4 { color: var(--gold); font-size: 16px; margin: 0; font-family: var(--font-serif); }
+.shensha-modal p { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
 .shensha-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 10px; margin-bottom: 10px; }
 .shensha-nature-badge { font-size: 11px; font-weight: 700; letter-spacing: 1px; padding: 2px 8px; border-radius: 20px; flex-shrink: 0; }
 .nature-吉 { background: rgba(72,187,120,0.18); color: #68D391; border: 1px solid rgba(72,187,120,0.4); }
 .nature-凶 { background: rgba(245,101,101,0.18); color: #FC8181; border: 1px solid rgba(245,101,101,0.4); }
 .nature-中性 { background: rgba(160,160,180,0.15); color: #CBD5E0; border: 1px solid rgba(160,160,180,0.3); }
-.shensha-summary { font-size: 13px; color: #D0D0D8; line-height: 1.7; margin: 0 0 10px; }
+.shensha-summary { font-size: 13px; color: var(--ink-muted); line-height: 1.7; margin: 0 0 10px; }
 .shensha-section { display: flex; gap: 8px; align-items: flex-start; font-size: 12px; line-height: 1.65; padding: 6px 10px; border-radius: 6px; margin-bottom: 6px; }
 .shensha-section-label { font-weight: 700; letter-spacing: 1px; flex-shrink: 0; font-size: 11px; padding-top: 1px; }
-.shensha-ji { background: rgba(72,187,120,0.08); color: #9AE6B4; }
-.shensha-ji .shensha-section-label { color: #68D391; }
-.shensha-xiong { background: rgba(245,101,101,0.08); color: #FEB2B2; }
-.shensha-xiong .shensha-section-label { color: #FC8181; }
-.shensha-note { background: rgba(212,175,55,0.07); color: #C8B87A; }
-.shensha-note .shensha-section-label { color: var(--gold); }
-.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid rgba(232,204,128,0.24); background: linear-gradient(135deg, rgba(18,18,34,0.98), rgba(11,11,24,0.98)); box-shadow: 0 18px 48px rgba(0,0,0,0.58); animation: riseIn 0.3s ease; }
+.shensha-ji { background: rgba(72,187,120,0.1); color: #276749; }
+.shensha-ji .shensha-section-label { color: #276749; }
+.shensha-xiong { background: rgba(245,101,101,0.08); color: #9b2c2c; }
+.shensha-xiong .shensha-section-label { color: #c53030; }
+.shensha-note { background: rgba(212,175,55,0.08); color: #7b5e0a; }
+.shensha-note .shensha-section-label { color: #b7791f; }
+.guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: white; box-shadow: 0 -4px 40px rgba(0,0,0,.15); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
-.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold-light); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
-.guest-login-modal p { margin: 0; color: rgba(240,237,230,0.84); font-size: 13px; line-height: 1.8; }
-.guest-login-modal a { color: #9DB7FF; text-decoration: none; border-bottom: 1px solid rgba(157,183,255,0.46); }
-.guest-login-modal a:hover { color: #C8D5FF; border-bottom-color: rgba(200,213,255,0.82); }
+.guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
+.guest-login-modal p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
+.guest-login-modal a { color: #2563eb; text-decoration: none; border-bottom: 1px solid rgba(37,99,235,0.3); }
+.guest-login-modal a:hover { color: #1d4ed8; border-bottom-color: rgba(29,78,216,0.6); }
 .guest-login-close { position: absolute; right: 12px; top: 12px; }
 
 /* 关系可视化面板已经移除旧版CSS */
@@ -4115,7 +4176,7 @@ const getShenColor = (shen) => {
 .ai-section > .ai-header-title { margin-bottom: 12px; }
 .ai-header-title::before { content: '✧'; font-size: 12px; }
 .info-button, .close-button { display: inline-flex; align-items: center; justify-content: center; border: 1px solid rgba(232,204,128,0.28); background: rgba(232,204,128,0.08); color: var(--gold-light); cursor: pointer; }
-.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: Georgia, serif; font-style: italic; font-weight: 700; }
+.info-button { width: 26px; height: 26px; border-radius: 50%; font-family: var(--font-display); font-style: italic; font-weight: 700; }
 .close-button { width: 32px; height: 32px; border-radius: 8px; font-size: 22px; line-height: 1; }
 
 /* ── 天机锦囊 五神行 ─────────────────────────────── */
@@ -4126,7 +4187,7 @@ const getShenColor = (shen) => {
 .five-shen-cell.is-xi   { background: rgba(129,199,132,0.08); border-color: rgba(129,199,132,0.2); }
 .five-shen-cell.is-ji   { background: rgba(229,115,115,0.08); border-color: rgba(229,115,115,0.25); }
 .five-shen-cell.is-chou { background: rgba(200,70,70,0.07);   border-color: rgba(200,70,70,0.2); }
-.five-shen-cell.is-xian { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.06); }
+.five-shen-cell.is-xian { background: var(--paper-soft); border-color: var(--line); }
 .five-shen-role { font-size: 9px; color: var(--text-muted); margin-bottom: 3px; }
 .five-shen-name { font-size: 12px; font-weight: 500; }
 .five-shen-cell.is-yong .five-shen-name { color: var(--gold); }
@@ -4136,14 +4197,34 @@ const getShenColor = (shen) => {
 .five-shen-cell.is-xian .five-shen-name { color: var(--text-muted); }
 .five-shen-note { font-size: 9px; color: var(--text-muted); margin-top: 2px; }
 /* ── 锦囊断语块 ─────────────────────────────────── */
-.jinnang-block { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.jinnang-block { padding: 10px 0; border-bottom: 1px solid var(--line); }
 .jinnang-block:last-of-type { border-bottom: none; margin-bottom: 8px; }
 .jinnang-block-warn .jinnang-block-label { color: #E57373; opacity: 0.85; }
 .jinnang-block-label { font-size: 10px; color: var(--gold); opacity: 0.75; margin-bottom: 4px; letter-spacing: 0.5px; }
-.jinnang-block-text { font-size: 13px; color: var(--text-secondary); line-height: 1.65; margin: 0; }
+.jinnang-block-text { font-size: 14px; color: var(--ink); line-height: 1.65; margin: 0; }
 /* ── Scoring modal 决策链 + 新角色标签 ──────────── */
-.decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: rgba(255,255,255,0.02); border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
-.decision-chain-item { padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.04); display: flex; flex-direction: column; gap: 2px; }
+.tag-action {
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.tag-action:hover, .tag-action:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(212,175,55,0.12);
+    outline: none;
+}
+/* 旺衰格局 label 覆盖色 */
+.wangshui-label {
+    color: var(--gold);
+    background: rgba(232,204,128,0.13);
+    border-color: rgba(232,204,128,0.32);
+}
+.geju-label {
+    color: #9fd3c7;
+    background: rgba(111,188,186,0.1);
+    border-color: rgba(111,188,186,0.25);
+}
+.decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: var(--paper-soft); border-radius: 10px; border: 1px solid var(--line); }
+.decision-chain-item { padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
 .decision-chain-item:last-child { border-bottom: none; }
 .decision-layer { font-size: 10px; color: var(--gold); opacity: 0.8; }
 .decision-reason { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
@@ -4154,17 +4235,69 @@ const getShenColor = (shen) => {
 .scoring-item.chou-item { border-left-color: #ef9a9a; }
 .shen-badge.shen-yong { background: rgba(232,204,128,0.12); color: var(--gold); }
 .shen-badge.shen-chou { background: rgba(200,70,70,0.1); color: #ef9a9a; }
+.scoring-detail-drawer .insight-scroll-body {
+    padding-top: 10px;
+}
+.scoring-prose-list + .scoring-prose-list {
+    border-top: 1px solid var(--line);
+    margin-top: 2px;
+}
+.scoring-overview-head {
+    padding-top: 12px;
+}
+.scoring-section-heading .insight-prose-label {
+    font-size: 17px;
+    line-height: 1.45;
+}
+.scoring-prose-item .insight-prose-head {
+    margin-bottom: 8px;
+}
+.scoring-override {
+    color: var(--crimson);
+}
+.scoring-role-yong { color: var(--gold); }
+.scoring-role-xi { color: #2e7d32; }
+.scoring-role-ji,
+.scoring-role-chou { color: #c62828; }
+.scoring-inline-dims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+}
+.scoring-inline-dim {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    min-height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.scoring-inline-dim span {
+    color: var(--ink-muted);
+}
+.scoring-inline-dim strong {
+    font-weight: 800;
+}
+.scoring-inline-dim.dim-pos strong {
+    color: #2e7d32;
+}
+.scoring-inline-dim.dim-neg strong {
+    color: #c62828;
+}
 
 .xiji-box { display: flex; gap: 8px; margin-bottom: 14px; }
-.xiji-item { flex: 1; background: rgba(255,255,255,0.02); border: 1px solid var(--glass-border); border-radius: 10px; padding: 10px; text-align: center; }
+.xiji-item { flex: 1; background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; }
 .xiji-label { font-size: 10px; color: var(--text-muted); margin-bottom: 4px; }
 .xiji-val { font-weight: 500; font-size: 13px; }
 .xiji-val.favorable { color: #81C784; }
 .xiji-val.unfavorable { color: #E57373; }
 
-.insight-card { background: linear-gradient(180deg, rgba(232,204,128,0.06) 0%, rgba(255,255,255,0.015) 100%); border: 1px solid rgba(232,204,128,0.12); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-.insight-card h4 { color: var(--gold-light); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed rgba(212,175,55,0.2); padding-bottom: 6px; }
-.insight-card p { line-height: 1.65; font-size: 13px; color: #D8D2BF; }
+.insight-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.insight-card h4 { color: var(--gold); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed var(--gold-border); padding-bottom: 6px; }
+.insight-card p { line-height: 1.65; font-size: 14px; color: var(--ink); }
 .tiaohou-card {
     border-color: rgba(111, 188, 186, 0.22);
     background: linear-gradient(180deg, rgba(111, 188, 186, 0.08) 0%, rgba(232,204,128,0.035) 100%);
@@ -4214,8 +4347,8 @@ const getShenColor = (shen) => {
     min-width: 0;
     padding: 9px 10px;
     border-radius: 10px;
-    background: rgba(0,0,0,0.16);
-    border: 1px solid rgba(255,255,255,0.07);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .tiaohou-god-cell span {
     display: block;
@@ -4225,7 +4358,7 @@ const getShenColor = (shen) => {
 }
 .tiaohou-god-cell strong {
     display: block;
-    color: #eef1df;
+    color: var(--ink);
     font-size: 12px;
     line-height: 1.4;
     overflow-wrap: anywhere;
@@ -4308,21 +4441,19 @@ const getShenColor = (shen) => {
     padding: 2px 10px;
 }
 .tag-row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; }
-.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed rgba(232,204,128,0.14); min-width: 0; }
-.verdict-line span { display: block; flex: 0 0 auto; color: rgba(232,204,128,0.72); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
-.verdict-line p { flex: 1; min-width: 0; color: #F3EBDD; font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verdict-line { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--gold-border); min-width: 0; }
+.verdict-line span { display: block; flex: 0 0 auto; color: var(--gold); font-size: 11px; margin-bottom: 0; white-space: nowrap; }
+.verdict-line p { flex: 1; min-width: 0; color: var(--ink); font-size: 14px; font-weight: 600; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .overload-tag { color: #FF8F88; font-size: 12px; animation: pulse 1.5s infinite; }
 
-.legacy-summary { background: rgba(212,175,55,0.05); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: #D0D0D8; line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
+.legacy-summary { background: var(--gold-dim); border: 1px solid var(--gold-border); border-radius: 12px; padding: 14px; font-size: 12px; color: var(--ink-muted); line-height: 1.8; white-space: pre-wrap; margin-top: 16px; }
 
 .classic-verdict-section {
-    border: 1px solid rgba(212,175,55,0.24);
+    border: 1px solid var(--gold-border);
     border-radius: 12px;
     padding: 14px;
-    background:
-        linear-gradient(180deg, rgba(232,204,128,0.08), rgba(0,0,0,0.08)),
-        rgba(255,255,255,0.02);
+    background: var(--gold-dim);
 }
 .classic-header {
     display: flex;
@@ -4331,7 +4462,7 @@ const getShenColor = (shen) => {
     gap: 12px;
     padding-bottom: 10px;
     margin-bottom: 12px;
-    border-bottom: 1px dashed rgba(212,175,55,0.24);
+    border-bottom: 1px dashed var(--gold-border);
 }
 .classic-main-title {
     margin-bottom: 6px;
@@ -4360,7 +4491,7 @@ const getShenColor = (shen) => {
 }
 .classic-body p {
     margin: 0;
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.75;
     font-family: var(--font-body);
@@ -4370,8 +4501,205 @@ const getShenColor = (shen) => {
     font-size: 12px;
     font-family: var(--font-body);
     padding-left: 10px;
-    border-left: 2px solid rgba(212,175,55,0.2);
+    border-left: 2px solid var(--gold-border);
 }
+
+/* ── Article-style report sections ─────────────────────── */
+.rpt-section {
+    padding-top: 28px;
+    margin-top: 24px;
+    border-top: 1px solid var(--line);
+}
+.rpt-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+}
+.rpt-head-left {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.rpt-kicker {
+    font-family: var(--font-serif);
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: 1px;
+    text-transform: none;
+    font-weight: 700;
+    color: var(--gold);
+}
+.rpt-h2 {
+    font-family: var(--font-display);
+    font-size: 22px;
+    font-weight: 600;
+    color: var(--ink);
+    margin: 0 0 6px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+.rpt-h2-tag {
+    cursor: pointer;
+    color: var(--gold);
+    transition: opacity .15s;
+}
+.rpt-h2-tag:hover { opacity: .75; }
+.rpt-h2-sep { color: var(--line); font-weight: 300; }
+.rpt-h2-badge {
+    font-size: 13px;
+    color: #2e7d4a;
+    font-weight: 500;
+    background: rgba(46,125,74,0.08);
+    border: 1px solid rgba(46,125,74,0.18);
+    padding: 1px 8px;
+    border-radius: 4px;
+    font-family: var(--font-body);
+}
+.rpt-byline {
+    font-size: 12px;
+    color: var(--ink-muted);
+    margin: 0 0 12px;
+    line-height: 1.6;
+}
+.rpt-prose {
+    font-size: 14px;
+    color: var(--ink);
+    line-height: 1.72;
+    margin: 0 0 10px;
+}
+.rpt-prose-warn { color: var(--crimson, #c62828); opacity: 0.85; }
+/* Sub-section within article */
+.rpt-sub {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+}
+.rpt-sub-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+.rpt-kicker-sm {
+    font-family: var(--font-serif);
+    font-size: 16px;
+    line-height: 1.3;
+    letter-spacing: 0.8px;
+    text-transform: none;
+    font-weight: 700;
+    color: var(--gold);
+}
+.rpt-sub-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--ink);
+}
+/* Inline stat row (replaces god-grid boxes) */
+.rpt-stat-row {
+    display: flex;
+    gap: 0;
+    margin: 8px 0 14px;
+    padding: 8px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.rpt-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+    padding: 0 10px;
+}
+.rpt-stat:first-child { padding-left: 0; }
+.rpt-stat:not(:last-child) { border-right: 1px solid var(--line); }
+.rpt-stat-l {
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.5px;
+}
+.rpt-stat strong {
+    font-size: 13px;
+    color: var(--ink);
+    font-weight: 600;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+}
+/* Warning line */
+.rpt-warn-line {
+    font-size: 12px;
+    color: var(--crimson, #c62828);
+    opacity: 0.82;
+    border-left: 2px solid rgba(220,38,38,0.3);
+    padding: 3px 0 3px 10px;
+    margin: 6px 0 0;
+}
+/* Five-shen horizontal strip */
+.rpt-shen-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 8px 0 16px;
+    padding: 10px 0;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.rpt-shen-tag {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+}
+.rpt-shen-role {
+    font-size: 10px;
+    color: var(--ink-muted);
+    letter-spacing: 0.5px;
+}
+.rpt-shen-val {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+}
+.rpt-shen-val.favorable { color: #2e7d32; }
+.rpt-shen-val.unfavorable { color: #c62828; }
+.rpt-shen-tag.is-yong .rpt-shen-role { color: var(--gold); }
+.rpt-shen-tag.is-ji .rpt-shen-val { color: rgba(192,57,43,0.8); }
+.rpt-shen-tag.is-chou .rpt-shen-val { color: rgba(192,57,43,0.55); }
+.rpt-shen-note { font-size: 10px; color: var(--ink-dim); }
+/* Lead word before prose */
+.rpt-lead-w {
+    color: var(--ink);
+    font-weight: 700;
+    margin-right: 2px;
+}
+.rpt-run-label {
+    color: var(--gold);
+    font-weight: 700;
+    margin-right: 6px;
+}
+/* Feedback block */
+.rpt-feedback {
+    margin-top: 10px;
+    border-left: 2px solid var(--line);
+    padding: 4px 0 2px 12px;
+}
+.rpt-feedback-head {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--ink-muted);
+    margin-bottom: 4px;
+}
+.rpt-feedback-date { color: var(--ink-dim); font-size: 10px; }
+/* 古籍断语 */
+.rpt-src-note { font-size: 11px; color: var(--ink-dim); }
+.rpt-classic-body { margin-top: 4px; }
+.rpt-classic-note { color: var(--ink-dim) !important; font-style: italic; }
 
 /* 命局天机 UI */
 .tag-gold {
@@ -4382,15 +4710,6 @@ const getShenColor = (shen) => {
     font-size: 13px;
     font-weight: 500;
     border: 1px solid rgba(212, 175, 55, 0.3);
-}
-.tag-action {
-    cursor: pointer;
-    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
-}
-.tag-action:hover, .tag-action:focus-visible {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(212,175,55,0.12);
-    outline: none;
 }
 .geju-inline-text {
     color: #8ee0bb;
@@ -4408,8 +4727,8 @@ const getShenColor = (shen) => {
     height: 28px;
     border-radius: 6px;
     overflow: hidden;
-    background: #2a2a2a;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);
+    background: var(--paper-soft);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.06);
 }
 .wuxing-bar-segment {
     height: 100%;
@@ -4438,7 +4757,7 @@ const getShenColor = (shen) => {
     gap: 12px;
 }
 .scoring-item {
-    background: rgba(0,0,0,0.2);
+    background: var(--paper-soft);
     border-radius: 8px;
     padding: 12px;
     border-left: 3px solid transparent;
@@ -4454,7 +4773,7 @@ const getShenColor = (shen) => {
     gap: 12px;
     margin-bottom: 8px;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid var(--line);
 }
 .shen-badge {
     padding: 2px 6px;
@@ -4489,24 +4808,28 @@ const getShenColor = (shen) => {
 }
 
 .detail-drawer {
-    width: min(92vw, 460px);
-    max-height: 78vh;
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
     overflow-y: auto;
-    background: rgba(13,13,22,0.96);
-    border: 1px solid rgba(232,204,128,0.24);
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 18px 60px rgba(0,0,0,0.58);
-    animation: riseIn 0.25s ease;
+    background: white;
+    border: 1px solid var(--line);
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px 36px;
+    box-shadow: 0 -4px 40px rgba(0,0,0,.18);
+    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
 }
 .strength-drawer {
-    width: min(92vw, 520px);
+    width: 100%;
+    max-width: 560px;
 }
 .insight-detail-drawer {
-    width: min(92vw, 560px);
+    width: 100%;
+    max-width: 560px;
 }
 .geju-detail-drawer {
-    width: min(92vw, 560px);
+    width: 100%;
+    max-width: 560px;
 }
 .insight-switcher {
     display: flex;
@@ -4520,9 +4843,9 @@ const getShenColor = (shen) => {
     min-height: 38px;
     padding: 0 8px;
     border-radius: 999px;
-    border: 1px solid rgba(232,204,128,0.16);
-    background: rgba(255,255,255,0.03);
-    color: #cdbf96;
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
     font-size: 12px;
     font-weight: 700;
     cursor: pointer;
@@ -4534,26 +4857,223 @@ const getShenColor = (shen) => {
     border-color: transparent;
 }
 .drawer-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding-bottom: 12px;
-    margin-bottom: 12px;
-    border-bottom: 1px dashed rgba(232,204,128,0.18);
+    display: grid;
+    grid-template-columns: 32px 1fr 32px;
+    align-items: center;
+    gap: 8px;
+    padding-bottom: 8px;
+    margin-bottom: 0;
 }
+.drawer-head .drawer-head-title {
+    text-align: center;
+    grid-column: 2;
+}
+.drawer-head .close-button {
+    grid-column: 3;
+    justify-self: end;
+}
+
 .drawer-head h4 {
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 17px;
     font-family: var(--font-serif);
     font-weight: 500;
 }
+/* Bottom sheet 命局天机 标题 */
+.drawer-head-title {
+    font-family: var(--font-serif);
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: 0.5px;
+    align-self: center;
+}
+/* 旺衰格局行内展示 */
+.wangge-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    font-family: var(--font-display);
+}
+.wangge-val {
+    color: var(--ink);
+}
+.wangge-sep {
+    color: var(--ink-muted);
+    font-weight: 300;
+    margin: 0 1px;
+}
+/* insight bottom sheet tab bar 对齐主页 bazi-tab */
+.insight-tab-bar {
+    display: flex;
+    gap: 0;
+    justify-content: center;
+    border-bottom: 1px solid var(--line);
+    margin: 0 -16px 0;
+    padding: 0 16px;
+}
+.insight-bazi-tab {
+    flex: none;
+    min-height: 40px;
+    padding: 8px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    color: var(--ink-dim);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-body);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: color .2s, border-color .2s;
+    border-radius: 0;
+    white-space: nowrap;
+}
+/* insight drawer 结构：sticky头 + 可滚动内容 */
+.insight-sticky-head {
+    position: sticky;
+    top: 0;
+    background: white;
+    z-index: 2;
+    padding-top: 4px;
+    margin: 0 -16px;
+    padding-left: 16px;
+    padding-right: 16px;
+}
+.insight-bazi-tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    font-weight: 800;
+    background: transparent;
+    box-shadow: none;
+}
+
+.insight-scroll-body {
+    padding-top: 16px;
+}
+/* 杂志/信纸风格 prose 列表 */
+.insight-prose-list {
+    display: flex;
+    flex-direction: column;
+}
+.insight-prose-item {
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+.insight-prose-item:last-child {
+    border-bottom: none;
+}
+.insight-prose-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.insight-prose-label {
+    font-size: 10px;
+    color: var(--gold);
+    letter-spacing: 1.5px;
+    font-weight: 700;
+    text-transform: none;
+}
+.insight-prose-main {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--ink);
+    font-family: var(--font-display);
+    margin: 0 0 6px;
+    line-height: 1.3;
+}
+.insight-prose-text {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.72;
+    margin: 0;
+}
+.insight-prose-kicker-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-bottom: 4px;
+}
+/* 判定说明 summary */
+.insight-explain-summary {
+    font-size: 14px;
+    color: var(--ink-muted);
+    line-height: 1.7;
+    margin: 0 0 8px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--line);
+}
+/* 取格步骤行内 */
+.insight-step-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+.insight-step-row {
+    display: flex;
+    gap: 10px;
+    align-items: baseline;
+}
+.insight-step-label {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--gold);
+    min-width: 52px;
+}
+.insight-step-val {
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.6;
+}
+/* 行内列表（—符号 + 内容）*/
+.insight-inline-row {
+    display: flex;
+    gap: 8px;
+    align-items: baseline;
+}
+.insight-inline-dot {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: var(--ink-dim);
+    line-height: 1.6;
+}
+.insight-dot-warn { color: #c53030; }
+.insight-val-warn { color: #9b2c2c; }
+/* 判定说明：书名行内 + 楷体引用 */
+.insight-source-inline {
+    font-size: 11px;
+    color: var(--ink-dim);
+    font-style: normal;
+    letter-spacing: 0.2px;
+}
+.insight-quote-line {
+    margin: 6px 0 8px;
+    font-size: 13px;
+    color: var(--ink-muted);
+    line-height: 1.75;
+    font-style: italic;
+    padding-left: 12px;
+    border-left: 2px solid var(--gold-border);
+}
+
 .strength-meter-card {
     padding: 14px;
     margin-bottom: 12px;
     border-radius: 8px;
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(232,204,128,0.12);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .strength-meter-top {
     display: flex;
@@ -4568,7 +5088,7 @@ const getShenColor = (shen) => {
     font-weight: 700;
 }
 .strength-meter-band {
-    color: #BDB39A;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .strength-meter-track {
@@ -4576,14 +5096,13 @@ const getShenColor = (shen) => {
     height: 10px;
     border-radius: 999px;
     background: linear-gradient(90deg, rgba(91,141,239,0.42), rgba(232,204,128,0.28), rgba(218,87,72,0.44));
-    border: 1px solid rgba(255,255,255,0.08);
+    border: 1px solid var(--line);
 }
 .strength-meter-fill {
     height: 100%;
     min-width: 4px;
     border-radius: 999px;
-    background: rgba(232,204,128,0.72);
-    box-shadow: 0 0 14px rgba(232,204,128,0.22);
+    background: var(--gold);
 }
 .strength-meter-thumb {
     position: absolute;
@@ -4591,16 +5110,16 @@ const getShenColor = (shen) => {
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: #F2D889;
-    border: 2px solid #201A10;
+    background: var(--gold);
+    border: 2px solid white;
     transform: translate(-50%, -50%);
-    box-shadow: 0 0 0 3px rgba(242,216,137,0.18);
+    box-shadow: 0 0 0 3px var(--gold-border);
 }
 .strength-meter-axis {
     display: flex;
     justify-content: space-between;
     margin-top: 8px;
-    color: #8F846D;
+    color: var(--ink-dim);
     font-size: 11px;
 }
 .strength-section-list {
@@ -4611,8 +5130,8 @@ const getShenColor = (shen) => {
 .strength-section-card {
     padding: 13px 14px;
     border-radius: 8px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .strength-section-head {
     display: flex;
@@ -4630,14 +5149,14 @@ const getShenColor = (shen) => {
     flex-shrink: 0;
     padding: 2px 8px;
     border-radius: 999px;
-    background: rgba(232,204,128,0.08);
-    border: 1px solid rgba(232,204,128,0.16);
-    color: #EBD08E;
+    background: var(--gold-dim);
+    border: 1px solid var(--gold-border);
+    color: var(--gold);
     font-size: 11px;
     font-weight: 600;
 }
 .strength-section-card p {
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.7;
 }
@@ -4645,21 +5164,21 @@ const getShenColor = (shen) => {
 .explain-section-card {
     padding: 14px;
     border-radius: 12px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .explain-summary-card {
     margin-bottom: 12px;
-    background: linear-gradient(180deg, rgba(232,204,128,0.08), rgba(255,255,255,0.025));
+    background: var(--gold-dim);
 }
 .explain-summary-title {
     margin-bottom: 8px;
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 13px;
     font-weight: 700;
 }
 .explain-summary-card p {
-    color: #f2ead5;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.75;
 }
@@ -4684,9 +5203,9 @@ const getShenColor = (shen) => {
     flex-shrink: 0;
     padding: 3px 8px;
     border-radius: 999px;
-    border: 1px solid rgba(232,204,128,0.16);
-    background: rgba(232,204,128,0.08);
-    color: #e7d5a3;
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    color: var(--gold);
     font-size: 10px;
     letter-spacing: 0.4px;
 }
@@ -4694,9 +5213,9 @@ const getShenColor = (shen) => {
     margin: 0 0 10px;
     padding: 10px 12px;
     border-radius: 10px;
-    border-left: 3px solid rgba(232,204,128,0.44);
-    background: rgba(232,204,128,0.06);
-    color: #f2dfaf;
+    border-left: 3px solid var(--gold);
+    background: var(--gold-dim);
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.7;
 }
@@ -4707,7 +5226,7 @@ const getShenColor = (shen) => {
 }
 .explain-paragraphs p {
     margin: 0;
-    color: #d8d2bf;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.75;
 }
@@ -4722,15 +5241,15 @@ const getShenColor = (shen) => {
     margin-bottom: 10px;
     padding: 9px 10px;
     border-radius: 10px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background: rgba(255,255,255,0.025);
-    color: #cfc6b0;
-    font-size: 12px;
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
+    color: var(--ink);
+    font-size: 13px;
     line-height: 1.6;
 }
 .geju-summary-line.secondary {
-    background: rgba(255,255,255,0.02);
-    color: #bfb6a2;
+    background: white;
+    color: var(--ink-dim);
 }
 .geju-modal-tags {
     display: flex;
@@ -4741,9 +5260,9 @@ const getShenColor = (shen) => {
 .geju-chip {
     padding: 4px 10px;
     border-radius: 999px;
-    border: 1px solid rgba(232,204,128,0.18);
-    background: rgba(255,255,255,0.03);
-    color: #f1dfae;
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    color: var(--gold);
     font-size: 12px;
     font-weight: 600;
 }
@@ -4780,7 +5299,7 @@ const getShenColor = (shen) => {
 }
 .context-card + .context-card {
     padding-top: 22px;
-    border-top: 1px dashed rgba(232,204,128,0.14);
+    border-top: 1px dashed var(--gold-border);
 }
 .context-card-head {
     display: flex;
@@ -4790,7 +5309,7 @@ const getShenColor = (shen) => {
     margin-bottom: 8px;
 }
 .context-card-title {
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 17px;
     font-family: var(--font-serif);
 }
@@ -4805,9 +5324,9 @@ const getShenColor = (shen) => {
     min-height: 34px;
     padding: 0 12px;
     border-radius: 10px;
-    border: 1px solid rgba(232,204,128,0.14);
-    background: rgba(14,14,24,0.86);
-    color: #F4E6C0;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
 }
 .context-card-desc {
     margin: 0 0 16px;
@@ -4826,7 +5345,7 @@ const getShenColor = (shen) => {
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px solid rgba(232,204,128,0.08);
+    border-bottom: 1px solid var(--line);
 }
 .context-panel:last-child {
     padding-bottom: 0;
@@ -4834,11 +5353,11 @@ const getShenColor = (shen) => {
 }
 .context-panel-title {
     margin-bottom: 10px;
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 14px;
     font-weight: 700;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
+    border-bottom: 1px solid var(--line);
 }
 .context-field {
     display: grid;
@@ -4849,7 +5368,7 @@ const getShenColor = (shen) => {
     margin-bottom: 0;
 }
 .context-field label {
-    color: #D9CCA8;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .context-field input,
@@ -4857,9 +5376,9 @@ const getShenColor = (shen) => {
 .context-field textarea {
     width: 100%;
     border-radius: 10px;
-    border: 1px solid rgba(232,204,128,0.12);
-    background: rgba(10,10,18,0.84);
-    color: #F2E8D0;
+    border: 1px solid var(--line);
+    background: white;
+    color: var(--ink);
     padding: 10px 12px;
     font-size: 13px;
     line-height: 1.5;
@@ -4874,7 +5393,7 @@ const getShenColor = (shen) => {
     gap: 8px;
 }
 .context-recent-title {
-    color: #D9CCA8;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .context-recent-item {
@@ -4885,24 +5404,24 @@ const getShenColor = (shen) => {
     border-radius: 0;
     background: transparent;
     border: none;
-    border-bottom: 1px dashed rgba(232,204,128,0.08);
+    border-bottom: 1px dashed var(--line);
 }
 .context-recent-item:last-child {
     border-bottom: none;
 }
 .context-recent-month {
-    color: var(--gold-light);
+    color: var(--gold);
     font-size: 12px;
     font-weight: 700;
 }
 .context-recent-copy {
-    color: #D8D2BF;
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.6;
 }
 .context-notes-message {
     margin-top: 12px;
-    color: #d5c495;
+    color: var(--gold);
     font-size: 12px;
 }
 .screen-toast {
@@ -4918,19 +5437,17 @@ const getShenColor = (shen) => {
     max-width: min(78vw, 320px);
     padding: 14px 18px;
     border-radius: 14px;
-    border: 1px solid rgba(232,204,128,0.24);
-    background: rgba(10,10,18,0.9);
-    box-shadow: 0 14px 40px rgba(0,0,0,0.34);
-    color: #f4e6c0;
+    border: 1px solid var(--line);
+    background: rgba(247,244,238,0.96);
+    box-shadow: 0 8px 28px rgba(0,0,0,.14);
+    color: var(--ink);
     font-size: 14px;
     line-height: 1.6;
     text-align: center;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
 }
 .screen-toast-card.is-error {
-    border-color: rgba(255,143,136,0.26);
-    color: #ffd1cc;
+    border-color: rgba(220,38,38,0.28);
+    color: var(--crimson);
 }
 
 @media (max-width: 760px) {
@@ -4980,34 +5497,34 @@ const getShenColor = (shen) => {
 .geju-modal-block {
     padding: 13px 14px;
     border-radius: 12px;
-    background: rgba(255,255,255,0.025);
-    border: 1px solid rgba(232,204,128,0.1);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
     margin-bottom: 12px;
 }
 .geju-block-title {
     margin-bottom: 8px;
-    color: rgba(232,204,128,0.72);
+    color: var(--gold);
     font-size: 11px;
     letter-spacing: 1px;
 }
 .geju-block-main {
-    color: #f5ebce;
+    color: var(--ink);
     font-size: 15px;
     font-weight: 700;
     margin-bottom: 7px;
 }
 .geju-block-copy {
-    color: #d8d2bf;
+    color: var(--ink-muted);
     font-size: 13px;
     line-height: 1.7;
 }
 .geju-verdict-copy {
-    color: #f3ebdd;
+    color: var(--ink);
     font-weight: 600;
 }
 .geju-inline-note {
     margin-top: 9px;
-    color: #9ec7ff;
+    color: #2563eb;
     font-size: 12px;
     line-height: 1.6;
 }
@@ -5018,18 +5535,18 @@ const getShenColor = (shen) => {
 .pattern-step-item {
     padding: 9px 10px;
     border-radius: 8px;
-    background: rgba(0,0,0,0.16);
-    border: 1px solid rgba(255,255,255,0.055);
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
 }
 .pattern-step-item span {
     display: block;
     margin-bottom: 4px;
-    color: #f0d58f;
+    color: var(--gold);
     font-size: 12px;
     font-weight: 700;
 }
 .pattern-step-item p {
-    color: #d8d2bf;
+    color: var(--ink-muted);
     font-size: 12px;
     line-height: 1.6;
 }
@@ -5038,7 +5555,7 @@ const getShenColor = (shen) => {
     flex-wrap: wrap;
     gap: 8px 12px;
     margin-top: 10px;
-    color: #d7c89b;
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .geju-inline-pairs-top {
@@ -5046,7 +5563,7 @@ const getShenColor = (shen) => {
 }
 .geju-subcopy {
     margin-top: 10px;
-    color: #cfc6b0;
+    color: var(--ink-dim);
 }
 .geju-bullet-row, .geju-bullet-list {
     display: flex;
@@ -5056,15 +5573,15 @@ const getShenColor = (shen) => {
 .geju-bullet-chip, .geju-list-chip {
     padding: 6px 10px;
     border-radius: 999px;
-    background: rgba(255,255,255,0.045);
-    border: 1px solid rgba(255,255,255,0.06);
-    color: #e7ddc6;
+    background: var(--paper-soft);
+    border: 1px solid var(--line);
+    color: var(--ink-muted);
     font-size: 12px;
 }
 .geju-bullet-list.warning .geju-list-chip {
-    color: #ffb3aa;
-    border-color: rgba(255,159,151,0.2);
-    background: rgba(255,159,151,0.08);
+    color: var(--crimson);
+    border-color: rgba(220,38,38,0.2);
+    background: rgba(220,38,38,0.06);
 }
 
 @media (max-width: 420px) {
@@ -5095,15 +5612,15 @@ const getShenColor = (shen) => {
     .tabs { gap: 16px; }
     .tab { font-size: 12px; }
     .bazi-table {
-        --bz-cell-py: 6px;
-        --bz-label-size: 9px;
-        --bz-meta-size: 9px;
-        --bz-char-size: 17px;
+        --bz-cell-py: 7px;
+        --bz-label-size: 11px;
+        --bz-meta-size: 11px;
+        --bz-char-size: 18px;
     }
-    .bazi-table th { font-size: 11px; letter-spacing: .5px; }
-    .bazi-table th:first-child, .bazi-table td:first-child { width: 40px; }
-    .bz-sub { line-height: 1.3; }
-    .bz-shensha { font-size: 8px; line-height: 1.3; }
+    .bazi-table th { font-size: 12px; letter-spacing: .5px; }
+    .bazi-table th:first-child, .bazi-table td:first-child { width: 44px; }
+    .bz-sub { line-height: 1.35; }
+    .bz-shensha { font-size: 10px; line-height: 1.35; }
     .tiaohou-card-head { align-items: stretch; flex-direction: column; }
     .tiaohou-urgency { align-self: flex-start; }
     .tiaohou-god-grid { grid-template-columns: 1fr; }
@@ -5308,15 +5825,16 @@ const getShenColor = (shen) => {
 
 /* ══ 断事笔记使用说明浮层 ══ */
 .le-guide-card {
-    width: min(92vw, 400px);
-    max-height: 78vh;
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
     overflow-y: auto;
     background: color-mix(in srgb, var(--bg-card) 96%, black 55%);
     border: 1px solid var(--gold-border);
-    border-radius: 20px;
-    padding: 20px 18px;
-    box-shadow: 0 20px 60px color-mix(in srgb, black 55%, transparent);
-    animation: riseIn 0.25s ease;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 18px 36px;
+    box-shadow: 0 -4px 40px color-mix(in srgb, black 40%, transparent);
+    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
 }
 
 .le-guide-head {
@@ -5393,5 +5911,674 @@ const getShenColor = (shen) => {
 @media (max-width: 420px) {
     .le-form-row { grid-template-columns: 1fr; }
     .le-impacts { grid-template-columns: 1fr; }
+}
+
+/* ══════════════════════════════════════════════════
+   杂志信纸风 — Magazine / Stationery Style Overrides
+   去圆角矩形化 + Editorial Typography
+   ══════════════════════════════════════════════════ */
+
+/* ─── 1. 去圆角：所有容器清零 ─────────────────────────── */
+.glass-card,
+.insight-card, .tiaohou-card, .geju-card,
+.life-events-card, .le-card, .le-form,
+.strength-meter-card, .strength-section-card,
+.explain-summary-card, .explain-section-card,
+.geju-modal-block, .pattern-step-item, .geju-summary-line,
+.detail-drawer, .insight-detail-drawer, .geju-detail-drawer,
+.shensha-modal, .guest-login-modal,
+.le-guide-card, .le-guide-block, .le-guide-example, .le-guide-tip,
+.analysis-status, .matrix-fallback-note,
+.tiaohou-god-cell, .tiaohou-warning, .decision-chain-list, .scoring-item,
+.profile-form, .profile-flyout, .profile-flyout-item,
+.xiji-item, .five-shen-cell, .link-item, .linkage-row,
+.classic-verdict-section, .feedback-correction-block,
+.fortune-guide-card, .screen-toast-card,
+.date-input-card, .date-segment,
+.pillar-slot, .pillar-choice-panel, .choice-chip,
+.picker-preview-card, .picker-mode-tabs,
+.profile-picker-modal { border-radius: 0; }
+
+.context-field input, .context-field select, .context-field textarea,
+.le-field input, .le-field select, .le-field textarea,
+.context-month-select, .form-row input, .form-row select { border-radius: 0; }
+
+.btn-ghost, .btn-primary, .mini-action, .icon-btn,
+.le-toggle-btn, .fortune-guide-btn, .le-impact-btn,
+.picker-mode-tab, .picker-save-btn, .timeline-icon-btn,
+.profile-switch-trigger, .location-search-input-wrap,
+.insight-tab { border-radius: 0; }
+
+/* ─── 2. Glass-card → 纸页横截面（去阴影，仅留上下边线）─── */
+.glass-card {
+    border-radius: 0;
+    box-shadow: none;
+    border-left: none;
+    border-right: none;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.dashboard-panel {
+    border-top: none;
+    background: transparent;
+    margin-top: 0;
+}
+
+/* ─── 3. Modal / Drawer 扁平化 ──────────────────────────── */
+.profile-picker-modal {
+    border-radius: 0;
+    box-shadow: 0 0 0 1px var(--line), 0 20px 60px rgba(0,0,0,0.12);
+}
+.picker-mode-tab.active { border-radius: 0; }
+
+.detail-drawer, .insight-detail-drawer, .geju-detail-drawer {
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -2px 0 1px var(--line), 0 -8px 40px rgba(0,0,0,0.12);
+}
+.shensha-modal {
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.14);
+    border: 1px solid var(--gold-border);
+}
+.guest-login-modal {
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
+    border: 1px solid var(--line);
+}
+.screen-toast-card {
+    border-radius: 0;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+}
+.le-guide-card {
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.14);
+}
+
+/* ─── 4. 段落标题编辑风 Section headers ──────────────────── */
+.section-kicker {
+    text-transform: uppercase;
+    letter-spacing: 3px;
+    font-size: 9px;
+    font-family: var(--font-body);
+}
+
+/* ai-section: horizontal rule before each section */
+.ai-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+    animation: none;
+}
+.insight-summary { border-top: none; margin-top: 8px; padding-top: 0; }
+
+/* ai-header: section label row */
+.ai-header-row {
+    padding-bottom: 0;
+    border-bottom: none;
+    margin-bottom: 14px;
+}
+.ai-header-title { font-size: 11px; letter-spacing: 2.5px; text-transform: uppercase; font-family: var(--font-body); font-weight: 600; color: var(--ink-muted); }
+.ai-header-title::before { display: none; }
+
+/* ─── 5. 报告区域 → 杂志编辑风（无矩形套矩形）────────────── */
+
+/* 格局卡 → gold left-bar callout */
+.insight-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 0 0 14px;
+    border-left: 3px solid var(--gold-border);
+    margin-bottom: 22px;
+}
+.insight-card h4 {
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold);
+    font-family: var(--font-body);
+    font-weight: 600;
+    margin-bottom: 8px;
+    border-bottom: none;
+    padding-bottom: 0;
+    opacity: 0.8;
+}
+.insight-card p { font-size: 14px; color: var(--ink); line-height: 1.72; }
+
+/* 格局首行卡 */
+.geju-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 0 0 14px;
+    border-left: 3px solid var(--gold-border);
+    margin-bottom: 20px;
+}
+
+/* 调候卡 → teal left-bar callout */
+.tiaohou-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0 0 0 14px;
+    border-left: 3px solid rgba(13,148,136,0.5);
+    margin-bottom: 20px;
+}
+.tiaohou-card-head h4 { color: var(--teal); border: none; padding-bottom: 0; margin-bottom: 0; font-size: 14px; font-weight: 600; font-family: var(--font-body); }
+.tiaohou-god-grid { gap: 0; grid-template-columns: repeat(3,1fr); margin-bottom: 10px; }
+.tiaohou-god-cell {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-right: 1px solid var(--line);
+    padding: 8px 10px 8px 0;
+}
+.tiaohou-god-cell:last-child { border-right: none; }
+.tiaohou-warning {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-left: 2px solid rgba(220,38,38,0.35);
+    padding: 4px 0 4px 10px;
+    color: var(--crimson);
+    opacity: 0.82;
+    font-size: 12px;
+}
+
+/* 格局摘要行 → subtle left callout */
+.geju-summary-line {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-left: 2px solid var(--gold-border);
+    padding: 2px 0 2px 12px;
+    margin-bottom: 10px;
+    color: var(--ink-muted);
+    font-size: 13px;
+}
+.geju-summary-line.secondary { border-left-color: var(--line); color: var(--ink-dim); }
+
+/* 五行池 → no box */
+.wuxing-pool-card {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    padding: 0;
+    margin-bottom: 20px;
+}
+.wuxing-pool-card h4 { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--ink-muted); font-weight: 600; margin-bottom: 10px; }
+
+/* 古籍断语 → editorial left-border */
+.classic-verdict-section {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+    border-top: 1px solid var(--line);
+    padding: 20px 0 0 14px;
+    border-left: 3px solid var(--gold-border);
+    margin-top: 4px;
+}
+.classic-header { border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 10px; }
+.classic-body p { color: var(--ink); font-size: 14px; line-height: 1.72; }
+.classic-subtitle { color: var(--ink-dim); font-size: 12px; }
+.classic-key { background: transparent; color: var(--gold); border: 1px solid var(--gold-border); border-radius: 0; font-size: 11px; padding: 2px 8px; }
+
+/* 反馈纠偏块 */
+.feedback-correction-block {
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    border-left: 2px solid var(--line);
+    padding: 8px 0 4px 12px;
+    margin-top: 12px;
+}
+
+/* 其他 callout accents */
+.analysis-status      { border-left: 2px solid var(--gold-border); }
+.analysis-status.done { border-left: 2px solid rgba(13,148,136,0.4); }
+.matrix-fallback-note { border-left: 2px solid var(--gold-border); }
+.life-events-card     { border-left: 2px solid var(--line); }
+.insight-tab.active   { box-shadow: none; }
+
+/* ─── 6. 紧凑档案条 Compact profile strip ───────────────── */
+/* ── Bloomberg-style Profile Hero ─────────────────────────── */
+.profile-hero-block {
+    --hero-collapse: 0;
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    overflow: visible;
+    padding: var(--hero-pad-top, 24px) 16px var(--hero-pad-bottom, 10px);
+    background: rgba(247, 244, 238, var(--hero-bg-alpha, .72));
+    border-bottom: 1px solid rgba(214, 209, 198, var(--hero-border-alpha, .18));
+    backdrop-filter: blur(var(--hero-blur, 2px));
+    box-shadow: 0 var(--hero-shadow-y, 0) var(--hero-shadow-blur, 0) rgba(38, 31, 20, var(--hero-shadow-alpha, 0));
+    transition: padding .12s linear, background-color .12s linear, border-color .12s linear, box-shadow .12s linear;
+}
+
+/* Top-right action button group */
+.hero-top-actions {
+    position: absolute;
+    top: var(--hero-action-top, 18px);
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    z-index: 2;
+    opacity: var(--hero-action-opacity, 1);
+    transform: translateY(calc(-6px * var(--hero-collapse)));
+    transition: opacity .12s linear, transform .12s linear;
+}
+.profile-hero-block.condensed .hero-top-actions {
+    opacity: 0 !important;
+    visibility: hidden;
+    pointer-events: none;
+}
+.hero-icon-btn {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: transparent;
+    color: var(--ink-dim);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    transition: color .18s, border-color .18s;
+    flex-shrink: 0;
+}
+.hero-icon-btn svg { width: 15px; height: 15px; }
+.hero-icon-btn:hover { color: var(--gold); border-color: var(--gold-border); }
+.hero-icon-btn:disabled { opacity: 0.4; cursor: default; }
+.hero-icon-btn.spinning svg { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Dates above name */
+.hero-dates-top {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: var(--hero-dates-margin, 6px);
+    padding-right: 50px; /* clear 1 button */
+    max-height: var(--hero-dates-height, 22px);
+    opacity: var(--hero-dates-opacity, 1);
+    transform: translateY(var(--hero-dates-offset, 0));
+    overflow: hidden;
+    pointer-events: none;
+    transition: opacity .12s linear, max-height .12s linear, margin-bottom .12s linear, transform .12s linear;
+}
+.hero-birth, .hero-lunar {
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-family: var(--font-body);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+.hero-sep { font-size: 11px; color: var(--ink-dim); }
+
+/* Name trigger — wraps name + caret tightly */
+.hero-name-trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: calc(10px * (1 - var(--hero-collapse)));
+    max-width: calc(100% - (54px * (1 - var(--hero-collapse)))); /* clear rerun button */
+    border: none;
+    background: transparent;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+}
+.hero-display-name {
+    font-family: var(--font-display);
+    font-size: var(--hero-name-size, 42px);
+    font-weight: 800;
+    color: var(--ink);
+    letter-spacing: 0;
+    line-height: 1.1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    transition: font-size .12s linear;
+}
+.profile-strip-badge {
+    font-size: 10px;
+    padding: 1px 7px;
+    color: var(--gold);
+    border: 1px solid var(--gold-border);
+    background: var(--gold-dim);
+    border-radius: 2px;
+    flex-shrink: 0;
+    letter-spacing: 1px;
+    max-width: var(--hero-badge-width, 48px);
+    opacity: var(--hero-side-opacity, 1);
+    overflow: hidden;
+    white-space: nowrap;
+    transition: opacity .12s linear, max-width .12s linear, padding .12s linear;
+}
+/* CSS-drawn chevron caret */
+.profile-strip-caret {
+    display: inline-block;
+    width: var(--hero-caret-width, 9px);
+    height: 9px;
+    max-width: var(--hero-caret-width, 9px);
+    border-right: 2px solid var(--ink-muted);
+    border-bottom: 2px solid var(--ink-muted);
+    transform: rotate(45deg) translateY(-3px);
+    flex-shrink: 0;
+    opacity: var(--hero-side-opacity, 1);
+    overflow: hidden;
+    transition: transform .22s var(--ease), opacity .12s linear, width .12s linear, max-width .12s linear;
+}
+.profile-strip-caret.open {
+    transform: rotate(225deg) translateY(-3px);
+}
+
+/* Badges row — pills, left-aligned */
+.hero-meta {
+    margin-top: var(--hero-meta-margin, 18px);
+    max-height: var(--hero-meta-height, 34px);
+    opacity: var(--hero-meta-opacity, 1);
+    transform: translateY(var(--hero-meta-offset, 0));
+    overflow: hidden;
+    transition: opacity .12s linear, max-height .12s linear, margin-top .12s linear, transform .12s linear;
+}
+.profile-hero-block.condensed .hero-meta {
+    max-height: 0;
+    opacity: 0 !important;
+    pointer-events: none;
+}
+.profile-hero-block.condensed .profile-strip-badge,
+.profile-hero-block.condensed .profile-strip-caret {
+    width: 0;
+    max-width: 0;
+    opacity: 0 !important;
+    pointer-events: none;
+}
+.profile-hero-block.condensed .profile-strip-badge {
+    padding-left: 0;
+    padding-right: 0;
+    height: 0;
+    line-height: 0;
+    border: 0;
+}
+.profile-hero-block.condensed .profile-strip-caret {
+    height: 0;
+    border: 0;
+}
+.profile-hero-block.condensed .hero-dates-top {
+    max-height: 0;
+    opacity: 0 !important;
+}
+.profile-hero-block .guest-limit-note {
+    max-height: var(--hero-note-height, 42px);
+    opacity: var(--hero-note-opacity, 1);
+    overflow: hidden;
+    transform: translateY(calc(-6px * var(--hero-collapse)));
+    transition: opacity .12s linear, max-height .12s linear, margin .12s linear, transform .12s linear;
+}
+.profile-hero-block.condensed .guest-limit-note {
+    max-height: 0;
+    opacity: 0 !important;
+    margin: 0;
+    pointer-events: none;
+}
+.hero-badges {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+/* Override magazine border-radius:0 for hero pills */
+.hero-pill {
+    border-radius: 999px !important;
+    padding: 4px 14px !important;
+    font-size: 12px !important;
+    letter-spacing: 0.5px;
+}
+
+/* Profile strip wrap (still used for flyout positioning) */
+.profile-strip-wrap {
+    position: relative;
+    z-index: 60;
+    overflow: visible;
+    margin-bottom: var(--hero-strip-gap, 18px);
+    transition: margin-bottom .12s linear;
+}
+.profile-strip-wrap.open .hero-name-trigger {
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 0;
+}
+
+/* (flyout replaced by bottom sheet) */
+
+.flyout-mgmt-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    padding: 8px 8px 10px;
+    border-top: 1px solid var(--line);
+    margin-top: 4px;
+    position: sticky;
+    bottom: 0;
+    background: #fff;
+    z-index: 1;
+}
+.flyout-mgmt-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    border: 1px solid var(--line);
+    background: var(--paper-soft);
+    color: var(--ink-muted);
+    font-size: 11px;
+    cursor: pointer;
+    white-space: nowrap;
+    border-radius: 0;
+}
+.flyout-mgmt-btn:disabled { color: var(--gold); border-color: var(--gold-border); background: var(--gold-dim); cursor: default; }
+.flyout-mgmt-btn.is-danger { color: var(--crimson); }
+
+/* ─── 7. 奇门风格标签导航 Qimen-style tab bar ───────────── */
+.bazi-tab-bar {
+    display: flex;
+    gap: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    margin-bottom: 0;
+    border-radius: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+.bazi-tab-bar::-webkit-scrollbar { display: none; }
+.bazi-tab {
+    flex: none;
+    min-height: 40px;
+    padding: 8px 20px;
+    border: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    background: transparent;
+    color: var(--ink-dim);
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: var(--font-body);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: color .2s, border-color .2s;
+    border-radius: 0;
+    white-space: nowrap;
+}
+.bazi-tab.active {
+    color: var(--ink);
+    border-bottom-color: var(--ink);
+    font-weight: 800;
+    background: transparent;
+    box-shadow: none;
+}
+.bazi-tab-count {
+    min-width: 16px; height: 16px; padding: 0 4px;
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--gold) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--gold) 28%, transparent);
+    color: var(--gold-light); font-size: 9px; font-weight: 700;
+    display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ─── 8. Bottom Sheet ──────────────────────────────────── */
+.sheet-backdrop {
+    position: fixed; inset: 0; z-index: 199;
+    background: rgba(0,0,0,.38);
+}
+.profile-bottom-sheet {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
+    background: #fff;
+    border-radius: 20px 20px 0 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    max-height: 80vh;
+    display: flex; flex-direction: column;
+}
+.sheet-handle {
+    width: 36px; height: 4px;
+    background: var(--chrome-muted);
+    border-radius: 2px;
+    margin: 10px auto 0;
+    flex-shrink: 0;
+    opacity: 0.4;
+}
+.sheet-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px 10px;
+    flex-shrink: 0;
+}
+.sheet-title {
+    font-size: 17px; font-weight: 700; color: var(--ink);
+    font-family: var(--font-body);
+}
+.sheet-header-actions {
+    display: flex; align-items: center; gap: 8px;
+}
+.sheet-add-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid var(--line); background: transparent; color: var(--ink-muted);
+    cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 0;
+}
+.sheet-add-btn svg { width: 14px; height: 14px; }
+.sheet-add-btn:hover { color: var(--gold); border-color: var(--gold-border); }
+.sheet-close-btn {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: none; background: var(--chrome); color: var(--ink-muted);
+    font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+}
+.sheet-list {
+    flex: 1; overflow-y: auto;
+    padding: 4px 0 8px;
+}
+.sheet-empty {
+    padding: 20px;
+    color: var(--ink-muted);
+    font-size: 13px;
+    line-height: 1.6;
+    text-align: center;
+}
+
+/* Swipe-to-reveal item */
+.swipe-item {
+    position: relative;
+    overflow: hidden;
+}
+.sheet-profile-btn {
+    width: 100%;
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 20px;
+    border: none; background: #fff;
+    cursor: pointer; text-align: left;
+    transition: transform .28s cubic-bezier(0.25,1,0.5,1);
+    position: relative; z-index: 1;
+}
+.swipe-item.swiped .sheet-profile-btn {
+    transform: translateX(-140px);
+}
+.sheet-profile-btn.active { background: #fefaf3; }
+.spi-indicator {
+    width: 8px; height: 8px; border-radius: 50%;
+    border: 1.5px solid var(--chrome-muted);
+    flex-shrink: 0;
+    transition: background .18s, border-color .18s;
+}
+.spi-indicator.active { background: var(--gold); border-color: var(--gold); }
+.spi-name {
+    font-size: 16px; font-weight: 600; color: var(--ink); font-family: var(--font-body);
+    flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sheet-profile-btn.active .spi-name { color: var(--gold); }
+.spi-date { font-size: 12px; color: var(--ink-muted); flex-shrink: 0; }
+.spi-default {
+    font-size: 10px; color: var(--gold);
+    border: 1px solid var(--gold-border); background: var(--gold-dim);
+    border-radius: 999px; padding: 1px 8px; flex-shrink: 0; letter-spacing: .5px;
+}
+
+/* Swipe actions (revealed from right) */
+.swipe-actions {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: 140px;
+    display: flex; align-items: stretch;
+    z-index: 0;
+}
+.swa-btn {
+    flex: 1; border: none; cursor: pointer; font-size: 13px;
+    font-family: var(--font-body); font-weight: 600;
+    display: flex; align-items: center; justify-content: center;
+}
+.swa-rename { background: #636e7b; color: #fff; }
+.swa-delete { background: #e53e3e; color: #fff; }
+
+/* Sheet footer */
+.sheet-footer {
+    padding: 10px 20px 16px;
+    border-top: 1px solid var(--line);
+    flex-shrink: 0;
+}
+.sheet-default-btn {
+    width: 100%; min-height: 46px;
+    border: 1px solid var(--line); background: var(--paper-soft);
+    color: var(--ink-muted); font-size: 13px; font-family: var(--font-body);
+    cursor: pointer; border-radius: 0;
+    transition: background .18s;
+}
+.sheet-default-btn:disabled {
+    color: var(--gold); border-color: var(--gold-border);
+    background: var(--gold-dim); cursor: default;
+}
+
+/* Sheet slide-up transition */
+.sheet-enter-active, .sheet-leave-active { transition: opacity .22s; }
+.sheet-enter-from, .sheet-leave-to { opacity: 0; }
+.sheet-up-enter-active, .sheet-up-leave-active { transition: transform .3s cubic-bezier(0.25,1,0.5,1); }
+.sheet-up-enter-from, .sheet-up-leave-to { transform: translateY(100%); }
+
+/* ─── 9. 响应式清零遗留圆角 ─────────────────────────────── */
+@media (min-width: 780px) {
+    .profile-picker-modal { border-radius: 0; }
+}
+@media (max-width: 420px) {
+    .profile-picker-modal, .pillar-slot, .choice-chip,
+    .date-segment, .pillar-choice-panel,
+    .le-guide-card, .picker-close.dark { border-radius: 0; }
+    .geju-detail-drawer {
+        border-radius: 0;
+        border-bottom: 1px solid var(--line);
+    }
 }
 </style>

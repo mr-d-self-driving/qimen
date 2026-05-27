@@ -10,7 +10,7 @@
     <div class="account-menu-panel" :class="{ open: isOpen }" @click.stop>
       <div class="account-menu-identity">{{ identityText }}</div>
       <router-link class="account-menu-link featured" to="/engineering" @click="closeMenu">
-        术数工程化
+        关于
       </router-link>
       <router-link v-if="globalState.currentUser" class="account-menu-link" to="/reset-password" @click="closeMenu">
         修改密码

@@ -48,6 +48,35 @@ test('身强身弱弹窗展示仪表盘并优先使用用户说明', () => {
   assert.match(source, /scoreLabel:\s*''/)
 })
 
+test('调候诊断摘要不展示独立详情小 i', () => {
+  const start = source.indexOf('<!-- 调候诊断 -->')
+  const end = source.indexOf('<!-- 五行能量池 -->', start)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.doesNotMatch(block, /activeInfoPanel = 'tiaohou'/)
+  assert.doesNotMatch(block, /查看调候详情/)
+})
+
+test('天机锦囊底部弹层使用旺衰同款文本流布局', () => {
+  const start = source.indexOf("activeInfoPanel === 'scoring'")
+  const end = source.indexOf('<Teleport to="body">', start + 1)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(block, /scoring-detail-drawer/)
+  assert.match(block, /drawer-head-title">天机锦囊/)
+  assert.match(block, /scoring-section-heading[\s\S]*insight-prose-label">喜用分析/)
+  assert.match(block, /scoring-section-heading[\s\S]*insight-prose-label">五维影响概览/)
+  assert.match(block, /insight-prose-list scoring-prose-list/)
+  assert.match(source, /const scoringInfluenceRows = computed/)
+  assert.doesNotMatch(block, /以下只展示/)
+  assert.doesNotMatch(block, /decision-chain-list/)
+  assert.doesNotMatch(block, /scoring-item/)
+})
+
 test('格局弹窗优先展示结构化 pattern_analysis', () => {
   assert.match(source, /pattern_analysis/)
   assert.match(source, /取格步骤/)
@@ -63,4 +92,16 @@ test('访客添加档案后生成排盘按钮可点击并触发登录引导', ()
   assert.match(source, /showGuestLoginGuide\.value = true/)
   assert.match(source, /登录后可生成完整云端命理解读与日运联动/)
   assert.doesNotMatch(source, /:disabled="isAnalyzing \|\| isGuest"/)
+})
+
+test('访客或空档案状态也能展开命主菜单', () => {
+  assert.match(source, /const toggleProfileMenu = \(\) => \{\s*isProfileMenuOpen\.value = !isProfileMenuOpen\.value\s*\}/)
+  assert.doesNotMatch(source, /if \(!showProfileSwitcher\.value\) return/)
+  assert.match(source, /class="sheet-empty"/)
+})
+
+test('访客档案限制说明不再使用圆角提示框', () => {
+  assert.match(source, /\.guest-limit-note\s*\{[^}]*border:\s*0;/s)
+  assert.match(source, /\.guest-limit-note\s*\{[^}]*background:\s*transparent;/s)
+  assert.doesNotMatch(source, /\.guest-limit-note\s*\{[^}]*border-radius:/s)
 })

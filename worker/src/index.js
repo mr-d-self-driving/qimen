@@ -12,7 +12,7 @@ import { Solar, Lunar } from 'lunar-javascript';
 import C from '../../lib/QimenConstants.js';
 import U from '../../lib/QimenUtils.js';
 import Calc from '../../lib/QimenCalculations.js';
-import { buildFrontendCopyProtocolSection, buildQimenInferenceRulesSection, buildQimenOutputContractSection, buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../lib/qimenPromptSections.js';
+import { buildFrontendCopyProtocolSection, buildQimenInferenceRulesSection, buildQimenOutputContractSection, buildReportSchemaPromptSection, buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../lib/qimenPromptSections.js';
 import { buildDomainViewPromptSection, buildYongshenPromptSection, getYongshenRule } from '../../lib/qimenYongshenRules.js';
 import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTimingRules.js';
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
@@ -43,6 +43,15 @@ const DEFAULT_ALLOWED_ORIGINS = [
   'http://localhost:5173',
   'http://127.0.0.1:5173',
 ];
+
+function isAllowedPreviewOrigin(origin) {
+  try {
+    const hostname = new URL(origin).hostname;
+    return hostname === 'qimen-1ff.pages.dev' || hostname.endsWith('.qimen-1ff.pages.dev');
+  } catch {
+    return false;
+  }
+}
 
 function normalizeOrigin(origin) {
   return String(origin || '').trim().replace(/\/+$/, '');
@@ -78,6 +87,67 @@ function suppressDuplicateNegativeAuditDelta(delta, rawScoreAudit = {}, backendS
     delta: 0,
     suppressed: true,
     reason: 'LLM 负向审计与后端已计入的空亡/杜门/庚格/凶格/主客动静等证据重复，V4.1 后处理将重复扣分归零。'
+  };
+}
+
+function deriveScoreBasisFromM3(m3Inference, formationAdjustments, finalScore) {
+  const positive = [];
+  const negative = [];
+  const textOf = (...values) => values.find(v => typeof v === 'string' && v.trim()) || '';
+  const itemText = item => textOf(
+    item?.impact && item?.name ? `${item.name}：${item.impact}` : '',
+    item?.impact,
+    item?.name,
+    item?.text
+  );
+  const itemsOf = state => (Array.isArray(state?.items) && state.items.length)
+    ? state.items
+    : (Array.isArray(state?.factors) ? state.factors : []);
+  const target = m3Inference?.target_state || m3Inference?.target_yongshen_state;
+  const subject = m3Inference?.subject_state || m3Inference?.subject_day_stem_state || m3Inference?.self_state;
+  const support = m3Inference?.support_factors || m3Inference?.favorable_factors;
+  const constraint = m3Inference?.constraint_factors || m3Inference?.constraints;
+  const interaction = m3Inference?.interaction_decision || m3Inference?.interaction_verdict;
+
+  const targetReading = textOf(target?.reading, target?.summary, target?.verdict);
+  const subjectReading = textOf(subject?.reading, subject?.summary, subject?.verdict);
+  const supportSummary = textOf(support?.summary, support?.primary_support, support?.verdict);
+  const constraintSummary = textOf(constraint?.summary, constraint?.primary_risk, constraint?.verdict);
+  const interactionDecision = textOf(interaction?.reading, interaction?.decision, interaction?.verdict);
+  const interactionReason = textOf(interaction?.reason, interaction?.evidence);
+
+  if (supportSummary) positive.push(supportSummary);
+  itemsOf(support).slice(0, 3).forEach(f => {
+    const text = itemText(f);
+    if (text) positive.push(text);
+  });
+  if (target?.tone === 'positive' && targetReading) positive.push(targetReading);
+  if (interaction?.tone !== 'warning' && interactionDecision) positive.push(interactionDecision);
+  if (interaction?.tone !== 'warning' && interactionReason) positive.push(interactionReason);
+  if (subject?.tone === 'positive' && subjectReading) positive.push(subjectReading);
+
+  if (constraintSummary) negative.push(constraintSummary);
+  itemsOf(constraint).slice(0, 3).forEach(f => {
+    const text = itemText(f);
+    if (text) negative.push(text);
+  });
+  if (subject?.tone === 'warning' && subjectReading) negative.push(subjectReading);
+  if (target?.tone === 'warning' && targetReading) negative.push(targetReading);
+
+  // Fallback to formations only when M3 yields nothing
+  if (!positive.length && !negative.length) {
+    (formationAdjustments || []).filter(h => h.layer === 'named_formation').forEach(h => {
+      const text = `${h.signal}：${h.reason || ''}`;
+      if (String(h.effect).startsWith('+')) positive.push(text);
+      else negative.push(text);
+    });
+  }
+
+  const fallbackLogic = `综合用神状态、主客关系、空亡与应期后，本局落在${finalScore >= 75 ? '偏有利' : finalScore >= 60 ? '中等可观察' : finalScore >= 40 ? '偏谨慎' : '明显谨慎'}区间。`;
+  return {
+    positive_signals: positive.slice(0, 3),
+    negative_signals: negative.slice(0, 3),
+    score_logic: interactionDecision || interactionReason || fallbackLogic
   };
 }
 
@@ -179,7 +249,7 @@ function getCorsHeaders(request, env, allowedHeaders = 'Content-Type, Authorizat
   const allowedOrigins = getAllowedOrigins(env);
   const allowOrigin = configuredOrigin === '*'
     ? '*'
-    : requestOrigin && allowedOrigins.includes(requestOrigin)
+    : requestOrigin && (allowedOrigins.includes(requestOrigin) || isAllowedPreviewOrigin(requestOrigin))
       ? requestOrigin
       : allowedOrigins[0] || '*';
 
@@ -1214,6 +1284,7 @@ async function handleQimen(request, env) {
     const timingPromptSection = buildTimingPromptSection(timingAnalysis);
     const polarityPromptSection = buildPolarityPromptSection(polarityOverrides);
     const summaryPromptSection = buildSummaryPromptSection();
+    const reportSchemaSection = buildReportSchemaPromptSection();
     const inferenceRulesSection = buildQimenInferenceRulesSection();
     const scoreAuditPromptSection = buildScoreAuditPromptSection({
         scoreAudit: backendScoreAudit,
@@ -1260,6 +1331,8 @@ ${inferenceRulesSection}
 ${scoreAuditPromptSection}
 
 ${summaryPromptSection}
+
+${reportSchemaSection}
 
 ${domainViewPromptSection}
 
@@ -1313,10 +1386,18 @@ ${outputContractSection}
             : [],
         audit_reason: rawLlmScoreAudit.audit_reason || '模型未给出额外修正理由，本次沿用后端初算。'
     };
-    const rawScoreBasis = (aiJsonData.summary || {}).score_basis || {};
-    const sanitizedPositiveSignals = sanitizeSignalList(rawScoreBasis.positive_signals);
-    const sanitizedNegativeSignals = sanitizeSignalList(rawScoreBasis.negative_signals);
-    const sanitizedScoreLogic = sanitizeUserText(rawScoreBasis.score_logic)
+    const m3Inference = (aiJsonData.qimen_report || {}).m3_inference;
+    const rawScoreBasisFallback = (aiJsonData.summary || {}).score_basis || {};
+    const derivedBasis = m3Inference
+        ? deriveScoreBasisFromM3(m3Inference, backendScoreAudit.adjustments, finalScore)
+        : {
+            positive_signals: rawScoreBasisFallback.positive_signals,
+            negative_signals: rawScoreBasisFallback.negative_signals,
+            score_logic: rawScoreBasisFallback.score_logic
+          };
+    const sanitizedPositiveSignals = sanitizeSignalList(derivedBasis.positive_signals);
+    const sanitizedNegativeSignals = sanitizeSignalList(derivedBasis.negative_signals);
+    const sanitizedScoreLogic = sanitizeUserText(derivedBasis.score_logic)
         || `综合用神状态、主客关系、空亡与应期后，本局落在${finalScore >= 75 ? '偏有利' : finalScore >= 60 ? '中等可观察' : finalScore >= 40 ? '偏谨慎' : '明显谨慎'}区间。`;
     postprocessAudit.sanitized_summary_basis = {
         positive_signals: sanitizedPositiveSignals,
@@ -1349,8 +1430,67 @@ ${outputContractSection}
         }
     }
 
+    const scoreVerdictLabel = finalScore >= 90 ? '大吉'
+        : finalScore >= 75 ? '小吉'
+            : finalScore >= 55 ? '平'
+                : '凶';
+    const reportTone = finalScore < 55 ? 'warning' : finalScore < 75 ? 'mixed' : 'positive';
+    const backendFormationTags = (backendScoreAudit.adjustments || [])
+        .filter(item => item.layer === 'named_formation')
+        .map(item => ({
+            name: item.signal,
+            effect: item.effect,
+            type: String(item.effect || '').startsWith('+') ? 'ji' : 'xiong',
+            reason: item.reason || '',
+            text: item.reason || ''
+        }));
+    const qimenReport = aiJsonData.qimen_report || {};
+    const qimenReportM3 = qimenReport.m3_inference || {};
+    const interactionDecision = qimenReportM3.interaction_decision || qimenReportM3.interaction_verdict || {};
+    const enrichedQimenReport = {
+        ...qimenReport,
+        m1_conclusion: {
+            ...(qimenReport.m1_conclusion || {}),
+            question: userQuestion,
+            score: finalScore,
+            verdict_label: scoreVerdictLabel,
+            tone: reportTone,
+            score_basis: {
+                positive_signals: sanitizedPositiveSignals,
+                negative_signals: sanitizedNegativeSignals,
+                score_logic: sanitizedScoreLogic
+            }
+        },
+        m2_basis: {
+            ...(qimenReport.m2_basis || {}),
+            chart_summary: {
+                pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
+                ju_name: qimen_structure,
+                jieqi: juResult.jieQiName,
+                yuan: juResult.yuanName,
+                zhi_fu: zhiFuStar,
+                zhi_shi: zhiShiDoor
+            },
+            palaces: qimenPalaces,
+            formation_tags: (qimenReport.m2_basis?.formation_tags?.length)
+                ? qimenReport.m2_basis.formation_tags
+                : backendFormationTags
+        },
+        m3_inference: {
+            ...qimenReportM3,
+            interaction_decision: {
+                ...interactionDecision,
+                relation: backendScoreAudit.relations?.[0] || null
+            }
+        },
+        m4_guidance: {
+            ...(qimenReport.m4_guidance || {})
+        }
+    };
+
     const finalOutput = {
         ...aiJsonData,
+        qimen_report: enrichedQimenReport,
         question: userQuestion,
         branch: detectedIntent.branch,
         category: detectedIntent.category,

@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M3 局象推演 Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --parchment: #f5f0e8;
+  --ink: #2a2118;
+  --ink-mid: #5a4a38;
+  --ink-light: #8c7a62;
+  --ink-faint: #b8a898;
+  --crimson: #c84a45;
+  --crimson-soft: rgba(200,74,69,0.07);
+  --crimson-border: rgba(200,74,69,0.18);
+  --gold: #c9a84c;
+  --gold-soft: rgba(201,168,76,0.10);
+  --gold-border: rgba(201,168,76,0.28);
+  --gold-tint: #faf6eb;
+  --jade: #3a7d4e;
+  --jade-soft: rgba(58,125,78,0.06);
+  --jade-border: rgba(58,125,78,0.20);
+  --mixed-border: rgba(122,96,64,0.15);
+}
+body {
+  background: #ddd6c8;
+  display: flex;
+  justify-content: center;
+  padding: 32px 0 64px;
+  font-family: 'Noto Serif SC', serif;
+  min-height: 100vh;
+}
+.phone {
+  width: 375px;
+  background: var(--parchment);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+/* Tab bar */
+.topbar {
+  background: var(--parchment);
+  border-bottom: 1px solid rgba(139,115,85,0.15);
+  padding: 14px 0 0;
+}
+.tab-row {
+  display: flex;
+  padding: 0 4px;
+}
+.tab {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-light);
+  padding: 8px 4px 10px;
+  text-align: center;
+  white-space: nowrap;
+  position: relative;
+  letter-spacing: .02em;
+}
+.tab.active {
+  color: var(--ink);
+  font-weight: 600;
+}
+.tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 10px; right: 10px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 2px 2px 0 0;
+}
+
+/* Content */
+.content {
+  padding: 20px 16px 40px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Section divider */
+.section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 0 14px;
+}
+.section-label:first-child { margin-top: 4px; }
+.sl-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to right, transparent, rgba(139,115,85,0.22), transparent);
+}
+.sl-text {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .18em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+}
+
+/* ── Layer 1 compact cards ── */
+.twin-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.compact-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 13px 12px 14px;
+  box-shadow: 0 1px 4px rgba(60,40,10,0.06), 0 2px 10px rgba(60,40,10,0.04);
+  border: 1px solid rgba(139,115,85,0.10);
+  position: relative;
+  overflow: hidden;
+}
+.compact-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+}
+.compact-card.mixed::before  { background: rgba(122,96,64,0.5); }
+.compact-card.warning::before { background: var(--crimson); opacity:.65; }
+.compact-card.positive::before { background: var(--jade); opacity:.7; }
+
+.cc-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  margin-bottom: 5px;
+}
+.cc-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+.cc-sub {
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  letter-spacing: .04em;
+  margin-bottom: 7px;
+}
+.cc-body {
+  font-size: 11px;
+  line-height: 1.72;
+  color: var(--ink-mid);
+}
+
+/* Env card */
+.env-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 13px 14px 14px 18px;
+  box-shadow: 0 1px 4px rgba(60,40,10,0.06);
+  border: 1px solid var(--crimson-border);
+  position: relative;
+  overflow: hidden;
+}
+.env-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 3px;
+  background: var(--crimson);
+  opacity: .55;
+}
+.ec-label {
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: .12em;
+  color: var(--crimson);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  opacity: .85;
+}
+.ec-sub {
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  letter-spacing: .05em;
+  margin-bottom: 7px;
+}
+.ec-body {
+  font-size: 11.5px;
+  line-height: 1.72;
+  color: var(--ink-mid);
+}
+
+/* ── Layer 2 factor cards ── */
+.factor-twin {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.factor-card {
+  border-radius: 10px;
+  padding: 13px 12px 14px;
+  box-shadow: 0 1px 4px rgba(60,40,10,0.05);
+  position: relative;
+  overflow: hidden;
+}
+.factor-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  border-radius: 10px 10px 0 0;
+}
+.factor-card.support {
+  background: #f3f9f5;
+  border: 1px solid var(--jade-border);
+}
+.factor-card.support::before { background: var(--jade); }
+.factor-card.constraint {
+  background: #fdf3f3;
+  border: 1px solid var(--crimson-border);
+}
+.factor-card.constraint::before { background: var(--crimson); }
+
+.fc-label {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.factor-card.support .fc-label { color: var(--jade); }
+.factor-card.constraint .fc-label { color: var(--crimson); }
+
+.fc-body {
+  font-size: 11px;
+  line-height: 1.78;
+}
+.factor-card.support .fc-body { color: #2e5c3a; }
+.factor-card.constraint .fc-body { color: #6a2828; }
+
+/* ── Layer 3 verdict ── */
+.verdict-card {
+  background: var(--gold-tint);
+  border: 1px solid var(--gold-border);
+  border-radius: 12px;
+  padding: 18px 16px 16px 20px;
+  margin-top: 14px;
+  box-shadow: 0 3px 16px rgba(201,168,76,0.15), 0 1px 4px rgba(60,40,10,0.07);
+  position: relative;
+  overflow: hidden;
+}
+.verdict-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  background: linear-gradient(to bottom, var(--gold), #e2b84a);
+  border-radius: 12px 0 0 12px;
+}
+.vc-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.vc-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+.vc-sym {
+  font-size: 9.5px;
+  color: var(--ink-faint);
+  letter-spacing: .05em;
+}
+.vc-body {
+  font-size: 13px;
+  line-height: 1.82;
+  color: var(--ink);
+  letter-spacing: .02em;
+  margin-bottom: 12px;
+}
+.vc-body em {
+  font-style: normal;
+  color: #7a5c20;
+  font-weight: 600;
+}
+.vc-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 11px;
+  background: rgba(201,168,76,0.11);
+  border: 1px solid rgba(201,168,76,0.25);
+  border-radius: 7px;
+}
+.vc-dot {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+  margin-top: 5px;
+}
+.vc-action-text {
+  font-size: 11px;
+  color: #7a5c20;
+  line-height: 1.55;
+  letter-spacing: .02em;
+  font-weight: 500;
+}
+</style>
+</head>
+<body>
+<div class="phone">
+
+  <div class="topbar">
+    <div class="tab-row">
+      <div class="tab">结论先行</div>
+      <div class="tab">奇门定基</div>
+      <div class="tab active">局象推演</div>
+      <div class="tab">开运指南</div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- Layer 1 -->
+    <div class="section-label">
+      <div class="sl-line"></div>
+      <div class="sl-text">盘面翻译</div>
+      <div class="sl-line"></div>
+    </div>
+
+    <div class="twin-row">
+      <div class="compact-card mixed">
+        <div class="cc-label">自身状态</div>
+        <div class="cc-title">日干 己</div>
+        <div class="cc-sub">坤2宫 · 天心 · 杜门</div>
+        <div class="cc-body">旺衰居中，杜门临宫说明沟通渠道虽通但信息不透明，马星入宫有催动动象。</div>
+      </div>
+      <div class="compact-card warning">
+        <div class="cc-label">目标事态</div>
+        <div class="cc-title">时干 癸</div>
+        <div class="cc-sub">乾6宫 · 死门 · 空亡</div>
+        <div class="cc-body">死门临宫，项目处于停滞低活力状态；逢空亡，需求虚而未实，尚未落地。</div>
+      </div>
+    </div>
+
+    <div class="env-card">
+      <div class="ec-label">环境制约</div>
+      <div class="ec-sub">值使 · 死门 · 艮8宫</div>
+      <div class="ec-body">值使门临死门，当前时窗的整体流程管道处于静止状态；值符落艮8宫，大局资源尚存但无法调动，是周期性低谷而非人为封堵。</div>
+    </div>
+
+    <!-- Layer 2 -->
+    <div class="section-label">
+      <div class="sl-line"></div>
+      <div class="sl-text">利弊提炼</div>
+      <div class="sl-line"></div>
+    </div>
+
+    <div class="factor-twin">
+      <div class="factor-card support">
+        <div class="fc-label">有利因素</div>
+        <div class="fc-body">双方合作底色未破，奇仪相合说明人事关系仍有基础；你的专业能力是被认可的，时机合适时对方有意愿重启。马星入宫意味着局面可以被催动，不必坐等。</div>
+      </div>
+      <div class="factor-card constraint">
+        <div class="fc-label">不利因素</div>
+        <div class="fc-body">目标用神逢空，需求端尚未启动，现在推进只会扑空；朱雀投江提示对方的表态存在模糊，不宜过度解读"有需求会找你"这句话。</div>
+      </div>
+    </div>
+
+    <!-- Layer 3 -->
+    <div class="verdict-card">
+      <div class="vc-header">
+        <div class="vc-label">生克决断</div>
+        <div class="vc-sym">己土 ↔ 癸水</div>
+      </div>
+      <div class="vc-body">己土克癸水，你在这段关系中具备<em>主导潜力</em>。但癸水当前逢空，克而无实——力气用了却落不到实处。最稳的策略是<em>先观望，等空亡填实</em>（逢癸日或亥日），届时再主动跟进，事半功倍。</div>
+      <div class="vc-action">
+        <div class="vc-dot"></div>
+        <div class="vc-action-text">建议等待空亡填实后再主动接触，切勿在当前时窗连续催问</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

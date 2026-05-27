@@ -27,3 +27,14 @@ test('qimen worker prompt uses narrative sections instead of a large JSON schema
   assert.doesNotMatch(source, /"summary": \{\n    "title": "短标题/)
   assert.doesNotMatch(source, /"domain_view": \{\n    "type": "career_business/)
 })
+
+test('qimen worker writes backend supplements back into qimen_report', () => {
+  assert.match(source, /const enrichedQimenReport = \{/)
+  assert.match(source, /m1_conclusion:[\s\S]{0,260}score:\s*finalScore/)
+  assert.match(source, /m1_conclusion:[\s\S]{0,420}score_basis:/)
+  assert.match(source, /m2_basis:[\s\S]{0,420}chart_summary:/)
+  assert.match(source, /m2_basis:[\s\S]{0,520}formation_tags:/)
+  assert.match(source, /m3_inference:[\s\S]{0,260}interaction_decision:/)
+  assert.match(source, /relation:\s*backendScoreAudit\.relations\?\.\[0\] \|\| null/)
+  assert.match(source, /qimen_report:\s*enrichedQimenReport/)
+})

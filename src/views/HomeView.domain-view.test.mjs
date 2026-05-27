@@ -4,27 +4,89 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('./HomeView.vue', import.meta.url), 'utf8')
 
-test('结果卡片在行动建议后插入领域判断模块', () => {
+test('奇门结果卡片按四个模块顺序渲染且不展示 M 编号', () => {
+  assert.match(source, /const getApiBase = \(\) =>/)
+  assert.match(source, /\.qimen-1ff\.pages\.dev/)
+  assert.match(source, /https:\/\/qimen-preview\.oceanjustinlin\.workers\.dev/)
   assert.match(source, /const domainView = data\.domain_view/)
-  assert.match(source, /let domainViewHTML = ''/)
-  assert.match(source, /\$\{domainViewHTML\}\s*\n\s*\$\{chartHTML\}/)
+  assert.match(source, /<button class="mag-tab mag-tab-active" onclick="\$\{tabClick\('mag-m1'\)\}">结论先行<\/button>/)
+  assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m2'\)\}">奇门定基<\/button>/)
+  assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m3'\)\}">局象推演<\/button>/)
+  assert.match(source, /<button class="mag-tab" onclick="\$\{tabClick\('mag-m4'\)\}">开运指南<\/button>/)
+  assert.doesNotMatch(source, />M[1-4]\s/)
+  assert.doesNotMatch(source, /M3\.\$\{index \+ 1\}/)
+  assert.doesNotMatch(source, /<div class="report-subtitle">分数依据<\/div>/)
 
-  const actionIndex = source.indexOf('<div class="ai-header-title">行动建议</div>')
-  const domainIndex = source.indexOf('${domainViewHTML}')
-  const chartIndex = source.indexOf('${chartHTML}')
+  const m1Index = source.indexOf('<section class="mag-section" id="mag-m1">')
+  const m2Index = source.indexOf('<section class="mag-section" id="mag-m2">')
+  const m3Index = source.indexOf('<section class="mag-section" id="mag-m3">')
+  const m4Index = source.indexOf('<section class="mag-section" id="mag-m4">')
 
-  assert.ok(actionIndex > -1)
-  assert.ok(domainIndex > actionIndex)
-  assert.ok(chartIndex > domainIndex)
+  assert.ok(m1Index > -1)
+  assert.ok(m2Index > m1Index)
+  assert.ok(m3Index > m2Index)
+  assert.ok(m4Index > m3Index)
 })
 
-test('领域判断模块包含核心轴、流程、应期和决策样式', () => {
-  assert.match(source, /domain-axis-grid/)
-  assert.match(source, /domain-axis-card/)
-  assert.match(source, /domain-section-grid/)
-  assert.match(source, /domain-decision/)
-  assert.match(source, /\.domain-axis-card/)
+test('结果页隐藏顶部标题和右侧入口但首页输入框保留', () => {
+  assert.match(source, /<header id="siteHeader" :class="\{ 'result-header': viewState === 'result' \}">/)
+  assert.match(source, /v-if="viewState !== 'result'" class="site-logo"/)
+  assert.match(source, /v-if="viewState !== 'result'" class="header-actions"/)
+  assert.match(source, /class="page-wrap" :class="\{ 'result-page-wrap': viewState === 'result' \}"/)
+  assert.match(source, /#siteHeader\.result-header/)
+  assert.match(source, /#siteHeader\.result-header \{[\s\S]{0,180}position:\s*absolute/)
+  assert.match(source, /\.result-page-wrap \{[^}]*padding-top:\s*0;/)
+  assert.match(source, /\.result-page-wrap :deep\(\.mag-tabs\)/)
+})
+
+test('历史抽屉顶部提供再起一局入口返回首页', () => {
+  assert.match(source, /class="drawer-new-session" type="button" @click="startNewSession"/)
+  assert.match(source, />再起一局</)
+  assert.match(source, /const startNewSession = \(\) => \{[\s\S]{0,120}resetToInput\(\)[\s\S]{0,120}globalState\.isDrawerOpen = false/)
+})
+
+test('奇门定基和局象推演包含用神、四段推演和开运样式', () => {
+  assert.match(source, /yongshen-card-grid/)
+  assert.match(source, /reportM2\.yongshen_cards/)
+  assert.match(source, /subject_day_stem_state/)
+  assert.match(source, /target_yongshen_state/)
+  assert.match(source, /constraint_factors/)
+  assert.match(source, /interaction_decision/)
+  assert.match(source, /const hasQimenReport = Boolean\(report && Object\.keys\(report\)\.length\)/)
+  assert.match(source, /const score = reportM1\.score \?\? summary\.score \?\? 0/)
+  assert.match(source, /hasQimenReport && Object\.keys\(reportM3\)\.length[\s\S]{0,120}deriveScoreBasisFromM3\(reportM3/)
+  assert.match(source, /target\?\.reading/)
+  assert.match(source, /support\?\.summary/)
+  assert.match(source, /const interactionMainText = toStr\(interactionDecision\?\.reading/)
+  assert.match(source, /normalizedInteractionDecision/)
+  assert.match(source, /tone: interactionDecision\?\.tone \|\| \(relation\?\.effect > 0/)
+  assert.match(source, /itemsOf\(support\)/)
+  assert.match(source, /renderFactorList/)
+  assert.match(source, /guidance-row/)
+  assert.match(source, /min-height:\s*40svh/)
+  assert.doesNotMatch(source, /inference-card[\s\S]{0,220}<p>\$\{card\.evidence \|\| '暂无依据说明'\}<\/p>/)
+  assert.match(source, /card\?\.decision/)
+  assert.match(source, /card\?\.reason/)
+  assert.match(source, /reportM3\.self_state/)
+  assert.match(source, /reportM3\.target_state/)
+  assert.match(source, /reportM3\.constraints/)
+  assert.match(source, /reportM3\.interaction_verdict/)
+  assert.match(source, /environment_fengshui/)
+  assert.match(source, /timing_behavior/)
+  assert.match(source, /\.yongshen-card/)
+  assert.match(source, /\.inference-card/)
+  assert.match(source, /\.guidance-card/)
   assert.match(source, /overflow-wrap:\s*anywhere/)
+  assert.match(source, /:deep\(\.inference-head span\)[\s\S]{0,120}font-size:\s*18px/)
+  assert.match(source, /:deep\(\.inference-card h4\)[\s\S]{0,180}font-weight:\s*400/)
+})
+
+test('奇门格局标签使用新容器恢复点击说明弹窗', () => {
+  assert.match(source, /data-ge-reasons/)
+  assert.match(source, /formation-tag-row/)
+  assert.match(source, /tag\.closest\('\.formation-tag-row, \.ge-tags-row'\)/)
+  assert.match(source, /ge-pop-kicker/)
+  assert.match(source, /:deep\(\.ge-tag\)[\s\S]{0,320}border-radius:\s*999px/)
 })
 
 test('奇门页使用顶部档案筛选器并移除旧八字注入开关', () => {
@@ -45,6 +107,14 @@ test('奇门占卜提交不再强制要求八字档案且仅 hybrid 携带已选
 })
 
 test('登录或注册落地页显式覆盖访客应用视图', () => {
+  assert.match(source, /const authView = ref\('landing'\)/)
+  assert.match(source, /const isLoginMode = computed\(\(\) => authView\.value === 'login'\)/)
+  assert.match(source, /authView === 'landing'/)
+  assert.match(source, /authView === 'login'/)
+  assert.match(source, /authView === 'register'/)
+  assert.match(source, /auth-taiji-wrap/)
+  assert.match(source, /@media\(max-width:760px\)[\s\S]{0,120}\.seo-landing,[\s\S]{0,160}\.seo-faq-section[\s\S]{0,80}display:\s*none/)
+  assert.match(source, /@media\(max-width:760px\)[\s\S]{0,420}\.auth-taiji-wrap[\s\S]{0,80}display:\s*block/)
   assert.match(source, /const isAuthLanding = computed\(\(\) => \['login', 'register'\]\.includes\(route\.query\.auth\)\)/)
   assert.match(source, /const canUseApp = computed\(\(\) => Boolean\(currentUser\.value \|\| \(isGuest\.value && globalState\.guestAccessUnlocked && !isAuthLanding\.value\)\)\)/)
   assert.match(source, /enterGuestMode\(\)/)
@@ -60,22 +130,41 @@ test('八字问答结果使用 mode 卡片而不是奇门分数泡泡', () => {
 })
 
 test('奇门占卜结果分数旁不展示格局吉凶数量角标', () => {
-  const summaryStart = source.indexOf('<section class="result-module summary-module reveal">', source.indexOf('const buildResultHTML'))
+  const summaryStart = source.indexOf('<section class="mag-hero" id="mag-hero">', source.indexOf('const buildCardHTML'))
   const summaryEnd = source.indexOf('</section>', summaryStart)
   const summarySource = source.slice(summaryStart, summaryEnd)
 
   assert.ok(summaryStart > -1)
   assert.ok(summaryEnd > summaryStart)
-  assert.match(summarySource, /verdict-badge/)
+  assert.match(summarySource, /mag-verdict-badge/)
   assert.doesNotMatch(summarySource, /ge-corner-badges/)
   assert.doesNotMatch(summarySource, /geCornerHTML/)
 })
 
+test('奇门结果动态 HTML 使用标准属性引号以保留样式 class', () => {
+  const cardStart = source.indexOf('const buildCardHTML = (data) => {')
+  const cardEnd = source.indexOf('\n</script>', cardStart)
+  const cardSource = source.slice(cardStart, cardEnd)
+
+  assert.ok(cardStart > -1)
+  assert.ok(cardEnd > cardStart)
+  assert.match(cardSource, /<div class="mag-result tone-\$\{heroTone\}"/)
+  assert.match(cardSource, /<div class="pan-cell"/)
+  assert.doesNotMatch(cardSource, /[“”]/)
+})
+
 test('八字问答结果把枚举 meta 渲染为用户可读标签', () => {
+  const cardStart = source.indexOf('const buildBaziQuestionCardHTML = (data) => {')
+  const cardEnd = source.indexOf('const deriveScoreBasisFromM3', cardStart)
+  const cardSource = source.slice(cardStart, cardEnd)
+
+  assert.ok(cardStart > -1)
+  assert.ok(cardEnd > cardStart)
   assert.match(source, /baziAnalysisModeLabel/)
   assert.match(source, /当前状态/)
   assert.match(source, /精确领域/)
-  assert.match(source, /const metaHTML = ''/)
+  assert.match(cardSource, /<div class="mag-result tone-\$\{heroTone\}"/)
+  assert.doesNotMatch(cardSource, /[“”]/)
   assert.doesNotMatch(source, /<span>\$\{meta\.analysis_mode \|\| 'bazi'\}<\/span>/)
   assert.doesNotMatch(source, /<span>\$\{meta\.target\.fallback_level\}<\/span>/)
   assert.doesNotMatch(source, /<div class="bazi-meta-row">/)
@@ -169,6 +258,15 @@ test('专业排盘联动列表只使用八字档案矩阵数据，候选时间�
   assert.match(component, /dayunHasWindow/)
   assert.doesNotMatch(component, /props\.analysisMode === 'timing' && windows\.value\.length/)
   assert.doesNotMatch(component, /source\.filter\(item => years\.has\(item\.year\)\)/)
+})
+
+test('专业排盘联动列表使用浅色高对比样式提升可读性', () => {
+  const component = readFileSync(new URL('../components/BaziBackingPanel.vue', import.meta.url), 'utf8')
+  assert.match(component, /\.linkage-row[\s\S]{0,260}background:\s*rgba\(255,253,247,0\.72\)/)
+  assert.match(component, /\.row-label[\s\S]{0,220}font-size:\s*13px/)
+  assert.match(component, /\.item-header[\s\S]{0,220}font-weight:\s*600/)
+  assert.match(component, /\.char-gan,[\s\S]{0,160}font-size:\s*19px/)
+  assert.doesNotMatch(component, /background:\s*rgba\(0,0,0,0\.25\)/)
 })
 
 test('历史抽屉里的八字记录不展示分数', () => {

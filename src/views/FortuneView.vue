@@ -86,7 +86,8 @@
                     <p v-else :class="['score-insight', { muted: isInterpretationLoading && !hasInterpretationContent }]">
                       {{ hasInterpretationContent ? (fortuneData.day_insight || '平稳度日，顺势而为') : interpretationPlaceholder }}
                     </p>
-                    <div v-if="fortuneData.day_warning" class="warning-tag inline-warning">⚠️ {{ fortuneData.day_warning }}</div>
+                    <div v-if="fortuneData.day_warning" class="warning-tag inline-warning">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-1px;margin-right:4px"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>{{ fortuneData.day_warning }}</div>
                     <div v-else-if="interpretationError" class="hint-text error inline-hint">{{ interpretationError }}</div>
                   </div>
                 </div>
@@ -101,7 +102,7 @@
               <div class="fortune-grid">
                 <div v-for="item in fortuneGridItems" :key="item.key" class="fortune-grid-card">
                   <div class="grid-card-header">
-                    <span class="grid-card-icon">{{ item.icon }}</span>
+                    <span class="grid-card-icon" v-html="item.icon"></span>
                     <span class="grid-card-label">{{ item.label }}</span>
                   </div>
                   <template v-if="!hasInterpretationContent && isInterpretationLoading">
@@ -118,7 +119,7 @@
 
               <!-- ═══ 3. Guide + Timeline ═══ -->
               <div class="glass-card info-card">
-                <h3 class="card-title"><span>🧭</span> 行事指南</h3>
+                <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg> 行事指南</h3>
                 <template v-if="!hasInterpretationContent && isInterpretationLoading">
                   <div class="daily-info-skeleton">
                     <div class="daily-guide-skeleton-row">
@@ -136,7 +137,7 @@
                       </div>
                     </div>
                     <hr class="guide-divider" />
-                    <div class="timeline-title">⏰ 今日吉时</div>
+                    <div class="timeline-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="vertical-align:-1px;margin-right:4px"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg> 今日吉时</div>
                     <div class="daily-timeline-skeleton">
                       <div class="daily-timeline-skeleton-item">
                         <div class="timeline-dot"></div>
@@ -170,7 +171,7 @@
                   </div>
 
                   <hr class="guide-divider" />
-                  <div class="timeline-title">⏰ 今日吉时</div>
+                  <div class="timeline-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" style="vertical-align:-1px;margin-right:4px"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></svg> 今日吉时</div>
                   <div class="timeline" v-if="luckyHours.length">
                     <div v-for="(h, i) in luckyHours" :key="i" class="timeline-item">
                       <div class="timeline-dot"></div>
@@ -184,7 +185,7 @@
 
               <!-- ═══ 4. Lucky Grid ═══ -->
               <div class="glass-card info-card">
-                <h3 class="card-title"><span>💡</span> 开运密码</h3>
+                <h3 class="card-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6M12 3a7 7 0 0 1 7 7c0 2.5-1.3 4.6-3 6a2 2 0 0 0-1 1.7V19H9v-1.3A2 2 0 0 0 8 16c-1.7-1.4-3-3.5-3-6a7 7 0 0 1 7-7Z"/></svg> 开运密码</h3>
                 <template v-if="!hasInterpretationContent && isInterpretationLoading">
                   <div class="lucky-grid daily-lucky-skeleton">
                     <div v-for="cell in 4" :key="cell" class="lucky-cell">
@@ -218,13 +219,13 @@
 
               <!-- ═══ 5. Resolve Tip ═══ -->
               <div v-if="hasInterpretationContent && fortuneData.resolve_tip" class="glass-card resolve-card">
-                <div class="resolve-title"><span class="resolve-icon">🌿</span> 旺运秘诀</div>
+                <div class="resolve-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="resolve-icon"><path d="M12 22V12M12 12C12 8 15 4 20 3c0 5-2 9-8 9ZM12 12C12 7 9 3 4 2c0 6 3 9 8 10Z"/></svg> 旺运秘诀</div>
                 <p class="resolve-text">{{ fortuneData.resolve_tip }}</p>
               </div>
 
               <!-- ═══ 6. Hook Teaser ═══ -->
               <div v-if="hasInterpretationContent && fortuneData.hook_teaser" class="glass-card hook-card">
-                <div class="hook-title"><span class="hook-icon">🔮</span> 明日预告</div>
+                <div class="hook-title"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="hook-icon"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> 明日预告</div>
                 <p class="hook-text">{{ fortuneData.hook_teaser }}</p>
               </div>
               </template>
@@ -330,21 +331,21 @@
               <div class="fortune-grid weekly-forecast-grid">
                 <div class="fortune-grid-card">
                   <div class="grid-card-header">
-                    <span class="grid-card-icon">💼</span>
+                    <span class="grid-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
                     <span class="grid-card-label">事业运</span>
                   </div>
                   <p class="grid-card-text">{{ weeklyData.event_forecast?.career || '暂无' }}</p>
                 </div>
                 <div class="fortune-grid-card">
                   <div class="grid-card-header">
-                    <span class="grid-card-icon">💰</span>
+                    <span class="grid-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5A2.5 2.5 0 0 1 12 8a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 0 0 5c1.38 0 2.5-1.12 2.5-2.5"/></svg></span>
                     <span class="grid-card-label">财富运</span>
                   </div>
                   <p class="grid-card-text">{{ weeklyData.event_forecast?.wealth || '暂无' }}</p>
                 </div>
                 <div class="fortune-grid-card weekly-forecast-wide">
                   <div class="grid-card-header">
-                    <span class="grid-card-icon">💕</span>
+                    <span class="grid-card-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-9-6-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-9 12-9 12Z"/></svg></span>
                     <span class="grid-card-label">关系运</span>
                   </div>
                   <p class="grid-card-text">{{ weeklyData.event_forecast?.relationship || '暂无' }}</p>
@@ -379,7 +380,7 @@
             </div>
 
             <div v-else class="glass-card placeholder-content">
-              <div class="placeholder-icon">⏳</div>
+              <div class="placeholder-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12m5-9.83V6.17a2 2 0 0 1-.59 1.41L12 12M7 22v-4.17a2 2 0 0 1 .59-1.41L12 12M7 2.17V6.17a2 2 0 0 0 .59 1.41L12 12"/></svg></div>
               <p>{{ weekError || '周运数据暂未生成' }}</p>
             </div>
           </transition>
@@ -564,7 +565,7 @@
             </div>
 
             <div v-else class="glass-card placeholder-content">
-              <div class="placeholder-icon">⏳</div>
+              <div class="placeholder-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12m5-9.83V6.17a2 2 0 0 1-.59 1.41L12 12M7 22v-4.17a2 2 0 0 1 .59-1.41L12 12M7 2.17V6.17a2 2 0 0 0 .59 1.41L12 12"/></svg></div>
               <p>{{ monthError || '流月数据暂未生成' }}</p>
             </div>
           </transition>
@@ -646,14 +647,14 @@
             </div>
 
             <div v-else class="glass-card placeholder-content">
-              <div class="placeholder-icon">⏳</div>
+              <div class="placeholder-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12m5-9.83V6.17a2 2 0 0 1-.59 1.41L12 12M7 22v-4.17a2 2 0 0 1 .59-1.41L12 12M7 2.17V6.17a2 2 0 0 0 .59 1.41L12 12"/></svg></div>
               <p>{{ annualError || '流年数据暂未生成' }}</p>
             </div>
           </transition>
         </div>
 
         <div v-else class="glass-card placeholder-content">
-          <div class="placeholder-icon">⏳</div>
+          <div class="placeholder-icon"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 22h14M5 2h14M17 22v-4.17a2 2 0 0 0-.59-1.41L12 12m5-9.83V6.17a2 2 0 0 1-.59 1.41L12 12M7 22v-4.17a2 2 0 0 1 .59-1.41L12 12M7 2.17V6.17a2 2 0 0 0 .59 1.41L12 12"/></svg></div>
           <p>【{{ getTabLabel(currentTab) }}运】推演引擎升级中<br>敬请期待</p>
         </div>
 
@@ -815,10 +816,10 @@ const yearScrollerRef = ref(null)
 const isGuest = computed(() => globalState.isGuest)
 
 const fortuneGridItems = [
-  { key: 'career_insight', icon: '💼', label: '事业运' },
-  { key: 'wealth_insight', icon: '💰', label: '财富运' },
-  { key: 'love_insight',   icon: '💕', label: '感情运' },
-  { key: 'health_insight', icon: '🏃', label: '健康运' },
+  { key: 'career_insight', label: '事业运', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="15" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>' },
+  { key: 'wealth_insight', label: '财富运', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v10M9.5 9.5A2.5 2.5 0 0 1 12 8a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 0 0 5c1.38 0 2.5-1.12 2.5-2.5"/></svg>' },
+  { key: 'love_insight',   label: '感情运', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-9-6-9-12a5 5 0 0 1 9-3 5 5 0 0 1 9 3c0 6-9 12-9 12Z"/></svg>' },
+  { key: 'health_insight', label: '健康运', icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>' },
 ]
 
 const monthlyInterpretationTabs = [

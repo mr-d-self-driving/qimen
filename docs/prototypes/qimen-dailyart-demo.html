@@ -1,0 +1,1346 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>奇门去 emoji 化 UI Demo</title>
+  <style>
+    :root {
+      --ink: #0b0b0b;
+      --paper: #f7f4ee;
+      --paper-soft: #ebe6da;
+      --muted: #777b80;
+      --line: rgba(11, 11, 11, .12);
+      --gold: #b58d3b;
+      --seal: #a94b32;
+      --dark: #070707;
+      --chrome: #efefef;
+      --chrome-muted: #9a9a9a;
+      --shadow: 0 24px 60px rgba(0, 0, 0, .28);
+      font-family: "PingFang SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, rgba(181, 141, 59, .16), transparent 28%),
+        linear-gradient(150deg, #171b1d, #090a0b 70%);
+    }
+
+    button { font: inherit; }
+
+    .demo-shell {
+      width: min(420px, 100vw);
+      min-height: 100vh;
+      background: var(--dark);
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+
+    .art-stage {
+      min-height: 620px;
+      position: relative;
+      isolation: isolate;
+      color: white;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 20%, rgba(212, 175, 55, .08), transparent 36%),
+        linear-gradient(155deg, #05050a 0%, #0e0e1f 58%, #1a1a2e 100%);
+    }
+
+    .qimen-art {
+      display: none;
+    }
+
+    .art-stage::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+      background:
+        linear-gradient(to bottom, rgba(0, 0, 0, .02) 0%, rgba(0, 0, 0, .08) 62%, #000 100%);
+    }
+
+    .status-bar {
+      position: relative;
+      z-index: 3;
+      height: 54px;
+      padding: 16px 26px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: .2px;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+
+    .signal {
+      width: 20px;
+      height: 12px;
+      display: grid;
+      grid-template-columns: repeat(4, 3px);
+      align-items: end;
+      gap: 2px;
+    }
+
+    .signal i {
+      display: block;
+      width: 3px;
+      border-radius: 2px;
+      background: white;
+    }
+
+    .signal i:nth-child(1) { height: 4px; }
+    .signal i:nth-child(2) { height: 6px; }
+    .signal i:nth-child(3) { height: 9px; }
+    .signal i:nth-child(4) { height: 12px; }
+
+    .battery {
+      width: 25px;
+      height: 12px;
+      border: 1.8px solid white;
+      border-radius: 3px;
+      position: relative;
+    }
+
+    .battery::before {
+      content: "";
+      position: absolute;
+      right: -4px;
+      top: 3px;
+      width: 2px;
+      height: 5px;
+      border-radius: 1px;
+      background: white;
+    }
+
+    .battery::after {
+      content: "";
+      position: absolute;
+      inset: 2px 4px 2px 2px;
+      border-radius: 1px;
+      background: white;
+    }
+
+    .round-action {
+      position: relative;
+      z-index: 3;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 0;
+      display: grid;
+      place-items: center;
+      color: #111;
+      background: rgba(232, 232, 232, .78);
+      backdrop-filter: blur(14px);
+      cursor: pointer;
+    }
+
+    .back {
+      position: absolute;
+      top: 64px;
+      left: 26px;
+    }
+
+    .action-pair {
+      display: none;
+    }
+
+    .cover-copy {
+      display: none;
+    }
+
+    .cover-title {
+      margin: 0;
+      color: white;
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: clamp(48px, 15vw, 74px);
+      line-height: .9;
+      letter-spacing: -1px;
+      text-shadow: 0 8px 28px rgba(0, 0, 0, .42);
+    }
+
+    .cover-subtitle {
+      margin-top: 18px;
+      color: rgba(255, 255, 255, .44);
+      font-size: 18px;
+      line-height: 1.35;
+      font-weight: 650;
+    }
+
+    .cover-pill {
+      display: inline-flex;
+      align-items: center;
+      margin-top: 26px;
+      min-height: 38px;
+      padding: 0 18px;
+      border-radius: 999px;
+      color: white;
+      background: rgba(255, 255, 255, .12);
+      font-weight: 800;
+      font-size: 16px;
+      backdrop-filter: blur(18px);
+    }
+
+    .cover-plate {
+      position: absolute;
+      z-index: 2;
+      left: 34px;
+      right: 34px;
+      top: 136px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      border: 1px solid rgba(255, 255, 255, .36);
+      background: rgba(7, 7, 7, .22);
+      box-shadow: 0 22px 60px rgba(0, 0, 0, .32);
+      backdrop-filter: blur(6px);
+    }
+
+    .cover-palace {
+      min-height: 84px;
+      position: relative;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+      gap: 6px;
+      padding: 9px 9px 8px;
+      border-right: 1px solid rgba(255, 255, 255, .24);
+      border-bottom: 1px solid rgba(255, 255, 255, .24);
+      color: rgba(255, 255, 255, .88);
+      text-shadow: 0 1px 8px rgba(0, 0, 0, .45);
+    }
+
+    .cover-palace:nth-child(3n) { border-right: 0; }
+    .cover-palace:nth-child(n+7) { border-bottom: 0; }
+    .cover-palace.is-target {
+      color: white;
+      background: rgba(181, 141, 59, .24);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .42);
+    }
+
+    .palace-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .palace-name {
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: 15px;
+      font-weight: 900;
+      line-height: 1;
+      white-space: nowrap;
+    }
+
+    .palace-flags {
+      display: flex;
+      gap: 3px;
+      flex-shrink: 0;
+    }
+
+    .palace-flag {
+      min-width: 18px;
+      height: 18px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, .34);
+      color: rgba(255, 255, 255, .9);
+      font-size: 10px;
+      font-weight: 800;
+    }
+
+    .palace-door {
+      align-self: center;
+      font-size: 20px;
+      line-height: 1;
+      font-weight: 850;
+      letter-spacing: .5px;
+    }
+
+    .palace-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px 7px;
+      color: rgba(255, 255, 255, .7);
+      font-size: 10px;
+      line-height: 1.2;
+    }
+
+    .palace-meta b {
+      color: rgba(255, 255, 255, .92);
+      font-weight: 750;
+    }
+
+    .source-note {
+      display: none;
+    }
+
+    .source-note::before,
+    .source-note::after {
+      content: "";
+      height: 1px;
+      flex: 1;
+      background: rgba(255, 255, 255, .18);
+    }
+
+    .immersive-pan-card {
+      position: absolute;
+      z-index: 3;
+      left: 20px;
+      right: 20px;
+      top: 124px;
+    }
+
+    .hero-summary {
+      position: absolute;
+      z-index: 3;
+      left: 28px;
+      right: 28px;
+      top: 142px;
+      bottom: 74px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      gap: 22px;
+    }
+
+    .hero-kicker {
+      color: rgba(255, 255, 255, .48);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 2.4px;
+    }
+
+    .hero-title {
+      margin: 0;
+      color: #fff;
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: clamp(56px, 16vw, 78px);
+      line-height: .92;
+      letter-spacing: -1px;
+      text-shadow: 0 12px 34px rgba(0, 0, 0, .42);
+    }
+
+    .hero-conclusion {
+      margin: 0;
+      max-width: 360px;
+      color: rgba(255, 255, 255, .86);
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: 25px;
+      line-height: 1.34;
+      font-weight: 800;
+    }
+
+    .hero-meta-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 112px;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .hero-keyword {
+      display: grid;
+      gap: 6px;
+      min-width: 0;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, .12);
+      background: rgba(255, 255, 255, .06);
+      backdrop-filter: blur(18px);
+    }
+
+    .hero-keyword span {
+      color: rgba(255, 255, 255, .45);
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 1.6px;
+    }
+
+    .hero-keyword b {
+      color: rgba(255, 255, 255, .9);
+      font-size: 14px;
+      line-height: 1.45;
+      font-weight: 650;
+    }
+
+    .hero-score {
+      min-height: 112px;
+      border-radius: 24px;
+      display: grid;
+      place-items: center;
+      background: #f7f4ee;
+      color: #08080c;
+      box-shadow: 0 18px 42px rgba(0, 0, 0, .28);
+    }
+
+    .hero-score strong {
+      display: block;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 52px;
+      line-height: .86;
+    }
+
+    .hero-score small {
+      display: block;
+      margin-top: 6px;
+      color: #777b80;
+      font-size: 12px;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .hero-question {
+      margin: 0;
+      color: rgba(255, 255, 255, .46);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .ai-header-title {
+      font-family: var(--font-serif, "Noto Serif SC", serif);
+      color: var(--gold);
+      font-size: 15px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 12px;
+    }
+
+    .ai-header-title::before {
+      content: "✧";
+      font-size: 12px;
+    }
+
+    .pan-wrapper {
+      background: rgba(0,0,0,0.25);
+      border: 1px solid var(--gold-border, rgba(212,175,55,0.22));
+      border-radius: 16px;
+      padding: 14px;
+      position: relative;
+      overflow: hidden;
+      backdrop-filter: blur(18px) saturate(1.15);
+      -webkit-backdrop-filter: blur(18px) saturate(1.15);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.28);
+    }
+
+    .pan-wrapper::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 50%,rgba(212,175,55,0.03) 0%,transparent 70%);
+      pointer-events: none;
+    }
+
+    .pan-header {
+      text-align: center;
+      margin-bottom: 12px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .pan-pillars {
+      font-family: var(--font-serif, "Noto Serif SC", serif);
+      font-size: 16px;
+      color: #fff;
+      letter-spacing: 3px;
+      margin-bottom: 5px;
+    }
+
+    .pan-info {
+      font-size: 11px;
+      color: #777;
+      line-height: 1.75;
+    }
+
+    .pan-info b {
+      color: var(--gold, #B38B36);
+      font-weight: 600;
+    }
+
+    .pan-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: rgba(255,255,255,0.04);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.04);
+      position: relative;
+      z-index: 1;
+    }
+
+    .pan-cell {
+      background: rgba(10,10,22,0.92);
+      aspect-ratio: 1;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: background .2s;
+    }
+
+    .pan-center-earth {
+      font-size: 30px;
+      font-weight: 900;
+      color: rgba(255,255,255,0.14);
+      font-family: "Noto Serif SC", serif;
+    }
+
+    .pan-god {
+      position: absolute;
+      top: 5px;
+      font-size: 8px;
+      color: #555;
+      font-family: "Noto Serif SC", serif;
+    }
+
+    .pan-star {
+      font-size: 11px;
+      color: #ccc;
+      margin-bottom: 1px;
+      z-index: 2;
+      font-family: "Noto Serif SC", serif;
+    }
+
+    .pan-door {
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      z-index: 2;
+      font-family: "Noto Serif SC", serif;
+    }
+
+    .pan-stem {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 600;
+      font-family: "Noto Serif SC", serif;
+    }
+
+    .stem-sky { top: 5px; left: 6px; color: #dddde8; }
+    .stem-earth { bottom: 5px; right: 6px; color: #666; }
+    .pan-marks { position: absolute; bottom: 4px; left: 4px; display: flex; gap: 2px; z-index: 3; }
+    .pan-mark { font-size: 8px; padding: 1px 3px; border-radius: 3px; font-weight: 700; }
+    .mark-ma { background: var(--gold, #B38B36); color: #000; }
+    .mark-kong { border: 1px solid #444; color: #666; background: rgba(0,0,0,0.4); }
+    .highlight-text { color: var(--gold, #E8CC80) !important; text-shadow: 0 0 12px rgba(212,175,55,0.5); }
+
+    .article-pan {
+      margin-bottom: 16px;
+    }
+
+    .content-sheet {
+      position: relative;
+      z-index: 5;
+      margin-top: -32px;
+      padding: 26px 22px 104px;
+      min-height: 44vh;
+      border-radius: 26px 26px 0 0;
+      background: var(--paper);
+      box-shadow: 0 -12px 38px rgba(0, 0, 0, .16);
+    }
+
+    .tabs {
+      position: sticky;
+      top: 0;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: .74fr .78fr 1fr;
+      gap: 20px;
+      align-items: end;
+      margin: -26px -22px 0;
+      padding: 26px 22px 13px;
+      padding-bottom: 13px;
+      border-bottom: 1px solid rgba(11, 11, 11, .11);
+      background: rgba(247, 244, 238, .96);
+      backdrop-filter: blur(12px);
+    }
+
+    .tab {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      padding: 0 0 10px;
+      min-width: 0;
+      color: #a2a2a8;
+      text-align: left;
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: clamp(22px, 6.2vw, 31px);
+      font-weight: 850;
+      line-height: 1;
+      cursor: pointer;
+      position: relative;
+      white-space: nowrap;
+    }
+
+    .tab.active { color: var(--ink); }
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: -14px;
+      width: 32px;
+      height: 2px;
+      background: var(--ink);
+    }
+
+    .article-section {
+      scroll-margin-top: 96px;
+      padding-top: 28px;
+    }
+
+    .article-section + .article-section {
+      margin-top: 24px;
+      padding-top: 28px;
+      border-top: 1px solid var(--line);
+    }
+
+    .section-title {
+      margin: 0 0 14px;
+      color: var(--ink);
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: 30px;
+      line-height: 1;
+      letter-spacing: -.2px;
+    }
+
+    .oracle-copy {
+      margin: 0;
+      color: #55595d;
+      font-size: 19px;
+      line-height: 1.68;
+      letter-spacing: .1px;
+    }
+
+    .oracle-copy + .oracle-copy { margin-top: 14px; }
+
+    .verdict-row {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .metric {
+      min-height: 82px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: white;
+      padding: 13px 12px;
+    }
+
+    .metric small {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.2;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 10px;
+      color: var(--ink);
+      font-size: 20px;
+      line-height: 1;
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+    }
+
+    .evidence-grid {
+      display: grid;
+      gap: 10px;
+    }
+
+    .evidence-card {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      padding: 14px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: white;
+    }
+
+    .evidence-card strong {
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .evidence-card p {
+      margin: 0;
+      color: #62666a;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .qimen-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--line);
+      background: white;
+    }
+
+    .palace {
+      aspect-ratio: 1;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 8px;
+    }
+
+    .palace:nth-child(3n) { border-right: 0; }
+    .palace:nth-child(n+7) { border-bottom: 0; }
+
+    .palace b {
+      display: block;
+      font-family: Georgia, "Times New Roman", "Songti SC", serif;
+      font-size: 20px;
+      line-height: 1.1;
+    }
+
+    .palace span {
+      display: block;
+      margin-top: 5px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .action-list {
+      display: grid;
+      gap: 12px;
+    }
+
+    .action-item {
+      display: grid;
+      grid-template-columns: 34px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .action-item:last-child { border-bottom: 0; }
+
+    .index {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: #111;
+      color: white;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .action-item b {
+      display: block;
+      font-size: 16px;
+      line-height: 1.35;
+    }
+
+    .action-item p {
+      margin: 5px 0 0;
+      color: #62666a;
+      font-size: 14px;
+      line-height: 1.58;
+    }
+
+    .bottom-nav {
+      position: absolute;
+      z-index: 10;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 82px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      align-items: start;
+      padding: 10px 14px 0;
+      background: var(--chrome);
+      border-top: 1px solid #dedede;
+    }
+
+    .nav-item {
+      border: 0;
+      background: transparent;
+      color: var(--chrome-muted);
+      display: grid;
+      justify-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .nav-item svg {
+      width: 29px;
+      height: 29px;
+      stroke-width: 1.8;
+      fill: none;
+    }
+
+    .nav-item.active { color: #111; }
+
+    .home-indicator {
+      position: absolute;
+      left: 50%;
+      bottom: 8px;
+      width: 148px;
+      height: 5px;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: #000;
+      z-index: 11;
+    }
+
+    .icon { display: block; }
+
+    @media (min-width: 520px) {
+      body { padding: 28px 0; }
+      .demo-shell {
+        min-height: 860px;
+        border-radius: 34px;
+      }
+    }
+
+    @media (min-width: 900px) {
+      body {
+        padding: 44px;
+        place-items: center;
+        background:
+          radial-gradient(circle at 18% 12%, rgba(181, 141, 59, .20), transparent 30%),
+          radial-gradient(circle at 82% 78%, rgba(120, 144, 132, .16), transparent 32%),
+          linear-gradient(135deg, #202422, #090a0b 68%);
+      }
+
+      .demo-shell {
+        --cover-col: 43%;
+        width: min(1180px, calc(100vw - 88px));
+        min-height: min(760px, calc(100vh - 88px));
+        display: grid;
+        grid-template-columns: var(--cover-col) minmax(460px, 1fr);
+        border-radius: 32px;
+        background: var(--paper);
+      }
+
+      .art-stage {
+        min-height: auto;
+        height: 100%;
+      }
+
+      .status-bar {
+        display: none;
+      }
+
+      .back {
+        top: 34px;
+        left: 34px;
+      }
+
+      .action-pair {
+        left: 34px;
+        bottom: 54px;
+      }
+
+      .cover-copy {
+        left: 44px;
+        right: 44px;
+        bottom: 148px;
+      }
+
+      .cover-title {
+        font-size: clamp(68px, 6.5vw, 92px);
+      }
+
+      .hero-summary {
+        left: 42px;
+        right: 42px;
+        top: 92px;
+        bottom: 86px;
+      }
+
+      .hero-title {
+        font-size: clamp(78px, 8vw, 112px);
+      }
+
+      .hero-conclusion {
+        font-size: 30px;
+      }
+
+      .hero-meta-row {
+        grid-template-columns: minmax(0, 1fr) 124px;
+      }
+
+      .hero-score {
+        min-height: 124px;
+      }
+
+      .hero-score strong {
+        font-size: 60px;
+      }
+
+      .content-sheet {
+        margin-top: 0;
+        min-height: 100%;
+        border-radius: 0;
+        padding: 64px 62px 122px;
+        box-shadow: none;
+        overflow-y: auto;
+      }
+
+      .tabs {
+        grid-template-columns: 120px 120px 120px;
+        gap: 34px;
+        margin: 0;
+        padding: 0 0 16px;
+      }
+
+      .tab {
+        font-size: 34px;
+      }
+
+      .article-section {
+        scroll-margin-top: 122px;
+        padding-top: 42px;
+      }
+
+      .article-section + .article-section {
+        margin-top: 34px;
+        padding-top: 42px;
+      }
+
+      .section-title {
+        font-size: 40px;
+      }
+
+      .oracle-copy {
+        max-width: 640px;
+        font-size: 25px;
+        line-height: 1.72;
+      }
+
+      .verdict-row {
+        max-width: 590px;
+        gap: 14px;
+        margin-top: 34px;
+      }
+
+      .metric {
+        min-height: 104px;
+        padding: 18px;
+        border-radius: 20px;
+      }
+
+      .metric small {
+        font-size: 13px;
+      }
+
+      .metric strong {
+        margin-top: 14px;
+        font-size: 28px;
+      }
+
+      .qimen-grid {
+        max-width: 560px;
+      }
+
+      .article-pan {
+        max-width: 560px;
+        margin-bottom: 18px;
+      }
+
+      .evidence-grid {
+        max-width: 640px;
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .palace b {
+        font-size: 28px;
+      }
+
+      .palace span {
+        margin-top: 8px;
+        font-size: 13px;
+      }
+
+      .action-list {
+        max-width: 620px;
+      }
+
+      .action-item {
+        grid-template-columns: 42px minmax(0, 1fr);
+        gap: 16px;
+        padding: 18px 0;
+      }
+
+      .index {
+        width: 42px;
+        height: 42px;
+        font-size: 20px;
+      }
+
+      .action-item b {
+        font-size: 19px;
+      }
+
+      .action-item p {
+        font-size: 16px;
+      }
+
+      .bottom-nav {
+        left: var(--cover-col);
+        right: 0;
+        width: auto;
+        height: 86px;
+        padding: 12px 54px 0;
+      }
+
+      .home-indicator {
+        display: none;
+      }
+    }
+
+    @media (min-width: 900px) and (max-width: 1080px) {
+      .demo-shell {
+        --cover-col: 390px;
+        grid-template-columns: var(--cover-col) minmax(0, 1fr);
+      }
+
+      .content-sheet {
+        padding-left: 42px;
+        padding-right: 42px;
+      }
+
+      .oracle-copy {
+        font-size: 22px;
+      }
+
+      .bottom-nav {
+        padding-left: 34px;
+        padding-right: 34px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="demo-shell" aria-label="奇门去 emoji 化 UI demo">
+    <section class="art-stage" aria-label="占卜奇门结果封面">
+      <svg class="qimen-art" viewBox="0 0 420 680" role="img" aria-label="古籍纸面与奇门九宫图视觉封面" preserveAspectRatio="xMidYMid slice">
+        <defs>
+          <linearGradient id="paperGrad" x1="0" x2="1" y1="0" y2="1">
+            <stop stop-color="#e6dfd0"/>
+            <stop offset=".45" stop-color="#c9c0ad"/>
+            <stop offset="1" stop-color="#746f66"/>
+          </linearGradient>
+          <filter id="rough">
+            <feTurbulence type="fractalNoise" baseFrequency=".85" numOctaves="3" seed="6"/>
+            <feColorMatrix type="saturate" values="0"/>
+            <feComponentTransfer>
+              <feFuncA type="table" tableValues=".12 .2"/>
+            </feComponentTransfer>
+          </filter>
+        </defs>
+        <rect width="420" height="680" fill="url(#paperGrad)"/>
+        <rect width="420" height="680" filter="url(#rough)" opacity=".8"/>
+        <g fill="#201b18" opacity=".82" font-family="Songti SC, serif" font-size="24">
+          <text x="46" y="38" writing-mode="tb">阳遁三局值符临坎</text>
+          <text x="92" y="18" writing-mode="tb">乙奇入中门气缓</text>
+          <text x="142" y="30" writing-mode="tb">问事宜守正待时</text>
+          <text x="310" y="20" writing-mode="tb">开门生门相照</text>
+          <text x="356" y="44" writing-mode="tb">天辅星应文书</text>
+        </g>
+        <g transform="translate(70 220)" opacity=".88">
+          <circle cx="140" cy="140" r="118" fill="none" stroke="#1b1714" stroke-width="3"/>
+          <circle cx="140" cy="140" r="76" fill="none" stroke="#1b1714" stroke-width="1.5" stroke-dasharray="7 8"/>
+          <path d="M140 22v236M22 140h236M56 56l168 168M224 56 56 224" stroke="#1b1714" stroke-width="1"/>
+          <g font-family="Songti SC, serif" font-size="28" fill="#191512">
+            <text x="128" y="62">乾</text><text x="214" y="150">离</text><text x="128" y="234">坤</text><text x="38" y="150">坎</text>
+            <text x="80" y="92">巽</text><text x="186" y="92">兑</text><text x="190" y="202">震</text><text x="80" y="202">艮</text>
+          </g>
+          <path d="M140 108c19 0 34 15 34 34s-15 34-34 34c-19 0-34-15-34-34s15-34 34-34Zm0 0c-11 0-20 8-20 19s9 19 20 19 20 8 20 19-9 19-20 19" fill="none" stroke="#191512" stroke-width="3"/>
+        </g>
+        <g transform="translate(318 328)" opacity=".74">
+          <rect x="0" y="0" width="58" height="58" fill="none" stroke="#9c3e2a" stroke-width="4"/>
+          <path d="M12 16h34M16 14v32M30 14v32M44 14v32M12 30h34M12 44h34" stroke="#9c3e2a" stroke-width="3"/>
+        </g>
+      </svg>
+
+      <section class="hero-summary" aria-label="本局断语摘要">
+        <div>
+          <div class="hero-kicker">本局断语</div>
+          <h1 class="hero-title">小吉</h1>
+        </div>
+        <p class="hero-conclusion">可推进，但要等关键条件坐实。</p>
+        <div class="hero-meta-row">
+          <div class="hero-keyword">
+            <span>关键判断</span>
+            <b>开门与值符同宫，机会可见；但逢空亡，短期不可硬推。</b>
+          </div>
+          <div class="hero-score">
+            <div><strong>74</strong><small>分</small></div>
+          </div>
+        </div>
+        <p class="hero-question">“这个项目这周能不能推进到签约？”</p>
+      </section>
+
+      <div class="status-bar">
+        <span>9:41</span>
+        <span class="status-icons" aria-hidden="true">
+          <span class="signal"><i></i><i></i><i></i><i></i></span>
+          <svg width="16" height="12" viewBox="0 0 16 12" class="icon"><path d="M1 4.3C4.7 1.1 11.3 1.1 15 4.3M4 7c2.2-1.8 5.8-1.8 8 0M7 9.6c.6-.4 1.4-.4 2 0" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+          <span class="battery"></span>
+        </span>
+      </div>
+
+      <button class="round-action back" aria-label="返回">
+        <svg width="24" height="24" viewBox="0 0 24 24" class="icon"><path d="m15 5-7 7 7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+
+      <div class="action-pair">
+        <button class="round-action" aria-label="收藏">
+          <svg width="24" height="24" viewBox="0 0 24 24" class="icon"><path d="M12 20s-7-4.2-8.8-8.5C1.7 7.8 4.2 5 7.5 5c1.9 0 3.3 1 4.5 2.5C13.2 6 14.6 5 16.5 5c3.3 0 5.8 2.8 4.3 6.5C19 15.8 12 20 12 20Z" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linejoin="round"/></svg>
+        </button>
+        <button class="round-action" aria-label="分享">
+          <svg width="24" height="24" viewBox="0 0 24 24" class="icon"><path d="M12 15V4m0 0 4 4m-4-4-4 4M5 12v7h14v-7" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div class="cover-copy">
+        <h1 class="cover-title">奇门<br>问事</h1>
+        <div class="cover-subtitle">乙巳年 四月初八 · 阳遁三局</div>
+        <span class="cover-pill">开门临坎</span>
+      </div>
+    </section>
+
+    <section class="content-sheet" aria-label="占卜奇门卡片内容">
+      <div class="tabs" role="navigation" aria-label="文章快速定位">
+        <button class="tab active" type="button" data-target="reading">断语</button>
+        <button class="tab" type="button" data-target="plate">盘面</button>
+        <button class="tab" type="button" data-target="action">行动</button>
+      </div>
+
+      <article class="article-section" id="reading" data-section="reading">
+        <h2 class="section-title">断语</h2>
+        <p class="oracle-copy">
+          所问之事可推进，但不宜急攻。开门得位，主路径可见；坎宫受制，说明资源、合同或沟通仍有暗阻。先把关键条件落成书面，再择顺势日推进。
+        </p>
+        <p class="oracle-copy">
+          这条样例取自生产逻辑同形的盘面字段：目标符号为“开门”和“值符”，开门所在宫同时见值符，说明主事人、机会与关键人可以同场出现；但该宫标记为空，短期更像“有门但尚未落地”。
+        </p>
+        <div class="verdict-row" aria-label="核心判断">
+          <div class="metric"><small>成事概率</small><strong>74</strong></div>
+          <div class="metric"><small>宜动时机</small><strong>申时</strong></div>
+          <div class="metric"><small>风险方位</small><strong>北</strong></div>
+        </div>
+      </article>
+
+      <article class="article-section" id="plate" data-section="plate">
+        <h2 class="section-title">盘面</h2>
+        <div class="pan-wrapper article-pan">
+          <div class="pan-header">
+            <div class="pan-pillars">乙巳　辛巳　丙午　癸巳</div>
+            <div class="pan-info">2026-05-12 10:30 | 阳遁三局 · 小满前<br>值符：<b>值符</b>&emsp;值使：<b>开门</b></div>
+          </div>
+          <div class="pan-grid">
+            <div class="pan-cell">
+              <div class="pan-god">九天</div>
+              <div class="pan-stem stem-sky">乙</div>
+              <div class="pan-star">天冲</div>
+              <div class="pan-door">休门</div>
+              <div class="pan-stem stem-earth">戊</div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">值符</div>
+              <div class="pan-stem stem-sky">丙</div>
+              <div class="pan-star highlight-text">天英</div>
+              <div class="pan-door highlight-text">开门</div>
+              <div class="pan-stem stem-earth">己</div>
+              <div class="pan-marks"><span class="pan-mark mark-kong">空</span></div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">六合</div>
+              <div class="pan-stem stem-sky">戊</div>
+              <div class="pan-star">天芮</div>
+              <div class="pan-door">生门</div>
+              <div class="pan-stem stem-earth">庚</div>
+              <div class="pan-marks"><span class="pan-mark mark-ma">马</span></div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">太阴</div>
+              <div class="pan-stem stem-sky">辛</div>
+              <div class="pan-star">天任</div>
+              <div class="pan-door">伤门</div>
+              <div class="pan-stem stem-earth">壬</div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-center-earth">乙</div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">白虎</div>
+              <div class="pan-stem stem-sky">壬</div>
+              <div class="pan-star">天柱</div>
+              <div class="pan-door">惊门</div>
+              <div class="pan-stem stem-earth">癸</div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">玄武</div>
+              <div class="pan-stem stem-sky">癸</div>
+              <div class="pan-star">天心</div>
+              <div class="pan-door">杜门</div>
+              <div class="pan-stem stem-earth">丁</div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">九地</div>
+              <div class="pan-stem stem-sky">丁</div>
+              <div class="pan-star">天蓬</div>
+              <div class="pan-door">景门</div>
+              <div class="pan-stem stem-earth">丙</div>
+            </div>
+            <div class="pan-cell">
+              <div class="pan-god">腾蛇</div>
+              <div class="pan-stem stem-sky">庚</div>
+              <div class="pan-star">天禽</div>
+              <div class="pan-door">死门</div>
+              <div class="pan-stem stem-earth">辛</div>
+            </div>
+          </div>
+        </div>
+        <div class="evidence-grid" aria-label="盘面证据">
+          <div class="evidence-card">
+            <strong>离九</strong>
+            <p>开门、天英、值符同宫，是此局最该看的主线。门主机会，值符主关键人或决策权。</p>
+          </div>
+          <div class="evidence-card">
+            <strong>空亡</strong>
+            <p>离宫见空，表示机会已经露头，但还没有真正坐实。适合补材料、等确认，不适合立即硬推。</p>
+          </div>
+          <div class="evidence-card">
+            <strong>坤二</strong>
+            <p>生门落坤并见马星，后续变量来自资源、人手或执行端，触发点多在移动、转交、复盘之后。</p>
+          </div>
+          <div class="evidence-card">
+            <strong>甲辰旬</strong>
+            <p>旬空寅卯，对应早期承诺容易悬而未定。等填实或冲空时，再判断推进窗口。</p>
+          </div>
+        </div>
+      </article>
+
+      <article class="article-section" id="action" data-section="action">
+        <h2 class="section-title">行动</h2>
+        <div class="action-list">
+          <div class="action-item">
+            <span class="index">1</span>
+            <div><b>先锁定条件</b><p>把预算、权责、截止时间写成可确认条款，避免口头承诺反复。</p></div>
+          </div>
+          <div class="action-item">
+            <span class="index">2</span>
+            <div><b>避开北向阻力</b><p>与保守方沟通时少谈愿景，多给证据、流程和退路。</p></div>
+          </div>
+          <div class="action-item">
+            <span class="index">3</span>
+            <div><b>申时推进</b><p>适合发出关键消息、约定会议或确认下一步执行节奏。</p></div>
+          </div>
+        </div>
+      </article>
+    </section>
+
+    <nav class="bottom-nav" aria-label="主导航">
+      <button class="nav-item active" type="button" aria-label="奇门">
+        <svg viewBox="0 0 28 28"><path d="M14 3.5 23 14l-9 10.5L5 14 14 3.5Z" stroke="currentColor"/><path d="M14 8v12M8 14h12" stroke="currentColor" stroke-linecap="round"/></svg>
+        <span>奇门</span>
+      </button>
+      <button class="nav-item" type="button" aria-label="八字">
+        <svg viewBox="0 0 28 28"><path d="M7 5h14v18H7zM7 11h14M7 17h14M14 5v18" stroke="currentColor"/></svg>
+        <span>八字</span>
+      </button>
+      <button class="nav-item" type="button" aria-label="报告">
+        <svg viewBox="0 0 28 28"><path d="M8 23V5h9l3 3v15H8Z" stroke="currentColor" stroke-linejoin="round"/><path d="M17 5v4h4M11 14h7M11 18h5" stroke="currentColor" stroke-linecap="round"/></svg>
+        <span>报告</span>
+      </button>
+      <button class="nav-item" type="button" aria-label="运势">
+        <svg viewBox="0 0 28 28"><path d="M7 7h14v15H7zM10 4v5M18 4v5M7 12h14" stroke="currentColor" stroke-linecap="round"/><path d="M10 16h2M16 16h2M10 20h2" stroke="currentColor" stroke-linecap="round"/></svg>
+        <span>运势</span>
+      </button>
+    </nav>
+    <div class="home-indicator" aria-hidden="true"></div>
+  </main>
+
+  <script>
+    const tabs = document.querySelectorAll('.tab')
+    const sections = document.querySelectorAll('.article-section')
+    const sheet = document.querySelector('.content-sheet')
+    let ticking = false
+    let locatorLockUntil = 0
+
+    tabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        setActive(tab.dataset.target)
+        locatorLockUntil = Date.now() + 900
+        document.getElementById(tab.dataset.target).scrollIntoView({
+          behavior: 'smooth',
+          block: 'start'
+        })
+      })
+    })
+
+    const setActive = (id) => {
+      tabs.forEach((tab) => {
+        tab.classList.toggle('active', tab.dataset.target === id)
+      })
+    }
+
+    const updateActiveFromScroll = () => {
+      if (Date.now() < locatorLockUntil) {
+        ticking = false
+        return
+      }
+      const isDesktop = window.innerWidth >= 900
+      const rootTop = isDesktop ? sheet.getBoundingClientRect().top : 0
+      const anchorLine = rootTop + (isDesktop ? 126 : 98)
+      let current = sections[0]?.dataset.section
+
+      sections.forEach((section) => {
+        if (section.getBoundingClientRect().top <= anchorLine) {
+          current = section.dataset.section
+        }
+      })
+
+      if (current) setActive(current)
+      ticking = false
+    }
+
+    const requestActiveUpdate = () => {
+      if (ticking) return
+      ticking = true
+      requestAnimationFrame(updateActiveFromScroll)
+    }
+
+    window.addEventListener('scroll', requestActiveUpdate, { passive: true })
+    sheet.addEventListener('scroll', requestActiveUpdate, { passive: true })
+    window.addEventListener('resize', requestActiveUpdate)
+    updateActiveFromScroll()
+  </script>
+</body>
+</html>

@@ -4,13 +4,21 @@ import { readFileSync } from 'node:fs'
 
 const source = readFileSync(new URL('./EngineeringView.vue', import.meta.url), 'utf8')
 
-test('首屏不展示系统架构和功能模块跳转按钮', () => {
+test('关于页改为教程向系统说明', () => {
+  assert.match(source, /<div class="about-title">关于<\/div>/)
+  assert.match(source, /这个项目不是让人工智能直接算命/)
+  assert.match(source, /第三步 · 约束解读/)
+  assert.match(source, /第四步 · 页面展示/)
+  assert.match(source, /反馈会变成下一轮规则和提示词的依据/)
+  assert.doesNotMatch(source, /QIMEN DAO SYSTEM GUIDE|WHY IT MATTERS|STEP \d|LLM|Prompt|prompt|schema|hybrid|fallback|UI RENDERING|CONTRACT|ROUTER|ENGINE/)
+  assert.doesNotMatch(source, /生成合同/)
   assert.doesNotMatch(source, /查看系统架构/)
   assert.doesNotMatch(source, /了解功能模块/)
 })
 
-test('首屏右侧盘面包含可见的循环动效', () => {
-  assert.match(source, /\.igrid span\s*\{/)
-  assert.match(source, /animation:\s*palace-pulse/)
-  assert.match(source, /@keyframes palace-pulse/)
+test('关于页移动端锁定一屏一模块滚动并适配浅色背景', () => {
+  assert.match(source, /background:[\s\S]{0,180}var\(--paper\)/)
+  assert.match(source, /\.about-scroll[\s\S]{0,180}scroll-snap-type:\s*y mandatory/)
+  assert.match(source, /\.about-section[\s\S]{0,180}scroll-snap-align:\s*start/)
+  assert.match(source, /@media\(max-width:\s*820px\)[\s\S]{0,520}scroll-snap-stop:\s*always/)
 })
