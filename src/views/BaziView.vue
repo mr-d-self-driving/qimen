@@ -986,23 +986,19 @@
                         <button class="info-button" title="查看命局判定" @click="openInsightPanel('strength')">i</button>
                     </div>
 
-                    <!-- 核心定性标题 -->
-                    <h2 class="rpt-h2">
+                    <!-- 旺衰格局标题行 -->
+                    <div class="rpt-sub-head" style="margin-bottom: 8px;">
+                        <span class="rpt-kicker-sm">旺衰格局</span>
                         <span
-                            class="rpt-h2-tag tag-action"
+                            class="tiaohou-urgency is-mid wangshui-label tag-action"
                             role="button" tabindex="0"
                             title="查看身强身弱依据"
                             @click="openStrengthPanel"
                             @keydown.enter.prevent="openStrengthPanel"
                             @keydown.space.prevent="openStrengthPanel"
                         >{{ activeProfile.strong_weak }}</span>
-                        <span class="rpt-h2-sep">·</span>
-                        <span>{{ patternFinalName }}</span>
+                        <span class="tiaohou-urgency is-low geju-label">{{ patternFinalName }}</span>
                         <span v-if="showChengGeText" class="rpt-h2-badge">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
-                    </h2>
-                    <div v-if="strengthSummaryLine || gejuSummaryLine" class="rpt-byline">
-                        <div v-if="strengthSummaryLine">{{ strengthSummaryLine }}</div>
-                        <div v-if="gejuSummaryLine">{{ gejuSummaryLine }}</div>
                     </div>
                     <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
 
@@ -3473,6 +3469,7 @@ const getShenColor = (shen) => {
 
 .glass-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
 
 .profile-card { position: relative; z-index: 40; padding: 16px; overflow: visible; }
 .profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -4128,7 +4125,8 @@ const getShenColor = (shen) => {
 .ss-吉 { color: #68D391; }
 .ss-中性 { color: #B39DDB; }
 .ss-凶 { color: #FC8181; }
-.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 1000; display: flex; align-items: center; justify-content: center; }
+/* ── Bottom Sheet overlay（所有小 i 弹出均从底部滑出）──────── */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); z-index: 1000; display: flex; align-items: flex-end; justify-content: center; }
 .modal-overlay.picker-overlay {
     align-items: flex-end;
     justify-content: center;
@@ -4140,7 +4138,7 @@ const getShenColor = (shen) => {
         padding: 0;
     }
 }
-.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold); border-radius: 12px; padding: 20px; width: 80%; max-width: 340px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); animation: riseIn 0.3s ease; }
+.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 560px; box-shadow: 0 -4px 40px rgba(0,0,0,0.25); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
 .shensha-modal h4 { color: var(--gold); font-size: 16px; margin: 0; font-family: var(--font-serif); }
 .shensha-modal p { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
 .shensha-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 10px; margin-bottom: 10px; }
@@ -4157,7 +4155,7 @@ const getShenColor = (shen) => {
 .shensha-xiong .shensha-section-label { color: #FC8181; }
 .shensha-note { background: rgba(212,175,55,0.07); color: #C8B87A; }
 .shensha-note .shensha-section-label { color: var(--gold); }
-.guest-login-modal { position: relative; width: min(86vw, 360px); padding: 24px 22px 22px; border-radius: 14px; border: 1px solid var(--line); background: white; box-shadow: 0 12px 40px rgba(0,0,0,.15); animation: riseIn 0.3s ease; }
+.guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: white; box-shadow: 0 -4px 40px rgba(0,0,0,.15); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
 .guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
 .guest-login-modal p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
@@ -4201,6 +4199,26 @@ const getShenColor = (shen) => {
 .jinnang-block-label { font-size: 10px; color: var(--gold); opacity: 0.75; margin-bottom: 4px; letter-spacing: 0.5px; }
 .jinnang-block-text { font-size: 14px; color: var(--ink); line-height: 1.65; margin: 0; }
 /* ── Scoring modal 决策链 + 新角色标签 ──────────── */
+.tag-action {
+    cursor: pointer;
+    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.tag-action:hover, .tag-action:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(212,175,55,0.12);
+    outline: none;
+}
+/* 旺衰格局 label 覆盖色 */
+.wangshui-label {
+    color: var(--gold);
+    background: rgba(232,204,128,0.13);
+    border-color: rgba(232,204,128,0.32);
+}
+.geju-label {
+    color: #9fd3c7;
+    background: rgba(111,188,186,0.1);
+    border-color: rgba(111,188,186,0.25);
+}
 .decision-chain-list { margin-bottom: 16px; padding: 10px 12px; background: var(--paper-soft); border-radius: 10px; border: 1px solid var(--line); }
 .decision-chain-item { padding: 6px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 2px; }
 .decision-chain-item:last-child { border-bottom: none; }
@@ -4637,15 +4655,6 @@ const getShenColor = (shen) => {
     font-weight: 500;
     border: 1px solid rgba(212, 175, 55, 0.3);
 }
-.tag-action {
-    cursor: pointer;
-    transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
-}
-.tag-action:hover, .tag-action:focus-visible {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 18px rgba(212,175,55,0.12);
-    outline: none;
-}
 .geju-inline-text {
     color: #8ee0bb;
     font-size: 14px;
@@ -4743,24 +4752,28 @@ const getShenColor = (shen) => {
 }
 
 .detail-drawer {
-    width: min(92vw, 460px);
-    max-height: 78vh;
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
     overflow-y: auto;
     background: white;
     border: 1px solid var(--line);
-    border-radius: 16px;
-    padding: 16px;
-    box-shadow: 0 12px 40px rgba(0,0,0,.14);
-    animation: riseIn 0.25s ease;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 16px 36px;
+    box-shadow: 0 -4px 40px rgba(0,0,0,.18);
+    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
 }
 .strength-drawer {
-    width: min(92vw, 520px);
+    width: 100%;
+    max-width: 560px;
 }
 .insight-detail-drawer {
-    width: min(92vw, 560px);
+    width: 100%;
+    max-width: 560px;
 }
 .geju-detail-drawer {
-    width: min(92vw, 560px);
+    width: 100%;
+    max-width: 560px;
 }
 .insight-switcher {
     display: flex;
@@ -5559,15 +5572,16 @@ const getShenColor = (shen) => {
 
 /* ══ 断事笔记使用说明浮层 ══ */
 .le-guide-card {
-    width: min(92vw, 400px);
-    max-height: 78vh;
+    width: 100%;
+    max-width: 560px;
+    max-height: 85vh;
     overflow-y: auto;
     background: color-mix(in srgb, var(--bg-card) 96%, black 55%);
     border: 1px solid var(--gold-border);
-    border-radius: 20px;
-    padding: 20px 18px;
-    box-shadow: 0 20px 60px color-mix(in srgb, black 55%, transparent);
-    animation: riseIn 0.25s ease;
+    border-radius: 20px 20px 0 0;
+    padding: 20px 18px 36px;
+    box-shadow: 0 -4px 40px color-mix(in srgb, black 40%, transparent);
+    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
 }
 
 .le-guide-head {
@@ -5705,17 +5719,17 @@ const getShenColor = (shen) => {
 .picker-mode-tab.active { border-radius: 0; }
 
 .detail-drawer, .insight-detail-drawer, .geju-detail-drawer {
-    border-radius: 0;
-    box-shadow: 0 0 0 1px var(--line);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -2px 0 1px var(--line), 0 -8px 40px rgba(0,0,0,0.12);
 }
 .shensha-modal {
-    border-radius: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.14);
     border: 1px solid var(--gold-border);
 }
 .guest-login-modal {
-    border-radius: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.1);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.1);
     border: 1px solid var(--line);
 }
 .screen-toast-card {
@@ -5723,8 +5737,8 @@ const getShenColor = (shen) => {
     box-shadow: 0 4px 20px rgba(0,0,0,0.1);
 }
 .le-guide-card {
-    border-radius: 0;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.14);
+    border-radius: 20px 20px 0 0;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.14);
 }
 
 /* ─── 4. 段落标题编辑风 Section headers ──────────────────── */
