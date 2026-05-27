@@ -538,9 +538,9 @@ async function jumpToCurrent() {
 }
 .timeline-icon-btn {
   width: 30px; height: 30px; border-radius: 999px;
-  border: 1px solid rgba(232,204,128,0.16);
-  background: rgba(255,255,255,0.04);
-  color: var(--gold-light);
+  border: 1px solid rgba(181,141,59,0.22);
+  background: rgba(255,255,255,0.72);
+  color: var(--gold);
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; padding: 0; flex-shrink: 0;
 }
@@ -554,31 +554,32 @@ async function jumpToCurrent() {
 .linkage-row {
   display: flex;
   margin-bottom: 10px;
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 8px;
-  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(181,141,59,0.12);
+  border-radius: 10px;
+  background: rgba(255,253,247,0.72);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.52);
   overflow: hidden;
 }
 .row-label {
-  width: 36px;
+  width: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(212,175,55,0.06);
-  color: var(--gold-light);
-  font-size: 12px;
+  background: rgba(181,141,59,0.09);
+  color: var(--gold);
+  font-size: 13px;
   text-align: center;
-  font-weight: 500;
-  border-right: 1px solid rgba(255,255,255,0.05);
+  font-weight: 700;
+  border-right: 1px solid rgba(181,141,59,0.12);
   flex-shrink: 0;
-  line-height: 1.3;
+  line-height: 1.45;
 }
 .row-content {
   display: flex;
-  gap: 2px;
+  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 4px;
+  padding: 8px;
   flex: 1;
   scroll-snap-type: x proximity;
 }
@@ -588,11 +589,11 @@ async function jumpToCurrent() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 76px;
-  padding: 6px 4px;
+  min-width: 82px;
+  padding: 8px 6px;
   border: 1px solid transparent;
   border-radius: 8px;
-  background: transparent;
+  background: rgba(255,255,255,0.42);
   color: inherit;
   cursor: pointer;
   transition: all 0.2s;
@@ -600,12 +601,12 @@ async function jumpToCurrent() {
   scroll-snap-align: center;
 }
 .link-item.active {
-  background: rgba(255,255,255,0.05);
-  border-color: rgba(212,175,55,0.4);
-  box-shadow: inset 0 0 15px rgba(212,175,55,0.08);
+  background: rgba(255,252,240,0.92);
+  border-color: rgba(181,141,59,0.42);
+  box-shadow: 0 6px 18px rgba(181,141,59,0.10), inset 0 0 0 1px rgba(255,255,255,0.76);
 }
-.link-item.marked { border-color: rgba(78,205,196,0.28); }
-.link-item.best { background: rgba(78,205,196,0.07); }
+.link-item.marked { border-color: rgba(13,148,136,0.22); }
+.link-item.best { background: rgba(13,148,136,0.06); }
 /* 小运格子：宽度缩小，文字弱化 */
 .xy-item {
   min-width: 60px;
@@ -613,11 +614,12 @@ async function jumpToCurrent() {
 }
 .xy-item.active { opacity: 1; }
 .item-header {
-  min-height: 28px;
-  margin-bottom: 5px;
-  color: #aaa;
-  font-size: 10px;
-  line-height: 1.35;
+  min-height: 30px;
+  margin-bottom: 6px;
+  color: rgba(35,35,35,0.62);
+  font-size: 11px;
+  line-height: 1.38;
+  font-weight: 600;
   text-align: center;
   display: flex;
   align-items: center;
@@ -640,7 +642,7 @@ async function jumpToCurrent() {
 }
 .xiaoyun-body {
   font-size: 12px;
-  color: #666;
+  color: rgba(35,35,35,0.58);
   margin-top: 8px;
 }
 .char-wrap {
@@ -655,23 +657,24 @@ async function jumpToCurrent() {
 }
 .char-gan,
 .char-zhi {
-  font-size: 16px;
+  color: var(--ink);
+  font-size: 19px;
   font-family: var(--font-ganzhi);
-  font-weight: 600;
-  line-height: 1;
+  font-weight: 750;
+  line-height: 1.05;
 }
 .shi-shen {
   position: absolute;
   right: 0;
-  top: -1px;
-  font-size: 9px;
-  padding: 1px 3px;
-  border-radius: 3px;
-  font-weight: 500;
+  top: -2px;
+  font-size: 10px;
+  padding: 1px 4px;
+  border-radius: 5px;
+  font-weight: 700;
 }
-.shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
-.shen-green { color: #81C784; background: rgba(129,199,132,0.15); }
-.shen-gold { color: #E8CC80; background: rgba(232,204,128,0.15); }
+.shen-red { color: #d33d36; background: rgba(211,61,54,0.10); }
+.shen-green { color: #2e7d32; background: rgba(46,125,50,0.10); }
+.shen-gold { color: #9a6b12; background: rgba(181,141,59,0.13); }
 @media (max-width: 640px) {
   .backing-head {
     align-items: flex-start;

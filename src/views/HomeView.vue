@@ -1956,6 +1956,11 @@ const buildCardHTML = (data) => {
   if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(data)
 
   const report = data.qimen_report || {}
+  const hasQimenReport = Boolean(report && Object.keys(report).length)
+  const reportM1 = report.m1_conclusion || {}
+  const reportM2 = report.m2_basis || {}
+  const reportM3 = report.m3_inference || {}
+  const reportM4 = report.m4_guidance || {}
   const summary = data.summary || { title: '生成中...', conclusion: '暂无数据', score: 0 }
   const analysis = data.analysis || {}
   const advice = data.advice || { lucky_tips: {} }
@@ -1968,19 +1973,15 @@ const buildCardHTML = (data) => {
   const ts = chartData.timestamp || {}
   const hasChart = palaces.length > 0
 
-  const score = summary.score || 0
+  const score = reportM1.score ?? summary.score ?? 0
   const vd = getVerdictInfo(score)
   const heroTone = score < 55 ? 'caution' : score < 75 ? 'neutral' : 'auspicious'
   const THEME = score < 55 ? '#C84A45' : score < 75 ? '#B58D3B' : '#0D9488'
   const THEME_DIM = score < 55 ? 'rgba(200,74,69,0.16)' : score < 75 ? 'rgba(181,141,59,0.17)' : 'rgba(13,148,136,0.15)'
 
-  const reportM1 = report.m1_conclusion || {}
-  const reportM2 = report.m2_basis || {}
-  const reportM3 = report.m3_inference || {}
-  const reportM4 = report.m4_guidance || {}
-  const scoreBasis = data.summary?.score_basis
-    || deriveScoreBasisFromM3(reportM3, data.backend_score_audit?.adjustments)
-    || null
+  const scoreBasis = hasQimenReport && Object.keys(reportM3).length
+    ? deriveScoreBasisFromM3(reportM3, data.backend_score_audit?.adjustments)
+    : (data.summary?.score_basis || null)
   const strategyItems = reportM1.actions?.length ? reportM1.actions : (advice.strategy || [])
   const primaryStrategies = strategyItems.slice(0, 3)
   const domainView = data.domain_view
@@ -2170,7 +2171,7 @@ const buildCardHTML = (data) => {
       symbol: interactionDecision?.subject_symbol && interactionDecision?.target_symbol
         ? `${interactionDecision.subject_symbol} ↔ ${interactionDecision.target_symbol}`
         : '日干 ↔ 时干',
-      tone: relation?.effect > 0 ? 'positive' : relation?.effect < 0 ? 'warning' : 'mixed',
+      tone: interactionDecision?.tone || (relation?.effect > 0 ? 'positive' : relation?.effect < 0 ? 'warning' : 'mixed'),
       verdict: relation?.reason || displayBlocks?.situation || '综合自身、目标与环境，给出五行生克的方向性结论。',
       evidence: relation?.reason || '若后端未给出明确生克关系，则以整体局势和用神强弱综合判断。'
     })
@@ -2287,7 +2288,7 @@ const buildCardHTML = (data) => {
 
   const magActionListHTML = primaryStrategies.length
     ? primaryStrategies.map((s, i) => `<div class="mag-action-item reveal" style="transition-delay:${i * 70}ms"><div class="mag-action-num">0${i + 1}</div><div class="mag-action-body">${s}</div></div>`).join('')
-    : `<div class="mag-action-item"><div class="mag-action-num">01</div><div class="mag-action-body">${summary.conclusion}</div></div>`
+    : `<div class="mag-action-item"><div class="mag-action-num">01</div><div class="mag-action-body">${reportM1.conclusion || summary.conclusion}</div></div>`
 
   const tabClick = (id) => `var tabs=this.closest('.mag-tabs').querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 

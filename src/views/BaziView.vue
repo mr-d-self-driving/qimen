@@ -832,80 +832,48 @@
 
                 <Teleport to="body">
                     <div v-if="activeInfoPanel === 'scoring' && activeProfile.bazi_detail?.scoring_details" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer" @click.stop>
-                            <div class="drawer-head">
-                                <div>
-                                    <div class="section-kicker">用神依据</div>
-                                    <h4>五神剖析 · 取用依据</h4>
-                                </div>
-                                <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
-                            </div>
-
-                            <!-- 决策链 -->
-                            <div v-if="activeProfile.bazi_detail.decision_chain?.length" class="decision-chain-list">
-                                <div v-for="step in activeProfile.bazi_detail.decision_chain" :key="step.layer" class="decision-chain-item">
-                                    <span class="decision-layer">{{ step.layer }}</span>
-                                    <span class="decision-reason">{{ step.reason }}</span>
-                                    <span v-if="step.override" class="decision-override">{{ step.override }}</span>
+                        <div class="detail-drawer insight-detail-drawer scoring-detail-drawer" @click.stop>
+                            <div class="insight-sticky-head">
+                                <div class="drawer-head">
+                                    <div class="drawer-head-title">天机锦囊</div>
+                                    <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                                 </div>
                             </div>
 
-                            <div class="scoring-section-title">五维影响概览</div>
-                            <div class="scoring-list">
-                                <!-- 用神 -->
-                                <div v-if="fiveShenProfile?.yong" class="scoring-item scoring-yong-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge shen-yong">{{ formatShenWithGan(fiveShenProfile.yong) }}</span>
-                                        <span class="shen-role-tag">用神</span>
+                            <div class="insight-scroll-body">
+                                <div v-if="activeProfile.bazi_detail.decision_chain?.length" class="insight-prose-list scoring-prose-list">
+                                    <div class="insight-prose-item scoring-overview-head scoring-section-heading">
+                                        <div class="insight-prose-head"><span class="insight-prose-label">喜用分析</span></div>
                                     </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tiaohou > 0 ? 'dim-pos' : 'dim-neg'" title="气候冷暖平衡">调候{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].geju > 0 ? 'dim-pos' : 'dim-neg'" title="格局主轴取用">格局{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].fuyi > 0 ? 'dim-pos' : 'dim-neg'" title="日主强弱生克">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].bingyao > 0 ? 'dim-pos' : 'dim-neg'" title="五行偏枯制衡">病药{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tongguan > 0 ? 'dim-pos' : 'dim-neg'" title="两行克战化解">通关{{ activeProfile.bazi_detail.dimension_breakdown[fiveShenProfile.yong].tongguan > 0 ? '↑' : '↓' }}</span>
+                                    <div v-for="step in activeProfile.bazi_detail.decision_chain" :key="step.layer" class="insight-prose-item">
+                                        <div class="insight-prose-head">
+                                            <span class="insight-prose-label">{{ step.layer }}</span>
+                                            <span v-if="step.override" class="insight-source-inline scoring-override">{{ step.override }}</span>
+                                        </div>
+                                        <p class="insight-prose-text">{{ step.reason }}</p>
                                     </div>
                                 </div>
-                                <!-- 喜神 -->
-                                <div v-for="shen in fiveShenProfile?.xi" :key="'xi'+shen" class="scoring-item fav-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge favorable">{{ formatShenWithGan(shen) }}</span>
-                                        <span class="shen-role-tag">喜神</span>
+
+                                <div v-if="scoringInfluenceRows.length" class="insight-prose-list scoring-prose-list">
+                                    <div class="insight-prose-item scoring-overview-head scoring-section-heading">
+                                        <div class="insight-prose-head"><span class="insight-prose-label">五维影响概览</span></div>
                                     </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? 'dim-pos' : 'dim-neg'">调候{{ activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? 'dim-pos' : 'dim-neg'">格局{{ activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? 'dim-pos' : 'dim-neg'">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? 'dim-pos' : 'dim-neg'">病药{{ activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? 'dim-pos' : 'dim-neg'">通关{{ activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? '↑' : '↓' }}</span>
-                                    </div>
-                                </div>
-                                <!-- 忌神 -->
-                                <div v-for="shen in fiveShenProfile?.ji" :key="'ji'+shen" class="scoring-item unfav-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge unfavorable">{{ formatShenWithGan(shen) }}</span>
-                                        <span class="shen-role-tag">忌神</span>
-                                    </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? 'dim-pos' : 'dim-neg'">调候{{ activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? 'dim-pos' : 'dim-neg'">格局{{ activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? 'dim-pos' : 'dim-neg'">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? 'dim-pos' : 'dim-neg'">病药{{ activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? 'dim-pos' : 'dim-neg'">通关{{ activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? '↑' : '↓' }}</span>
-                                    </div>
-                                </div>
-                                <!-- 仇神 -->
-                                <div v-for="shen in fiveShenProfile?.chou" :key="'chou'+shen" class="scoring-item chou-item">
-                                    <div class="scoring-item-header">
-                                        <span class="shen-badge shen-chou">{{ formatShenWithGan(shen) }}</span>
-                                        <span class="shen-role-tag">仇神</span>
-                                    </div>
-                                    <div class="dim-tags" v-if="activeProfile.bazi_detail.dimension_breakdown[shen]">
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? 'dim-pos' : 'dim-neg'">调候{{ activeProfile.bazi_detail.dimension_breakdown[shen].tiaohou > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].geju !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? 'dim-pos' : 'dim-neg'">格局{{ activeProfile.bazi_detail.dimension_breakdown[shen].geju > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? 'dim-pos' : 'dim-neg'">扶抑{{ activeProfile.bazi_detail.dimension_breakdown[shen].fuyi > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? 'dim-pos' : 'dim-neg'">病药{{ activeProfile.bazi_detail.dimension_breakdown[shen].bingyao > 0 ? '↑' : '↓' }}</span>
-                                        <span v-if="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan !== 0" class="dim-tag" :class="activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? 'dim-pos' : 'dim-neg'">通关{{ activeProfile.bazi_detail.dimension_breakdown[shen].tongguan > 0 ? '↑' : '↓' }}</span>
+                                    <div v-for="row in scoringInfluenceRows" :key="row.key" class="insight-prose-item scoring-prose-item">
+                                        <div class="insight-prose-head">
+                                            <span class="insight-prose-label" :class="`scoring-role-${row.roleKey}`">{{ row.role }}</span>
+                                            <span class="insight-source-inline">{{ row.name }}</span>
+                                        </div>
+                                        <div class="scoring-inline-dims">
+                                            <span
+                                                v-for="dim in row.dimensions"
+                                                :key="dim.key"
+                                                class="scoring-inline-dim"
+                                                :class="dim.value > 0 ? 'dim-pos' : 'dim-neg'"
+                                            >
+                                                <span>{{ dim.label }}</span>
+                                                <strong>{{ dim.value > 0 ? '↑' : '↓' }}</strong>
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -1010,7 +978,6 @@
                             <span class="rpt-kicker-sm">调候诊断</span>
                             <strong class="rpt-sub-title">{{ tiaohouPanelContent.climateState }}</strong>
                             <span class="tiaohou-urgency" :class="tiaohouPanelContent.urgencyClass">{{ tiaohouPanelContent.urgency }}</span>
-                            <button class="info-button" title="查看调候详情" @click="activeInfoPanel = 'tiaohou'">i</button>
                         </div>
                         <div class="rpt-stat-row">
                             <span class="rpt-stat"><span class="rpt-stat-l">第一调候</span><strong>{{ tiaohouPanelContent.primary }}</strong></span>
@@ -2257,6 +2224,41 @@ const fiveShenProfile = computed(() => {
         userBlocks: detail.user_blocks || null,
     }
 })
+
+const SCORING_DIMENSION_LABELS = [
+    ['tiaohou', '调候'],
+    ['geju', '格局'],
+    ['fuyi', '扶抑'],
+    ['bingyao', '病药'],
+    ['tongguan', '通关']
+]
+
+const buildScoringInfluenceRows = (profile, breakdown = {}) => {
+    if (!profile) return []
+    const roleGroups = [
+        { role: '用神', roleKey: 'yong', items: profile.yong ? [profile.yong] : [] },
+        { role: '喜神', roleKey: 'xi', items: profile.xi || [] },
+        { role: '忌神', roleKey: 'ji', items: profile.ji || [] },
+        { role: '仇神', roleKey: 'chou', items: profile.chou || [] }
+    ]
+    return roleGroups.flatMap(group => group.items.map(shen => {
+        const dims = breakdown?.[shen] || {}
+        return {
+            key: `${group.roleKey}-${shen}`,
+            role: group.role,
+            roleKey: group.roleKey,
+            name: formatShenWithGan(shen),
+            dimensions: SCORING_DIMENSION_LABELS
+                .map(([key, label]) => ({ key, label, value: Number(dims[key] || 0) }))
+                .filter(dim => dim.value !== 0)
+        }
+    })).filter(row => row.dimensions.length)
+}
+
+const scoringInfluenceRows = computed(() => buildScoringInfluenceRows(
+    fiveShenProfile.value,
+    activeProfile.value?.bazi_detail?.dimension_breakdown || {}
+))
 
 const tiaohouPanelContent = computed(() => {
     const detail = activeProfile.value?.bazi_detail?.tiaohou_detail
@@ -4233,6 +4235,58 @@ const getShenColor = (shen) => {
 .scoring-item.chou-item { border-left-color: #ef9a9a; }
 .shen-badge.shen-yong { background: rgba(232,204,128,0.12); color: var(--gold); }
 .shen-badge.shen-chou { background: rgba(200,70,70,0.1); color: #ef9a9a; }
+.scoring-detail-drawer .insight-scroll-body {
+    padding-top: 10px;
+}
+.scoring-prose-list + .scoring-prose-list {
+    border-top: 1px solid var(--line);
+    margin-top: 2px;
+}
+.scoring-overview-head {
+    padding-top: 12px;
+}
+.scoring-section-heading .insight-prose-label {
+    font-size: 17px;
+    line-height: 1.45;
+}
+.scoring-prose-item .insight-prose-head {
+    margin-bottom: 8px;
+}
+.scoring-override {
+    color: var(--crimson);
+}
+.scoring-role-yong { color: var(--gold); }
+.scoring-role-xi { color: #2e7d32; }
+.scoring-role-ji,
+.scoring-role-chou { color: #c62828; }
+.scoring-inline-dims {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+}
+.scoring-inline-dim {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    min-height: 22px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    font-size: 13px;
+    line-height: 1.5;
+}
+.scoring-inline-dim span {
+    color: var(--ink-muted);
+}
+.scoring-inline-dim strong {
+    font-weight: 800;
+}
+.scoring-inline-dim.dim-pos strong {
+    color: #2e7d32;
+}
+.scoring-inline-dim.dim-neg strong {
+    color: #c62828;
+}
 
 .xiji-box { display: flex; gap: 8px; margin-bottom: 14px; }
 .xiji-item { flex: 1; background: var(--paper-soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px; text-align: center; }

@@ -1431,8 +1431,67 @@ ${outputContractSection}
         }
     }
 
+    const scoreVerdictLabel = finalScore >= 90 ? '大吉'
+        : finalScore >= 75 ? '小吉'
+            : finalScore >= 55 ? '平'
+                : '凶';
+    const reportTone = finalScore < 55 ? 'warning' : finalScore < 75 ? 'mixed' : 'positive';
+    const backendFormationTags = (backendScoreAudit.adjustments || [])
+        .filter(item => item.layer === 'named_formation')
+        .map(item => ({
+            name: item.signal,
+            effect: item.effect,
+            type: String(item.effect || '').startsWith('+') ? 'ji' : 'xiong',
+            reason: item.reason || '',
+            text: item.reason || ''
+        }));
+    const qimenReport = aiJsonData.qimen_report || {};
+    const qimenReportM3 = qimenReport.m3_inference || {};
+    const interactionDecision = qimenReportM3.interaction_decision || qimenReportM3.interaction_verdict || {};
+    const enrichedQimenReport = {
+        ...qimenReport,
+        m1_conclusion: {
+            ...(qimenReport.m1_conclusion || {}),
+            question: userQuestion,
+            score: finalScore,
+            verdict_label: scoreVerdictLabel,
+            tone: reportTone,
+            score_basis: {
+                positive_signals: sanitizedPositiveSignals,
+                negative_signals: sanitizedNegativeSignals,
+                score_logic: sanitizedScoreLogic
+            }
+        },
+        m2_basis: {
+            ...(qimenReport.m2_basis || {}),
+            chart_summary: {
+                pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
+                ju_name: qimen_structure,
+                jieqi: juResult.jieQiName,
+                yuan: juResult.yuanName,
+                zhi_fu: zhiFuStar,
+                zhi_shi: zhiShiDoor
+            },
+            palaces: qimenPalaces,
+            formation_tags: (qimenReport.m2_basis?.formation_tags?.length)
+                ? qimenReport.m2_basis.formation_tags
+                : backendFormationTags
+        },
+        m3_inference: {
+            ...qimenReportM3,
+            interaction_decision: {
+                ...interactionDecision,
+                relation: backendScoreAudit.relations?.[0] || null
+            }
+        },
+        m4_guidance: {
+            ...(qimenReport.m4_guidance || {})
+        }
+    };
+
     const finalOutput = {
         ...aiJsonData,
+        qimen_report: enrichedQimenReport,
         question: userQuestion,
         branch: detectedIntent.branch,
         category: detectedIntent.category,

@@ -48,6 +48,35 @@ test('身强身弱弹窗展示仪表盘并优先使用用户说明', () => {
   assert.match(source, /scoreLabel:\s*''/)
 })
 
+test('调候诊断摘要不展示独立详情小 i', () => {
+  const start = source.indexOf('<!-- 调候诊断 -->')
+  const end = source.indexOf('<!-- 五行能量池 -->', start)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.doesNotMatch(block, /activeInfoPanel = 'tiaohou'/)
+  assert.doesNotMatch(block, /查看调候详情/)
+})
+
+test('天机锦囊底部弹层使用旺衰同款文本流布局', () => {
+  const start = source.indexOf("activeInfoPanel === 'scoring'")
+  const end = source.indexOf('<Teleport to="body">', start + 1)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(block, /scoring-detail-drawer/)
+  assert.match(block, /drawer-head-title">天机锦囊/)
+  assert.match(block, /scoring-section-heading[\s\S]*insight-prose-label">喜用分析/)
+  assert.match(block, /scoring-section-heading[\s\S]*insight-prose-label">五维影响概览/)
+  assert.match(block, /insight-prose-list scoring-prose-list/)
+  assert.match(source, /const scoringInfluenceRows = computed/)
+  assert.doesNotMatch(block, /以下只展示/)
+  assert.doesNotMatch(block, /decision-chain-list/)
+  assert.doesNotMatch(block, /scoring-item/)
+})
+
 test('格局弹窗优先展示结构化 pattern_analysis', () => {
   assert.match(source, /pattern_analysis/)
   assert.match(source, /取格步骤/)
