@@ -533,6 +533,7 @@ import BaziBackingPanel from '../components/BaziBackingPanel.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
+import { normalizeQimenCardData } from '../utils/qimenCardFallbacks.mjs'
 import {
   QIMEN_ACCURACY_OPTIONS,
   QIMEN_DIRECTION_OPTIONS,
@@ -1820,6 +1821,7 @@ const buildBaziQuestionCardHTML = (data) => {
 const buildCardHTML = (data) => {
   if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(data)
 
+  data = normalizeQimenCardData(data)
   const summary = data.summary || { title: '生成中...', conclusion: '暂无数据', score: 0 }
   const analysis = data.analysis || {}
   const advice = data.advice || { lucky_tips: {} }
