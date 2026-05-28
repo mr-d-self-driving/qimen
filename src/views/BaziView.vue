@@ -3470,7 +3470,7 @@ const getShenColor = (shen) => {
 
 <style scoped>
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
-.bazi-view { width: 100%; min-height: 100vh; position: relative; background: var(--paper); }
+.bazi-view { width: 100%; min-height: 100vh; position: relative; }
 
 #siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: var(--header-bg); border-bottom: 1px solid var(--line); }
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
