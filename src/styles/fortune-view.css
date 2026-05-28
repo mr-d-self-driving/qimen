@@ -2,7 +2,7 @@
 .fortune-view { width:100%; min-height:100vh; padding-bottom:80px; background:var(--paper); }
 
 /* Header */
-.page-header { position:sticky; top:0; z-index:100; padding:14px 20px; text-align:center; background:rgba(247,244,238,0.96); backdrop-filter:blur(16px); border-bottom:1px solid var(--line); overflow:visible; }
+.page-header { position:sticky; top:0; z-index:100; padding:14px 20px; text-align:center; background:var(--header-bg); backdrop-filter:blur(16px); border-bottom:1px solid var(--line); overflow:visible; }
 .header-title { font-family:'Noto Serif SC',serif; font-size:17px; font-weight:500; color:var(--gold); letter-spacing:2px; }
 .header-actions { position:absolute; right:20px; top:50%; display:flex; align-items:center; gap:8px; transform:translateY(-50%); }
 
@@ -11,7 +11,7 @@
 .container { width:100%; max-width:520px; }
 
 /* Paper Card */
-.glass-card { background:white; border:1px solid var(--line); border-radius:var(--radius-card); box-shadow:0 1px 6px rgba(0,0,0,.06); margin-bottom:14px; padding:16px; }
+.glass-card { background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-card); box-shadow:0 1px 6px rgba(0,0,0,.06); margin-bottom:14px; padding:16px; }
 
 /* Profile Switch */
 .profile-switch-card { position:relative; z-index:40; padding:14px 16px; overflow:visible; }
@@ -20,7 +20,7 @@
 .profile-switch-name { font-family:var(--font-serif); font-size:24px; letter-spacing:1px; line-height:1; }
 .profile-switch-symbol { color:var(--gold); font-size:24px; line-height:1; opacity:0.92; }
 .profile-switcher.open .profile-switch-trigger { border-color:var(--gold-border); box-shadow:0 0 0 3px var(--gold-dim); }
-.profile-flyout { position:absolute; top:calc(100% + 10px); left:0; right:0; z-index:120; padding:8px; border-radius:16px; background:white; border:1px solid var(--line); box-shadow:0 12px 36px rgba(0,0,0,.12); }
+.profile-flyout { position:absolute; top:calc(100% + 10px); left:0; right:0; z-index:120; padding:8px; border-radius:16px; background:var(--bg-card); border:1px solid var(--line); box-shadow:0 12px 36px rgba(0,0,0,.12); }
 .profile-flyout-item { width:100%; display:grid; grid-template-columns:minmax(0,1fr) auto auto; align-items:center; gap:12px; padding:12px 14px; border:none; border-radius:12px; background:transparent; color:var(--ink); cursor:pointer; text-align:left; }
 .profile-flyout-item + .profile-flyout-item { margin-top:4px; }
 .profile-flyout-item.active { background:var(--gold-dim); box-shadow:inset 0 0 0 1px var(--gold-border); }
@@ -39,7 +39,7 @@
 .month-scroll-container { padding-left:2px; padding-right:2px; scroll-snap-type:x proximity; }
 .week-scroll-container { padding-left:2px; padding-right:2px; scroll-snap-type:x proximity; }
 .date-scroll-container::-webkit-scrollbar { display:none; }
-.date-item { flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:10px 14px; border-radius:12px; background:white; border:1px solid var(--line); cursor:pointer; transition:.3s; }
+.date-item { flex-shrink:0; display:flex; flex-direction:column; align-items:center; padding:10px 14px; border-radius:12px; background:var(--bg-card); border:1px solid var(--line); cursor:pointer; transition:.3s; }
 .date-item.active { background:var(--gold-dim); border-color:var(--gold-border); }
 .month-item { min-width:62px; scroll-snap-align:center; }
 .week-item { width:192px; min-height:62px; justify-content:center; scroll-snap-align:center; }
@@ -75,7 +75,7 @@
 
 /* ═══ Four Fortune Grid ═══ */
 .fortune-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; }
-.fortune-grid-card { background:white; border:1px solid var(--line); border-radius:var(--radius-card); box-shadow:0 1px 4px rgba(0,0,0,.05); padding:14px 13px; transition:border-color .3s, box-shadow .3s; }
+.fortune-grid-card { background:var(--bg-card); border:1px solid var(--line); border-radius:var(--radius-card); box-shadow:0 1px 4px rgba(0,0,0,.05); padding:14px 13px; transition:border-color .3s, box-shadow .3s; }
 .fortune-grid-card:hover { border-color:var(--gold-border); box-shadow:0 2px 12px rgba(181,141,59,.1); }
 .grid-card-header { display:flex; align-items:center; gap:6px; margin-bottom:10px; }
 .grid-card-icon { display:flex; align-items:center; width:18px; height:18px; color:var(--gold); opacity:0.85; }
@@ -123,7 +123,7 @@
 .lucky-cell { display:flex; flex-direction:column; gap:4px; }
 .lucky-cell-label { font-size:11px; color:var(--text-muted); letter-spacing:0.5px; }
 .lucky-cell-value { font-size:14px; color:var(--ink); font-weight:500; display:flex; align-items:center; gap:6px; }
-.color-dot { width:12px; height:12px; border-radius:50%; border:1px solid rgba(0,0,0,0.12); display:inline-block; flex-shrink:0; }
+.color-dot { width:12px; height:12px; border-radius:50%; border:1px solid var(--line); display:inline-block; flex-shrink:0; }
 .color-display { display:flex; align-items:center; gap:6px; }
 .color-display.muted { color:var(--text-muted); }
 .daily-lucky-skeleton .lucky-cell { gap:8px; }
@@ -135,7 +135,7 @@
 .monthly-chart-grid { stroke:rgba(11,11,11,0.08); stroke-width:1; }
 .monthly-chart-average { stroke:rgba(181,141,59,0.32); stroke-width:1; stroke-dasharray:5 5; }
 .monthly-chart-line { fill:none; stroke:var(--gold); stroke-width:3; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(0 1px 3px rgba(181,141,59,0.3)); }
-.monthly-chart-dot { fill:var(--gold); stroke:white; stroke-width:1.5; }
+.monthly-chart-dot { fill:var(--gold); stroke:var(--paper); stroke-width:1.5; }
 .monthly-chart-dot.best { fill:#0d9488; }
 .monthly-chart-dot.worst { fill:#dc2626; }
 .monthly-chart-meta { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--text-muted); font-size:11px; line-height:1.4; }
@@ -169,7 +169,7 @@
 .interpretation-ready { color:var(--text-muted); font-size:11px; border:1px solid var(--line); border-radius:999px; padding:3px 8px; }
 .monthly-dimension-tabs { display:grid; grid-template-columns:repeat(4,1fr); gap:7px; margin-bottom:14px; padding:5px; border-radius:12px; background:var(--paper-soft); border:1px solid var(--line); }
 .monthly-dimension-btn { min-width:0; border:none; border-radius:8px; padding:8px 0; background:transparent; color:var(--text-muted); font-size:12px; cursor:pointer; transition:background .25s, color .25s, box-shadow .25s; }
-.monthly-dimension-btn.active { color:var(--gold); background:white; box-shadow:inset 0 0 0 1px var(--gold-border); }
+.monthly-dimension-btn.active { color:var(--gold); background:var(--bg-card); box-shadow:inset 0 0 0 1px var(--gold-border); }
 .monthly-interpretation-title { font-family:var(--font-serif); color:var(--gold); font-size:18px; line-height:1.45; margin-bottom:6px; }
 .monthly-interpretation-highlight { margin:0 0 13px; color:var(--ink-muted); font-size:14px; line-height:1.6; }
 .monthly-interpretation-details { color:var(--ink-muted); font-size:13px; line-height:1.85; }
@@ -226,7 +226,7 @@
 @keyframes skeletonShimmer { 100% { transform:translateX(100%); } }
 
 .fortune-modal-overlay { position:fixed; inset:0; z-index:1200; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(0,0,0,0.4); backdrop-filter:blur(4px); -webkit-backdrop-filter:blur(4px); }
-.fortune-guide-modal { width:min(92vw, 420px); border-radius:18px; border:1px solid var(--line); background:white; box-shadow:0 16px 48px rgba(0,0,0,.16); overflow:hidden; }
+.fortune-guide-modal { width:min(92vw, 420px); border-radius:18px; border:1px solid var(--line); background:var(--bg-card); box-shadow:0 16px 48px rgba(0,0,0,.16); overflow:hidden; }
 .fortune-guide-head { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:16px 18px 12px; border-bottom:1px solid var(--line); color:var(--gold); font-size:15px; font-family:var(--font-serif); }
 .fortune-guide-close { width:30px; height:30px; border:1px solid var(--line); border-radius:8px; background:var(--paper-soft); color:var(--ink); font-size:20px; line-height:1; cursor:pointer; }
 .fortune-guide-body { padding:14px 18px 18px; display:grid; gap:12px; }
@@ -297,3 +297,9 @@
   .weekly-key-grid { grid-template-columns:1fr; }
   .weekly-forecast-grid { grid-template-columns:1fr; }
 }
+
+/* ── Dark theme overrides ── */
+[data-theme="dark"] .skeleton-line,
+[data-theme="dark"] .skeleton-block,
+[data-theme="dark"] .skeleton-pill { background:rgba(255,255,255,0.06); }
+[data-theme="dark"] .monthly-chart-grid { stroke:rgba(255,255,255,0.08); }

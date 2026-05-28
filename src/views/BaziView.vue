@@ -36,7 +36,9 @@
                     <button class="hero-name-trigger" @click="toggleProfileMenu">
                         <span class="hero-display-name">{{ activeProfileName }}</span>
                         <span v-if="activeProfile?.is_default" class="profile-strip-badge">默认</span>
-                        <span class="profile-strip-caret" :class="{ open: isProfileMenuOpen }" aria-hidden="true"></span>
+                        <svg class="profile-strip-caret" :class="{ open: isProfileMenuOpen }" aria-hidden="true" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
                     </button>
                     <div v-if="activeProfile" class="hero-meta">
                         <div class="hero-badges">
@@ -1750,11 +1752,6 @@ watch(baziEngine, async (newVal) => {
     }
 }, { immediate: true });
 
-watch(currentTab, async (tab) => {
-    if (tab === 'pro') {
-        await jumpToCurrentTransit()
-    }
-})
 
 watch(
     () => activeProfile.value?.id,
@@ -3138,7 +3135,11 @@ const requestAiSummary = async ({ force = false } = {}) => {
         })
 
         const data = await response.json()
-        if (data.error) throw new Error(data.error)
+        if (data.error) {
+            const err = new Error(data.error)
+            err.httpStatus = response.status
+            throw err
+        }
         analysisProgress.value = 100
         await fetchProfiles() // 刷新拿到最新数据
         if (shouldCalibrateFromEvents) {
@@ -3146,7 +3147,11 @@ const requestAiSummary = async ({ force = false } = {}) => {
         }
         analysisNotice.value = '推演完成'
     } catch (err) {
-        alert("推演失败: " + err.message)
+        if (err.httpStatus === 403) {
+            showToast(err.message || '今日额度已用尽，请明日再来', 'error')
+        } else {
+            showToast('推演失败：' + err.message, 'error')
+        }
     } finally {
         stopAnalysisMotion()
         isAnalyzing.value = false
@@ -3467,14 +3472,14 @@ const getShenColor = (shen) => {
 /* 此处的 CSS 已滤除你全局在 App.vue / global.css 里的样式，完全对应 Bazi 的局部卡片样式 */
 .bazi-view { width: 100%; min-height: 100vh; position: relative; background: linear-gradient(to bottom, var(--paper-soft) 0%, var(--paper) 215px); }
 
-#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: rgba(247,244,238,0.96); border-bottom: 1px solid var(--line); }
+#siteHeader { position: fixed; top: 0; left: 0; right: 0; z-index: 300; display: flex; align-items: center; justify-content: center; padding: 14px 20px; height: 60px; background: var(--header-bg); border-bottom: 1px solid var(--line); }
 .site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
 .header-actions { position: absolute; right: 20px; top: 50%; display: flex; align-items: center; gap: 8px; transform: translateY(-50%); }
 
 .page-wrap { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; padding: 0 0 60px; }
 .container { width: 100%; max-width: 520px; }
 
-.glass-card { background: white; border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
+.glass-card { background: var(--bg-card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
 
@@ -3491,7 +3496,7 @@ const getShenColor = (shen) => {
 .profile-switch-name { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 20px; letter-spacing: 1px; line-height: 1.15; }
 .profile-switch-symbol { color: var(--gold); font-size: 21px; line-height: 1; opacity: .92; }
 .profile-switcher.open .profile-switch-trigger { box-shadow: inset 0 0 0 1px var(--gold-border); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: white; border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
 .profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
 .profile-flyout-item.active { background: var(--gold-dim); box-shadow: inset 0 0 0 1px var(--gold-border); }
@@ -3525,7 +3530,7 @@ const getShenColor = (shen) => {
 .profile-form { background: var(--paper-soft); padding: 14px; border-radius: 12px; border: 1px dashed var(--gold-border); margin-top: 10px; }
 .rename-form { margin-bottom: 2px; }
 .form-row { display: flex; gap: 12px; margin-bottom: 12px; }
-.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: white; border: 1px solid var(--line); color: var(--ink); outline: none; font-family: var(--font-body); }
+.form-row input, .form-row select { flex: 1; padding: 10px; border-radius: 8px; background: var(--bg-card); border: 1px solid var(--line); color: var(--ink); outline: none; font-family: var(--font-body); }
 .form-actions { display:flex; justify-content:flex-end; gap:8px; }
 
 .picker-overlay {
@@ -3543,7 +3548,7 @@ const getShenColor = (shen) => {
     overscroll-behavior: contain;
     border-radius: 24px;
     border: 1px solid var(--line);
-    background: white;
+    background: var(--bg-card);
     box-shadow: 0 24px 72px rgba(0,0,0,0.15);
     padding: 18px;
     color: var(--text-primary);
@@ -3703,7 +3708,7 @@ const getShenColor = (shen) => {
     min-height: 48px;
     border: 1px solid var(--line);
     border-radius: 999px;
-    background: white;
+    background: var(--bg-card);
     padding: 0 12px;
 }
 .location-search-input-wrap svg {
@@ -3815,7 +3820,7 @@ const getShenColor = (shen) => {
     min-height: 54px;
     border-radius: 16px;
     border: 1px solid var(--line);
-    background: white;
+    background: var(--bg-card);
     color: var(--ink);
     padding: 0 16px;
     font-size: 21px;
@@ -3885,7 +3890,7 @@ const getShenColor = (shen) => {
     cursor: pointer;
 }
 .pillar-slot.derived {
-    background: white;
+    background: var(--bg-card);
 }
 .pillar-slot.active {
     border-color: var(--gold-border);
@@ -3945,7 +3950,7 @@ const getShenColor = (shen) => {
     min-height: 58px;
     border-radius: 18px;
     border: 1px solid var(--line);
-    background: white;
+    background: var(--bg-card);
     font-size: 24px;
     font-weight: 700;
     font-family: var(--font-ganzhi);
@@ -4098,7 +4103,7 @@ const getShenColor = (shen) => {
 .timeline-icon-btn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .timeline-icon-btn.accent { background: var(--gold-dim); border-color: var(--gold-border); }
 
-.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: white; overflow: hidden; }
+.linkage-row { display: flex; margin-bottom: 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg-card); overflow: hidden; }
 .row-label { width: 36px; display: flex; align-items: center; justify-content: center; background: var(--gold-dim); color: var(--gold); font-size: 12px; text-align: center; font-weight: 500; border-right: 1px solid var(--line); flex-shrink: 0; line-height: 1.3; }
 .row-content { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding: 4px; flex: 1; scroll-snap-type: x proximity; }
 .row-content::-webkit-scrollbar { display: none; }
@@ -4116,10 +4121,10 @@ const getShenColor = (shen) => {
 .stacked-ganzhi .char-wrap { width: 100%; min-width: 0; height: 19px; padding-right: 10px; }
 .char-gan, .char-zhi { font-size: 16px; font-family: var(--font-ganzhi); font-weight: 600; line-height: 1;}
 .fortune-guide-card { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid var(--gold-border); background: var(--gold-dim); display: flex; align-items: center; justify-content: space-between; gap: 12px; position: relative; overflow: hidden; }
-.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(247,244,238,0.72); pointer-events: none; }
+.fortune-guide-card.masked::after { content: ''; position: absolute; inset: 0; backdrop-filter: blur(7px); -webkit-backdrop-filter: blur(7px); background: rgba(var(--paper-rgb), 0.72); pointer-events: none; }
 .fortune-guide-title { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
 .fortune-guide-copy { color: var(--ink-muted); font-size: 12px; line-height: 1.6; }
-.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--gold-border); border-radius: 999px; background: white; color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; }
+.fortune-guide-btn { flex-shrink: 0; min-height: 34px; padding: 0 12px; border: 1px solid var(--gold-border); border-radius: 999px; background: var(--bg-card); color: var(--gold); font-size: 12px; font-weight: 700; cursor: pointer; }
 
 .shi-shen { position: absolute; right: -14px; top: -1px; font-size: 9px; padding: 1px 3px; border-radius: 3px; font-weight: 500; }
 .shen-red { color: #FF5E57; background: rgba(255,94,87,0.15); }
@@ -4162,7 +4167,7 @@ const getShenColor = (shen) => {
 .shensha-xiong .shensha-section-label { color: #c53030; }
 .shensha-note { background: rgba(212,175,55,0.08); color: #7b5e0a; }
 .shensha-note .shensha-section-label { color: #b7791f; }
-.guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: white; box-shadow: 0 -4px 40px rgba(0,0,0,.15); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
+.guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: var(--bg-card); box-shadow: 0 -4px 40px rgba(0,0,0,.15); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
 .guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
 .guest-login-modal p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
@@ -4298,7 +4303,7 @@ const getShenColor = (shen) => {
 .xiji-val.favorable { color: #81C784; }
 .xiji-val.unfavorable { color: #E57373; }
 
-.insight-card { background: white; border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+.insight-card { background: var(--bg-card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
 .insight-card h4 { color: var(--gold); font-size: 12px; margin-bottom: 8px; font-family: var(--font-body); border-bottom: 1px dashed var(--gold-border); padding-bottom: 6px; }
 .insight-card p { line-height: 1.65; font-size: 14px; color: var(--ink); }
 .tiaohou-card {
@@ -4815,7 +4820,7 @@ const getShenColor = (shen) => {
     max-width: 560px;
     max-height: 85vh;
     overflow-y: auto;
-    background: white;
+    background: var(--bg-card);
     border: 1px solid var(--line);
     border-radius: 20px 20px 0 0;
     padding: 20px 16px 36px;
@@ -4943,7 +4948,7 @@ const getShenColor = (shen) => {
 .insight-sticky-head {
     position: sticky;
     top: 0;
-    background: white;
+    background: var(--bg-card);
     z-index: 2;
     padding-top: 4px;
     margin: 0 -16px;
@@ -5251,7 +5256,7 @@ const getShenColor = (shen) => {
     line-height: 1.6;
 }
 .geju-summary-line.secondary {
-    background: white;
+    background: var(--bg-card);
     color: var(--ink-dim);
 }
 .geju-modal-tags {
@@ -5328,7 +5333,7 @@ const getShenColor = (shen) => {
     padding: 0 12px;
     border-radius: 10px;
     border: 1px solid var(--line);
-    background: white;
+    background: var(--bg-card);
     color: var(--ink);
 }
 .context-card-desc {
@@ -5380,7 +5385,7 @@ const getShenColor = (shen) => {
     width: 100%;
     border-radius: 10px;
     border: 1px solid var(--line);
-    background: white;
+    background: var(--bg-card);
     color: var(--ink);
     padding: 10px 12px;
     font-size: 13px;
@@ -5441,7 +5446,7 @@ const getShenColor = (shen) => {
     padding: 14px 18px;
     border-radius: 14px;
     border: 1px solid var(--line);
-    background: rgba(247,244,238,0.96);
+    background: var(--header-bg);
     box-shadow: 0 8px 28px rgba(0,0,0,.14);
     color: var(--ink);
     font-size: 14px;
@@ -6155,7 +6160,7 @@ const getShenColor = (shen) => {
     z-index: 40;
     overflow: visible;
     padding: var(--hero-pad-top, 24px) 16px var(--hero-pad-bottom, 10px);
-    background: rgba(247, 244, 238, var(--hero-bg-alpha, .72));
+    background: rgba(var(--paper-rgb), var(--hero-bg-alpha, .72));
     border-bottom: 1px solid rgba(214, 209, 198, var(--hero-border-alpha, .18));
     backdrop-filter: blur(var(--hero-blur, 2px));
     box-shadow: 0 var(--hero-shadow-y, 0) var(--hero-shadow-blur, 0) rgba(38, 31, 20, var(--hero-shadow-alpha, 0));
@@ -6263,22 +6268,20 @@ const getShenColor = (shen) => {
     white-space: nowrap;
     transition: opacity .12s linear, max-width .12s linear, padding .12s linear;
 }
-/* CSS-drawn chevron caret */
+/* SVG chevron caret */
 .profile-strip-caret {
     display: inline-block;
-    width: var(--hero-caret-width, 9px);
-    height: 9px;
-    max-width: var(--hero-caret-width, 9px);
-    border-right: 2px solid var(--ink-muted);
-    border-bottom: 2px solid var(--ink-muted);
-    transform: rotate(45deg) translateY(-3px);
+    width: var(--hero-caret-width, 10px);
+    height: 6px;
+    max-width: var(--hero-caret-width, 10px);
+    color: var(--ink-muted);
     flex-shrink: 0;
     opacity: var(--hero-side-opacity, 1);
     overflow: hidden;
     transition: transform .22s var(--ease), opacity .12s linear, width .12s linear, max-width .12s linear;
 }
 .profile-strip-caret.open {
-    transform: rotate(225deg) translateY(-3px);
+    transform: rotate(180deg);
 }
 
 /* Badges row — pills, left-aligned */
@@ -6311,7 +6314,7 @@ const getShenColor = (shen) => {
 }
 .profile-hero-block.condensed .profile-strip-caret {
     height: 0;
-    border: 0;
+    opacity: 0 !important;
 }
 .profile-hero-block.condensed .hero-dates-top {
     max-height: 0;
@@ -6370,7 +6373,7 @@ const getShenColor = (shen) => {
     margin-top: 4px;
     position: sticky;
     bottom: 0;
-    background: #fff;
+    background: var(--bg-card);
     z-index: 1;
 }
 .flyout-mgmt-btn {
@@ -6445,7 +6448,7 @@ const getShenColor = (shen) => {
 }
 .profile-bottom-sheet {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 200;
-    background: #fff;
+    background: var(--bg-card);
     border-radius: 20px 20px 0 0;
     padding-bottom: env(safe-area-inset-bottom, 0px);
     max-height: 80vh;
@@ -6504,7 +6507,7 @@ const getShenColor = (shen) => {
     width: 100%;
     display: flex; align-items: center; gap: 12px;
     padding: 14px 20px;
-    border: none; background: #fff;
+    border: none; background: var(--bg-card);
     cursor: pointer; text-align: left;
     transition: transform .28s cubic-bezier(0.25,1,0.5,1);
     position: relative; z-index: 1;
@@ -6584,4 +6587,17 @@ const getShenColor = (shen) => {
         border-bottom: 1px solid var(--line);
     }
 }
+</style>
+
+<!-- 深色模式覆盖：只改颜色，不动结构 -->
+<style>
+[data-theme="dark"] .shensha-ji          { background: rgba(72,187,120,0.12); color: #68D391; }
+[data-theme="dark"] .shensha-ji .shensha-section-label { color: #68D391; }
+[data-theme="dark"] .shensha-xiong       { background: rgba(245,101,101,0.1); color: #FC8181; }
+[data-theme="dark"] .shensha-xiong .shensha-section-label { color: #FC8181; }
+[data-theme="dark"] .shensha-note        { background: rgba(212,175,55,0.1); color: #E8CC80; }
+[data-theme="dark"] .shensha-note .shensha-section-label { color: #E8CC80; }
+[data-theme="dark"] .scoring-role-xi     { color: #68D391; }
+[data-theme="dark"] .scoring-role-chou   { color: #FC8181; }
+[data-theme="dark"] .default-chip        { color: #0a0a14; }
 </style>

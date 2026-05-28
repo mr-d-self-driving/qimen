@@ -448,10 +448,6 @@ async function jumpToCurrent() {
       selectedLiuyueIndex.value = selection.liuyueIndex
       selectedLiuriDateKey.value = selection.liuriDateKey
       emit('update:selectedYear', localSelectedYear.value)
-      await nextTick()
-      document.querySelectorAll('.timeline-section .link-item.active').forEach(el => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-      })
       return
     }
   }
@@ -485,9 +481,9 @@ async function jumpToCurrent() {
 .shensha-note .shensha-section-label { color: var(--gold); }
 .btn-primary { display: block; padding: 10px 16px; border-radius: 10px; border: none; background: linear-gradient(135deg, var(--gold), var(--gold-light)); color: #0a0a14; font-weight: 700; font-size: 14px; cursor: pointer; }
 .timeline-section {
-  margin-top: 16px;
+  margin-top: 12px;
   border-top: 1px dashed var(--glass-border);
-  padding-top: 16px;
+  padding-top: 12px;
 }
 .timeline-toggle {
   width: 100%;
@@ -533,13 +529,13 @@ async function jumpToCurrent() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 8px;
+  margin-bottom: 8px;
 }
 .timeline-icon-btn {
-  width: 30px; height: 30px; border-radius: 999px;
+  width: 28px; height: 28px; border-radius: 999px;
   border: 1px solid rgba(181,141,59,0.22);
-  background: rgba(255,255,255,0.72);
+  background: var(--bg-card);
   color: var(--gold);
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; padding: 0; flex-shrink: 0;
@@ -553,21 +549,20 @@ async function jumpToCurrent() {
 }
 .linkage-row {
   display: flex;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
   border: 1px solid rgba(181,141,59,0.12);
-  border-radius: 10px;
-  background: rgba(255,253,247,0.72);
-  box-shadow: inset 0 0 0 1px rgba(255,255,255,0.52);
+  border-radius: 8px;
+  background: var(--paper-soft);
   overflow: hidden;
 }
 .row-label {
-  width: 44px;
+  width: 38px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: rgba(181,141,59,0.09);
   color: var(--gold);
-  font-size: 13px;
+  font-size: 12px;
   text-align: center;
   font-weight: 700;
   border-right: 1px solid rgba(181,141,59,0.12);
@@ -576,10 +571,10 @@ async function jumpToCurrent() {
 }
 .row-content {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding: 8px;
+  padding: 6px;
   flex: 1;
   scroll-snap-type: x proximity;
 }
@@ -589,11 +584,11 @@ async function jumpToCurrent() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-width: 82px;
-  padding: 8px 6px;
+  min-width: 72px;
+  padding: 6px 4px;
   border: 1px solid transparent;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.42);
+  border-radius: 6px;
+  background: var(--bg-card);
   color: inherit;
   cursor: pointer;
   transition: all 0.2s;
@@ -601,22 +596,22 @@ async function jumpToCurrent() {
   scroll-snap-align: center;
 }
 .link-item.active {
-  background: rgba(255,252,240,0.92);
+  background: var(--paper-soft);
   border-color: rgba(181,141,59,0.42);
-  box-shadow: 0 6px 18px rgba(181,141,59,0.10), inset 0 0 0 1px rgba(255,255,255,0.76);
+  box-shadow: 0 4px 12px rgba(181,141,59,0.10);
 }
 .link-item.marked { border-color: rgba(13,148,136,0.22); }
 .link-item.best { background: rgba(13,148,136,0.06); }
 /* 小运格子：宽度缩小，文字弱化 */
 .xy-item {
-  min-width: 60px;
+  min-width: 50px;
   opacity: 0.7;
 }
 .xy-item.active { opacity: 1; }
 .item-header {
-  min-height: 30px;
-  margin-bottom: 6px;
-  color: rgba(35,35,35,0.62);
+  min-height: 26px;
+  margin-bottom: 4px;
+  color: var(--ink-muted);
   font-size: 11px;
   line-height: 1.38;
   font-weight: 600;
@@ -642,8 +637,8 @@ async function jumpToCurrent() {
 }
 .xiaoyun-body {
   font-size: 12px;
-  color: rgba(35,35,35,0.58);
-  margin-top: 8px;
+  color: var(--ink-muted);
+  margin-top: 6px;
 }
 .char-wrap {
   position: relative;
@@ -679,5 +674,15 @@ async function jumpToCurrent() {
   .backing-head {
     align-items: flex-start;
   }
+}
+</style>
+
+<style>
+[data-theme="dark"] .shen-red { color: #f87171; background: rgba(211,61,54,0.18); }
+[data-theme="dark"] .shen-green { color: #4ade80; background: rgba(46,125,50,0.18); }
+[data-theme="dark"] .shen-gold { color: #D4AF37; background: rgba(181,141,59,0.20); }
+[data-theme="dark"] .link-item.active {
+  background: rgba(212,175,55,0.10);
+  box-shadow: 0 4px 12px rgba(181,141,59,0.18);
 }
 </style>

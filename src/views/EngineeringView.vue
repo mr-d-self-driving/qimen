@@ -164,7 +164,7 @@ const promises = [
   grid-template-columns: 1fr auto 1fr;
   align-items: center;
   padding: 0 20px;
-  background: rgba(247,244,238,0.92);
+  background: var(--header-bg);
   border-bottom: 1px solid var(--line);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);

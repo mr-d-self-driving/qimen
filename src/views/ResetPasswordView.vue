@@ -8,7 +8,6 @@
 
     <main class="reset-page-wrap">
       <section class="reset-panel">
-        <div class="panel-orbit" aria-hidden="true"></div>
         <div class="section-kicker">PASSWORD</div>
         <h1>重设密码</h1>
         <p class="reset-copy">
@@ -100,34 +99,41 @@ const handlePasswordUpdate = async () => {
 </script>
 
 <style scoped>
-.reset-password-view { width: 100%; min-height: 100vh; }
+.reset-password-view { width: 100%; min-height: 100vh; background: var(--paper); }
 #siteHeader {
   position: fixed; top: 0; left: 0; right: 0; z-index: 300;
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 20px;
-  backdrop-filter: blur(24px) saturate(1.5);
-  -webkit-backdrop-filter: blur(24px) saturate(1.5);
-  background: rgba(5, 5, 10, 0.65);
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  background: var(--header-bg);
+  border-bottom: 1px solid var(--line);
 }
-.site-logo { font-family: 'Noto Serif SC', serif; font-size: 17px; letter-spacing: .15em; font-weight: 500; background: linear-gradient(135deg, var(--gold) 0%, var(--gold-light) 50%, var(--gold) 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; filter: drop-shadow(0 0 12px rgba(212,175,55,0.45)); }
+.site-logo { font-family: var(--font-serif); font-size: 17px; letter-spacing: .15em; font-weight: 500; color: var(--gold); }
 .back-link, .header-spacer { width: 46px; }
 .back-link { color: var(--text-muted); font-size: 13px; text-decoration: none; }
-.back-link:hover { color: var(--gold-light); }
+.back-link:hover { color: var(--ink); }
 .reset-page-wrap { position: relative; z-index: 1; min-height: 100vh; display: grid; place-items: center; padding: 92px 18px 46px; }
-.reset-panel { width: min(100%, 460px); position: relative; overflow: hidden; padding: 28px 24px 24px; border: 1px solid var(--glass-border); border-radius: var(--radius-card); background: rgba(255,255,255,0.035); backdrop-filter: blur(22px) saturate(1.25); box-shadow: 0 24px 70px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.05); animation: riseIn .75s cubic-bezier(.22,1,.36,1) both; }
-.panel-orbit { position: absolute; width: 180px; height: 180px; right: -72px; top: -76px; border: 1px solid rgba(212,175,55,0.18); border-radius: 50%; box-shadow: inset 0 0 36px rgba(212,175,55,0.05); }
-.panel-orbit::before, .panel-orbit::after { content: ''; position: absolute; inset: 28px; border: 1px dashed rgba(232,204,128,0.16); border-radius: 50%; }
-.panel-orbit::after { inset: 68px; background: rgba(212,175,55,0.18); border: none; box-shadow: 0 0 28px rgba(212,175,55,0.18); }
+.reset-panel { width: min(100%, 420px); padding: 28px 24px 24px; border: 1px solid var(--line); border-radius: var(--radius-card); background: var(--bg-card); box-shadow: 0 1px 6px rgba(0,0,0,0.06); animation: riseIn .75s cubic-bezier(.22,1,.36,1) both; }
 .section-kicker { color: var(--text-muted); font-size: 10px; letter-spacing: .28em; margin-bottom: 10px; }
-h1 { margin: 0; color: var(--text-primary); font-family: var(--font-serif); font-size: 28px; font-weight: 500; letter-spacing: .08em; }
-.reset-copy { margin: 12px 0 24px; color: var(--text-muted); font-size: 13px; line-height: 1.8; }
-.reset-form { display: flex; flex-direction: column; gap: 14px; }
-label { display: flex; flex-direction: column; gap: 8px; color: rgba(240,237,230,0.82); font-size: 12px; }
-input { width: 100%; background: rgba(0,0,0,0.25); border: 1px solid var(--glass-border); border-radius: var(--radius-item); padding: 13px 16px; color: var(--text-primary); font-size: 15px; outline: none; }
-input:focus { border-color: var(--gold-border); box-shadow: 0 0 0 1px rgba(212,175,55,0.12), 0 0 24px rgba(212,175,55,0.07); }
-.reset-submit { width: 100%; min-height: 50px; margin-top: 4px; border: none; border-radius: var(--radius-item); background: linear-gradient(135deg, #E8CC80 0%, #B38B36 45%, #C9A052 100%); color: #0a0800; font-size: 15px; font-family: var(--font-serif); font-weight: 700; cursor: pointer; box-shadow: 0 10px 26px rgba(212,175,55,0.18); }
-.reset-submit:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
-.reset-notice { margin-top: 14px; padding: 11px 12px; border-radius: 12px; background: rgba(255,94,87,0.08); border: 1px solid rgba(255,94,87,0.18); color: rgba(240,237,230,0.86); font-size: 12px; line-height: 1.6; }
-.reset-notice.success { background: rgba(78,205,196,0.08); border-color: rgba(78,205,196,0.18); }
+h1 { margin: 0; color: var(--ink); font-family: var(--font-serif); font-size: 28px; font-weight: 500; letter-spacing: .08em; }
+.reset-copy { margin: 12px 0 24px; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
+.reset-form { display: flex; flex-direction: column; gap: 12px; }
+label { display: flex; flex-direction: column; gap: 6px; color: var(--ink-muted); font-size: 12px; letter-spacing: .04em; }
+input { width: 100%; min-height: 48px; background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius-item); padding: 13px 16px; color: var(--ink); font-size: 15px; font-family: var(--font-body); outline: none; transition: border-color .2s, box-shadow .2s; }
+input:focus { border-color: var(--gold-border); box-shadow: 0 0 0 3px var(--gold-dim); }
+.reset-submit { width: 100%; min-height: 50px; margin-top: 6px; border: none; border-radius: var(--radius-item); background: var(--ink); color: var(--paper); font-size: 15px; font-family: var(--font-serif); font-weight: 600; letter-spacing: .08em; cursor: pointer; transition: opacity .18s, transform .15s; }
+.reset-submit:not(:disabled):hover { opacity: 0.88; }
+.reset-submit:active { transform: scale(.983); }
+.reset-submit:disabled { opacity: 0.45; cursor: not-allowed; }
+.reset-notice { margin-top: 14px; padding: 11px 12px; border-radius: 12px; background: rgba(220,38,38,0.07); border: 1px solid rgba(220,38,38,0.18); color: var(--crimson); font-size: 12px; line-height: 1.6; }
+.reset-notice.success { background: rgba(13,148,136,0.07); border-color: rgba(13,148,136,0.2); color: var(--teal); }
+@keyframes riseIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+</style>
+
+<style>
+[data-theme="dark"] .reset-submit:not(:disabled) {
+  background: linear-gradient(135deg, #8B6914 0%, #D4AF37 45%, #E8CC80 65%, #D4AF37 85%, #8B6914 100%);
+  color: #1a1000;
+}
 </style>

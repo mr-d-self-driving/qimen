@@ -243,7 +243,11 @@
               </div>
 
               <div class="cta-wrap">
-                <button class="cta-btn" :disabled="isSubmitting" @click="startDivination">
+                <button
+                  class="cta-btn"
+                  :disabled="isSubmitting && !isGuest"
+                  @click="isGuest ? handleGuestLoginRedirect() : startDivination()"
+                >
                   <div class="cta-inner">
                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none" style="opacity:.75;flex-shrink:0">
                       <circle cx="10" cy="10" r="8.5" stroke="#1a1000" stroke-width="1"/>
@@ -251,7 +255,7 @@
                       <circle cx="10" cy="5.75" r="1.5" fill="#1a1000"/>
                       <circle cx="10" cy="14.25" r="1.5" fill="#1a1000" opacity=".4"/>
                     </svg>
-                    <span class="cta-text">洞察天机</span>
+                    <span class="cta-text">{{ isGuest ? '请先登录' : '洞察天机' }}</span>
                   </div>
                 </button>
                 <div class="cta-hint">奇门遁甲 · AI 深度推演</div>
@@ -534,6 +538,12 @@
       </div>
     </div>
 
+    <Teleport to="body">
+      <div v-if="homeToast" class="screen-toast">
+        <div class="screen-toast-card" :class="`is-${homeToastKind}`">{{ homeToastMsg }}</div>
+      </div>
+    </Teleport>
+
     <!-- 长图预览弹窗 -->
     <div class="share-img-overlay" :class="{ show: shareImgUrl }" @click="closeShareModal">
       <div class="share-img-modal" @click.stop>
@@ -560,6 +570,7 @@ import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from
 import { useRoute, useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { Solar } from 'lunar-javascript'
+import { getGuestState, trackGuestEvent } from '../guestMode.mjs'
 import {
   enterGuestMode,
   globalState,
@@ -568,7 +579,6 @@ import {
   setCurrentUser,
   setSelectedBaziProfileId
 } from '../store.js'
-import { getGuestState, recordGuestQuestion, trackGuestEvent } from '../guestMode.mjs'
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import AccountMenu from '../components/AccountMenu.vue'
 import BaziBackingPanel from '../components/BaziBackingPanel.vue'
@@ -613,9 +623,26 @@ const resetEmailLoading = ref(false)
 const resetEmailNotice = ref('')
 const authForm = reactive({ email: '', password: '' })
 
-const viewState = ref('input') 
+const viewState = ref('input')
 const questionInput = ref('')
 const isSubmitting = ref(false)
+
+const homeToast = ref(false)
+const homeToastMsg = ref('')
+const homeToastKind = ref('error')
+let homeToastTimer = null
+const showToast = (msg, kind = 'error') => {
+  homeToastMsg.value = msg
+  homeToastKind.value = kind
+  homeToast.value = true
+  if (homeToastTimer) clearTimeout(homeToastTimer)
+  homeToastTimer = setTimeout(() => { homeToast.value = false }, 3500)
+}
+
+const handleGuestLoginRedirect = () => {
+  leaveGuestMode()
+  authView.value = 'login'
+}
 const clockText = ref('载入时辰中…')
 const showRouteInfoModal = ref(false)
 
@@ -752,25 +779,39 @@ const saveAsImage = async () => {
     captureEl.setAttribute('data-h2c-target', '1')
     document.head.appendChild(h2cPatch)
 
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark'
     let canvas
     try {
       canvas = await h2c(captureEl, {
         scale: 2,
         useCORS: true,
         allowTaint: false,
-        backgroundColor: '#f7f4ee',
+        backgroundColor: isDark ? '#05050a' : '#f7f4ee',
         logging: false,
         scrollX: 0,
         scrollY: -window.scrollY,
         windowWidth: document.documentElement.scrollWidth,
         onclone: (clonedDoc) => {
+          // 0. 同步主题模式到克隆文档
+          if (isDark) {
+            clonedDoc.documentElement.setAttribute('data-theme', 'dark')
+          } else {
+            clonedDoc.documentElement.removeAttribute('data-theme')
+          }
+
           // 1. 确保所有 reveal 元素可见
           clonedDoc.querySelectorAll('.reveal').forEach(el => {
             el.style.opacity = '1'
             el.style.transform = 'none'
           })
 
-          // 2. 遍历克隆文档所有 <style> 标签，替换 color-mix()
+          // 2. 修复 sticky tab bar 在截图时错位问题：改为 relative 让其回归文档流
+          clonedDoc.querySelectorAll('.mag-tabs').forEach(el => {
+            el.style.position = 'relative'
+            el.style.top = 'auto'
+          })
+
+          // 3. 遍历克隆文档所有 <style> 标签，替换 color-mix()
           clonedDoc.querySelectorAll('style').forEach(styleEl => {
             if (styleEl.textContent && styleEl.textContent.includes('color-mix')) {
               styleEl.textContent = styleEl.textContent
@@ -778,7 +819,7 @@ const saveAsImage = async () => {
             }
           })
 
-          // 3. 清除内联 style 属性中残留的 color-mix()
+          // 4. 清除内联 style 属性中残留的 color-mix()
           clonedDoc.querySelectorAll('[style]').forEach(el => {
             const s = el.getAttribute('style') || ''
             if (s.includes('color-mix')) {
@@ -1353,13 +1394,9 @@ const startDivination = async () => {
   showBaziBackingAnchor.value = false
 
   const { data: { session } } = await supabase.auth.getSession()
-  const guestState = getGuestState()
-  if (!session && !isGuest.value) return alert("请先登录")
-  if (!session && isGuest.value && !guestState.canAskQuestion) return alert("访客模式仅可提问 1 次，请登录后继续推演")
+  if (!session) return alert("请先登录")
 
-  const headers = session
-    ? { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
-    : { 'Content-Type': 'application/json', 'X-Guest-Id': guestState.guestId }
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
   let routeData = null
 
   isSubmitting.value = true
@@ -1376,7 +1413,11 @@ const startDivination = async () => {
       })
     })
     routeData = await routeResponse.json()
-    if (!routeResponse.ok || routeData.error) throw new Error(routeData.details || routeData.error || '分类失败')
+    if (!routeResponse.ok || routeData.error) {
+      const err = new Error(routeData.details || routeData.error || '分类失败')
+      err.httpStatus = routeResponse.status
+      throw err
+    }
 
     if (routeData.branch === 'clarify') {
       alert(routeData.followupQuestion || '请补充你想看长期趋势，还是判断眼前某一件具体事情。')
@@ -1391,12 +1432,6 @@ const startDivination = async () => {
     ssePct.value = 10
 
     if (routeData.branch === 'bazi') {
-      if (!session) {
-        alert('这个问题更适合走八字命盘分析，请先登录并建立八字档案。')
-        router.push({ name: 'bazi', query: { question: input } })
-        return
-      }
-
       if (!baziProfiles.value.length) await fetchBaziProfiles()
       const profileId = selectedProfileId.value || baziProfiles.value.find(p => p.is_default)?.id || baziProfiles.value[0]?.id || ''
       if (!profileId) {
@@ -1418,7 +1453,9 @@ const startDivination = async () => {
           router.push({ name: 'bazi', query: { profileId, question: input } })
           return
         }
-        throw new Error(errData.details || errData.error || '八字问答失败')
+        const err = new Error(errData.details || errData.error || '八字问答失败')
+        err.httpStatus = response.status
+        throw err
       }
       const data = await readSSEStream(response)
       const savedRecord = await saveRecordToDatabase(input, data)
@@ -1448,16 +1485,14 @@ const startDivination = async () => {
     })
     if (!response.ok) {
       const errData = await response.json()
-      throw new Error(errData.details || errData.error || '推演失败')
+      const err = new Error(errData.details || errData.error || '推演失败')
+      err.httpStatus = response.status
+      throw err
     }
     const data = await readSSEStream(response)
     const savedRecord = await saveRecordToDatabase(input, data)
     activeResultRecord.value = savedRecord
     activateBaziResultPanel(data)
-    if (!session && isGuest.value) {
-      recordGuestQuestion()
-      await trackGuestEvent(supabase, 'guest_qimen_asked', 'qimen', { limit_reached: true })
-    }
     resultHtml.value = buildCardHTML(data)
     viewState.value = 'result'
     nextTick(() => {
@@ -1465,7 +1500,11 @@ const startDivination = async () => {
       setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
     })
   } catch (err) {
-    alert("推演失败")
+    if (err.httpStatus === 403) {
+      showToast(err.message || '今日额度已用尽，请明日再来')
+    } else {
+      showToast('推演失败，请稍后重试')
+    }
     viewState.value = 'input'
   } finally {
     isSubmitting.value = false
@@ -2360,7 +2399,7 @@ const buildCardHTML = (data) => {
   padding: 14px 20px;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  background: rgba(247, 244, 238, 0.96);
+  background: var(--header-bg);
   border-bottom: 1px solid var(--line);
 }
 #siteHeader.result-header {
@@ -2407,7 +2446,7 @@ const buildCardHTML = (data) => {
   place-items: center;
   border: none;
   border-radius: 999px;
-  background: rgba(255,255,255,0.68);
+  background: var(--drawer-close-bg);
   color: var(--ink);
   font-size: 28px;
   line-height: 1;
@@ -2423,7 +2462,7 @@ const buildCardHTML = (data) => {
   justify-content: space-between;
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(255,255,255,0.58);
+  background: var(--drawer-btn-bg);
   color: var(--ink);
   font-family: var(--font-serif);
   font-size: 16px;
@@ -2446,7 +2485,7 @@ const buildCardHTML = (data) => {
   appearance: none;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: white;
+  background: var(--bg-card);
   color: var(--ink);
   font-family: var(--font-serif);
   font-size: 13px;
@@ -2533,7 +2572,7 @@ const buildCardHTML = (data) => {
   padding: 16px 15px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: white;
+  background: var(--bg-card);
   text-decoration: none;
   transition: border-color .2s, background .2s, transform .2s;
 }
@@ -2589,7 +2628,7 @@ const buildCardHTML = (data) => {
 .seo-faq-section details {
   border: 1px solid var(--line);
   border-radius: 10px;
-  background: white;
+  background: var(--bg-card);
   padding: 14px 16px;
 }
 .seo-faq-section summary {
@@ -2626,7 +2665,7 @@ const buildCardHTML = (data) => {
     padding: 24px 22px;
     border: 1px solid var(--line);
     border-radius: 18px;
-    background: white;
+    background: var(--bg-card);
     box-shadow: 0 1px 6px rgba(0,0,0,.06);
   }
   .seo-landing h1 {
@@ -2820,7 +2859,7 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 .abtn--border:not(:disabled):hover { border-color: var(--gold-border); background: rgba(181,141,59,0.06); }
 .abtn--ghost {
   background: transparent;
-  border: 1px solid rgba(11,11,11,.08);
+  border: 1px solid var(--line);
   color: var(--ink-muted);
 }
 .abtn--ghost:hover { border-color: var(--line); color: var(--ink); }
@@ -2902,7 +2941,7 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 input[type="email"], input[type="password"] {
   width: 100%;
   min-height: 48px;
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: 13px 15px;
@@ -2962,7 +3001,7 @@ input::placeholder { color: var(--text-muted); }
 .profile-switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 24px; letter-spacing: 1px; line-height: 1; }
 .profile-switch-symbol { color: var(--gold); font-size: 24px; line-height: 1; opacity: .92; }
 .profile-switcher.open .profile-switch-trigger { border-color: var(--gold-border); box-shadow: 0 0 0 3px var(--gold-dim); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: white; border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
+.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
 .profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
 .profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
 .profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
@@ -3051,7 +3090,7 @@ input::placeholder { color: var(--text-muted); }
 .sse-progress-pct { font-family:var(--font-serif); font-size:10.5px; color:rgba(212,175,55,.52); letter-spacing:.04em; min-width:28px; text-align:right; }
 
 .result-actions { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 10px; margin-top: 16px; align-items: center; }
-.reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: white; border: 1px solid var(--line); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
 .reset-btn:hover { border-color: var(--gold-border); color: var(--ink); }
 .result-save-img-btn {
   display: flex; align-items: center; justify-content: center; gap: 6px;
@@ -3209,7 +3248,7 @@ input::placeholder { color: var(--text-muted); }
   width: min(460px, 100%);
   max-height: 90dvh;
   display: flex; flex-direction: column;
-  background: white;
+  background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: 20px;
   overflow: hidden;
@@ -3256,7 +3295,7 @@ input::placeholder { color: var(--text-muted); }
 
 .feedback-overlay { position: fixed; inset: 0; z-index: 9998; display: flex; justify-content: flex-end; background: rgba(0,0,0,0.55); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
 .feedback-overlay.show { opacity: 1; pointer-events: auto; }
-.feedback-drawer { width: min(420px, 92vw); height: 100%; padding: 24px 22px; overflow-y: auto; background: white; border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0,0,0,.12); transform: translateX(18px); transition: transform .28s var(--ease); }
+.feedback-drawer { width: min(420px, 92vw); height: 100%; padding: 24px 22px; overflow-y: auto; background: var(--bg-card); border-left: 1px solid var(--line); box-shadow: -8px 0 24px rgba(0,0,0,.12); transform: translateX(18px); transition: transform .28s var(--ease); }
 .feedback-overlay.show .feedback-drawer { transform: translateX(0); }
 .feedback-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .feedback-kicker { font-size: 10px; color: var(--text-muted); letter-spacing: .22em; margin-bottom: 7px; }
@@ -3271,7 +3310,7 @@ input::placeholder { color: var(--text-muted); }
 .feedback-label { display: flex; align-items: center; justify-content: space-between; color: var(--ink); font-size: 12px; letter-spacing: .08em; }
 .feedback-label span { color: var(--text-muted); font-size: 10px; letter-spacing: 0; }
 .feedback-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-.feedback-option { min-height: 40px; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line); background: white; color: var(--ink-muted); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.feedback-option { min-height: 40px; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg-card); color: var(--ink-muted); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
 .feedback-option.active { border-color: var(--gold-border); background: var(--gold-dim); color: var(--gold); }
 .feedback-note { min-height: 98px; padding: 12px 13px; border-radius: 12px; font-family: var(--font-body); font-size: 13px; line-height: 1.7; }
 .feedback-actions { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; margin-top: 22px; }
@@ -3326,7 +3365,7 @@ input::placeholder { color: var(--text-muted); }
 
 .route-info-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.58); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); z-index: 9999; display: none; align-items: center; justify-content: center; padding: 20px; opacity: 0; transition: opacity .25s; }
 .route-info-overlay.show { display: flex; opacity: 1; }
-.route-info-card { width: min(420px, 100%); background: white; border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
+.route-info-card { width: min(420px, 100%); background: var(--bg-card); border: 1px solid var(--line); border-radius: 18px; padding: 20px; box-shadow: 0 12px 40px rgba(0,0,0,.15); }
 .route-info-title { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--line); color: var(--gold); font-family: var(--font-serif); font-size: 15px; }
 .route-info-close { border: none; background: transparent; color: var(--text-muted); font-size: 22px; line-height: 1; cursor: pointer; padding: 0 2px; }
 .route-info-close:hover { color: var(--gold); }
@@ -3598,23 +3637,27 @@ input::placeholder { color: var(--text-muted); }
   align-items: flex-end;
   overflow: visible;
   background:
-    radial-gradient(circle at 86% 12%, var(--theme-color-dim), transparent 34%),
-    linear-gradient(180deg, rgba(255,255,255,0.64), rgba(247,244,238,0.98));
+    radial-gradient(ellipse 90% 70% at 96% 0%, var(--theme-color-dim), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, var(--theme-color-dim), transparent),
+    linear-gradient(175deg, rgba(248,245,238,0.96), rgba(247,244,238,1.0));
 }
 :deep(.tone-auspicious .mag-hero) {
   background:
-    radial-gradient(circle at 86% 12%, rgba(13,148,136,0.18), transparent 34%),
-    linear-gradient(180deg, rgba(238,250,247,0.68), rgba(247,244,238,0.98));
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(13,148,136,0.40), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(13,148,136,0.22), transparent),
+    linear-gradient(175deg, rgba(206,248,244,0.96), rgba(247,244,238,1.0));
 }
 :deep(.tone-neutral .mag-hero) {
   background:
-    radial-gradient(circle at 86% 12%, rgba(181,141,59,0.2), transparent 34%),
-    linear-gradient(180deg, rgba(252,246,231,0.72), rgba(247,244,238,0.98));
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(181,141,59,0.45), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(181,141,59,0.22), transparent),
+    linear-gradient(175deg, rgba(255,244,210,0.96), rgba(247,244,238,1.0));
 }
 :deep(.tone-caution .mag-hero) {
   background:
-    radial-gradient(circle at 86% 12%, rgba(200,74,69,0.18), transparent 34%),
-    linear-gradient(180deg, rgba(255,241,238,0.72), rgba(247,244,238,0.98));
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(200,74,69,0.20), transparent),
+    linear-gradient(175deg, rgba(255,228,226,0.96), rgba(247,244,238,1.0));
 }
 :deep(.mag-hero-panel) {
   position: relative;
@@ -3820,7 +3863,7 @@ input::placeholder { color: var(--text-muted); }
   align-items: center;
   justify-content: center;
   background: var(--ink);
-  color: white;
+  color: var(--paper);
   font-family: var(--font-display);
   font-size: 14px;
   font-weight: 900;
@@ -4172,5 +4215,81 @@ input::placeholder { color: var(--text-muted); }
   }
 }
 
+.screen-toast {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.screen-toast-card {
+  max-width: min(78vw, 320px);
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: rgba(247,244,238,0.96);
+  box-shadow: 0 8px 28px rgba(0,0,0,.14);
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.6;
+  text-align: center;
+}
+.screen-toast-card.is-error {
+  border-color: rgba(220,38,38,0.28);
+  color: #dc2626;
+}
+</style>
 
+<!-- 深色模式：问事结果卡渐变适配 -->
+<style>
+[data-theme="dark"] .abtn--solid {
+  background: linear-gradient(135deg, #8B6914 0%, #D4AF37 45%, #E8CC80 65%, #D4AF37 85%, #8B6914 100%);
+  color: #1a1000;
+}
+[data-theme="dark"] .abtn--solid:not(:disabled):hover {
+  background: linear-gradient(135deg, #9B7820 0%, #E4BF47 45%, #F2D898 65%, #E4BF47 85%, #9B7820 100%);
+}
+[data-theme="dark"] .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, var(--theme-color-dim), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, var(--theme-color-dim), transparent),
+    linear-gradient(175deg, rgba(10,10,22,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-auspicious .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(13,148,136,0.65), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(13,148,136,0.30), transparent),
+    linear-gradient(175deg, rgba(2,22,20,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-neutral .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(212,175,55,0.62), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(181,141,59,0.28), transparent),
+    linear-gradient(175deg, rgba(24,18,2,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-caution .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.72), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(150,30,30,0.38), transparent),
+    linear-gradient(175deg, rgba(40,4,4,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .mag-tabs {
+  background: var(--header-bg);
+}
+[data-theme="dark"] .ge-tag {
+  background: rgba(255,255,255,0.06);
+}
+[data-theme="dark"] .ge-modal {
+  background: var(--bg-card);
+  border-color: var(--line);
+}
+[data-theme="dark"] .screen-toast-card {
+  background: var(--bg-card);
+}
+[data-theme="dark"] .mag-action-num {
+  background: linear-gradient(135deg, #8B6914 0%, #D4AF37 60%, #8B6914 100%);
+  color: #1a1000;
+}
 </style>

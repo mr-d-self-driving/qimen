@@ -21,6 +21,13 @@
       <router-link v-if="!globalState.currentUser" class="account-menu-link" :to="{ path: '/', query: { auth: 'register' } }" @click="closeMenu">
         注册
       </router-link>
+
+      <!-- 主题切换：单击循环 -->
+      <button class="account-menu-link theme-cycle-row" type="button" @click.stop="cycleTheme">
+        <span>主题</span>
+        <span class="theme-current">{{ currentThemeLabel }}</span>
+      </button>
+
       <router-link class="account-menu-link feedback" to="/feedback" @click="closeMenu">
         反馈与共创
       </router-link>
@@ -37,6 +44,7 @@ import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { globalState } from '../store.js'
+import { themePreference, setThemePreference } from '../composables/useTheme.js'
 import AfdianSupportLink from './AfdianSupportLink.vue'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
@@ -45,6 +53,17 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const router = useRouter()
 
 const isOpen = ref(false)
+
+const THEME_ORDER = ['light', 'dark', 'system']
+const THEME_LABELS = { light: '浅色', dark: '深色', system: '系统' }
+
+const currentThemeLabel = computed(() => THEME_LABELS[themePreference.value] ?? '系统')
+
+const cycleTheme = () => {
+  const idx = THEME_ORDER.indexOf(themePreference.value)
+  setThemePreference(THEME_ORDER[(idx + 1) % 3])
+}
+
 const identityText = computed(() => {
   if (globalState.currentUser?.email) return globalState.currentUser.email
   if (globalState.isGuest) return '访客模式'
@@ -110,29 +129,30 @@ onUnmounted(() => {
   top: calc(100% + 10px);
   right: 0;
   z-index: 500;
-  min-width: 190px;
+  min-width: 200px;
   padding: 8px 0;
-  border: 1px solid var(--gold-border);
+  border: 1px solid var(--line);
   border-radius: 14px;
-  background: rgba(14,14,31,0.96);
-  box-shadow: 0 14px 42px rgba(0,0,0,0.62);
+  background: var(--bg-card);
+  box-shadow: 0 14px 42px rgba(0,0,0,0.18);
   backdrop-filter: blur(24px) saturate(1.25);
   -webkit-backdrop-filter: blur(24px) saturate(1.25);
   opacity: 0;
   pointer-events: none;
-  transform: translateY(-6px);
+  transform: translateY(-6px) scale(0.97);
+  transform-origin: top right;
   transition: opacity .22s var(--ease), transform .22s var(--ease);
 }
 
 .account-menu-panel.open {
   opacity: 1;
   pointer-events: auto;
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 .account-menu-identity {
   padding: 10px 16px;
-  border-bottom: 1px solid var(--glass-border);
+  border-bottom: 1px solid var(--line);
   color: var(--text-muted);
   font-size: 11px;
   line-height: 1.5;
@@ -146,7 +166,7 @@ onUnmounted(() => {
   padding: 10px 16px;
   border: none;
   background: none;
-  color: rgba(240,237,230,0.88);
+  color: var(--ink);
   font-size: 13px;
   line-height: 1.5;
   text-align: left;
@@ -158,18 +178,43 @@ onUnmounted(() => {
 .account-menu-link:hover,
 .account-menu-action:hover {
   color: var(--gold-light);
-  background: rgba(212,175,55,0.06);
+  background: var(--gold-dim);
 }
 
 .account-menu-link.featured {
-  color: rgba(207,255,250,0.94);
+  color: var(--teal);
 }
 
 .account-menu-link.feedback {
-  color: var(--gold-light);
+  color: var(--gold);
 }
 
 .account-menu-action {
+  color: var(--gold);
+}
+
+/* 主题切换行 */
+.theme-cycle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-current {
+  font-size: 12px;
+  color: var(--ink-muted);
+  transition: color .18s;
+}
+
+.theme-cycle-row:hover .theme-current {
   color: var(--gold-light);
+}
+</style>
+
+<style>
+[data-theme="dark"] .account-menu-panel {
+  background: rgba(14,14,31,0.97);
+  border-color: var(--gold-border);
+  box-shadow: 0 14px 42px rgba(0,0,0,0.62);
 }
 </style>

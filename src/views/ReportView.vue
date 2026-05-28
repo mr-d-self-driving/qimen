@@ -74,7 +74,7 @@ import AccountMenu from '../components/AccountMenu.vue'
 .report-view {
   min-height: 100vh;
   padding-bottom: 100px;
-  background-color: var(--paper-bg, #fcfaf6);
+  background: var(--paper);
   color: var(--ink, #2c2a27);
 }
 

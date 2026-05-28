@@ -55,6 +55,7 @@ import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { createClient } from '@supabase/supabase-js'
 import { globalState, setCurrentUser } from './store.js'
+import { initTheme } from './composables/useTheme.js'
 
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
@@ -102,6 +103,7 @@ const initVisuals = () => {
 }
 
 onMounted(() => {
+    initTheme()
     initVisuals()
     supabase.auth.getSession().then(({ data: { session } }) => {
         setCurrentUser(session?.user || null)
@@ -176,7 +178,7 @@ onUnmounted(() => {
     position: fixed; bottom: 0; left: 0; right: 0; z-index: 9999;
     height: calc(65px + env(safe-area-inset-bottom));
     background: var(--chrome, #efefef);
-    border-top: 1px solid #dedede;
+    border-top: 1px solid var(--line);
     display: flex; justify-content: space-around; align-items: center;
     padding-bottom: env(safe-area-inset-bottom);
 }
