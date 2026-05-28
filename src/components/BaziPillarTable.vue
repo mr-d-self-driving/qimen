@@ -52,16 +52,27 @@
           <td v-for="col in columns" :key="'nayin-' + col.name" class="bz-sub">{{ col.nayin || '-' }}</td>
         </tr>
         <tr>
-          <td class="bz-label">神煞<br><span class="shensha-hint">(点击)</span></td>
+          <td class="bz-label">
+            神煞
+            <button class="ss-toggle" @click="shenshaCollapsed = !shenshaCollapsed" :title="shenshaCollapsed ? '展开' : '折叠'">
+              <svg :class="['ss-arrow', { expanded: !shenshaCollapsed }]" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+            <span class="shensha-hint">(点击)</span>
+          </td>
           <td v-for="col in columns" :key="'shen-' + col.name" class="bz-shensha">
-            <div
-              v-for="s in sortedShensha(col.shensha)"
-              :key="s"
-              class="clickable-shensha"
-              :class="'ss-' + getShenshaInfo(s).nature"
-              @click="$emit('shensha-click', s)"
-            >{{ s }}</div>
-            <span v-if="!sortedShensha(col.shensha).length" style="color:#555">-</span>
+            <template v-if="sortedShensha(col.shensha).length">
+              <div
+                v-for="s in (shenshaCollapsed ? sortedShensha(col.shensha).slice(0, 1) : sortedShensha(col.shensha))"
+                :key="s"
+                class="clickable-shensha"
+                :class="'ss-' + getShenshaInfo(s).nature"
+                @click="$emit('shensha-click', s)"
+              >{{ s }}</div>
+              <span v-if="shenshaCollapsed && sortedShensha(col.shensha).length > 1" class="ss-more">+{{ sortedShensha(col.shensha).length - 1 }}</span>
+            </template>
+            <span v-else style="color:#555">-</span>
           </td>
         </tr>
       </tbody>
@@ -70,7 +81,10 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { getShenshaInfo, sortedShensha } from '../utils/baziShensha.mjs'
+
+const shenshaCollapsed = ref(true)
 
 const WX_MAP = {
   甲: 'wx-mu', 乙: 'wx-mu', 寅: 'wx-mu', 卯: 'wx-mu',
@@ -135,6 +149,11 @@ function normalizeHiddenStems(stems) {
 .wx-none { color: var(--ink-muted, #55595d); }
 .cg-line { display: block; line-height: 1.55; }
 .cg-shen { color: var(--ink-muted, #55595d); font-size: 11px; margin-left: 2px; }
+.ss-toggle { display: inline-flex; align-items: center; justify-content: center; background: none; border: none; padding: 2px; margin: 2px 0 1px; cursor: pointer; color: var(--ink-muted, #55595d); vertical-align: middle; border-radius: 4px; transition: background .15s; }
+.ss-toggle:hover { background: rgba(0,0,0,.06); color: var(--ink, #0b0b0b); }
+.ss-arrow { width: 10px; height: 6px; display: block; transition: transform .22s cubic-bezier(.4,0,.2,1); transform: rotate(-90deg); }
+.ss-arrow.expanded { transform: rotate(0deg); }
+.ss-more { display: block; font-size: 10px; color: var(--ink-muted, #55595d); line-height: 1.4; }
 @media (max-width: 640px) {
   .bazi-table {
     --bz-label-size: 11px;

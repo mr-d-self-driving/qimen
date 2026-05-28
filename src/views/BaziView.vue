@@ -124,7 +124,7 @@
                     </div>
                 </div>
 
-                <div v-if="activeProfile" class="bazi-tab-bar">
+                <div v-if="activeProfile" class="bazi-tab-bar" ref="tabBarRef">
                     <button :class="['bazi-tab', { active: currentTab === 'basic' }]" @click="currentTab = 'basic'">基础排盘</button>
                     <button :class="['bazi-tab', { active: currentTab === 'pro' }]" @click="currentTab = 'pro'">专业细盘</button>
                     <button
@@ -135,6 +135,7 @@
                         断事笔记
                         <span v-if="lifeEvents.length" class="bazi-tab-count">{{ lifeEvents.length }}</span>
                     </button>
+                    <span class="bazi-tab-ink" :style="{ transform: `translateX(${inkLeft}px)`, width: inkWidth + 'px', opacity: inkReady ? 1 : 0 }"></span>
                 </div>
 
                 <Teleport to="body">
@@ -363,8 +364,9 @@
             <div v-if="activeProfile" class="glass-card dashboard-panel">
 
                 <Teleport to="body">
+                    <Transition name="bsheet">
                     <div v-if="showGuestLoginGuide" class="modal-overlay" @click="showGuestLoginGuide = false">
-                        <div class="guest-login-modal" @click.stop>
+                        <div class="guest-login-modal bsheet-inner" @click.stop>
                             <button class="close-button guest-login-close" title="关闭" @click="showGuestLoginGuide = false">×</button>
                             <div class="guest-login-kicker">访客模式</div>
                             <h3>登录后生成完整云端排盘</h3>
@@ -375,6 +377,7 @@
                             </p>
                         </div>
                     </div>
+                    </Transition>
                 </Teleport>
 
                 <div v-if="isAnalyzing || analysisNotice" class="analysis-status" :class="{ done: analysisNotice && !isAnalyzing }">
@@ -389,6 +392,9 @@
                         <i :style="{ width: analysisProgress + '%' }"></i>
                     </div>
                 </div>
+
+                <Transition name="tab-fade" mode="out-in">
+                <div :key="currentTab" class="tab-pane-wrap">
 
                 <!-- ══ 命主断事笔记 ══ -->
                 <div v-if="currentTab === 'events' && activeProfile && !needsUpgrade && !isGuest" class="life-events-card">
@@ -675,8 +681,9 @@
 
                 <!-- 神煞解释弹窗 -->
                 <Teleport to="body">
+                    <Transition name="bsheet">
                     <div v-if="selectedShensha" class="modal-overlay" @click="selectedShensha = null">
-                        <div class="shensha-modal" @click.stop>
+                        <div class="shensha-modal bsheet-inner" @click.stop>
                             <div class="shensha-modal-head">
                                 <h4>{{ getShenshaInfo(selectedShensha).label || selectedShensha }}</h4>
                                 <span class="shensha-nature-badge" :class="'nature-' + getShenshaInfo(selectedShensha).nature">{{ getShenshaInfo(selectedShensha).nature }}</span>
@@ -697,21 +704,24 @@
                             <button class="btn-primary" style="width:100%; margin-top:14px;" @click="selectedShensha = null">知晓</button>
                         </div>
                     </div>
+                    </Transition>
                 </Teleport>
 
                 <Teleport to="body">
+                    <Transition name="bsheet">
                     <div v-if="activeInfoPanel === 'insight' && (strengthPanelContent || gejuPanelContent)" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer insight-detail-drawer" @click.stop>
+                        <div class="detail-drawer insight-detail-drawer bsheet-inner" @click.stop>
                             <!-- sticky header -->
                             <div class="insight-sticky-head">
                                 <div class="drawer-head">
                                     <div class="drawer-head-title">命局天机</div>
                                     <button class="close-button" title="关闭" @click="activeInfoPanel = null">×</button>
                                 </div>
-                                <div class="insight-tab-bar">
+                                <div class="insight-tab-bar" ref="insightTabBarRef">
                                     <button class="insight-bazi-tab" :class="{ active: insightTab === 'strength' }" @click="insightTab = 'strength'">身强/身弱</button>
                                     <button class="insight-bazi-tab" :class="{ active: insightTab === 'geju' }" @click="insightTab = 'geju'">格局判定</button>
                                     <button class="insight-bazi-tab" :class="{ active: insightTab === 'explain' }" @click="insightTab = 'explain'">判定说明</button>
+                                    <span class="insight-tab-ink" :style="{ transform: `translateX(${insightInkLeft}px)`, width: insightInkWidth + 'px', opacity: insightInkReady ? 1 : 0 }"></span>
                                 </div>
                             </div>
                             <!-- scrollable content -->
@@ -830,11 +840,13 @@
                             </div>
                         </div>
                     </div>
+                    </Transition>
                 </Teleport>
 
                 <Teleport to="body">
+                    <Transition name="bsheet">
                     <div v-if="activeInfoPanel === 'scoring' && activeProfile.bazi_detail?.scoring_details" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer insight-detail-drawer scoring-detail-drawer" @click.stop>
+                        <div class="detail-drawer insight-detail-drawer scoring-detail-drawer bsheet-inner" @click.stop>
                             <div class="insight-sticky-head">
                                 <div class="drawer-head">
                                     <div class="drawer-head-title">天机锦囊</div>
@@ -881,11 +893,13 @@
                             </div>
                         </div>
                     </div>
+                    </Transition>
                 </Teleport>
 
                 <Teleport to="body">
+                    <Transition name="bsheet">
                     <div v-if="showLeGuide" class="modal-overlay" @click="showLeGuide = false">
-                        <div class="le-guide-card" @click.stop>
+                        <div class="le-guide-card bsheet-inner" @click.stop>
                             <div class="le-guide-head">
                                 <span>{{ currentLeGuideContent.title }}</span>
                                 <button class="close-button" title="关闭" @click="showLeGuide = false">×</button>
@@ -908,11 +922,13 @@
                             </div>
                         </div>
                     </div>
+                    </Transition>
                 </Teleport>
 
                 <Teleport to="body">
+                    <Transition name="bsheet">
                     <div v-if="activeInfoPanel === 'tiaohou' && tiaohouPanelContent" class="modal-overlay" @click="activeInfoPanel = null">
-                        <div class="detail-drawer insight-detail-drawer" @click.stop>
+                        <div class="detail-drawer insight-detail-drawer bsheet-inner" @click.stop>
                             <div class="drawer-head">
                                 <div>
                                     <div class="section-kicker">调候诊断</div>
@@ -947,6 +963,7 @@
                             </div>
                         </div>
                     </div>
+                    </Transition>
                 </Teleport>
 
                 <Teleport to="body">
@@ -1105,6 +1122,9 @@
                         >{{ line }}</p>
                     </div>
                 </div>
+
+                </div>
+                </Transition>
 
             </div>
         </div>
@@ -2572,8 +2592,48 @@ const scheduleProfileHeroCollapse = () => {
     })
 }
 
+// ── 滑动下划线指示条 ──────────────────────────────────────
+const tabBarRef = ref(null)
+const inkLeft = ref(0)
+const inkWidth = ref(0)
+const inkReady = ref(false)
+
+const syncInk = () => {
+    const bar = tabBarRef.value
+    if (!bar) return
+    const active = bar.querySelector('.bazi-tab.active')
+    if (!active) return
+    inkLeft.value = active.offsetLeft
+    inkWidth.value = active.offsetWidth
+    inkReady.value = true
+}
+
+watch(currentTab, () => nextTick(syncInk))
+watch(() => activeProfile.value, () => nextTick(syncInk))
+
+// ── 命局天机 drawer 滑动指示条 ────────────────────────────
+const insightTabBarRef = ref(null)
+const insightInkLeft = ref(0)
+const insightInkWidth = ref(0)
+const insightInkReady = ref(false)
+
+const syncInsightInk = () => {
+    const bar = insightTabBarRef.value
+    if (!bar) return
+    const active = bar.querySelector('.insight-bazi-tab.active')
+    if (!active) return
+    // bar has padding-left: 16px; offsetLeft is relative to bar's content box
+    insightInkLeft.value = active.offsetLeft
+    insightInkWidth.value = active.offsetWidth
+    insightInkReady.value = true
+}
+
+watch(() => insightTab.value, () => nextTick(syncInsightInk))
+watch(() => activeInfoPanel.value, (v) => { if (v === 'insight') nextTick(syncInsightInk) })
+
 // 生命周期
 onMounted(async () => {
+    nextTick(syncInk)
     document.addEventListener('click', handleDocumentClick)
     heroScrollElement = getProfileScrollElement()
     heroScrollElement.addEventListener('scroll', scheduleProfileHeroCollapse, { passive: true })
@@ -3482,6 +3542,14 @@ const getShenColor = (shen) => {
 .glass-card { background: var(--bg-card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 14px; margin-bottom: 16px; box-shadow: 0 1px 6px rgba(0,0,0,.06); animation: riseIn 0.5s ease both; }
 @keyframes riseIn { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slideDown { from { transform: translateY(0); } to { transform: translateY(105%); } }
+
+/* ── bottom-sheet Transition (bsheet) ── */
+.bsheet-enter-active { transition: opacity .22s ease; }
+.bsheet-leave-active { transition: opacity .18s ease; }
+.bsheet-enter-from, .bsheet-leave-to { opacity: 0; }
+.bsheet-enter-active .bsheet-inner { animation: slideUp .3s cubic-bezier(.32,.72,0,1) both; }
+.bsheet-leave-active .bsheet-inner { animation: slideDown .2s ease-in both; }
 
 .profile-card { position: relative; z-index: 40; padding: 16px; overflow: visible; }
 .profile-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -3588,6 +3656,7 @@ const getShenColor = (shen) => {
     font-size: 14px;
     font-weight: 700;
     cursor: pointer;
+    transition: background .2s ease, color .15s ease, box-shadow .2s ease;
 }
 .picker-mode-tab.active {
     background: linear-gradient(135deg, rgba(232,204,128,0.94), rgba(212,175,55,0.94));
@@ -4150,7 +4219,7 @@ const getShenColor = (shen) => {
         padding: 0;
     }
 }
-.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 560px; box-shadow: 0 -4px 40px rgba(0,0,0,0.25); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
+.shensha-modal { background: var(--bg-card); border: 1px solid var(--gold-border); border-radius: 20px 20px 0 0; padding: 24px 20px 32px; width: 100%; max-width: 560px; box-shadow: 0 -4px 40px rgba(0,0,0,0.25); }
 .shensha-modal h4 { color: var(--gold); font-size: 16px; margin: 0; font-family: var(--font-serif); }
 .shensha-modal p { font-size: 13px; color: var(--ink-muted); line-height: 1.6; }
 .shensha-modal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; border-bottom: 1px dashed rgba(212,175,55,0.3); padding-bottom: 10px; margin-bottom: 10px; }
@@ -4167,7 +4236,7 @@ const getShenColor = (shen) => {
 .shensha-xiong .shensha-section-label { color: #c53030; }
 .shensha-note { background: rgba(212,175,55,0.08); color: #7b5e0a; }
 .shensha-note .shensha-section-label { color: #b7791f; }
-.guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: var(--bg-card); box-shadow: 0 -4px 40px rgba(0,0,0,.15); animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1); }
+.guest-login-modal { position: relative; width: 100%; max-width: 560px; padding: 24px 22px 36px; border-radius: 20px 20px 0 0; border: 1px solid var(--line); background: var(--bg-card); box-shadow: 0 -4px 40px rgba(0,0,0,.15); }
 .guest-login-kicker { color: var(--text-muted); font-size: 11px; letter-spacing: 2px; margin-bottom: 8px; }
 .guest-login-modal h3 { margin: 0 0 10px; color: var(--gold); font-family: var(--font-serif); font-size: 18px; line-height: 1.45; }
 .guest-login-modal p { margin: 0; color: var(--ink-muted); font-size: 13px; line-height: 1.8; }
@@ -4825,7 +4894,6 @@ const getShenColor = (shen) => {
     border-radius: 20px 20px 0 0;
     padding: 20px 16px 36px;
     box-shadow: 0 -4px 40px rgba(0,0,0,.18);
-    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
 }
 .strength-drawer {
     width: 100%;
@@ -4834,6 +4902,12 @@ const getShenColor = (shen) => {
 .insight-detail-drawer {
     width: 100%;
     max-width: 560px;
+    height: 80vh;
+    max-height: 80vh;
+    overflow-y: hidden;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 20px);
 }
 .geju-detail-drawer {
     width: 100%;
@@ -4916,6 +4990,7 @@ const getShenColor = (shen) => {
 }
 /* insight bottom sheet tab bar 对齐主页 bazi-tab */
 .insight-tab-bar {
+    position: relative;
     display: flex;
     gap: 0;
     justify-content: center;
@@ -4923,13 +4998,23 @@ const getShenColor = (shen) => {
     margin: 0 -16px 0;
     padding: 0 16px;
 }
+.insight-tab-ink {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: var(--ink);
+    transition: transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1), opacity .15s;
+    pointer-events: none;
+    will-change: transform, width;
+}
 .insight-bazi-tab {
     flex: none;
     min-height: 40px;
     padding: 8px 20px;
     border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
+    border-bottom: none;
+    margin-bottom: 0;
     background: transparent;
     color: var(--ink-dim);
     font-size: 14px;
@@ -4957,7 +5042,6 @@ const getShenColor = (shen) => {
 }
 .insight-bazi-tab.active {
     color: var(--ink);
-    border-bottom-color: var(--ink);
     font-weight: 800;
     background: transparent;
     box-shadow: none;
@@ -4965,6 +5049,8 @@ const getShenColor = (shen) => {
 
 .insight-scroll-body {
     padding-top: 16px;
+    flex: 1;
+    overflow-y: auto;
 }
 /* 杂志/信纸风格 prose 列表 */
 .insight-prose-list {
@@ -5842,7 +5928,6 @@ const getShenColor = (shen) => {
     border-radius: 20px 20px 0 0;
     padding: 20px 18px 36px;
     box-shadow: 0 -4px 40px color-mix(in srgb, black 40%, transparent);
-    animation: slideUp 0.28s cubic-bezier(0.32,0.72,0,1);
 }
 
 .le-guide-head {
@@ -6392,6 +6477,7 @@ const getShenColor = (shen) => {
 
 /* ─── 7. 奇门风格标签导航 Qimen-style tab bar ───────────── */
 .bazi-tab-bar {
+    position: relative;
     display: flex;
     gap: 0;
     padding: 0;
@@ -6409,8 +6495,6 @@ const getShenColor = (shen) => {
     min-height: 40px;
     padding: 8px 20px;
     border: none;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
     background: transparent;
     color: var(--ink-dim);
     font-size: 14px;
@@ -6421,16 +6505,25 @@ const getShenColor = (shen) => {
     align-items: center;
     justify-content: center;
     gap: 6px;
-    transition: color .2s, border-color .2s;
+    transition: color .2s;
     border-radius: 0;
     white-space: nowrap;
 }
 .bazi-tab.active {
     color: var(--ink);
-    border-bottom-color: var(--ink);
     font-weight: 800;
     background: transparent;
     box-shadow: none;
+}
+.bazi-tab-ink {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 2px;
+    background: var(--ink);
+    transition: transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1), opacity .15s;
+    pointer-events: none;
+    will-change: transform, width;
 }
 .bazi-tab-count {
     min-width: 16px; height: 16px; padding: 0 4px;
@@ -6440,6 +6533,14 @@ const getShenColor = (shen) => {
     color: var(--gold-light); font-size: 9px; font-weight: 700;
     display: inline-flex; align-items: center; justify-content: center;
 }
+/* ─── Tab content transition ───────────────────────────── */
+.tab-pane-wrap { }
+.tab-fade-enter-active { transition: opacity .18s ease, transform .18s ease; }
+.tab-fade-leave-active { transition: opacity .08s ease; }
+.tab-fade-enter-from { opacity: 0; transform: translateY(6px); }
+.tab-fade-enter-to { opacity: 1; transform: translateY(0); }
+.tab-fade-leave-from { opacity: 1; }
+.tab-fade-leave-to { opacity: 0; }
 
 /* ─── 8. Bottom Sheet ──────────────────────────────────── */
 .sheet-backdrop {
