@@ -534,6 +534,22 @@
             </div>
           </div>
         </div>
+        <div class="route-quota-bar">
+          <span class="rq-label">今日问事额度</span>
+          <template v-if="currentUser">
+            <span v-if="dailyQimenUsed === null" class="rq-loading">查询中…</span>
+            <span v-else class="rq-count">
+              <span
+                v-for="i in DAILY_QIMEN_LIMIT"
+                :key="i"
+                class="rq-pip"
+                :class="{ 'rq-pip--used': i <= dailyQimenUsed }"
+              ></span>
+              <span class="rq-text">今日剩余 {{ Math.max(0, DAILY_QIMEN_LIMIT - dailyQimenUsed) }} / {{ DAILY_QIMEN_LIMIT }}</span>
+            </span>
+          </template>
+          <span v-else class="rq-guest">登录后可用</span>
+        </div>
         <div class="route-info-note">你只需自然提问；系统会先识别问题类型，自动选择八字、奇门或综合路径，并注入对应规则。</div>
       </div>
     </div>
@@ -595,6 +611,16 @@ import {
 } from '../qimenFeedback.mjs'
 import { BAZI_PROFILE_QIMEN_SELECT } from '../baziProfileFields.mjs'
 
+const DAILY_QIMEN_LIMIT = 2
+
+const buildBeijingDayRange = (now = new Date()) => {
+  const OFFSET = 8 * 60 * 60 * 1000
+  const DAY = 24 * 60 * 60 * 1000
+  const bj = new Date(now.getTime() + OFFSET)
+  const startMs = Date.UTC(bj.getUTCFullYear(), bj.getUTCMonth(), bj.getUTCDate()) - OFFSET
+  return { startIso: new Date(startMs).toISOString(), endIso: new Date(startMs + DAY).toISOString() }
+}
+
 const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
 const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
 const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
@@ -645,6 +671,7 @@ const handleGuestLoginRedirect = () => {
 }
 const clockText = ref('载入时辰中…')
 const showRouteInfoModal = ref(false)
+const dailyQimenUsed = ref(null)  // null = loading, number = fetched count
 
 const baziProfiles = ref([])
 const selectedProfileId = ref('')
@@ -1333,6 +1360,23 @@ watch(
     handleProfileSelect()
   }
 )
+
+watch(showRouteInfoModal, async (isOpen) => {
+  if (!isOpen || !currentUser.value) return
+  dailyQimenUsed.value = null
+  try {
+    const { startIso, endIso } = buildBeijingDayRange()
+    const { count } = await supabase
+      .from('qimen_records')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', currentUser.value.id)
+      .gte('created_at', startIso)
+      .lt('created_at', endIso)
+    dailyQimenUsed.value = count ?? 0
+  } catch {
+    dailyQimenUsed.value = 0
+  }
+})
 
 const startLoaderCycle = () => {
   let idx = 0
@@ -3374,6 +3418,14 @@ input::placeholder { color: var(--text-muted); }
 .route-tool { color: var(--gold); font-weight: 700; font-size: 13px; letter-spacing: 1px; }
 .route-focus { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 4px; }
 .route-info-row p { margin: 0; color: var(--ink-muted); font-size: 12px; line-height: 1.55; }
+.route-quota-bar { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--paper-soft); }
+.rq-label { color: var(--ink-muted); font-size: 12px; white-space: nowrap; }
+.rq-count { display: flex; align-items: center; gap: 5px; }
+.rq-pip { width: 9px; height: 9px; border-radius: 50%; background: var(--gold); opacity: 0.9; flex-shrink: 0; }
+.rq-pip--used { background: rgba(255,255,255,0.15); opacity: 1; }
+.rq-text { color: var(--gold); font-size: 12px; font-weight: 600; letter-spacing: .02em; margin-left: 2px; }
+.rq-loading { color: var(--text-muted); font-size: 12px; }
+.rq-guest { color: var(--text-muted); font-size: 12px; }
 .route-info-note { margin-top: 12px; padding: 11px 12px; border-left: 3px solid var(--gold); border-radius: 10px; background: var(--gold-dim); color: var(--ink-muted); font-size: 12px; line-height: 1.55; }
 
 .fade-enter-active, .fade-leave-active { transition: opacity 0.4s ease; }

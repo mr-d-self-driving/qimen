@@ -17,6 +17,8 @@ create index if not exists bazi_profile_usage_profile_created_idx
 
 alter table public.bazi_profile_usage enable row level security;
 
+grant select, insert, update, delete on table public.bazi_profile_usage to service_role;
+
 drop policy if exists "service role can manage bazi profile usage" on public.bazi_profile_usage;
 create policy "service role can manage bazi profile usage"
   on public.bazi_profile_usage
