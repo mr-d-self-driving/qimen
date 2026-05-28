@@ -201,7 +201,9 @@
                 <div class="tagline-sub">洞察天机，决胜千里</div>
               </div>
 
-              <div class="glass-card qimen-profile-panel">
+              <!-- Single unified glass card: profile + divider + textarea — guarantees edge alignment -->
+              <div class="qimen-unified-card">
+                <!-- 命主档案区 -->
                 <div v-if="showProfileSwitcher" class="profile-switcher" :class="{ open: isProfileMenuOpen }">
                   <button class="profile-switch-trigger" type="button" @click="toggleProfileMenu">
                     <span class="profile-switch-name">{{ activeProfileName }}</span>
@@ -225,27 +227,35 @@
                 <button v-else class="add-bazi-profile-btn" type="button" @click="goToBaziProfiles">
                   添加八字档案
                 </button>
-              </div>
 
-              <div class="glass-card input-card">
+                <!-- 黄金分割线 -->
+                <div class="qimen-card-divider"></div>
+
+                <!-- 键入区 -->
                 <div class="input-label">
                   <span>叩问天机</span>
                   <button class="route-info-trigger" type="button" @click.stop="showRouteInfoModal = true" aria-label="查看八字与奇门分流说明">i</button>
                 </div>
                 <textarea v-model="questionInput" placeholder="在心中默念所求之事，写下您的羁绊与心中所惑……"></textarea>
-                <Transition name="sugg-row" mode="out-in">
-                  <div v-if="!questionInput" :key="suggestionPairIdx" class="suggestion-row">
-                    <button
-                      v-for="(q, i) in visibleSuggestions"
-                      :key="i"
-                      class="suggestion-pill"
-                      type="button"
-                      @click="selectSuggestion(q)"
-                    >
-                      <span class="suggestion-icon" aria-hidden="true">✦</span>{{ q }}
-                    </button>
-                  </div>
-                </Transition>
+                <!-- fixed-height pill zone: pills always absolute so time-row never moves -->
+                <div class="sugg-time-block">
+                  <Transition name="sugg-row" mode="out-in">
+                    <div v-if="!questionInput" :key="suggestionPairIdx" class="suggestion-row">
+                      <button
+                        v-for="(q, i) in visibleSuggestions"
+                        :key="i"
+                        class="suggestion-pill"
+                        type="button"
+                        @click="selectSuggestion(q)"
+                      >
+                        <span class="suggestion-icon" aria-hidden="true">✦</span>{{ q }}
+                      </button>
+                    </div>
+                  </Transition>
+                </div>
+              </div>
+
+              <div class="cta-wrap">
                 <div class="time-row">
                   <div class="time-display">
                     <span class="time-dot"></span>
@@ -253,9 +263,6 @@
                   </div>
                   <div class="time-note">以当下时辰起局</div>
                 </div>
-              </div>
-
-              <div class="cta-wrap">
                 <button
                   class="cta-btn"
                   :disabled="isSubmitting && !isGuest"
@@ -2848,14 +2855,140 @@ const buildCardHTML = (data) => {
   position: relative; overflow: hidden;
 }
 .input-box { display: flex; flex-direction: column; gap: 14px; margin-bottom: 16px; animation: riseIn 1s .15s cubic-bezier(.22,1,.36,1) both; }
-.input-card { padding: 22px; margin-bottom: 16px; }
-.input-label { font-family: var(--font-serif); font-size: 11px; letter-spacing: .2em; color: var(--text-muted); margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
-.input-label::before, .input-label::after { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.2), transparent); }
+/* ── Unified input glass card ─────────────────────────────────── */
+.qimen-unified-card {
+  position: relative;
+  z-index: 42;
+  overflow: visible;
+  background: rgba(255,255,255,0.038);
+  border: 1px solid rgba(212,175,55,0.20);
+  border-radius: 20px;
+  padding: 0;   /* no card-level padding; children use their own */
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13), inset 0 1px 0 rgba(255,255,255,0.07);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  margin-bottom: 10px;
+}
+
+/* Gold divider between profile and textarea sections */
+.qimen-card-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, rgba(212,175,55,0.20) 20%, rgba(212,175,55,0.20) 80%, transparent 100%);
+  margin: 0 20px;
+}
+
+/* Profile section: full-width button inside the card */
+.profile-switcher { position: relative; z-index: 60; }
+.profile-switch-trigger {
+  width: 100%;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  border: none;
+  border-radius: 20px 20px 0 0;
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 0 20px;
+  transition: background .2s;
+}
+.profile-switch-trigger:hover { background: rgba(212,175,55,0.04); }
+.profile-switch-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  line-height: 1;
+}
+.profile-switch-symbol { color: var(--gold); font-size: 20px; line-height: 1; opacity: .82; flex-shrink: 0; }
+.profile-switcher.open .profile-switch-trigger { background: rgba(212,175,55,0.05); }
+.profile-flyout {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  z-index: 120; padding: 8px; border-radius: 16px;
+  background: var(--bg-card); border: 1px solid var(--line);
+  box-shadow: 0 12px 36px rgba(0,0,0,.22);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+}
+.profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0,1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
+.profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
+.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
+.profile-item-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
+.profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
+.profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
+.add-bazi-profile-btn {
+  width: 100%;
+  min-height: 54px;
+  border: none;
+  border-radius: 20px 20px 0 0;
+  background: transparent;
+  color: var(--gold);
+  cursor: pointer;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-align: center;
+  padding: 0 20px;
+  transition: background .2s, color .2s;
+}
+.add-bazi-profile-btn:hover { background: rgba(212,175,55,0.05); color: var(--gold-light); }
+
+/* Input section (inside unified card) */
+.input-card { display: none; } /* old class, kept to avoid orphan selectors */
+.qimen-unified-card .input-label {
+  font-family: var(--font-serif);
+  font-size: 10px;
+  letter-spacing: .22em;
+  color: var(--text-muted);
+  margin: 12px 20px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-transform: uppercase;
+}
+.qimen-unified-card .input-label::before { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, transparent, rgba(212,175,55,0.20)); }
+.qimen-unified-card .input-label::after  { content: ''; flex: 1; height: 1px; background: linear-gradient(90deg, rgba(212,175,55,0.20), transparent); }
 .route-info-trigger { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid rgba(232,204,128,0.42); background: rgba(232,204,128,0.08); color: var(--gold-light); font-size: 11px; font-family: var(--font-display); font-weight: 700; line-height: 1; cursor: pointer; transition: border-color .2s, background .2s, color .2s; flex-shrink: 0; letter-spacing: 0; }
 .route-info-trigger:hover { border-color: rgba(232,204,128,0.8); background: rgba(232,204,128,0.16); color: #fff; }
-textarea { width: 100%; min-height: 130px; background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius-item); padding: 16px; color: var(--ink); font-family: 'Noto Serif SC', serif; font-size: 15px; line-height: 1.8; resize: none; outline: none; transition: all .4s; }
-textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--gold-dim); }
-.time-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+textarea {
+  display: block;
+  width: 100%;
+  min-height: 110px;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 4px 20px 14px;
+  margin: 0;
+  color: var(--ink);
+  font-family: 'Noto Serif SC', serif;
+  font-size: 15px;
+  line-height: 1.85;
+  resize: none;
+  outline: none;
+  box-sizing: border-box;
+  transition: none;
+}
+textarea::placeholder { color: var(--text-dim); opacity: 0.7; }
+
+/* Fixed-height pill zone inside card */
+.sugg-time-block {
+  position: relative;
+  height: 62px;  /* 2 pills × ~26px + 6px gap = 58px; slight extra */
+  margin: 0 20px 16px;
+  overflow: visible;
+}
+.time-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
 .time-display { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
 .time-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse-dot 2s infinite; }
 .time-note { font-size: 11px; color: var(--text-muted); font-family: 'Noto Serif SC', serif; }
@@ -3097,44 +3230,7 @@ input::placeholder { color: var(--text-muted); }
 .forgot-password-link:hover { color: var(--gold-light); }
 .auth-notice { padding: 10px 12px; border-radius: 12px; background: rgba(13,148,136,0.06); border: 1px solid rgba(13,148,136,0.2); color: var(--ink-muted); font-size: 12px; line-height: 1.6; text-align: center; }
 
-.qimen-profile-panel { position: relative; z-index: 42; padding: 14px 16px; overflow: visible; margin-bottom: 16px; }
-.profile-switcher { position: relative; z-index: 60; }
-.profile-switch-trigger {
-  width: 100%;
-  min-height: 56px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--paper-soft);
-  color: var(--ink);
-  cursor: pointer;
-}
-.profile-switch-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-serif); font-size: 24px; letter-spacing: 1px; line-height: 1; }
-.profile-switch-symbol { color: var(--gold); font-size: 24px; line-height: 1; opacity: .92; }
-.profile-switcher.open .profile-switch-trigger { border-color: var(--gold-border); box-shadow: 0 0 0 3px var(--gold-dim); }
-.profile-flyout { position: absolute; top: calc(100% + 10px); left: 0; right: 0; z-index: 120; padding: 8px; border-radius: 16px; background: var(--bg-card); border: 1px solid var(--line); box-shadow: 0 12px 36px rgba(0,0,0,.12); }
-.profile-flyout-item { width: 100%; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 12px 14px; border: none; border-radius: 12px; background: transparent; color: var(--text-primary); cursor: pointer; text-align: left; }
-.profile-flyout-item + .profile-flyout-item { margin-top: 4px; }
-.profile-flyout-item.active { background: rgba(212,175,55,0.1); box-shadow: inset 0 0 0 1px rgba(212,175,55,0.18); }
-.profile-item-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; font-weight: 600; }
-.profile-item-date { color: #FF5E57; font-size: 12px; white-space: nowrap; }
-.profile-item-meta { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
-.add-bazi-profile-btn {
-  width: 100%;
-  min-height: 56px;
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  background: var(--paper-soft);
-  color: var(--gold);
-  cursor: pointer;
-  font-family: var(--font-serif);
-  font-size: 22px;
-  letter-spacing: 1px;
-}
-.add-bazi-profile-btn:hover { border-color: var(--gold-border); box-shadow: 0 0 0 3px var(--gold-dim); }
+/* old profile panel rules removed — now inside .qimen-unified-card */
 
 /* ── SSE Loader ── */
 #loader { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 28px 0 20px; }
@@ -4364,44 +4460,51 @@ input::placeholder { color: var(--text-muted); }
 }
 
 /* ── Suggestion pills ── */
+/* pills are always absolute inside fixed-height .sugg-time-block,
+   so time-row (also absolute at bottom) never moves */
 .suggestion-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
-  gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
 }
 .suggestion-pill {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 5px 12px 5px 9px;
+  gap: 6px;
+  padding: 4px 12px 4px 8px;
   border-radius: 100px;
-  border: 1px solid rgba(212,175,55,0.22);
-  background: rgba(212,175,55,0.05);
+  border: 1px solid rgba(212,175,55,0.18);
+  background: rgba(212,175,55,0.04);
   color: var(--text-muted);
   font-size: 12px;
   font-family: 'Noto Serif SC', serif;
   cursor: pointer;
-  max-width: calc(50% - 4px);
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   transition: border-color .2s, background .2s, color .2s;
 }
 .suggestion-pill:hover {
-  border-color: rgba(212,175,55,0.5);
-  background: rgba(212,175,55,0.11);
+  border-color: rgba(212,175,55,0.48);
+  background: rgba(212,175,55,0.10);
   color: var(--gold-light);
 }
 .suggestion-icon {
   font-size: 8px;
-  color: rgba(212,175,55,0.55);
+  color: rgba(212,175,55,0.5);
   flex-shrink: 0;
 }
-.sugg-row-enter-active { transition: opacity .22s ease, transform .22s ease; }
-.sugg-row-leave-active { transition: opacity .18s ease, transform .18s ease; }
-.sugg-row-enter-from { opacity: 0; transform: translateY(4px); }
-.sugg-row-leave-to   { opacity: 0; transform: translateY(-3px); }
+/* pills are always absolute, so both enter and leave are just opacity/translate */
+.sugg-row-enter-active { transition: opacity .2s ease, transform .2s ease; }
+.sugg-row-leave-active { transition: opacity .16s ease, transform .16s ease; pointer-events: none; }
+.sugg-row-enter-from { opacity: 0; transform: translateX(-6px); }
+.sugg-row-leave-to   { opacity: 0; transform: translateX(-4px); }
 </style>
 
 <!-- 深色模式：问事结果卡渐变适配 -->
