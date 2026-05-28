@@ -233,6 +233,19 @@
                   <button class="route-info-trigger" type="button" @click.stop="showRouteInfoModal = true" aria-label="查看八字与奇门分流说明">i</button>
                 </div>
                 <textarea v-model="questionInput" placeholder="在心中默念所求之事，写下您的羁绊与心中所惑……"></textarea>
+                <Transition name="sugg-row" mode="out-in">
+                  <div v-if="!questionInput" :key="suggestionPairIdx" class="suggestion-row">
+                    <button
+                      v-for="(q, i) in visibleSuggestions"
+                      :key="i"
+                      class="suggestion-pill"
+                      type="button"
+                      @click="selectSuggestion(q)"
+                    >
+                      <span class="suggestion-icon" aria-hidden="true">✦</span>{{ q }}
+                    </button>
+                  </div>
+                </Transition>
                 <div class="time-row">
                   <div class="time-display">
                     <span class="time-dot"></span>
@@ -653,6 +666,43 @@ const viewState = ref('input')
 const questionInput = ref('')
 const isSubmitting = ref(false)
 
+const SUGGESTED_QUESTIONS = [
+  '这次合作谈判能顺利吗？',
+  '我现在换工作时机合适吗？',
+  '这段感情还值得继续吗？',
+  '这笔投资现在能入场吗？',
+  '我近期的财运走势如何？',
+  '近期有没有贵人相助？',
+  '这件事情近期能有结果吗？',
+  '最近身体状况需要注意什么？',
+  '未来老公大概是什么长相和职业？',
+  '我的正缘会在什么场景下出现？',
+  '未来伴侣的经济实力和家境如何？',
+  '未来的另一半比我大还是比我小？',
+  '我的婚姻是强强联合还是被照顾？',
+  '未来的小孩大概有什么天赋特长？',
+  '有了小孩后，会带旺我的财运吗？',
+  '我的子女缘深吗？何时会有宝宝？',
+  '以后和孩子的相处模式是怎样的？',
+  '除了主业，我适合发展什么副业？',
+  '现在工作内耗，命盘有破局建议吗？',
+  '我身上有什么没被挖掘的隐藏天赋？',
+  '近期偏财运如何？有没有意外之财？',
+]
+const suggestionPairIdx = ref(0)
+const visibleSuggestions = computed(() => {
+  const len = SUGGESTED_QUESTIONS.length
+  return [
+    SUGGESTED_QUESTIONS[suggestionPairIdx.value % len],
+    SUGGESTED_QUESTIONS[(suggestionPairIdx.value + 1) % len],
+  ]
+})
+const selectSuggestion = (q) => {
+  questionInput.value = q
+  if (isGuest.value) handleGuestLoginRedirect()
+  else startDivination()
+}
+
 const homeToast = ref(false)
 const homeToastMsg = ref('')
 const homeToastKind = ref('error')
@@ -742,6 +792,16 @@ const feedbackForm = reactive(buildDefaultFeedbackForm())
 const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data?.summary?.conclusion || '')
 
 const resultHtml = ref('')
+const initMagTabInk = () => {
+  document.querySelectorAll('.mag-tabs').forEach(nav => {
+    const active = nav.querySelector('.mag-tab-active')
+    const ink = nav.querySelector('.mag-tab-ink')
+    if (active && ink) {
+      ink.style.width = active.offsetWidth + 'px'
+      ink.style.transform = `translateX(${active.offsetLeft}px)`
+    }
+  })
+}
 const currentScore = ref(0)
 const activeBaziResultData = ref(null)
 const baziCardSelectedYear = ref(null)
@@ -1016,6 +1076,7 @@ async function readSSEStream(response) {
 }
 
 let clockInterval = null
+let suggestionTimer = null
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
 
 const syncAuthModeFromRoute = () => {
@@ -1145,6 +1206,9 @@ onMounted(() => {
   syncAuthModeFromRoute()
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
+  suggestionTimer = setInterval(() => {
+    suggestionPairIdx.value = (suggestionPairIdx.value + 2) % SUGGESTED_QUESTIONS.length
+  }, 5000)
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('click', handleGeTagClick)
 
@@ -1168,6 +1232,7 @@ onUnmounted(() => {
   clearInterval(clockInterval)
   clearInterval(loaderInterval)
   clearInterval(scoreTimer)
+  clearInterval(suggestionTimer)
 })
 
 const toggleDrawer = () => {
@@ -1508,6 +1573,7 @@ const startDivination = async () => {
       activateBaziResultPanel(data)
       viewState.value = 'result'
       nextTick(() => {
+        initMagTabInk()
         if (!(data.branch === 'bazi' && data.meta?.analysis_mode)) animateScore(data.summary?.score || 0)
         setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
       })
@@ -1540,6 +1606,7 @@ const startDivination = async () => {
     resultHtml.value = buildCardHTML(data)
     viewState.value = 'result'
     nextTick(() => {
+      initMagTabInk()
       animateScore(data.summary?.score || 0)
       setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
     })
@@ -1632,6 +1699,7 @@ const loadRecord = (item) => {
   activateBaziResultPanel(item.qimen_data)
   viewState.value = 'result'
   nextTick(() => {
+    initMagTabInk()
     animateScore(item.qimen_data?.summary?.score || item.score || 0)
     setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 200)
   })
@@ -1847,7 +1915,7 @@ const buildBaziQuestionCardHTML = (data) => {
   }
   const verdictCls = { strong: 'ji', medium: 'ping', weak: 'warn', mixed: 'ping', unknown: 'ping' }[summary.level || 'unknown'] || 'ping'
 
-  const tabClick = (id) => `var tabs=this.closest('.mag-tabs').querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
+  const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
   const heroScoreHTML = hasScore
     ? `<div class="mag-score-inline"><strong>${summary.score}</strong><span>分</span></div>`
@@ -1979,6 +2047,7 @@ const buildBaziQuestionCardHTML = (data) => {
 
     <nav class="mag-tabs">
       ${tabs}
+      <span class="mag-tab-ink"></span>
     </nav>
 
     ${m1HTML}
@@ -2375,7 +2444,7 @@ const buildCardHTML = (data) => {
     ? primaryStrategies.map((s, i) => `<div class="mag-action-item reveal" style="transition-delay:${i * 70}ms"><div class="mag-action-num">0${i + 1}</div><div class="mag-action-body">${s}</div></div>`).join('')
     : `<div class="mag-action-item"><div class="mag-action-num">01</div><div class="mag-action-body">${reportM1.conclusion || summary.conclusion}</div></div>`
 
-  const tabClick = (id) => `var tabs=this.closest('.mag-tabs').querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
+  const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
   return `<div class="mag-result tone-${heroTone}" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="mag-hero" id="mag-hero">
@@ -2395,6 +2464,7 @@ const buildCardHTML = (data) => {
       <button class="mag-tab" onclick="${tabClick('mag-m2')}">奇门定基</button>
       <button class="mag-tab" onclick="${tabClick('mag-m3')}">局象推演</button>
       <button class="mag-tab" onclick="${tabClick('mag-m4')}">开运指南</button>
+      <span class="mag-tab-ink"></span>
     </nav>
 
     <section class="mag-section" id="mag-m1">
@@ -3822,22 +3892,22 @@ input::placeholder { color: var(--text-muted); }
   font-weight: 850;
   line-height: 1;
   cursor: pointer;
-  position: relative;
   transition: color 0.2s;
   white-space: nowrap;
 }
 :deep(.mag-tab-active) {
   color: var(--ink);
 }
-:deep(.mag-tab-active::after) {
-  content: "";
+:deep(.mag-tab-ink) {
   position: absolute;
   bottom: -1px;
   left: 0;
-  width: 100%;
   height: 2px;
   background: var(--ink);
   border-radius: 1px;
+  pointer-events: none;
+  transition: transform .28s cubic-bezier(.4,0,.2,1), width .28s cubic-bezier(.4,0,.2,1);
+  will-change: transform, width;
 }
 
 :deep(.mag-section) {
@@ -4292,6 +4362,46 @@ input::placeholder { color: var(--text-muted); }
   border-color: rgba(220,38,38,0.28);
   color: #dc2626;
 }
+
+/* ── Suggestion pills ── */
+.suggestion-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.suggestion-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px 5px 9px;
+  border-radius: 100px;
+  border: 1px solid rgba(212,175,55,0.22);
+  background: rgba(212,175,55,0.05);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: 'Noto Serif SC', serif;
+  cursor: pointer;
+  max-width: calc(50% - 4px);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: border-color .2s, background .2s, color .2s;
+}
+.suggestion-pill:hover {
+  border-color: rgba(212,175,55,0.5);
+  background: rgba(212,175,55,0.11);
+  color: var(--gold-light);
+}
+.suggestion-icon {
+  font-size: 8px;
+  color: rgba(212,175,55,0.55);
+  flex-shrink: 0;
+}
+.sugg-row-enter-active { transition: opacity .22s ease, transform .22s ease; }
+.sugg-row-leave-active { transition: opacity .18s ease, transform .18s ease; }
+.sugg-row-enter-from { opacity: 0; transform: translateY(4px); }
+.sugg-row-leave-to   { opacity: 0; transform: translateY(-3px); }
 </style>
 
 <!-- 深色模式：问事结果卡渐变适配 -->
