@@ -353,6 +353,12 @@ watch(linkedLiuriList, (list) => {
   }
 }, { immediate: true })
 
+watch(() => baziEngine.value, (engine) => {
+  if (engine?.yun) {
+    jumpToCurrent()
+  }
+}, { immediate: true })
+
 function buildBaziEngine(profile = {}) {
   const birth = String(profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || '').match(/\d+/g)
   if (!birth || birth.length < 3) return null
@@ -445,9 +451,13 @@ async function jumpToCurrent() {
     const selection = findTransitSelectionByDate(engine, new Date())
     if (selection) {
       localSelectedYear.value = selection.liunianYear
-      selectedLiuyueIndex.value = selection.liuyueIndex
-      selectedLiuriDateKey.value = selection.liuriDateKey
       emit('update:selectedYear', localSelectedYear.value)
+      
+      await nextTick()
+      selectedLiuyueIndex.value = selection.liuyueIndex
+      
+      await nextTick()
+      selectedLiuriDateKey.value = selection.liuriDateKey
       return
     }
   }
