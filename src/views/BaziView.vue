@@ -1189,7 +1189,7 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 
 // 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
-const BAZI_ENGINE_VERSION = '1.6.2'
+const BAZI_ENGINE_VERSION = '1.6.3'
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
@@ -1890,7 +1890,12 @@ watch(
             activeProfile.value?.llm_current_liunian
         )
         const hasBaziStr = Boolean(activeProfile.value?.bazi_str)
-        if (hasBaziStr && hasLlm && profileEngineVersion && profileEngineVersion !== BAZI_ENGINE_VERSION) {
+        const hasDetail = Boolean(activeProfile.value?.bazi_detail?.matrix)
+        if (hasBaziStr && !hasDetail && !isAnalyzing.value) {
+            // 首次添加档案：尚无排盘/断语，自动生成（无需手动点击同步）
+            console.log('[bazi] 新档案尚无排盘，自动生成…')
+            requestAiSummary({ force: false })
+        } else if (hasBaziStr && hasLlm && profileEngineVersion && profileEngineVersion !== BAZI_ENGINE_VERSION) {
             console.log(`[bazi] 检测到引擎版本旧 (${profileEngineVersion} → ${BAZI_ENGINE_VERSION})，自动刷新运算数据…`)
             requestAiSummary({ force: false })
         }
