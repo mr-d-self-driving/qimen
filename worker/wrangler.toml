@@ -8,7 +8,7 @@ preview_urls = true
 [vars]
 FRONTEND_URL = "https://qimendao.com,https://www.qimendao.com"
 SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
-WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com"
+WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com,chenxinhui1227@gmail.com"
 
 [secrets]
 required = [
@@ -38,7 +38,7 @@ workers_dev = true
 [env.preview.vars]
 FRONTEND_URL = "https://qimen-1ff.pages.dev"
 SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
-WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com"
+WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com,chenxinhui1227@gmail.com"
 
 [env.preview.secrets]
 required = [
