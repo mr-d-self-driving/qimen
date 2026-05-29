@@ -38,13 +38,9 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase.mjs'
 import { setCurrentUser } from '../store.js'
 import { validatePasswordUpdate } from '../auth/passwordReset.mjs'
-
-const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
 const router = useRouter()
 const password = ref('')

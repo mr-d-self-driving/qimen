@@ -739,7 +739,7 @@
 <script setup>
 import { ref, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase.mjs'
 import { globalState, resolveSelectedBaziProfileId, setSelectedBaziProfileId } from '../store.js'
 import { getGuestState, recordGuestFortuneViewed, trackGuestEvent } from '../guestMode.mjs'
 import {
@@ -768,9 +768,6 @@ import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import AccountMenu from '../components/AccountMenu.vue'
 import { BAZI_PROFILE_LIST_SELECT } from '../baziProfileFields.mjs'
 
-const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const route = useRoute()
 const router = useRouter()
 

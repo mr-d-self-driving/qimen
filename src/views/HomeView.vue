@@ -233,19 +233,21 @@
                   <button class="route-info-trigger" type="button" @click.stop="showRouteInfoModal = true" aria-label="查看八字与奇门分流说明">i</button>
                 </div>
                 <textarea v-model="questionInput" placeholder="在心中默念所求之事，写下您的羁绊与心中所惑……"></textarea>
-                <Transition name="sugg-row" mode="out-in">
-                  <div v-if="!questionInput" :key="suggestionPairIdx" class="suggestion-row">
-                    <button
-                      v-for="(q, i) in visibleSuggestions"
-                      :key="i"
-                      class="suggestion-pill"
-                      type="button"
-                      @click="selectSuggestion(q)"
-                    >
-                      <span class="suggestion-icon" aria-hidden="true">✦</span>{{ q }}
-                    </button>
-                  </div>
-                </Transition>
+                <div class="suggestion-slot">
+                  <Transition name="sugg-row" mode="out-in">
+                    <div v-if="!questionInput" :key="suggestionPairIdx" class="suggestion-row">
+                      <button
+                        v-for="(q, i) in visibleSuggestions"
+                        :key="i"
+                        class="suggestion-pill"
+                        type="button"
+                        @click="selectSuggestion(q)"
+                      >
+                        <span class="suggestion-icon" aria-hidden="true">✦</span>{{ q }}
+                      </button>
+                    </div>
+                  </Transition>
+                </div>
                 <div class="time-row">
                   <div class="time-display">
                     <span class="time-dot"></span>
@@ -597,14 +599,16 @@
 <script setup>
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase.mjs'
 import { Solar } from 'lunar-javascript'
 import { getGuestState, trackGuestEvent } from '../guestMode.mjs'
 import {
   enterGuestMode,
+  getCachedBaziProfiles,
   globalState,
   leaveGuestMode,
   resolveSelectedBaziProfileId,
+  setCachedBaziProfiles,
   setCurrentUser,
   setSelectedBaziProfileId
 } from '../store.js'
@@ -634,9 +638,6 @@ const buildBeijingDayRange = (now = new Date()) => {
   return { startIso: new Date(startMs).toISOString(), endIso: new Date(startMs + DAY).toISOString() }
 }
 
-const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const getApiBase = () => {
   const configuredBase = String(import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
   if (configuredBase) return configuredBase
@@ -1364,15 +1365,21 @@ const fetchBaziProfiles = async () => {
     return
   }
   if (!currentUser.value) return
-  const { data, error } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_QIMEN_SELECT).order('created_at', { ascending: false })
-  if (!error && data) {
-    baziProfiles.value = data
+  const applyProfiles = (list) => {
+    baziProfiles.value = list
     const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {
       currentProfileId: selectedProfileId.value
     })
     selectedProfileId.value = resolvedProfileId
     setSelectedBaziProfileId(resolvedProfileId)
     handleProfileSelect()
+  }
+  const cached = getCachedBaziProfiles('qimen')
+  if (cached?.length) applyProfiles(cached)
+  const { data, error } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_QIMEN_SELECT).order('created_at', { ascending: false })
+  if (!error && data) {
+    setCachedBaziProfiles('qimen', data)
+    applyProfiles(data)
   }
 }
 
@@ -2855,6 +2862,8 @@ const buildCardHTML = (data) => {
 .route-info-trigger:hover { border-color: rgba(232,204,128,0.8); background: rgba(232,204,128,0.16); color: #fff; }
 textarea { width: 100%; min-height: 130px; background: var(--paper-soft); border: 1px solid var(--line); border-radius: var(--radius-item); padding: 16px; color: var(--ink); font-family: 'Noto Serif SC', serif; font-size: 15px; line-height: 1.8; resize: none; outline: none; transition: all .4s; }
 textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--gold-dim); }
+.input-card textarea { min-height: 120px; background: transparent; border: none; border-radius: 0; padding: 2px 2px 0; transition: none; }
+.input-card textarea:focus { border: none; box-shadow: none; }
 .time-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
 .time-display { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
 .time-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse-dot 2s infinite; }
@@ -4364,11 +4373,15 @@ input::placeholder { color: var(--text-muted); }
 }
 
 /* ── Suggestion pills ── */
+.suggestion-slot {
+  min-height: 68px;
+  margin-top: 12px;
+}
 .suggestion-row {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   gap: 8px;
-  margin-top: 10px;
-  flex-wrap: wrap;
 }
 .suggestion-pill {
   display: inline-flex;
@@ -4382,7 +4395,7 @@ input::placeholder { color: var(--text-muted); }
   font-size: 12px;
   font-family: 'Noto Serif SC', serif;
   cursor: pointer;
-  max-width: calc(50% - 4px);
+  max-width: 100%;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

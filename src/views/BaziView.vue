@@ -1136,9 +1136,9 @@
 <script setup>
 import { ref, reactive, computed, nextTick, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from '../lib/supabase.mjs'
 import { Solar } from 'lunar-javascript'
-import { globalState, resolveSelectedBaziProfileId, setSelectedBaziProfileId } from '../store.js'
+import { clearBaziProfilesCache, getCachedBaziProfiles, globalState, resolveSelectedBaziProfileId, setCachedBaziProfiles, setSelectedBaziProfileId } from '../store.js'
 import { getGuestState, saveGuestBaziProfile, trackGuestEvent } from '../guestMode.mjs'
 import {
     loadCachedFortune as loadSharedCachedFortune,
@@ -1183,9 +1183,6 @@ import {
     findTransitSelectionByDate
 } from '../utils/baziTransit.mjs'
 
-const SUPABASE_URL = 'https://xkbqiiwwgfzkyfhxuoev.supabase.co'
-const SUPABASE_ANON_KEY = 'sb_publishable_qr9YBIA6n32r-mcqKbkpgA_0XVTUSI7'
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 const router = useRouter()
 const route = useRoute()
 const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.localStorage)
@@ -2776,15 +2773,21 @@ const fetchProfiles = async () => {
         loadGuestProfile()
         return
     }
+    const applyProfiles = (list) => {
+        baziProfiles.value = list
+        const requestedProfileId = String(route.query.profileId || '')
+        const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {
+            requestedProfileId,
+            currentProfileId: selectedProfileId.value
+        })
+        selectedProfileId.value = resolvedProfileId
+        setSelectedBaziProfileId(resolvedProfileId)
+    }
+    const cached = getCachedBaziProfiles('full')
+    if (cached?.length) applyProfiles(cached)
     const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
-    baziProfiles.value = data || []
-    const requestedProfileId = String(route.query.profileId || '')
-    const resolvedProfileId = resolveSelectedBaziProfileId(baziProfiles.value, {
-        requestedProfileId,
-        currentProfileId: selectedProfileId.value
-    })
-    selectedProfileId.value = resolvedProfileId
-    setSelectedBaziProfileId(resolvedProfileId)
+    if (data) setCachedBaziProfiles('full', data)
+    applyProfiles(data || [])
 }
 
 const getAccessToken = async () => {
@@ -3188,7 +3191,8 @@ const saveProfile = async () => {
         }
         showAdd.value = false
         resetProfileEntry()
-        await fetchProfiles() 
+        clearBaziProfilesCache()
+        await fetchProfiles()
     }
 }
 
@@ -3225,6 +3229,7 @@ const renameProfile = async () => {
     if (error) alert(error.message)
     else {
         showRename.value = false
+        clearBaziProfilesCache()
         await fetchProfiles()
     }
 }
@@ -3239,6 +3244,7 @@ const setDefaultProfile = async () => {
     else {
         selectedProfileId.value = profileId
         setSelectedBaziProfileId(profileId)
+        clearBaziProfilesCache()
         await fetchProfiles()
     }
 }
@@ -3251,7 +3257,8 @@ const deleteProfile = async () => {
         const nextProfileId = resolveSelectedBaziProfileId(baziProfiles.value)
         selectedProfileId.value = nextProfileId
         setSelectedBaziProfileId(nextProfileId)
-        await fetchProfiles() 
+        clearBaziProfilesCache()
+        await fetchProfiles()
     }
 }
 
@@ -3306,6 +3313,7 @@ const requestAiSummary = async ({ force = false } = {}) => {
             throw err
         }
         analysisProgress.value = 100
+        clearBaziProfilesCache()
         await fetchProfiles() // 刷新拿到最新数据
         if (shouldCalibrateFromEvents) {
             await triggerCalibration({ profileId, force })

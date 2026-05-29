@@ -38,6 +38,18 @@ export const setSelectedBaziProfileId = (profileId) => {
   }
 }
 
+// 跨页缓存：首页与 Bazi 页切换时先用缓存秒开，再后台 revalidate。
+// 按用途分键存放（'qimen' 为首页窄字段，'full' 为 Bazi 页全字段）。
+const baziProfilesCache = new Map()
+
+export const getCachedBaziProfiles = (key) => baziProfilesCache.get(key) || null
+
+export const setCachedBaziProfiles = (key, profiles) => {
+  if (Array.isArray(profiles)) baziProfilesCache.set(key, profiles)
+}
+
+export const clearBaziProfilesCache = () => baziProfilesCache.clear()
+
 export const resolveSelectedBaziProfileId = (profiles = [], {
   requestedProfileId = '',
   sharedProfileId = globalState.selectedBaziProfileId,
