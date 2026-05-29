@@ -175,19 +175,36 @@ const fmt = (iso) => {
 }
 
 const formatBirth = (prof) => {
-  if (!prof.birth_datetime) return `${prof.birth_year || '?'}-${String(prof.birth_month || '?').padStart(2, '0')}-${String(prof.birth_day || '?').padStart(2, '0')}`
-  return new Date(prof.birth_datetime).toLocaleDateString('zh-CN')
+  const raw = prof.birth_datetime || prof.birth_date
+  if (raw) {
+    const d = new Date(raw)
+    if (!Number.isNaN(d.getTime())) return d.toLocaleDateString('zh-CN')
+    const p = String(raw).match(/\d+/g)
+    if (p && p.length >= 3) return `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}`
+  }
+  return `${prof.birth_year || '?'}-${String(prof.birth_month || '?').padStart(2, '0')}-${String(prof.birth_day || '?').padStart(2, '0')}`
 }
 
-const openDetail = (data, type) => {
+const openDetail = async (data, type) => {
   detail.value = { data, type }
+  const column = type === 'qimen' ? 'qimen_data' : 'bazi_detail'
+  if (data[column] !== undefined) return
+  const table = type === 'qimen' ? 'qimen_records' : 'bazi_profiles'
+  const { data: full } = await supabase.from(table).select(`id, ${column}`).eq('id', data.id).single()
+  if (!full) return
+  // 仅当抽屉仍展示同一条记录时再合并，避免快速切换时回填到错误的详情。
+  if (detail.value?.data?.id === data.id) {
+    detail.value = { ...detail.value, data: { ...detail.value.data, [column]: full[column] } }
+  }
 }
 
 onMounted(async () => {
   try {
+    // 列表只拉轻字段，重 JSON（qimen_data / bazi_detail）在点开详情时按 id 单独拉，
+    // 避免跨用户全量拉取大 JSON 导致 10s 级加载。
     const [qRes, bRes, fRes] = await Promise.all([
-      supabase.from('qimen_records').select('*').order('created_at', { ascending: false }),
-      supabase.from('bazi_profiles').select('*').order('created_at', { ascending: false }),
+      supabase.from('qimen_records').select('id, created_at, user_id, question, category').order('created_at', { ascending: false }),
+      supabase.from('bazi_profiles').select('id, created_at, user_id, name, gender, birth_date, adjusted_birth_date, is_default').order('created_at', { ascending: false }),
       supabase.from('qimen_feedback').select('*').order('created_at', { ascending: false }),
     ])
     if (qRes.error) throw qRes.error

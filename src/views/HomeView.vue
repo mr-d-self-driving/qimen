@@ -790,7 +790,7 @@ const isFeedbackDrawerOpen = ref(false)
 const feedbackTargetRecord = ref(null)
 const feedbackSaving = ref(false)
 const feedbackForm = reactive(buildDefaultFeedbackForm())
-const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data?.summary?.conclusion || '')
+const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data?.summary?.conclusion || feedbackTargetRecord.value?.conclusion || '')
 
 const resultHtml = ref('')
 const initMagTabInk = () => {
@@ -1641,11 +1641,16 @@ const animateScore = (targetScore) => {
 }
 
 const loadHistory = async () => {
-  const { data } = await supabase.from('qimen_records').select('*').order('created_at', { ascending: false })
+  // 列表只需 score / branch / conclusion 三个标量，用 JSON 路径直接提取，
+  // 不再整列拉 qimen_data 大 JSON；完整盘在 loadRecord 时按 id 懒加载。
+  const { data } = await supabase
+    .from('qimen_records')
+    .select('id, created_at, user_id, question, category, score:qimen_data->summary->>score, branch:qimen_data->>branch, conclusion:qimen_data->summary->>conclusion')
+    .order('created_at', { ascending: false })
   const records = (data || []).map(r => ({
     ...r,
     dateStr: new Date(r.created_at).toLocaleDateString(),
-    score: r.qimen_data?.summary?.score || 0,
+    score: Number(r.score) || 0,
     catLabel: categories.find(c => c.value === r.category)?.label || '杂事'
   }))
 
@@ -1694,13 +1699,21 @@ const saveRecordToDatabase = async (question, data) => {
   if (error) throw error
   await loadHistory()
   const insertedRecordId = insertedRows?.[0]?.id
-  return historyRecords.value.find(record => record.id === insertedRecordId) || null
+  const savedRecord = historyRecords.value.find(record => record.id === insertedRecordId) || null
+  // 完整盘已在内存，直接挂上，省去重开时的懒加载请求。
+  if (savedRecord && !savedRecord.qimen_data) savedRecord.qimen_data = data
+  return savedRecord
 }
 
 const filteredHistory = computed(() => activeCategory.value === 'all' ? historyRecords.value : historyRecords.value.filter(r => r.category === activeCategory.value))
 
-const loadRecord = (item) => {
+const loadRecord = async (item) => {
   globalState.isDrawerOpen = false
+  // 列表只带轻字段，点开时再按 id 拉完整盘，并挂回 item 以便复用。
+  if (!item.qimen_data && item.id && item.id !== 'guest_qimen_record') {
+    const { data } = await supabase.from('qimen_records').select('qimen_data').eq('id', item.id).single()
+    if (data?.qimen_data) item.qimen_data = data.qimen_data
+  }
   activeResultRecord.value = item
   resultHtml.value = buildCardHTML(item.qimen_data)
   activateBaziResultPanel(item.qimen_data)
