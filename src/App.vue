@@ -48,6 +48,8 @@
     
     <div class="viewport-overlay" :class="{ open: globalState.isDrawerOpen }" @click="globalState.isDrawerOpen = false"></div>
   </div>
+
+  <InstallPrompt />
 </template>
 
 <script setup>
@@ -56,6 +58,7 @@ import { useRoute } from 'vue-router'
 import { supabase } from './lib/supabase.mjs'
 import { globalState, setCurrentUser } from './store.js'
 import { initTheme } from './composables/useTheme.js'
+import InstallPrompt from './components/InstallPrompt.vue'
 
 const route = useRoute()
 const cosmosCanvas = ref(null)
