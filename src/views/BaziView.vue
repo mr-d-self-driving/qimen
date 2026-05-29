@@ -647,6 +647,7 @@
 
                 <div v-show="currentTab === 'pro' && dayunList.length" class="timeline-section">
                     <BaziBackingPanel
+                        ref="baziBackingRef"
                         :profile="activeProfile"
                         :result-data="baziTimelineResultData"
                         analysis-mode="status"
@@ -1702,17 +1703,117 @@ const interactions = computed(() => {
     return activeProfile.value?.bazi_detail?.interactions || null;
 });
 
-const intGroups = computed(() => {
-    if (!interactions.value) return {};
-    const isYuanju = (item) => item.pillars.every(p => ['year', 'month', 'day', 'time'].includes(p));
-    const isYun = (item) => !isYuanju(item);
+// ── 动态生克合化计算工具 ─────────────────────────────────────────
+const _GAN_WX = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
+const _WX_KE  = { 木:'土', 土:'水', 水:'火', 火:'金', 金:'木' }
+const _GAN_HE = [
+    { set: new Set(['甲','己']), label: '合化土' },
+    { set: new Set(['乙','庚']), label: '合化金' },
+    { set: new Set(['丙','辛']), label: '合化水' },
+    { set: new Set(['丁','壬']), label: '合化木' },
+    { set: new Set(['戊','癸']), label: '合化火' },
+]
+const _ZHI_LIU_HE = [['子','丑'],['寅','亥'],['卯','戌'],['辰','酉'],['巳','申'],['午','未']]
+const _ZHI_CHONG  = [['子','午'],['丑','未'],['寅','申'],['卯','酉'],['辰','戌'],['巳','亥']]
+const _ZHI_SAN_HE = [
+    { members: new Set(['寅','午','戌']), label: '三合火局' },
+    { members: new Set(['申','子','辰']), label: '三合水局' },
+    { members: new Set(['巳','酉','丑']), label: '三合金局' },
+    { members: new Set(['亥','卯','未']), label: '三合木局' },
+]
+const _ZHI_XING = [['寅','巳'],['巳','申'],['申','寅'],['丑','戌'],['戌','未'],['未','丑'],['子','卯'],['卯','子']]
+const _ZHI_PO   = [['子','酉'],['午','卯'],['寅','亥'],['巳','申'],['辰','丑'],['戌','未']]
+const _ZHI_HAI  = [['子','未'],['丑','午'],['寅','巳'],['卯','辰'],['申','亥'],['酉','戌']]
 
-    return {
-        ganYuanju: interactions.value.gans.filter(isYuanju).map(i => i.name).join('；'),
-        zhiYuanju: interactions.value.zhis.filter(isYuanju).map(i => i.name).join('；'),
-        ganYun: interactions.value.gans.filter(isYun).map(i => i.name).join('；'),
-        zhiYun: interactions.value.zhis.filter(isYun).map(i => i.name).join('；')
+function _ganInteractions(setA, setB) {
+    const results = []
+    const seen = new Set()
+    for (const a of setA) {
+        for (const b of setB) {
+            if (!a || !b) continue
+            const key = [a,b].sort().join('')
+            if (seen.has(key)) continue
+            seen.add(key)
+            const he = _GAN_HE.find(h => h.set.has(a) && h.set.has(b))
+            if (he) { results.push(`${a}${b}${he.label}`); continue }
+            if (_WX_KE[_GAN_WX[a]] === _GAN_WX[b]) results.push(`${a}${b}相克`)
+            else if (_WX_KE[_GAN_WX[b]] === _GAN_WX[a]) results.push(`${b}${a}相克`)
+        }
     }
+    return results
+}
+
+function _zhiInteractions(setA, setB) {
+    const results = []
+    const seen = new Set()
+    for (const a of setA) {
+        for (const b of setB) {
+            if (!a || !b) continue
+            const key = [a,b].sort().join('')
+            if (seen.has(key)) continue
+            seen.add(key)
+            if (_ZHI_LIU_HE.some(p => p.includes(a) && p.includes(b)))  { results.push(`${a}${b}六合`);   continue }
+            if (_ZHI_CHONG.some(p => p.includes(a) && p.includes(b)))    { results.push(`${a}${b}相冲`);   continue }
+            const sh = _ZHI_SAN_HE.find(g => g.members.has(a) && g.members.has(b))
+            if (sh) { results.push(`${a}${b}半${sh.label}`); continue }
+            if (_ZHI_XING.some(p => p[0]===a && p[1]===b))  { results.push(`${a}${b}相刑`); continue }
+            if (_ZHI_PO.some(p => p.includes(a) && p.includes(b)))       { results.push(`${a}${b}相破`);   continue }
+            if (_ZHI_HAI.some(p => p.includes(a) && p.includes(b)))      { results.push(`${a}${b}相害`);   continue }
+        }
+    }
+    return results
+}
+
+// 当前选中大运 & 流年数据
+const selectedTransitData = computed(() => {
+    const matrix = resolvedMatrix.value
+    if (!matrix) return { dayunGan: '', dayunZhi: '', liunianGan: '', liunianZhi: '' }
+    const yr = selectedLiunianYear.value
+    // 找大运
+    const dy = (matrix.dayun_list || []).filter(d => !d.isXiaoyun).find(d => {
+        const start = Number(d.start_year)
+        const end = Number(d.end_year) || (Number.isFinite(start) ? start + 9 : null)
+        return Number.isFinite(start) && Number.isFinite(end) && yr >= start && yr <= end
+    })
+    // 找流年
+    let ln = (matrix.liunian_list || []).find(l => Number(l.year) === yr)
+    if (!ln) {
+        for (const d of (matrix.dayun_list || [])) {
+            ln = (d.liunian_list || []).find(l => Number(l.year) === yr)
+            if (ln) break
+        }
+    }
+    return {
+        dayunGan:   dy?.gan   || '',
+        dayunZhi:   dy?.zhi   || '',
+        liunianGan: ln?.gan   || '',
+        liunianZhi: ln?.zhi   || '',
+    }
+})
+
+const intGroups = computed(() => {
+    const matrix = resolvedMatrix.value
+    const nativeGans = (matrix?.pillars || []).map(p => p?.gan).filter(Boolean)
+    const nativeZhis = (matrix?.pillars || []).map(p => p?.zhi).filter(Boolean)
+    const { dayunGan, dayunZhi, liunianGan, liunianZhi } = selectedTransitData.value
+    const transitGans = [dayunGan, liunianGan].filter(Boolean)
+    const transitZhis = [dayunZhi, liunianZhi].filter(Boolean)
+
+    // 本命：只用静态数据（native↔native 永不变）
+    const staticInter = interactions.value
+    const isYuanju = (item) => item.pillars.every(p => ['year', 'month', 'day', 'time'].includes(p))
+    const ganYuanju = staticInter ? staticInter.gans.filter(isYuanju).map(i => i.name).join('；') : ''
+    const zhiYuanju = staticInter ? staticInter.zhis.filter(isYuanju).map(i => i.name).join('；') : ''
+
+    // 运势：动态计算 transit↔native
+    const ganYun = transitGans.length && nativeGans.length
+        ? _ganInteractions(transitGans, nativeGans).join('；')
+        : ''
+    const zhiYun = transitZhis.length && nativeZhis.length
+        ? _zhiInteractions(transitZhis, nativeZhis).join('；')
+        : ''
+
+    return { ganYuanju, zhiYuanju, ganYun, zhiYun }
 });
 
 // 联动计算逻辑
@@ -1730,6 +1831,7 @@ const baziEngine = computed(() => {
 });
 
 const selectedDayunIdx = ref(0);
+const baziBackingRef = ref(null);
 const selectedLiunianYear = ref(new Date().getFullYear());
 const selectedLiuyueIndex = ref(0);
 const selectedLiuriDateKey = ref('');
@@ -1754,10 +1856,7 @@ const syncTransitSelection = (targetDate = new Date()) => {
 
 const scrollActiveTransitItemsIntoView = async () => {
     await nextTick()
-    if (typeof document === 'undefined') return
-    document.querySelectorAll('.timeline-section .link-item.active').forEach((el) => {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' })
-    })
+    baziBackingRef.value?.centerActiveItems()
 }
 
 const jumpToCurrentTransit = async () => {
@@ -2608,7 +2707,13 @@ const syncInk = () => {
     inkReady.value = true
 }
 
-watch(currentTab, () => nextTick(syncInk))
+watch(currentTab, async (tab) => {
+    nextTick(syncInk)
+    if (tab === 'pro') {
+        await nextTick()
+        baziBackingRef.value?.centerActiveItems()
+    }
+})
 watch(() => activeProfile.value, () => nextTick(syncInk))
 
 // ── 命局天机 drawer 滑动指示条 ────────────────────────────

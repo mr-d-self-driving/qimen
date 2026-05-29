@@ -2227,7 +2227,7 @@ const buildCardHTML = (data) => {
     ? reportM2.formation_tags.map(h => ({ signal: h.name, effect: h.effect, reason: h.reason, text: h.text, type: h.type }))
     : (data.backend_score_audit?.adjustments || []).filter(h => h.layer === 'named_formation')
   const formationTagsHTML = namedFormationHits.length
-    ? `<div class="formation-tag-row" data-ge-reasons='${JSON.stringify(namedFormationHits.map(h => ({ name: h.signal || h.name, type: h.type || (String(h.effect).startsWith('+') ? 'ji' : 'xiong'), text: h.text || GE_DESCRIPTIONS[h.signal || h.name] || h.reason || '' })))}'>
+    ? `<div class="formation-tag-row" data-ge-reasons='${JSON.stringify(namedFormationHits.map(h => ({ name: h.signal || h.name, type: h.type || (String(h.effect).startsWith('+') ? 'ji' : 'xiong'), text: GE_DESCRIPTIONS[h.signal || h.name] || h.text || h.reason || '' })))}'>
         ${namedFormationHits.map(h => {
           const name = h.signal || h.name
           const isJi = (h.type || '').includes('ji') || String(h.effect).startsWith('+')

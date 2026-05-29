@@ -1,5 +1,5 @@
 <template>
-  <section class="bazi-backing-panel result-module bazi-mode-card reveal">
+  <section ref="panelEl" class="bazi-backing-panel result-module bazi-mode-card reveal">
     <slot name="identity"></slot>
 
     <BaziPillarTable
@@ -194,6 +194,8 @@ const ZHI_MAIN_GAN = {
 import { getShenshaInfo } from '../utils/baziShensha.mjs'
 import { useBaziColumns } from '../composables/useBaziColumns.js'
 import BaziPillarTable from './BaziPillarTable.vue'
+
+const panelEl = ref(null)
 
 const props = defineProps({
   profile: { type: Object, default: () => ({}) },
@@ -445,6 +447,19 @@ function dayunYearRange(dayun) {
   return { start, end }
 }
 
+async function centerActiveItems() {
+  await nextTick()
+  const root = panelEl.value
+  if (!root) return
+  root.querySelectorAll('.row-content').forEach(container => {
+    const active = container.querySelector('.link-item.active')
+    if (!active) return
+    const cr = container.getBoundingClientRect()
+    const ar = active.getBoundingClientRect()
+    container.scrollLeft += (ar.left + ar.width / 2) - (cr.left + cr.width / 2)
+  })
+}
+
 async function jumpToCurrent() {
   const engine = baziEngine.value
   if (engine?.yun) {
@@ -452,18 +467,23 @@ async function jumpToCurrent() {
     if (selection) {
       localSelectedYear.value = selection.liunianYear
       emit('update:selectedYear', localSelectedYear.value)
-      
+
       await nextTick()
       selectedLiuyueIndex.value = selection.liuyueIndex
-      
+
       await nextTick()
       selectedLiuriDateKey.value = selection.liuriDateKey
+
+      await centerActiveItems()
       return
     }
   }
   const year = Number(resolvedMatrix.value?.current_liunian?.year || new Date().getFullYear())
   if (Number.isFinite(year)) selectYear(year)
+  await centerActiveItems()
 }
+
+defineExpose({ centerActiveItems })
 </script>
 
 <style scoped>
