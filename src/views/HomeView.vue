@@ -1920,33 +1920,47 @@ const buildBaziQuestionCardHTML = (data) => {
   const targetLabel = concreteTargetLabel(data)
 
   const lvl = summary.level || 'unknown'
-  const heroTone = lvl === 'strong' ? 'auspicious' : lvl === 'medium' ? 'neutral' : lvl === 'weak' ? 'caution' : 'neutral'
-  const THEME = heroTone === 'auspicious' ? '#0D9488' : heroTone === 'caution' ? '#C84A45' : '#B58D3B'
-  const THEME_DIM = heroTone === 'auspicious' ? 'rgba(13,148,136,0.15)' : heroTone === 'caution' ? 'rgba(200,74,69,0.16)' : 'rgba(181,141,59,0.17)'
+  const heroTone = lvl === 'strong' ? 'auspicious' : lvl === 'weak' ? 'caution' : 'neutral'
+  const THEME    = heroTone === 'auspicious' ? '#0D9488' : heroTone === 'caution' ? '#C84A45' : '#B58D3B'
+  const THEME_DIM= heroTone === 'auspicious' ? 'rgba(13,148,136,0.15)' : heroTone === 'caution' ? 'rgba(200,74,69,0.16)' : 'rgba(181,141,59,0.17)'
 
   const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
-  // ── Section 1: 定论 ──
-  const s1HTML = `<section class="mag-section" id="bazi-s1">
-      ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
-      ${verdict ? `<p class="bazi-verdict-text">${sanitizeBaziDisplayText(verdict, targetLabel)}</p>` : ''}
-    </section>`
+  // ── Hero：短标题 + verdict ──
+  // title 来自 LLM，是一个精炼的短标题（如"财多身弱宜守印"），不是问题重复
+  const heroTitle = summary.title || '八字推演'
+  const heroKeyword = summary.keyword || ''
 
-  // ── Section 2: 关键信号 ──
-  const signalsHTML = keySignals.length
-    ? `<section class="mag-section" id="bazi-s2">
-        <div class="module-heading"><h2>关键信号</h2></div>
-        <div class="bazi-signal-cards">
-          ${keySignals.map((sig, i) => `<div class="bazi-signal-card">
-            <div class="bazi-signal-card-header"><span class="bazi-signal-num">${i + 1}</span><strong>${sanitizeBaziDisplayText(sig.title || '', targetLabel)}</strong></div>
-            <p class="bazi-card-copy">${sanitizeBaziDisplayText(sig.reading || '', targetLabel)}</p>
-          </div>`).join('')}
-        </div>
+  // ── Section 1: 结论先行 ──
+  // verdict 是完整的一句话定论，放在 mag-question 下方正文里
+  const m1HTML = `<section class="mag-section" id="bazi-m1">
+    <div class="module-heading"><h2>结论先行</h2></div>
+    ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
+    ${verdict ? `<p class="bazi-verdict-body">${sanitizeBaziDisplayText(verdict, targetLabel)}</p>` : ''}
+  </section>`
+
+  // ── Section 2: 命局信号（inference-flow 风格，连续流） ──
+  const signalsFlowHTML = keySignals.length
+    ? `<div class="inference-flow">
+        ${keySignals.map(sig => `<article class="inference-card">
+          <div class="inference-body">
+            <div class="inference-head"><span>${sanitizeBaziDisplayText(sig.title || '', targetLabel)}</span></div>
+            <h4>${sanitizeBaziDisplayText(sig.reading || '', targetLabel)}</h4>
+          </div>
+        </article>`).join('')}
+      </div>`
+    : ''
+
+  const m2HTML = signalsFlowHTML
+    ? `<section class="mag-section" id="bazi-m2">
+        <div class="module-heading"><h2>命局信号</h2></div>
+        ${signalsFlowHTML}
       </section>`
     : ''
 
-  // ── Section 3: 场景解读 (mode-specific readings) ──
-  let readingsHTML = ''
+  // ── Section 3: 推演解读（mode 专属内容，连续流） ──
+  // 用 inference-flow 风格：每块 inference-card，label 小标，h4 正文
+  const inferItems = []
 
   // status mode
   const psychMirror = readings.psychological_mirror || ''
@@ -1956,163 +1970,207 @@ const buildBaziQuestionCardHTML = (data) => {
   const targetReading = readings.target_state_reading || ''
   const outcomeProj = readings.outcome_projection || null
 
-  if (psychMirror || dayunReading || liunianReading || targetReading) {
-    const movNatureHTML = movNature
-      ? (() => {
-          const typeClass = movNature.type === '主动换' ? 'active' : movNature.type === '被动换' ? 'passive' : movNature.type === '内部变动' ? 'internal' : 'none'
-          const qualityClass = movNature.quality === '顺势' ? 'favorable' : movNature.quality === '逆势' ? 'unfavorable' : 'neutral'
-          return `<div class="bazi-movement-nature">
-            <span class="movement-type movement-type-${typeClass}">${movNature.type || ''}</span>
-            <span class="movement-quality movement-quality-${qualityClass}">${movNature.quality || ''}</span>
-            ${movNature.evidence ? `<span class="movement-evidence">${sanitizeBaziDisplayText(movNature.evidence, targetLabel)}</span>` : ''}
-          </div>`
-        })()
-      : ''
-    const outcomeHTML = outcomeProj
-      ? `<div class="bazi-reading-block bazi-outcome-block">
-          <div class="reading-label">后续推演</div>
-          ${outcomeProj.if_happens ? `<p><strong>若变动发生：</strong>${sanitizeBaziDisplayText(outcomeProj.if_happens, targetLabel)}</p>` : ''}
-          ${outcomeProj.satisfaction_forecast ? `<p><strong>满意度预判：</strong>${sanitizeBaziDisplayText(outcomeProj.satisfaction_forecast, targetLabel)}</p>` : ''}
-          ${outcomeProj.hidden_catch ? `<p class="bazi-hidden-catch"><strong>隐藏代价：</strong>${sanitizeBaziDisplayText(outcomeProj.hidden_catch, targetLabel)}</p>` : ''}
-        </div>`
-      : ''
-    readingsHTML += `
-      ${psychMirror ? `<div class="bazi-reading-block bazi-mirror-block"><div class="reading-label reading-label-mirror">当下感受</div><p class="bazi-mirror-text">${sanitizeBaziDisplayText(psychMirror, targetLabel)}</p></div>` : ''}
-      ${movNatureHTML}
-      ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${sanitizeBaziDisplayText(dayunReading, targetLabel)}</p></div>` : ''}
-      ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${sanitizeBaziDisplayText(liunianReading, targetLabel)}</p></div>` : ''}
-      ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">${targetLabel}状态</div><p>${sanitizeBaziDisplayText(targetReading, targetLabel)}</p></div>` : ''}
-      ${outcomeHTML}`
+  if (psychMirror) {
+    inferItems.push({ label: '当下感受', text: psychMirror, tone: 'mirror' })
   }
-
-  // timing mode
-  const windows = Array.isArray(readings.trigger_windows) ? readings.trigger_windows : []
-  if (windows.length) {
-    readingsHTML += `
-      <div class="bazi-timing-meta">
-        ${readings.best_window ? `<div class="timing-best">最优窗口：${sanitizeBaziDisplayText(readings.best_window, targetLabel)}</div>` : ''}
-        ${readings.avoid_window ? `<div class="timing-avoid">回避：${sanitizeBaziDisplayText(readings.avoid_window, targetLabel)}</div>` : ''}
-      </div>
-      <div class="bazi-timing-window-list">
-        ${windows.map(item => `<div class="bazi-timing-window-card quality-${item.quality || 'weak'}">
-          <div class="bazi-window-top">
-            <strong>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</strong>
-            <span class="quality-badge quality-${item.quality}">${baziLevelLabel(item.quality)}</span>
-            ${item.is_major_window ? '<span class="major-window-badge">双引动</span>' : ''}
-          </div>
-          <div class="bazi-window-meta"><span>大运 ${item.dayun_ganzhi || '-'}</span></div>
-          ${item.verdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(item.verdict, targetLabel)}</p>` : ''}
-          ${item.mechanisms_text ? `<div class="bazi-logic">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</div>` : ''}
-        </div>`).join('')}
-      </div>`
+  // movement_nature 折叠进 dayun_reading 的 label 里，不单独作为 badge 渲染
+  if (dayunReading) {
+    const movNote = movNature?.type && movNature.type !== '暂无明显变动'
+      ? `（${movNature.type} · ${movNature.quality}）`
+      : ''
+    inferItems.push({ label: `大运影响${movNote}`, text: dayunReading, tone: '' })
+  }
+  if (liunianReading) {
+    inferItems.push({ label: '流年触发', text: liunianReading, tone: '' })
+  }
+  if (targetReading) {
+    inferItems.push({ label: `${targetLabel}状态`, text: targetReading, tone: '' })
+  }
+  if (outcomeProj) {
+    const parts = [
+      outcomeProj.if_happens ? `若变动发生：${outcomeProj.if_happens}` : '',
+      outcomeProj.satisfaction_forecast ? `满意度：${outcomeProj.satisfaction_forecast}` : '',
+      outcomeProj.hidden_catch ? `隐藏代价：${outcomeProj.hidden_catch}` : ''
+    ].filter(Boolean).join('\n')
+    if (parts) inferItems.push({ label: '后续推演', text: parts, tone: 'outcome' })
   }
 
   // pattern mode
   const patternVerdict = readings.pattern_verdict || readings.verdict || ''
-  if (readings.capacity_level || patternVerdict || readings.real_world_expression || readings.how_to_leverage) {
-    readingsHTML += `
-      ${readings.capacity_level ? `<div class="bazi-capacity-row"><span class="capacity-label">容量</span><span class="capacity-level level-${readings.capacity_level}">${baziLevelLabel(readings.capacity_level)}</span></div>` : ''}
-      ${patternVerdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(patternVerdict, targetLabel)}</p>` : ''}
-      ${buildBaziTextListHTML(readings.structural_supports || [], 'bazi-signal-list positive', targetLabel)}
-      ${buildBaziTextListHTML(readings.structural_risks || [], 'bazi-signal-list warning', targetLabel)}
-      ${readings.real_world_expression ? `<div class="bazi-reading-block"><div class="reading-label">日常表现</div><p>${sanitizeBaziDisplayText(readings.real_world_expression, targetLabel)}</p></div>` : ''}
-      ${readings.how_to_leverage ? `<div class="bazi-reading-block"><div class="reading-label">发力方向</div><p>${sanitizeBaziDisplayText(readings.how_to_leverage, targetLabel)}</p></div>` : ''}
-      ${readings.current_status_note ? `<div class="bazi-reading-block"><div class="reading-label">当前时机</div><p>${sanitizeBaziDisplayText(readings.current_status_note, targetLabel)}</p></div>` : ''}`
-  }
+  if (patternVerdict) inferItems.push({ label: '先天格局', text: patternVerdict, tone: '' })
+  if (readings.real_world_expression) inferItems.push({ label: '日常表现', text: readings.real_world_expression, tone: '' })
+  if (readings.how_to_leverage) inferItems.push({ label: '发力方向', text: readings.how_to_leverage, tone: 'positive' })
+  if (readings.current_status_note) inferItems.push({ label: '当前时机', text: readings.current_status_note, tone: '' })
 
   // character mode
-  if (readings.appearance_tendency?.text || readings.personality_tendency?.text || readings.career_style?.text || readings.relationship_dynamic) {
-    readingsHTML += `
-      ${buildPortraitBlockHTML(readings.appearance_tendency, '外貌气质', targetLabel)}
-      ${buildPortraitBlockHTML(readings.personality_tendency, '性格倾向', targetLabel)}
-      ${buildPortraitBlockHTML(readings.career_style, '行事风格', targetLabel)}
-      ${readings.relationship_dynamic ? `<div class="bazi-reading-block"><div class="reading-label">关系动态</div><p>${sanitizeBaziDisplayText(readings.relationship_dynamic, targetLabel)}</p></div>` : ''}
-      ${readings.do_not_overclaim ? `<div class="bazi-disclaimer">${sanitizeBaziDisplayText(readings.do_not_overclaim, targetLabel)}</div>` : ''}`
-  }
+  if (readings.appearance_tendency?.text) inferItems.push({ label: '外貌气质', text: readings.appearance_tendency.text, tone: '' })
+  if (readings.personality_tendency?.text) inferItems.push({ label: '性格倾向', text: readings.personality_tendency.text, tone: '' })
+  if (readings.career_style?.text) inferItems.push({ label: '行事风格', text: readings.career_style.text, tone: '' })
+  if (readings.relationship_dynamic) inferItems.push({ label: '关系动态', text: readings.relationship_dynamic, tone: '' })
+  if (readings.do_not_overclaim) inferItems.push({ label: '说明', text: readings.do_not_overclaim, tone: 'muted' })
 
   // profile_driven mode
+  if (readings.psychological_mirror && !psychMirror) inferItems.push({ label: '当下感受', text: readings.psychological_mirror, tone: 'mirror' })
+  if (readings.structural_reading) inferItems.push({ label: '结构分析', text: readings.structural_reading, tone: '' })
+
+  // timing mode windows — 单独渲染保留卡片风格（年份需要结构感）
+  const windows = Array.isArray(readings.trigger_windows) ? readings.trigger_windows : []
+  const timingMetaLine = [
+    readings.best_window ? `最优窗口：${readings.best_window}` : '',
+    readings.avoid_window ? `回避：${readings.avoid_window}` : ''
+  ].filter(Boolean).join('　')
+  if (timingMetaLine) inferItems.push({ label: '应期概览', text: timingMetaLine, tone: '' })
+
+  // profile_driven path_readings — 每条路径作为一个 inference-card
   const pathReadings = readings.path_readings || []
-  if (readings.structural_reading || pathReadings.length) {
-    readingsHTML += `
-      ${readings.structural_reading ? `<div class="bazi-reading-block"><div class="reading-label">结构分析</div><p>${sanitizeBaziDisplayText(readings.structural_reading, targetLabel)}</p></div>` : ''}
-      ${pathReadings.length ? `<div class="bazi-path-list">${pathReadings.map(p => `<div class="bazi-path-card">
-        <div class="bazi-path-header"><strong>${sanitizeBaziDisplayText(p.path || '', targetLabel)}</strong>${p.structural_fit ? `<span class="bazi-path-fit">${sanitizeBaziDisplayText(p.structural_fit, targetLabel)}</span>` : ''}</div>
-        ${p.likely_experience ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(p.likely_experience, targetLabel)}</p>` : ''}
-        <div class="bazi-path-meta">
-          ${p.satisfaction_prediction ? `<span>满意度：${sanitizeBaziDisplayText(p.satisfaction_prediction, targetLabel)}</span>` : ''}
-          ${p.peak_period ? `<span>最佳时机：${sanitizeBaziDisplayText(p.peak_period, targetLabel)}</span>` : ''}
-        </div>
-        ${p.risk ? `<div class="bazi-path-risk">风险：${sanitizeBaziDisplayText(p.risk, targetLabel)}</div>` : ''}
-      </div>`).join('')}</div>` : ''}`
-  }
+  const pathItems = pathReadings.map(p => {
+    const body = [
+      p.structural_fit || '',
+      p.likely_experience ? `\n近1-3年：${p.likely_experience}` : '',
+      p.satisfaction_prediction ? `满意度：${p.satisfaction_prediction}` : '',
+      p.peak_period ? `最顺期：${p.peak_period}` : '',
+      p.risk ? `风险：${p.risk}` : ''
+    ].filter(Boolean).join('\n')
+    return { label: p.path || '路径', text: body, tone: '' }
+  })
 
-  const s3HTML = readingsHTML
-    ? `<section class="mag-section" id="bazi-s3">
-        <div class="module-heading"><h2>场景解读</h2></div>
-        ${readingsHTML}
-      </section>`
-    : ''
+  const allInferItems = [...inferItems, ...pathItems]
 
-  // ── Section 4: 节奏与时间线 ──
-  const segments = rhythm.segments || []
-  const s4HTML = segments.length
-    ? `<section class="mag-section" id="bazi-s4">
-        <div class="module-heading"><h2>节奏与时间线</h2></div>
-        <div class="bazi-rhythm-list">
-          ${segments.map(seg => `<div class="bazi-rhythm-segment">
-            <div class="bazi-rhythm-header">
-              <strong>${sanitizeBaziDisplayText(seg.period || '', targetLabel)}</strong>
-              ${seg.dayun_shishen ? `<span class="bazi-rhythm-shishen">${seg.dayun_shishen}</span>` : ''}
+  const inferFlowHTML = allInferItems.length
+    ? `<div class="inference-flow">
+        ${allInferItems.map(item => {
+          const toneAttr = item.tone === 'mirror' ? ' bazi-infer-mirror' : item.tone === 'positive' ? ' bazi-infer-positive' : item.tone === 'outcome' ? ' bazi-infer-outcome' : item.tone === 'muted' ? ' bazi-infer-muted' : ''
+          // 换行转 <br>
+          const bodyHTML = sanitizeBaziDisplayText(item.text, targetLabel).replace(/\n/g, '<br>')
+          return `<article class="inference-card${toneAttr}">
+            <div class="inference-body">
+              <div class="inference-head"><span>${item.label}</span></div>
+              <h4>${bodyHTML}</h4>
             </div>
-            ${seg.strategy ? `<p class="bazi-rhythm-strategy">${sanitizeBaziDisplayText(seg.strategy, targetLabel)}</p>` : ''}
-            ${Array.isArray(seg.key_liunians) && seg.key_liunians.length ? `<div class="bazi-liunian-list">${seg.key_liunians.map(l => `<div class="bazi-liunian-item">
-              <span class="bazi-liunian-year">${l.year || ''} ${l.gz || ''}</span>
-              ${l.shishen ? `<span class="bazi-liunian-shishen">${l.shishen}</span>` : ''}
-              ${l.note ? `<span class="bazi-liunian-note">${sanitizeBaziDisplayText(l.note, targetLabel)}</span>` : ''}
-            </div>`).join('')}</div>` : ''}
-          </div>`).join('')}
-        </div>
+          </article>`
+        }).join('')}
+      </div>`
+    : ''
+
+  // timing windows 依然保留独立的年份卡片布局
+  const timingWindowsHTML = windows.length
+    ? `<div class="bazi-timing-flow">
+        ${windows.map(item => `<article class="inference-card">
+          <div class="inference-body">
+            <div class="inference-head">
+              <span>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</span>
+              <strong class="quality-${item.quality || 'weak'}">${baziLevelLabel(item.quality)}</strong>
+            </div>
+            <h4>${sanitizeBaziDisplayText(item.verdict || '', targetLabel)}</h4>
+            ${item.mechanisms_text ? `<p class="bazi-mechanisms">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</p>` : ''}
+          </div>
+        </article>`).join('')}
+      </div>`
+    : ''
+
+  const m3HTML = inferFlowHTML || timingWindowsHTML
+    ? `<section class="mag-section" id="bazi-m3">
+        <div class="module-heading"><h2>推演解读</h2></div>
+        ${inferFlowHTML}
+        ${timingWindowsHTML}
       </section>`
     : ''
 
-  // ── Section 5: 行动建议 ──
-  const doItems = actionGuide.do || data.advice?.strategy || []
-  const avoidItems = actionGuide.avoid || data.advice?.avoid || []
+  // ── Section 4: 时间线（guidance-grid 双栏 → 竖排大运段） ──
+  const segments = rhythm.segments || []
+  const rhythmFlowHTML = segments.length
+    ? `<div class="inference-flow">
+        ${segments.map(seg => {
+          const liunianLines = (seg.key_liunians || []).map(l =>
+            `<div class="bazi-liunian-row"><span class="bazi-liunian-gz">${l.year || ''} ${l.gz || ''}</span>${l.shishen ? `<span class="bazi-liunian-ss">${l.shishen}</span>` : ''}<span class="bazi-liunian-note">${sanitizeBaziDisplayText(l.note || '', targetLabel)}</span></div>`
+          ).join('')
+          return `<article class="inference-card">
+            <div class="inference-body">
+              <div class="inference-head">
+                <span>${sanitizeBaziDisplayText(seg.period || '', targetLabel)}</span>
+                ${seg.dayun_shishen ? `<strong>${seg.dayun_shishen}</strong>` : ''}
+              </div>
+              ${seg.strategy ? `<h4>${sanitizeBaziDisplayText(seg.strategy, targetLabel)}</h4>` : ''}
+              ${liunianLines ? `<div class="bazi-liunian-block">${liunianLines}</div>` : ''}
+            </div>
+          </article>`
+        }).join('')}
+      </div>`
+    : ''
+
+  const m4HTML = rhythmFlowHTML
+    ? `<section class="mag-section" id="bazi-m4">
+        <div class="module-heading"><h2>时间节奏</h2></div>
+        ${rhythmFlowHTML}
+      </section>`
+    : ''
+
+  // ── Section 5: 行动建议（guidance-card 风格，双栏） ──
+  const doItems   = actionGuide.do    || data.advice?.strategy || []
+  const avoidItems = actionGuide.avoid || data.advice?.avoid   || []
   const hiddenInsight = actionGuide.hidden_insight || ''
-  const hasAction = doItems.length || avoidItems.length || hiddenInsight
-  const s5HTML = hasAction
-    ? `<section class="mag-section" id="bazi-s5">
+
+  const guidanceCardsHTML = [
+    doItems.length ? `<article class="guidance-card">
+      <div class="guidance-kicker">该做什么</div>
+      <div class="guidance-rows">
+        ${doItems.slice(0, 4).map((s, i) => `<div class="guidance-row"><span>${i + 1}</span><p>${sanitizeBaziDisplayText(s, targetLabel)}</p></div>`).join('')}
+      </div>
+    </article>` : '',
+    avoidItems.length ? `<article class="guidance-card">
+      <div class="guidance-kicker">需要避开</div>
+      <div class="guidance-rows">
+        ${avoidItems.map(s => `<div class="guidance-row warning"><span>避</span><p>${sanitizeBaziDisplayText(s, targetLabel)}</p></div>`).join('')}
+      </div>
+    </article>` : ''
+  ].filter(Boolean).join('')
+
+  const hiddenHTML = hiddenInsight
+    ? `<article class="inference-card bazi-infer-mirror" style="margin-top:0">
+        <div class="inference-body">
+          <div class="inference-head"><span>盲点提醒</span></div>
+          <h4>${sanitizeBaziDisplayText(hiddenInsight, targetLabel)}</h4>
+        </div>
+      </article>`
+    : ''
+
+  const m5HTML = guidanceCardsHTML || hiddenHTML
+    ? `<section class="mag-section" id="bazi-m5">
         <div class="module-heading"><h2>行动建议</h2></div>
-        ${doItems.length ? `<div class="mag-action-list">${doItems.slice(0, 4).map((s, i) => `<div class="mag-action-item"><div class="mag-action-num">${i + 1}</div><div class="mag-action-body">${sanitizeBaziDisplayText(s, targetLabel)}</div></div>`).join('')}</div>` : ''}
-        ${avoidItems.length ? `<div class="bazi-avoid-section"><div class="report-subtitle">需要避开</div>${buildBaziTextListHTML(avoidItems, 'bazi-signal-list warning', targetLabel)}</div>` : ''}
-        ${hiddenInsight ? `<div class="bazi-reading-block bazi-hidden-insight-block"><div class="reading-label reading-label-mirror">盲点提醒</div><p class="bazi-mirror-text">${sanitizeBaziDisplayText(hiddenInsight, targetLabel)}</p></div>` : ''}
+        ${guidanceCardsHTML ? `<div class="guidance-grid">${guidanceCardsHTML}</div>` : ''}
+        ${hiddenHTML}
       </section>`
     : ''
 
-  const tabs = [
-    signalsHTML ? `<button class="mag-tab" onclick="${tabClick('bazi-s2')}">关键信号</button>` : '',
-    s3HTML ? `<button class="mag-tab" onclick="${tabClick('bazi-s3')}">场景解读</button>` : '',
-    s4HTML ? `<button class="mag-tab" onclick="${tabClick('bazi-s4')}">时间线</button>` : '',
-    s5HTML ? `<button class="mag-tab" onclick="${tabClick('bazi-s5')}">行动建议</button>` : ''
-  ].filter(Boolean)
-  if (tabs.length) tabs[0] = tabs[0].replace('class="mag-tab"', 'class="mag-tab mag-tab-active"')
-  const tabsHTML = tabs.join('')
+  const tabDefs = [
+    { id: 'bazi-m1', label: '结论先行', show: true },
+    { id: 'bazi-m2', label: '命局信号', show: !!m2HTML },
+    { id: 'bazi-m3', label: '推演解读', show: !!m3HTML },
+    { id: 'bazi-m4', label: '时间节奏', show: !!m4HTML },
+    { id: 'bazi-m5', label: '行动建议', show: !!m5HTML }
+  ].filter(d => d.show)
+  const tabsHTML = tabDefs.map((d, i) =>
+    `<button class="mag-tab${i === 0 ? ' mag-tab-active' : ''}" onclick="${tabClick(d.id)}">${d.label}</button>`
+  ).join('') + '<span class="mag-tab-ink"></span>'
 
   return `<div class="mag-result tone-${heroTone}" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="mag-hero" id="bazi-hero">
       <div class="mag-hero-panel">
-        <h1>${summary.title || question || '八字问事'}</h1>
-        ${verdict ? `<p class="bazi-verdict-hero">${sanitizeBaziDisplayText(verdict, targetLabel)}</p>` : ''}
+        <div class="mag-hero-tags">
+          ${heroKeyword ? `<span>${sanitizeBaziDisplayText(heroKeyword, targetLabel)}</span>` : ''}
+        </div>
+        <h1>${sanitizeBaziDisplayText(heroTitle, targetLabel)}</h1>
+        <p>${sanitizeBaziDisplayText(verdict, targetLabel)}</p>
       </div>
     </section>
 
-    ${tabsHTML ? `<nav class="mag-tabs">${tabsHTML}<span class="mag-tab-ink"></span></nav>` : ''}
+    <nav class="mag-tabs">${tabsHTML}</nav>
 
-    ${s1HTML}
-    ${signalsHTML}
-    ${s3HTML}
-    ${s4HTML}
-    ${s5HTML}
+    ${m1HTML}
+    ${m2HTML}
+    ${m3HTML}
+    ${m4HTML}
+    ${m5HTML}
   </div>`
 }
 
@@ -3306,95 +3364,42 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-logic) { margin:0; color:var(--ink-muted); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
 :deep(.bazi-basis-summary) { margin:0 0 10px; color:var(--ink-muted); font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
 :deep(.bazi-signal-list),
+/* ── bazi 新结构：复用 inference-flow/card/head 样式，仅补充差异部分 ── */
+:deep(.bazi-verdict-body) { margin:0; color:var(--ink-muted); font-size:15px; line-height:1.82; overflow-wrap:anywhere; }
+/* inference-card tone variants for bazi */
+:deep(.bazi-infer-mirror .inference-head span) { color:#7C6FBF; }
+:deep(.bazi-infer-mirror h4) { font-style:italic; color:var(--ink,#1a1a1a) !important; }
+:deep(.bazi-infer-positive .inference-head span) { color:#0d9488; }
+:deep(.bazi-infer-positive h4) { color:#0d9488; }
+:deep(.bazi-infer-outcome .inference-head span) { color:#0d9488; }
+:deep(.bazi-infer-muted h4) { font-size:12px; color:var(--ink-dim); font-weight:400; }
+/* quality color for timing window */
+:deep(.quality-strong) { color:#0d9488; }
+:deep(.quality-medium) { color:#B58D3B; }
+:deep(.quality-weak)   { color:#d97706; }
+:deep(.bazi-mechanisms) { margin:6px 0 0; color:var(--ink-dim); font-size:13px; line-height:1.6; }
+/* 时间线流年行 */
+:deep(.bazi-liunian-block) { display:grid; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+:deep(.bazi-liunian-row) { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+:deep(.bazi-liunian-gz) { font-size:14px; font-weight:700; color:var(--theme-color); min-width:68px; font-family:var(--font-serif); }
+:deep(.bazi-liunian-ss) { font-size:11px; color:var(--text-muted); padding:1px 5px; border-radius:3px; border:1px solid var(--line); white-space:nowrap; }
+:deep(.bazi-liunian-note) { font-size:13px; color:var(--ink-muted); line-height:1.55; flex:1; min-width:0; overflow-wrap:anywhere; }
+/* timing flow 复用 inference-flow */
+:deep(.bazi-timing-flow) { display:flex; flex-direction:column; gap:0; border-top:1px solid var(--line); margin-top:16px; }
+/* signal-list tags 保留（profile_driven structural_supports 等仍可能用到）*/
+:deep(.bazi-signal-list),
 :deep(.bazi-evidence-list) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 :deep(.bazi-signal-list span),
-:deep(.bazi-evidence-list span) { padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--paper-soft); color:var(--ink-muted); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
-:deep(.bazi-signal-list.positive span) { border-color:rgba(13,148,136,0.2); background:rgba(13,148,136,0.06); color:#0d9488; }
-:deep(.bazi-signal-list.warning span) { border-color:rgba(217,119,6,0.2); background:rgba(217,119,6,0.06); color:#d97706; }
-:deep(.bazi-foundation-group) { margin-top:10px; }
-:deep(.foundation-group-label) { color:var(--text-muted); font-size:11px; letter-spacing:1px; margin-bottom:6px; }
-:deep(.bazi-foundation-group .bazi-signal-list),
-:deep(.bazi-foundation-group .bazi-evidence-list) { margin-top:0; }
-:deep(.bazi-dynamic-grid) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-:deep(.bazi-dynamic-grid div) { min-width:0; padding:12px; border-radius:10px; background:var(--paper-soft); border:1px solid var(--line); }
-:deep(.bazi-dynamic-grid span) { display:block; color:var(--text-muted); font-size:10px; margin-bottom:5px; }
-:deep(.bazi-dynamic-grid strong) { color:var(--gold); font-size:15px; }
-:deep(.bazi-dynamic-grid p) { margin:7px 0 0; color:var(--ink-muted); font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
-:deep(.bazi-timing-window-list) { display:grid; gap:10px; }
-:deep(.bazi-timing-window-card) { padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--paper-soft); }
-:deep(.bazi-window-top) { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
-:deep(.bazi-window-top strong) { color:var(--gold); font-size:15px; }
-:deep(.bazi-window-top span) { color:var(--ink-muted); font-size:11px; }
-:deep(.bazi-timing-window-card p) { margin:0; color:var(--ink-muted); font-size:13px; line-height:1.62; }
-:deep(.bazi-window-meta) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-:deep(.bazi-window-meta span) { color:var(--text-muted); font-size:11px; }
-:deep(.bazi-reading-block) { margin:8px 0; padding:8px 12px; background:var(--paper-soft); border-left:2px solid var(--gold-border); border-radius:0 6px 6px 0; }
-:deep(.bazi-reading-block.warning) { border-left-color:rgba(217,119,6,0.5); background:rgba(217,119,6,0.04); }
-:deep(.bazi-reading-block .reading-label) { font-size:11px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
-:deep(.bazi-reading-block p) { margin:0; color:var(--ink-muted); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
-:deep(.bazi-mirror-block) { border-left-color:#7C6FBF; background:rgba(124,111,191,0.06); }
-:deep(.reading-label-mirror) { color:#7C6FBF !important; }
-:deep(.bazi-mirror-text) { font-style:italic; color:var(--ink-body,#2c2c2c) !important; }
-:deep(.bazi-movement-nature) { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:6px 0 10px; }
-:deep(.movement-type) { font-size:12px; font-weight:600; padding:2px 8px; border-radius:4px; }
-:deep(.movement-type-active) { background:rgba(13,148,136,0.12); color:#0D9488; }
-:deep(.movement-type-passive) { background:rgba(200,74,69,0.12); color:#C84A45; }
-:deep(.movement-type-internal) { background:rgba(181,141,59,0.14); color:#B58D3B; }
-:deep(.movement-type-none) { background:var(--paper-soft); color:var(--text-muted); }
-:deep(.movement-quality) { font-size:11px; padding:2px 6px; border-radius:4px; }
-:deep(.movement-quality-favorable) { background:rgba(13,148,136,0.08); color:#0D9488; }
-:deep(.movement-quality-unfavorable) { background:rgba(200,74,69,0.08); color:#C84A45; }
-:deep(.movement-quality-neutral) { background:var(--paper-soft); color:var(--text-muted); }
-:deep(.movement-evidence) { font-size:12px; color:var(--ink-muted); flex:1; }
-:deep(.bazi-advice-extra) { display:grid; gap:8px; margin-top:10px; }
-:deep(.bazi-advice-rows) { display:grid; gap:6px; margin-top:8px; }
-:deep(.bazi-advice-row) { display:grid; grid-template-columns:72px minmax(0,1fr); gap:10px; align-items:start; padding:7px 0; border-top:1px solid var(--line); }
-:deep(.bazi-advice-row:first-child) { border-top:0; }
-:deep(.advice-row-label) { color:var(--text-muted); font-size:12px; line-height:1.7; white-space:nowrap; }
-:deep(.advice-row-text) { color:var(--ink-muted); font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
-:deep(.bazi-advice-row.tone-warning .advice-row-label) { color:#d97706; }
-:deep(.bazi-advice-row.tone-positive .advice-row-label) { color:#0d9488; }
-:deep(.bazi-timing-meta) { display:grid; gap:8px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:var(--paper-soft); border:1px solid var(--line); }
-:deep(.timing-best) { color:#0d9488; font-size:13px; line-height:1.6; }
-:deep(.timing-avoid) { color:#d97706; font-size:13px; line-height:1.6; }
-:deep(.timing-disclaimer) { color:var(--text-muted); font-size:11px; line-height:1.5; }
+:deep(.bazi-evidence-list span) { padding:5px 9px; border-radius:999px; border:1px solid var(--line); color:var(--ink-muted); font-size:12px; line-height:1.4; overflow-wrap:anywhere; }
+:deep(.bazi-signal-list.positive span) { border-color:rgba(13,148,136,0.25); background:rgba(13,148,136,0.06); color:#0d9488; }
+:deep(.bazi-signal-list.warning span) { border-color:rgba(217,119,6,0.22); background:rgba(217,119,6,0.06); color:#d97706; }
+/* capacity row */
 :deep(.bazi-capacity-row) { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 :deep(.capacity-label) { font-size:11px; color:var(--text-muted); }
 :deep(.capacity-level) { font-size:14px; font-family:var(--font-serif); color:var(--gold); }
 :deep(.capacity-level.level-strong) { color:#0d9488; }
 :deep(.capacity-level.level-weak) { color:#d97706; }
 :deep(.capacity-level.level-mixed) { color:#7c3aed; }
-:deep(.bazi-verdict-hero) { font-size:15px; line-height:1.85; color:var(--ink-body,var(--ink-muted)); margin:8px 0 0; }
-:deep(.bazi-verdict-text) { font-size:15px; line-height:1.85; color:var(--ink-body,var(--ink-muted)); margin:0; }
-:deep(.bazi-signal-cards) { display:grid; gap:10px; }
-:deep(.bazi-signal-card) { padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:var(--paper-soft); }
-:deep(.bazi-signal-card-header) { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-:deep(.bazi-signal-card-header strong) { color:var(--ink-body,var(--gold)); font-size:14px; line-height:1.5; }
-:deep(.bazi-signal-num) { display:flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; background:var(--gold-dim,rgba(181,141,59,0.12)); color:var(--gold); font-size:11px; font-weight:600; flex-shrink:0; }
-:deep(.bazi-outcome-block) { border-left-color:#0D9488; background:rgba(13,148,136,0.04); }
-:deep(.bazi-outcome-block p) { margin:4px 0 !important; }
-:deep(.bazi-hidden-catch) { color:#d97706 !important; }
-:deep(.bazi-path-list) { display:grid; gap:10px; margin-top:8px; }
-:deep(.bazi-path-card) { padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:var(--paper-soft); }
-:deep(.bazi-path-header) { display:flex; align-items:baseline; gap:8px; margin-bottom:6px; flex-wrap:wrap; }
-:deep(.bazi-path-header strong) { color:var(--gold); font-size:14px; }
-:deep(.bazi-path-fit) { font-size:12px; color:var(--ink-muted); }
-:deep(.bazi-path-meta) { display:flex; flex-wrap:wrap; gap:12px; margin-top:8px; }
-:deep(.bazi-path-meta span) { font-size:12px; color:var(--text-muted); }
-:deep(.bazi-path-risk) { margin-top:6px; font-size:12px; color:#d97706; }
-:deep(.bazi-rhythm-list) { display:grid; gap:12px; }
-:deep(.bazi-rhythm-segment) { padding:12px 14px; border-radius:10px; border:1px solid var(--line); background:var(--paper-soft); }
-:deep(.bazi-rhythm-header) { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-:deep(.bazi-rhythm-header strong) { color:var(--gold); font-size:14px; }
-:deep(.bazi-rhythm-shishen) { font-size:11px; color:var(--text-muted); padding:2px 6px; border-radius:4px; background:var(--gold-dim,rgba(181,141,59,0.1)); }
-:deep(.bazi-rhythm-strategy) { margin:0 0 8px; color:var(--ink-muted); font-size:13px; line-height:1.6; }
-:deep(.bazi-liunian-list) { display:grid; gap:6px; }
-:deep(.bazi-liunian-item) { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
-:deep(.bazi-liunian-year) { font-size:13px; font-weight:600; color:var(--ink-body,var(--gold)); min-width:72px; }
-:deep(.bazi-liunian-shishen) { font-size:11px; color:var(--text-muted); padding:1px 5px; border-radius:3px; background:var(--paper-soft); border:1px solid var(--line); }
-:deep(.bazi-liunian-note) { font-size:13px; color:var(--ink-muted); line-height:1.55; flex:1; min-width:0; overflow-wrap:anywhere; }
-:deep(.bazi-hidden-insight-block) { border-left-color:#d97706; background:rgba(217,119,6,0.04); }
-:deep(.bazi-avoid-section) { margin-top:10px; }
 .backing-identity {
   margin-bottom: 14px;
   padding-bottom: 12px;
