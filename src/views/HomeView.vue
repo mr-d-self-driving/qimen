@@ -2016,8 +2016,23 @@ const buildBaziQuestionCardHTML = (data) => {
     const dayunReading = mode.dayun_reading || ''
     const liunianReading = mode.liunian_reading || ''
     const targetReading = mode.target_state_reading || ''
-    if (dayunReading || liunianReading || targetReading) {
+    const psychMirror = mode.psychological_mirror || ''
+    const movNature = mode.movement_nature || null
+    const movNatureHTML = movNature
+      ? (() => {
+          const typeClass = movNature.type === '主动换' ? 'active' : movNature.type === '被动换' ? 'passive' : movNature.type === '内部变动' ? 'internal' : 'none'
+          const qualityClass = movNature.quality === '顺势' ? 'favorable' : movNature.quality === '逆势' ? 'unfavorable' : 'neutral'
+          return `<div class="bazi-movement-nature">
+            <span class="movement-type movement-type-${typeClass}">${movNature.type || ''}</span>
+            <span class="movement-quality movement-quality-${qualityClass}">${movNature.quality || ''}</span>
+            ${movNature.evidence ? `<span class="movement-evidence">${sanitizeBaziDisplayText(movNature.evidence, targetLabel)}</span>` : ''}
+          </div>`
+        })()
+      : ''
+    if (psychMirror || dayunReading || liunianReading || targetReading) {
       dynamicHTML = `<div class="report-subtitle">当前运势气候</div>
+        ${psychMirror ? `<div class="bazi-reading-block bazi-mirror-block"><div class="reading-label reading-label-mirror">当下感受</div><p class="bazi-mirror-text">${sanitizeBaziDisplayText(psychMirror, targetLabel)}</p></div>` : ''}
+        ${movNatureHTML}
         ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${sanitizeBaziDisplayText(dayunReading, targetLabel)}</p></div>` : ''}
         ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${sanitizeBaziDisplayText(liunianReading, targetLabel)}</p></div>` : ''}
         ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">${targetLabel}状态</div><p>${sanitizeBaziDisplayText(targetReading, targetLabel)}</p></div>` : ''}`
@@ -3292,6 +3307,20 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-reading-block.warning) { border-left-color:rgba(217,119,6,0.5); background:rgba(217,119,6,0.04); }
 :deep(.bazi-reading-block .reading-label) { font-size:11px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
 :deep(.bazi-reading-block p) { margin:0; color:var(--ink-muted); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
+:deep(.bazi-mirror-block) { border-left-color:#7C6FBF; background:rgba(124,111,191,0.06); }
+:deep(.reading-label-mirror) { color:#7C6FBF !important; }
+:deep(.bazi-mirror-text) { font-style:italic; color:var(--ink-body,#2c2c2c) !important; }
+:deep(.bazi-movement-nature) { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:6px 0 10px; }
+:deep(.movement-type) { font-size:12px; font-weight:600; padding:2px 8px; border-radius:4px; }
+:deep(.movement-type-active) { background:rgba(13,148,136,0.12); color:#0D9488; }
+:deep(.movement-type-passive) { background:rgba(200,74,69,0.12); color:#C84A45; }
+:deep(.movement-type-internal) { background:rgba(181,141,59,0.14); color:#B58D3B; }
+:deep(.movement-type-none) { background:var(--paper-soft); color:var(--text-muted); }
+:deep(.movement-quality) { font-size:11px; padding:2px 6px; border-radius:4px; }
+:deep(.movement-quality-favorable) { background:rgba(13,148,136,0.08); color:#0D9488; }
+:deep(.movement-quality-unfavorable) { background:rgba(200,74,69,0.08); color:#C84A45; }
+:deep(.movement-quality-neutral) { background:var(--paper-soft); color:var(--text-muted); }
+:deep(.movement-evidence) { font-size:12px; color:var(--ink-muted); flex:1; }
 :deep(.bazi-advice-extra) { display:grid; gap:8px; margin-top:10px; }
 :deep(.bazi-advice-rows) { display:grid; gap:6px; margin-top:8px; }
 :deep(.bazi-advice-row) { display:grid; grid-template-columns:72px minmax(0,1fr); gap:10px; align-items:start; padding:7px 0; border-top:1px solid var(--line); }
