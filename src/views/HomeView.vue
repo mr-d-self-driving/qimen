@@ -1493,7 +1493,7 @@ const activateBaziResultPanel = (data) => {
   }
   activeBaziResultData.value = data
   if (data.meta.analysis_mode === 'timing') {
-    const windows = data.mode_analysis?.trigger_windows || []
+    const windows = data.readings?.trigger_windows || data.mode_analysis?.trigger_windows || []
     const best = windows.find(window => window.quality === 'strong') || windows[0]
     baziCardSelectedYear.value = Number(best?.year) || activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
   } else {
