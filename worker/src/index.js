@@ -879,6 +879,7 @@ async function handleBaziQuestion(request, env) {
       promptBlocks: [
         'buildBaziQuestionPrompt',
         output.meta?.analysis_mode ? `analysis_mode:${output.meta.analysis_mode}` : `analysis_mode:${semanticRoute.analysis_mode || 'legacy'}`,
+        semanticRoute.confidence === 'low' ? 'mode:profile_driven' : '',
         semanticRoute.secondary_mode ? `secondary_mode:${semanticRoute.secondary_mode}` : '',
         semanticRoute.target_resolution ? `target_resolution:${semanticRoute.target_resolution}` : '',
       ].filter(Boolean),
