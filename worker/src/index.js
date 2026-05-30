@@ -882,12 +882,14 @@ async function handleBaziQuestion(request, env) {
         semanticRoute.secondary_mode ? `secondary_mode:${semanticRoute.secondary_mode}` : '',
         semanticRoute.target_resolution ? `target_resolution:${semanticRoute.target_resolution}` : '',
       ].filter(Boolean),
+      llmPromptText: prompt,
       llmOutputRaw: llmJson,
       llmOutputNormalized: output,
       pipelineResult,
       modelName: 'gemini-3.1-pro-preview',
       latencyMs: Date.now() - startedAt,
-      fallbacks: [...semanticFallbacks, ...(output.meta?.limitations || [])],
+      fallbacks: semanticFallbacks,
+      llmLimitations: output.meta?.limitations || [],
     });
 
     try {
