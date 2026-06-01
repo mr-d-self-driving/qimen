@@ -1,0 +1,8 @@
+{
+  "pillars": ["辛酉", "戊戌", "甲戌", "己巳"],
+  "expected_category": "FOLLOW_IMAGE",
+  "expected_subtype": "从财格",
+  "expected_score_band": "80-94",
+  "expected_override": true,
+  "notes": "公历 1981-10-23 10:00。甲木日主无根无明扶，戌月土气主令，土势在候选中占优，人工复核为成象从财。"
+}
