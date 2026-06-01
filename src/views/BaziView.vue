@@ -775,6 +775,23 @@
                                                 </div>
                                             </div>
                                         </div>
+                                        <div v-if="gejuPanelContent.imageCandidate" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">形象校验</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.imageCandidate.subtype }} · {{ gejuPanelContent.imageCandidate.match_score }}%</p>
+                                            <div v-if="gejuPanelContent.imageCandidate.dimensions.length" class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.imageCandidate.dimensions" :key="item.key" class="insight-step-row">
+                                                    <span class="insight-step-label">{{ item.text }}</span>
+                                                    <span class="insight-step-val">{{ formatImageMetric(item.score, item.max) }}</span>
+                                                </div>
+                                            </div>
+                                            <div v-if="gejuPanelContent.imageCandidate.penalties.length" class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.imageCandidate.penalties" :key="item.key" class="insight-inline-row">
+                                                    <span class="insight-inline-dot insight-dot-warn">—</span>
+                                                    <span class="insight-step-val insight-val-warn">{{ item.text }}</span>
+                                                    <strong v-if="item.score !== ''" class="insight-val-warn">{{ formatImageMetric(item.score) }}</strong>
+                                                </div>
+                                            </div>
+                                        </div>
                                         <div class="insight-prose-item">
                                             <div class="insight-prose-head"><span class="insight-prose-label">顺逆与成败</span></div>
                                             <p class="insight-prose-main">{{ gejuPanelContent.chengGeStatus }}</p>
@@ -988,9 +1005,13 @@
                             <span class="wangge-sep">·</span>
                             <span class="wangge-val">{{ patternFinalName }}</span>
                             <span v-if="showChengGeText" class="rpt-h2-badge" style="margin-left:6px;">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                            <span v-if="gejuPanelContent?.imageHeadline" class="image-match-badge">{{ gejuPanelContent.imageHeadline }}</span>
                         </span>
                     </div>
                     <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
+                    <p v-if="gejuPanelContent?.imageCandidate" class="rpt-prose">
+                        <strong class="rpt-lead-w">基础格局　</strong>{{ gejuPanelContent.basePattern }}
+                    </p>
 
                     <!-- 调候诊断 -->
                     <div v-if="tiaohouPanelContent" class="rpt-sub">
@@ -1189,7 +1210,7 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 
 // 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
-const BAZI_ENGINE_VERSION = '1.6.3'
+const BAZI_ENGINE_VERSION = '1.7.0'
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
@@ -2196,6 +2217,103 @@ const normalizeTraitItems = (value, fallback = []) => {
     return Array.isArray(fallback) ? fallback : []
 }
 
+const IMAGE_DIMENSION_LABELS = {
+    target_qi_score: '目标气势',
+    target_qi_ratio: '目标占比',
+    dominance_points: '主导气势',
+    rootlessness_points: '日主无根',
+    month_command_points: '月令助力',
+    exposed_target_points: '透干助力',
+    visible_support_penalty: '扶身干扰',
+    same_camp_dominance_points: '同党气势',
+    purity_points: '气势纯度',
+    counter_qi_ratio: '制衡占比',
+    counter_qi_exposed_count: '制衡透干',
+    counter_qi_branch_count: '制衡根气',
+    powerful_counter_penalty: '强力制衡',
+    wealth_qi_ratio: '财气占比',
+    wealth_drain_penalty: '财星泄气',
+    mixed_qi_ratio: '杂气占比',
+    mixed_qi_penalty: '杂气干扰',
+    adjacent_stem_combine_points: '相邻天干合',
+    branch_support_count: '地支助化',
+    branch_support_points: '地支助化分',
+    no_jealous_combine_points: '无争合',
+    competing_partner_count: '争合数量',
+    competing_day_stem_count: '日干争合',
+    original_qi_root_count: '原气根数',
+    original_qi_primary_root_count: '原气主根',
+    original_qi_root_score: '原气根分',
+    original_qi_weak_points: '原气弱化',
+    transform_qi_ratio: '化气占比',
+    transform_qi_counter_ratio: '化气受制',
+    transform_qi_intact_points: '化气完整',
+    transform_qi_damage_penalty: '化气受损',
+    two_qi_combined_ratio: '两气合计',
+    two_qi_combined_points: '两气集中',
+    two_qi_ratio_difference: '两气差值',
+    two_qi_balance_points: '两气均衡',
+    low_mixed_qi_points: '少杂气',
+    mixed_force_points: '从势基础',
+    mixed_force_combined_ratio: '从势占比',
+    mixed_force_combined_points: '从势集中',
+    no_visible_support_points: '无明扶',
+}
+
+const IMAGE_PENALTY_LABELS = {
+    DM_HAS_SUPPORT: '日主仍有扶助',
+    POWERFUL_COUNTER_QI: '制衡气势偏强',
+    WEALTH_DRAINS_DOMINANT_QI: '财星泄耗主势',
+    MIXED_QI_BREAKS_SINGLE_IMAGE: '杂气破坏专旺',
+    JEALOUS_COMBINE_CAP_79: '争合使成象分封顶',
+    DM_HAS_STRONG_ROOT_CAP_79: '日主强根使成象分封顶',
+    TRANSFORM_QI_DAMAGED: '化气受到损伤',
+}
+
+const normalizeImageDimensions = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((item, index) => {
+            if (!item || typeof item !== 'object') {
+                return { key: `dimension-${index}`, text: String(item ?? ''), score: '', max: '' }
+            }
+            return {
+                key: item.key || `dimension-${index}`,
+                text: item.text || IMAGE_DIMENSION_LABELS[item.key] || item.key || `指标 ${index + 1}`,
+                score: item.score ?? '',
+                max: item.max ?? '',
+            }
+        })
+    }
+    if (!value || typeof value !== 'object') return []
+    return Object.entries(value).map(([key, score]) => ({
+        key,
+        text: IMAGE_DIMENSION_LABELS[key] || key,
+        score,
+        max: '',
+    }))
+}
+
+const normalizeImagePenalties = (value) => {
+    if (!Array.isArray(value)) return []
+    return value.map((item, index) => {
+        if (!item || typeof item !== 'object') {
+            const key = String(item ?? `penalty-${index}`)
+            return { key, text: IMAGE_PENALTY_LABELS[key] || key, score: '' }
+        }
+        return {
+            key: item.key || `penalty-${index}`,
+            text: item.text || IMAGE_PENALTY_LABELS[item.key] || item.key || `扣分项 ${index + 1}`,
+            score: item.score ?? '',
+        }
+    })
+}
+
+const formatImageMetric = (score, max = '') => {
+    const scoreText = typeof score === 'boolean' ? (score ? '是' : '否') : String(score ?? '')
+    if (max === '' || max == null) return scoreText
+    return `${Number(score) > 0 ? '+' : ''}${scoreText}/${max}`
+}
+
 const gejuPanelContent = computed(() => {
     const profile = activeProfile.value
     if (!profile?.bazi_detail) return null
@@ -2209,6 +2327,18 @@ const gejuPanelContent = computed(() => {
     const mergeInfo = gejuDetail.monthMergeInfo || null
     const finalPattern = extraction?.final_pattern || null
     const finalPatternName = finalPattern?.name || profile.geju || gejuDetail.geju || '未定格'
+    const imageAnalysis = detail.image_analysis || null
+    const primaryCandidate = imageAnalysis?.primary_candidate || null
+    const showImageCandidate = !!primaryCandidate && Number(primaryCandidate.match_score) >= 60
+    const imageCandidate = showImageCandidate
+        ? {
+            ...primaryCandidate,
+            subtype: primaryCandidate.subtype || '特殊形象',
+            dimensions: normalizeImageDimensions(primaryCandidate.dimensions),
+            penalties: normalizeImagePenalties(primaryCandidate.penalties),
+        }
+        : null
+    const basePattern = extraction?.base_pattern || profile.geju || gejuDetail.geju || '未定格'
     const chengGeResult = evaluation?.overall_status || chenggeDetail.chengGeResult || '待定'
     const chengGeStatus = PATTERN_STATUS_LABELS[chengGeResult] || (chengGeResult === '待定' ? '未成格' : chengGeResult)
     const showChengGe = !!chenggeDetail.chengGe && chenggeDetail.chengGe !== finalPatternName && chengGeResult !== 'PENDING' && chengGeResult !== '待定'
@@ -2231,6 +2361,11 @@ const gejuPanelContent = computed(() => {
         title: showChengGe ? `${finalPatternName} · ${chenggeDetail.chengGe}` : finalPatternName,
         strongWeak: profile.strong_weak || '未定',
         baseGeju: finalPatternName,
+        basePattern,
+        imageCandidate,
+        imageHeadline: imageCandidate
+            ? `${imageCandidate.override_normal_pattern ? '形象匹配度' : `${imageCandidate.subtype}倾向`} ${imageCandidate.match_score}%`
+            : '',
         chengGe: chenggeDetail.chengGe || finalPatternName || '待定',
         chengGeResult,
         chengGeStatus,
@@ -5105,6 +5240,16 @@ const getShenColor = (shen) => {
     color: var(--ink-muted);
     font-weight: 300;
     margin: 0 1px;
+}
+.image-match-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    color: #e8cc80;
+    font-size: 11px;
+    line-height: 1.4;
 }
 /* insight bottom sheet tab bar 对齐主页 bazi-tab */
 .insight-tab-bar {

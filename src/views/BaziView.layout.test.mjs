@@ -87,6 +87,20 @@ test('格局弹窗优先展示结构化 pattern_analysis', () => {
   assert.match(source, /normalizeTraitItems/)
 })
 
+test('旺衰格局卡和格局洞察并入形象校验', () => {
+  assert.match(source, /detail\.image_analysis/)
+  assert.match(source, /primary_candidate/)
+  assert.match(source, /形象匹配度/)
+  assert.match(source, /基础格局/)
+  assert.match(source, /形象校验/)
+  assert.match(source, /imageCandidate\.dimensions/)
+  assert.match(source, /imageCandidate\.penalties/)
+})
+
+test('前端八字引擎期望版本同步到 1.7.0', () => {
+  assert.match(source, /const BAZI_ENGINE_VERSION = '1\.7\.0'/)
+})
+
 test('访客添加档案后生成排盘按钮可点击并触发登录引导', () => {
   assert.match(source, /:disabled="isAnalyzing"/)
   assert.match(source, /showGuestLoginGuide\.value = true/)
