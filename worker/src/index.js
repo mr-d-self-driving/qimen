@@ -371,9 +371,14 @@ async function handleDivinationRoute(request, env) {
   return json(route, { status: 200 }, request, env);
 }
 
-function createSupabaseClient(env) {
+function createSupabaseClient(env, userToken) {
   if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) {
     throw new Error('Supabase credentials are not configured');
+  }
+  if (userToken) {
+    return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, {
+      global: { headers: { Authorization: `Bearer ${userToken}` } },
+    });
   }
   return createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 }
@@ -777,6 +782,7 @@ async function handleBaziQuestion(request, env) {
     return json({ error: '认证失败', details: authErr.message }, { status: authErr.status || 401 }, request, env);
   }
 
+  const userToken = request.headers.get('Authorization')?.replace('Bearer ', '');
   const body = await readJson(request);
   const question = String(body.question || '').trim();
   const profileId = String(body.profileId || '').trim();
@@ -784,7 +790,7 @@ async function handleBaziQuestion(request, env) {
   if (!profileId) return json({ error: '缺少八字档案 ID' }, { status: 400 }, request, env);
 
   // Profile fetch (pre-stream so we can return JSON errors for missing/invalid profiles)
-  const supabase = createSupabaseClient(env);
+  const supabase = createSupabaseClient(env, userToken);
   const { data: profile, error: profileErr } = await supabase.from('bazi_profiles').select('*').eq('id', profileId).single();
   if (profileErr || !profile) return json({ error: '档案不存在' }, { status: 404 }, request, env);
   if (profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
@@ -931,10 +937,11 @@ async function handleBaziPanel(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   try {
     const user = await getAuthedUser(request, env);
+    const userToken = request.headers.get('Authorization')?.replace('Bearer ', '');
     const { profileId, category, subcategory, analysis_mode } = await readJson(request);
     if (!profileId) return json({ error: '缺少 profileId' }, { status: 400 }, request, env);
 
-    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    const supabase = createSupabaseClient(env, userToken);
     const { data: profile, error } = await supabase
       .from('bazi_profiles')
       .select('*')
