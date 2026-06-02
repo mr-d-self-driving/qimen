@@ -658,7 +658,7 @@
 
                     <div v-if="interactions" class="ai-section" style="margin-top:20px;">
                         <div class="timeline-title">生克合化注意</div>
-                        
+
                         <div class="insight-card" v-if="intGroups.ganYuanju">
                             <h4 style="color:var(--gold)">天干本命</h4>
                             <p>{{ intGroups.ganYuanju }}</p>
@@ -675,7 +675,7 @@
                             <h4 style="color:#FF5E57">地支运势</h4>
                             <p>{{ intGroups.zhiYun }}</p>
                         </div>
-                        
+
                         <div v-if="!intGroups.ganYuanju && !intGroups.zhiYuanju && !intGroups.ganYun && !intGroups.zhiYun" style="text-align:center;color:#666;font-size:12px;">暂无明显的合冲破害关系</div>
                     </div>
                 </div>

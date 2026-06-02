@@ -392,6 +392,28 @@
                   </template>
                 </BaziBackingPanel>
               </Teleport>
+
+              <!-- 静态底盘 + 动态触发 panel（推演解读 section） -->
+              <Teleport v-if="showBaziPanelAnchor" to="#bazi-panel-anchor">
+                <BaziStaticPanel
+                  :matrix="baziPanelMatrix"
+                  :state-report="activeBaziResultData.state_report"
+                  :target-spec="activeBaziResultData.target_spec || { primary_shishen: [], primary_gongwei: [] }"
+                  :shishen-theory="baziPanelShishenTheory"
+                  :profile-info="baziPanelProfileInfo"
+                />
+                <BaziDynamicPanel
+                  v-if="activeBaziResultData.dynamic_report || baziPanelTimingWindows.length"
+                  :mode="baziPanelMode"
+                  :dynamic-report="activeBaziResultData.dynamic_report || null"
+                  :trigger-windows="baziPanelTimingWindows"
+                  :best-window-year="baziPanelBestYear"
+                  :avoid-window-text="baziPanelAvoidText"
+                  :conclusion-text="baziPanelConclusionText"
+                  :target-map="baziPanelTargetMap"
+                  style="margin-top:16px;"
+                />
+              </Teleport>
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -615,6 +637,8 @@ import {
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import AccountMenu from '../components/AccountMenu.vue'
 import BaziBackingPanel from '../components/BaziBackingPanel.vue'
+import BaziStaticPanel from '../components/BaziStaticPanel.vue'
+import BaziDynamicPanel from '../components/BaziDynamicPanel.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
@@ -766,6 +790,85 @@ const snapshotLunarStr = computed(() => {
     return ''
   }
 })
+// ── BaziStaticPanel + BaziDynamicPanel 数据 ──────────────────────
+const baziPanelMatrix = computed(() => {
+  // 优先用 fetchMissingPanelData 存入的已正规化 pillars（有 hidden_stems string 格式）
+  const fromPanel = activeBaziResultData.value?._panel_matrix
+  if (fromPanel?.pillars?.length) return fromPanel
+  // 新问题的答案已含 subject_snapshot，但没有完整 bazi_detail
+  const pillars = snapshotProfile.value?.bazi_detail?.matrix?.pillars
+    || activeBaziProfile.value?.bazi_detail?.matrix?.pillars
+  return pillars ? { pillars } : null
+})
+
+const baziPanelTargetMap = computed(() => {
+  const sr = activeBaziResultData.value?.state_report
+  if (!sr) return {}
+  const map = {}
+  for (const sa of sr.shishen_assessments ?? []) {
+    if (!map[sa.pillar]) map[sa.pillar] = []
+    map[sa.pillar].push({ kind: 'shishen', name: sa.shishen })
+  }
+  for (const ga of sr.gongwei_assessments ?? []) {
+    if (!map[ga.pillar_name]) map[ga.pillar_name] = []
+    map[ga.pillar_name].push({ kind: 'gongwei', name: ga.gongwei })
+  }
+  return map
+})
+
+const baziPanelMode = computed(() => {
+  const mode = activeBaziResultData.value?.meta?.analysis_mode
+  return mode === 'timing' ? 'timing' : 'status'
+})
+
+const baziPanelShishenTheory = computed(() => {
+  const spec = activeBaziResultData.value?.target_spec
+  if (!spec) return ''
+  const shishens = (spec.primary_shishen || []).join('、')
+  const gongweis = (spec.primary_gongwei || []).join('、')
+  if (!shishens && !gongweis) return ''
+  const parts = []
+  if (shishens) parts.push(`以 ${shishens} 为目标十神`)
+  if (gongweis) parts.push(`${gongweis} 为目标宫位`)
+  return parts.join('，')
+})
+
+const baziPanelProfileInfo = computed(() => {
+  const p = snapshotProfile.value
+  if (!p) return null
+  const birthDate = formatSolarDate(p.birth_date)
+  return {
+    name: p.name || '',
+    gender: p.gender || '',
+    birthDate: birthDate !== '阳历待确认' ? birthDate : ''
+  }
+})
+
+const baziPanelTimingWindows = computed(() => {
+  const candidates = activeBaziResultData.value?.timing_candidates
+  if (!candidates?.length) return []
+  const llmWindows = activeBaziResultData.value?.readings?.trigger_windows ?? []
+  const llmByYear = new Map(llmWindows.map(w => [String(w.year), w]))
+  return candidates.map(c => {
+    const liunian = c.dynamicReport?.liunian_impact
+    return {
+      year: c.year,
+      ganzhi: liunian ? `${liunian.gan}${liunian.zhi}` : '',
+      dynamicReport: c.dynamicReport,
+      verdict: llmByYear.get(String(c.year))?.verdict ?? ''
+    }
+  })
+})
+
+const baziPanelBestYear = computed(() => {
+  const windows = activeBaziResultData.value?.readings?.trigger_windows ?? []
+  const best = windows.find(w => w.quality === 'strong') || windows[0]
+  return best?.year ? Number(best.year) : null
+})
+
+const baziPanelAvoidText = computed(() => activeBaziResultData.value?.readings?.avoid_window ?? '')
+const baziPanelConclusionText = computed(() => activeBaziResultData.value?.verdict ?? '')
+
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
 const isGuest = computed(() => globalState.isGuest)
@@ -807,6 +910,7 @@ const currentScore = ref(0)
 const activeBaziResultData = ref(null)
 const baziCardSelectedYear = ref(null)
 const showBaziBackingAnchor = ref(false)
+const showBaziPanelAnchor = ref(false)
 let scoreTimer = null
 
 // 保存长图
@@ -1467,6 +1571,7 @@ const resetToInput = () => {
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
   showBaziBackingAnchor.value = false
+  showBaziPanelAnchor.value = false
 }
 
 const startNewSession = () => {
@@ -1484,8 +1589,77 @@ const syncBaziBackingAnchor = () => {
   })
 }
 
+const syncBaziPanelAnchor = () => {
+  nextTick(() => {
+    showBaziPanelAnchor.value = Boolean(
+      activeBaziResultData.value?.state_report &&
+      document.getElementById('bazi-panel-anchor')
+    )
+  })
+}
+
+// 存量记录缺少 state_report 时，按需从后端重算（纯引擎，不调 LLM）
+const fetchMissingPanelData = async (data) => {
+  const mode = data?.meta?.analysis_mode
+  if (!mode || mode === 'profile_driven') return
+  const profileId = activeBaziProfile.value?.id
+  if (!profileId) return
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    // activeBaziProfile 不含 bazi_detail（被 BAZI_PROFILE_QIMEN_SELECT 排除），先补全
+    let profile = activeBaziProfile.value
+    if (!profile?.bazi_detail?.matrix?.pillars?.length) {
+      const { data: full } = await supabase
+        .from('bazi_profiles')
+        .select('bazi_detail, favorable_elements, unfavorable_elements')
+        .eq('id', profileId)
+        .single()
+      if (full) profile = { ...profile, ...full }
+    }
+    const res = await fetch('/api/bazi-panel', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        profileId,
+        profileData: profile,
+        category: data.meta?.category,
+        subcategory: data.meta?.subcategory,
+        analysis_mode: mode
+      })
+    })
+    if (!res.ok) return
+    const panelData = await res.json()
+    if (!panelData.state_report) return
+    // 把 profile 的 matrix pillars 一并存入（BaziStaticPanel 渲染四柱需要）
+    // 将 hidden_stems 中的 object 格式正规化为 string 数组
+    const rawPillars = profile.bazi_detail?.matrix?.pillars || []
+    const normalizedPillars = rawPillars.map(p => ({
+      ...p,
+      hidden_stems: Array.isArray(p.hidden_stems)
+        ? p.hidden_stems.map(h => (typeof h === 'string' ? h : h?.gan)).filter(Boolean)
+        : [],
+      is_kong: p.is_kong ?? false
+    }))
+    // 合并引擎数据，重建 HTML（anchor 才会出现在 DOM 里），再触发 Teleport
+    const mergedData = {
+      ...activeBaziResultData.value,
+      ...panelData,
+      _panel_matrix: normalizedPillars.length ? { pillars: normalizedPillars } : null
+    }
+    activeBaziResultData.value = mergedData
+    resultHtml.value = buildCardHTML(mergedData)
+    await nextTick()
+    syncBaziPanelAnchor()
+    initMagTabInk()
+  } catch (e) {
+    console.warn('[panel] fetchMissingPanelData failed', e)
+  }
+}
+
 const activateBaziResultPanel = (data) => {
   showBaziBackingAnchor.value = false
+  showBaziPanelAnchor.value = false
   if (!(data?.branch === 'bazi' && data.meta?.analysis_mode)) {
     activeBaziResultData.value = null
     baziCardSelectedYear.value = null
@@ -1500,6 +1674,9 @@ const activateBaziResultPanel = (data) => {
     baziCardSelectedYear.value = activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
   }
   syncBaziBackingAnchor()
+  syncBaziPanelAnchor()
+  // 存量记录无 state_report → 按需补算
+  if (!data.state_report) fetchMissingPanelData(data)
 }
 
 const startDivination = async () => {
@@ -1508,6 +1685,7 @@ const startDivination = async () => {
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
   showBaziBackingAnchor.value = false
+  showBaziPanelAnchor.value = false
 
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return alert("请先登录")
@@ -1951,12 +2129,12 @@ const buildBaziQuestionCardHTML = (data) => {
       </div>`
     : ''
 
-  const m2HTML = signalsFlowHTML
-    ? `<section class="mag-section" id="bazi-m2">
-        <div class="module-heading"><h2>命局信号</h2></div>
-        ${signalsFlowHTML}
-      </section>`
-    : ''
+  // 命局底盘 panel anchor（BaziStaticPanel + BaziDynamicPanel 由 Teleport 注入）
+  const m2HTML = `<section class="mag-section" id="bazi-m2">
+      <div class="module-heading"><h2>命局解读</h2></div>
+      ${signalsFlowHTML ? `<div class="module-heading"><h2>命局信号</h2></div>${signalsFlowHTML}` : ''}
+      <div id="bazi-panel-anchor" class="bazi-panel-anchor"></div>
+    </section>`
 
   // ── Section 3: 推演解读（mode 专属内容，连续流） ──
   // 用 inference-flow 风格：每块 inference-card，label 小标，h4 正文
@@ -2144,7 +2322,7 @@ const buildBaziQuestionCardHTML = (data) => {
 
   const tabDefs = [
     { id: 'bazi-m1', label: '结论先行', show: true },
-    { id: 'bazi-m2', label: '命局信号', show: !!m2HTML },
+    { id: 'bazi-m2', label: '命局解读', show: true },
     { id: 'bazi-m3', label: '推演解读', show: !!m3HTML },
     { id: 'bazi-m4', label: '时间节奏', show: !!m4HTML },
     { id: 'bazi-m5', label: '行动建议', show: !!m5HTML }

@@ -6,6 +6,8 @@ import ReportView from '../views/ReportView.vue'
 import FortuneView from '../views/FortuneView.vue'
 import ResetPasswordView from '../views/ResetPasswordView.vue'
 import EngineeringView from '../views/EngineeringView.vue'
+import BaziStaticPanelDemo from '../views/BaziStaticPanelDemo.vue'
+import BaziDynamicPanelDemo from '../views/BaziDynamicPanelDemo.vue'
 import FeedbackView from '../views/FeedbackView.vue'
 import LegalView from '../views/LegalView.vue'
 import AdminView from '../views/AdminView.vue'
@@ -68,6 +70,12 @@ const router = createRouter({
         descriptionEn: 'Visual Qimen rule engine with open scoring audit and palace details for technical research.',
         ogImage: 'https://www.qimendao.com/images/home.jpg',
       },
+    },
+    {
+      path: '/bazi-static-demo', name: 'bazi-static-demo', component: BaziStaticPanelDemo,
+    },
+    {
+      path: '/bazi-dynamic-demo', name: 'bazi-dynamic-demo', component: BaziDynamicPanelDemo,
     },
     {
       path: '/feedback', name: 'feedback', component: FeedbackView,

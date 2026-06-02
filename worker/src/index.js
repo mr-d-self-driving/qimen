@@ -32,7 +32,7 @@ const { buildAnnualRangePayload } = fortuneAnnualCore;
 const { buildFortunePeriodKey: buildWeeklyPeriodKey, buildWeeklyFortunePayload, getSecondsUntilWeeklyExpiry, getWeekRange, getWeeklyExpiry } = fortuneWeeklyCore;
 const { buildFortunePeriodKey: buildMonthlyPeriodKey, buildMonthlyFortunePayload, getFlowMonthInfo } = fortuneMonthlyCore;
 const { getBeijingDayInfo, buildFortunePeriodKey: buildDailyPeriodKey, buildFortuneContext, buildBaseFortunePayload, buildInterpretationPrompt, parseModelJson, pickInterpretationFields, mergeInterpretation, hasReadyInterpretation } = fortuneDailyCore;
-const { buildBaziQuestionPrompt, buildBaziAuditSnapshot, normalizeBaziQuestionOutput, normalizeBaziSemanticRoute } = baziQuestionCore;
+const { buildBaziQuestionPrompt, buildBaziAuditSnapshot, normalizeBaziQuestionOutput, normalizeBaziSemanticRoute, computePanelData } = baziQuestionCore;
 const { createEmptyMonthlyContext, createEmptyProfileContext, normalizeMonthlyContextPayload, normalizeProfileContextPayload, buildContextVersionSeed } = contextNotesCore;
 const { buildMonthlyInterpretationPeriodKey, buildMonthlyInterpretationPrompt, hasReadyMonthlyInterpretation, mergeMonthlyInterpretation, normalizeDimension, pickMonthlyInterpretationFields } = monthlyInterpretationCore;
 
@@ -920,6 +920,36 @@ async function handleBaziQuestion(request, env) {
   })(); // end async IIFE
 
   return sseResponse;
+}
+
+async function handleBaziPanel(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+  try {
+    const user = await getAuthedUser(request, env);
+    const { profileId, category, subcategory, analysis_mode } = await readJson(request);
+    if (!profileId) return json({ error: '缺少 profileId' }, { status: 400 }, request, env);
+
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    const { data: profile, error } = await supabase
+      .from('bazi_profiles')
+      .select('*')
+      .eq('id', profileId)
+      .eq('user_id', user.id)
+      .single();
+    if (error || !profile) return json({ error: '档案不存在' }, { status: 404 }, request, env);
+    if (!profile.bazi_detail?.matrix?.pillars?.length) {
+      return json({ error: '档案缺少排盘数据' }, { status: 400 }, request, env);
+    }
+
+    const result = computePanelData(profile, { category, subcategory, analysis_mode });
+    if (!result) return json({ error: '该模式不支持 panel 计算' }, { status: 422 }, request, env);
+
+    return json(result, { status: 200 }, request, env);
+  } catch (err) {
+    if (err.status === 401) return json({ error: 'Unauthorized' }, { status: 401 }, request, env);
+    console.error('[bazi-panel]', err);
+    return json({ error: err.message || 'panel 计算失败' }, { status: 500 }, request, env);
+  }
 }
 
 async function handleBaziCalibrate(request, env) {
@@ -1956,6 +1986,7 @@ async function routeRequest(request, env) {
 
   if (url.pathname === '/api/context-notes') return handleContextNotes(request, env);
   if (url.pathname === '/api/bazi-question') return handleBaziQuestion(request, env);
+  if (url.pathname === '/api/bazi-panel') return handleBaziPanel(request, env);
   if (url.pathname === '/api/bazi-calibrate') return handleBaziCalibrate(request, env);
   if (url.pathname === '/api/fortune-daily-interpretation') return handleFortuneDailyInterpretation(request, env);
   if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
