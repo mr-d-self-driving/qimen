@@ -99,8 +99,14 @@
     <section class="panel-section">
       <div class="section-label">目标十神</div>
 
-      <!-- 理论说明行 -->
+      <!-- 理论说明行（结构：以XX为目标十神） -->
       <p v-if="shishenTheory" class="theory-note">{{ shishenTheory }}</p>
+
+      <!-- 取法依据（analysis_question） -->
+      <p v-if="analysisRationale" class="theory-rationale">{{ analysisRationale }}</p>
+
+      <!-- 与用神关系 -->
+      <p v-if="yongshenRelation" class="yong-relation" :class="yongshenRelationClass">{{ yongshenRelation }}</p>
 
       <!-- 找到的十神 card -->
       <div
@@ -226,6 +232,7 @@ const props = defineProps({
   shishenTheory: { type: String, default: '' },
   gongweiTheory: { type: String, default: '' },
   profileInfo:   { type: Object, default: null },  // { name, gender, birthDate }
+  fiveShens:     { type: Object, default: null },  // bazi_detail.five_shens
 })
 
 const GAN5   = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
@@ -265,6 +272,49 @@ const SHISHEN_TO_WX = {
   正印:'火', 偏印:'火', 食神:'金', 伤官:'金',
   比肩:'土', 劫财:'土',
 }
+
+// 目标十神取法说明（来自 targetSpec.analysis_question）
+const analysisRationale = computed(() => props.targetSpec?.analysis_question || '')
+
+const yongshenRelationClass = computed(() => {
+  const fs = props.fiveShens
+  if (!fs?.yong) return ''
+  const primary = props.targetSpec?.primary_shishen || []
+  const favorable = new Set([fs.yong, ...(fs.xi || [])])
+  const unfavorable = new Set([...(fs.ji || []), ...(fs.chou || [])])
+  const isFav  = primary.some(s => favorable.has(s))
+  const isUnfav = primary.some(s => unfavorable.has(s))
+  if (isFav && !isUnfav)  return 'yong-rel-good'
+  if (isUnfav && !isFav)  return 'yong-rel-bad'
+  return 'yong-rel-neutral'
+})
+
+// 目标十神与命局用神的关系
+const yongshenRelation = computed(() => {
+  const fs = props.fiveShens
+  if (!fs?.yong) return ''
+  const primary = props.targetSpec?.primary_shishen || []
+  if (!primary.length) return ''
+
+  const favorable = new Set([fs.yong, ...(fs.xi || [])])
+  const unfavorable = new Set([...(fs.ji || []), ...(fs.chou || [])])
+  const isFav  = primary.some(s => favorable.has(s))
+  const isUnfav = primary.some(s => unfavorable.has(s))
+  const lowConf = fs.yong_confidence === 'LOW'
+
+  if (isFav && !isUnfav) {
+    return lowConf
+      ? `目标十神与命局用神方向接近（用神参考），原局有一定支撑`
+      : `目标十神与命局用神同向，原局具备内在支撑力`
+  }
+  if (isUnfav && !isFav) {
+    return `目标十神为命局忌神，原局有内在阻力，需大运引动化解`
+  }
+  if (isFav && isUnfav) {
+    return `目标十神中有喜有忌，命局格局复杂，须结合宫位气势细判`
+  }
+  return `目标十神为命局闲神，中性力量，吉凶随大运流年引动而变`
+})
 
 // 命局中未见的目标十神（全称）
 const missingShishen = computed(() => {
@@ -798,6 +848,26 @@ function tagClass(tag) {
   border-left: 2px solid var(--gold-border);
   border-radius: 0 6px 6px 0;
 }
+
+/* ── 取法依据 & 用神关系 ──────────────────────────────────────── */
+.theory-rationale {
+  font-size: 12px;
+  color: var(--text-muted, #888);
+  line-height: 1.6;
+  margin: 0 0 8px;
+  padding: 0 2px;
+}
+
+.yong-relation {
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0 0 10px;
+  padding: 5px 10px;
+  border-radius: 6px;
+}
+.yong-rel-good    { color: #4caf7d; background: rgba(76,175,125,.08); }
+.yong-rel-bad     { color: #c0755a; background: rgba(192,117,90,.08); }
+.yong-rel-neutral { color: var(--text-muted, #888); background: rgba(128,128,128,.06); }
 
 /* ── 缺位状态 ─────────────────────────────────────────────────── */
 .absent-state {

@@ -401,6 +401,7 @@
                   :target-spec="activeBaziResultData.target_spec || { primary_shishen: [], primary_gongwei: [] }"
                   :shishen-theory="baziPanelShishenTheory"
                   :profile-info="baziPanelProfileInfo"
+                  :five-shens="baziPanelFiveShens"
                 />
                 <BaziDynamicPanel
                   v-if="activeBaziResultData.dynamic_report || baziPanelTimingWindows.length"
@@ -868,6 +869,10 @@ const baziPanelBestYear = computed(() => {
 
 const baziPanelAvoidText = computed(() => activeBaziResultData.value?.readings?.avoid_window ?? '')
 const baziPanelConclusionText = computed(() => activeBaziResultData.value?.verdict ?? '')
+
+const baziPanelFiveShens = computed(() =>
+  activeBaziProfile.value?.bazi_detail?.five_shens || null
+)
 
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
