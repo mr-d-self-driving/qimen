@@ -908,7 +908,12 @@ async function handleBaziQuestion(request, env) {
         gender: profile.gender || null,
         strong_weak: profile.strong_weak || null,
         geju: profile.geju || null
-      }
+      },
+      ...(pipelineResult ? {
+        state_report: pipelineResult.stateReport || null,
+        target_spec: pipelineResult.targetSpec || null,
+        dynamic_report: pipelineResult.dynamicReport || null,
+      } : {})
     };
     emit({ type: 'complete', result: outputWithSnapshot });
   } catch (error) {
