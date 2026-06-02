@@ -1212,6 +1212,17 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
 const BAZI_ENGINE_VERSION = '1.7.0'
 
+// 兼容 Cloudflare Pages preview 域名，相对路径在 Pages 上会 404
+const _apiBase = (() => {
+    const configured = String(import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+    if (configured) return configured
+    if (typeof window !== 'undefined' && window.location.hostname.endsWith('.qimen-1ff.pages.dev')) {
+        return 'https://qimen-preview.oceanjustinlin.workers.dev'
+    }
+    return ''
+})()
+const apiPath = (path) => `${_apiBase}${path}`
+
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
 const GAN_WUXING = { '甲':'甲木', '乙':'乙木', '丙':'丙火', '丁':'丁火', '戊':'戊土', '己':'己土', '庚':'庚金', '辛':'辛金', '壬':'壬水', '癸':'癸水' }
@@ -1916,8 +1927,8 @@ watch(
             // 首次添加档案：尚无排盘/断语，自动生成（无需手动点击同步）
             console.log('[bazi] 新档案尚无排盘，自动生成…')
             requestAiSummary({ force: false })
-        } else if (hasBaziStr && hasLlm && profileEngineVersion && profileEngineVersion !== BAZI_ENGINE_VERSION) {
-            console.log(`[bazi] 检测到引擎版本旧 (${profileEngineVersion} → ${BAZI_ENGINE_VERSION})，自动刷新运算数据…`)
+        } else if (hasBaziStr && hasLlm && (!profileEngineVersion || profileEngineVersion !== BAZI_ENGINE_VERSION || (hasDetail && !activeProfile.value?.bazi_detail?.image_analysis))) {
+            console.log(`[bazi] 检测到引擎版本旧或 image_analysis 缺失 (${profileEngineVersion} → ${BAZI_ENGINE_VERSION})，自动刷新运算数据…`)
             requestAiSummary({ force: false })
         }
     },
@@ -3438,7 +3449,7 @@ const requestAiSummary = async ({ force = false } = {}) => {
         const pd = promptDataObj.value
         const { data: { session } } = await supabase.auth.getSession()
 
-        const response = await fetch('/api/bazi', {
+        const response = await fetch(apiPath('/api/bazi'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({ 
@@ -3539,7 +3550,7 @@ const triggerCalibration = async ({ profileId = activeProfile.value?.id, force =
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) throw new Error('登录状态已失效，请重新登录')
 
-        const res = await fetch('/api/bazi-calibrate', {
+        const res = await fetch(apiPath('/api/bazi-calibrate'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
