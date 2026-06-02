@@ -915,6 +915,7 @@ async function handleBaziQuestion(request, env) {
         strong_weak: profile.strong_weak || null,
         geju: profile.geju || null
       },
+      five_shens: profile.bazi_detail?.five_shens || null,
       ...(pipelineResult ? {
         state_report: pipelineResult.stateReport || null,
         target_spec: pipelineResult.targetSpec || null,

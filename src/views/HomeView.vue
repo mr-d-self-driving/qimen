@@ -871,7 +871,9 @@ const baziPanelAvoidText = computed(() => activeBaziResultData.value?.readings?.
 const baziPanelConclusionText = computed(() => activeBaziResultData.value?.verdict ?? '')
 
 const baziPanelFiveShens = computed(() =>
-  activeBaziProfile.value?.bazi_detail?.five_shens || null
+  activeBaziResultData.value?.five_shens ||
+  activeBaziProfile.value?.bazi_detail?.five_shens ||
+  null
 )
 
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
