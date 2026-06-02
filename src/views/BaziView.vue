@@ -1313,6 +1313,8 @@ const getWuxingClass = (wx) => {
 // 状态定义
 const currentUser = ref(null)
 const baziProfiles = ref([])
+const profileDetailCache = ref({})   // id → full bazi_detail data
+const isLoadingProfileDetail = ref(false)
 const selectedProfileId = ref('')
 const currentTab = ref('basic')
 const showAdd = ref(false)
@@ -1558,7 +1560,10 @@ const pillarPreviewError = computed(() => {
 
 // 计算属性 (Vue 魔法：数据变化自动更新 UI)
 const activeProfile = computed(() => {
-    return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
+    const base = baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
+    if (!base) return null
+    const detail = profileDetailCache.value[base.id]
+    return detail ? { ...base, ...detail } : base
 })
 const currentMonthKey = computed(() => {
     const now = new Date()
@@ -1903,12 +1908,16 @@ watch(baziEngine, async (newVal) => {
 
 watch(
     () => activeProfile.value?.id,
-    async () => {
+    async (newId) => {
         if (!activeProfile.value || isGuest.value) {
             profileContextDraft.value = createEmptyProfileContextDraft()
             monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value || currentMonthKey.value)
             recentMonthlyContextRecords.value = []
             return
+        }
+        // 先确保 bazi_detail 已加载，再做引擎版本检查
+        if (newId && !profileDetailCache.value[newId]) {
+            await loadProfileDetail(newId)
         }
         await fetchProfileContextDraft()
         await fetchMonthlyContextDraft()
@@ -1923,7 +1932,7 @@ watch(
         )
         const hasBaziStr = Boolean(activeProfile.value?.bazi_str)
         const hasDetail = Boolean(activeProfile.value?.bazi_detail?.matrix)
-        if (hasBaziStr && !hasDetail && !isAnalyzing.value) {
+        if (hasBaziStr && !hasDetail && !isAnalyzing.value && !isLoadingProfileDetail.value) {
             // 首次添加档案：尚无排盘/断语，自动生成（无需手动点击同步）
             console.log('[bazi] 新档案尚无排盘，自动生成…')
             requestAiSummary({ force: false })
@@ -2934,11 +2943,27 @@ const fetchProfiles = async () => {
         selectedProfileId.value = resolvedProfileId
         setSelectedBaziProfileId(resolvedProfileId)
     }
+    // 列表只拉元数据列，bazi_detail 太大容易 timeout，改由 loadProfileDetail 按需单独拉
+    const LIST_SELECT = 'id, user_id, name, gender, birth_date, birth_location, is_default, created_at, bazi_str, strong_weak, geju, shensha, favorable_elements, unfavorable_elements, bazi_summary, llm_yuanju_core, llm_current_dayun, llm_current_liunian, engine_yuanju_core, engine_current_dayun, engine_current_liunian, day_zhi, year_zhi, month_zhi, ri_zhu'
     const cached = getCachedBaziProfiles('full')
     if (cached?.length) applyProfiles(cached)
-    const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
+    const { data } = await supabase.from('bazi_profiles').select(LIST_SELECT).order('created_at', {ascending: false})
     if (data) setCachedBaziProfiles('full', data)
     applyProfiles(data || [])
+    // 拉完列表后立即加载选中档案的全量数据
+    if (selectedProfileId.value) loadProfileDetail(selectedProfileId.value)
+}
+
+const loadProfileDetail = async (profileId) => {
+    if (!profileId || isGuest.value) return
+    if (profileDetailCache.value[profileId]) return  // 已有缓存，跳过
+    isLoadingProfileDetail.value = true
+    try {
+        const { data } = await supabase.from('bazi_profiles').select('bazi_detail, calibration_data').eq('id', profileId).single()
+        if (data) profileDetailCache.value = { ...profileDetailCache.value, [profileId]: data }
+    } finally {
+        isLoadingProfileDetail.value = false
+    }
 }
 
 const getAccessToken = async () => {
@@ -3465,6 +3490,9 @@ const requestAiSummary = async ({ force = false } = {}) => {
         }
         analysisProgress.value = 100
         clearBaziProfilesCache()
+        // 清掉旧的 bazi_detail 缓存，让 loadProfileDetail 重新拉取
+        const { [profileId]: _, ...rest } = profileDetailCache.value
+        profileDetailCache.value = rest
         await fetchProfiles() // 刷新拿到最新数据
         if (shouldCalibrateFromEvents) {
             await triggerCalibration({ profileId, force })
