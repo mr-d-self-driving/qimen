@@ -870,11 +870,28 @@ const baziPanelBestYear = computed(() => {
 const baziPanelAvoidText = computed(() => activeBaziResultData.value?.readings?.avoid_window ?? '')
 const baziPanelConclusionText = computed(() => activeBaziResultData.value?.verdict ?? '')
 
+const _baziPanelFiveShensFetched = ref(null)
 const baziPanelFiveShens = computed(() =>
   activeBaziResultData.value?.five_shens ||
-  activeBaziProfile.value?.bazi_detail?.five_shens ||
+  _baziPanelFiveShensFetched.value ||
   null
 )
+
+async function fetchMissingFiveShens() {
+  const profileId = activeBaziProfile.value?.id
+  if (!profileId) return
+  if (activeBaziResultData.value?.five_shens) return
+  try {
+    const { data } = await supabase
+      .from('bazi_profiles')
+      .select('bazi_detail')
+      .eq('id', profileId)
+      .single()
+    _baziPanelFiveShensFetched.value = data?.bazi_detail?.five_shens || null
+  } catch {
+    // silent — 用神关系标注降级为不显示
+  }
+}
 
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
@@ -1667,6 +1684,7 @@ const fetchMissingPanelData = async (data) => {
 const activateBaziResultPanel = (data) => {
   showBaziBackingAnchor.value = false
   showBaziPanelAnchor.value = false
+  _baziPanelFiveShensFetched.value = null
   if (!(data?.branch === 'bazi' && data.meta?.analysis_mode)) {
     activeBaziResultData.value = null
     baziCardSelectedYear.value = null
@@ -1684,6 +1702,8 @@ const activateBaziResultPanel = (data) => {
   syncBaziPanelAnchor()
   // 存量记录无 state_report → 按需补算
   if (!data.state_report) fetchMissingPanelData(data)
+  // 存量记录无 five_shens → 补查 profile bazi_detail
+  if (!data.five_shens) fetchMissingFiveShens()
 }
 
 const startDivination = async () => {
