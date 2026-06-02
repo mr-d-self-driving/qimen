@@ -1617,7 +1617,7 @@ const fetchMissingPanelData = async (data) => {
         .single()
       if (full) profile = { ...profile, ...full }
     }
-    const res = await fetch('/api/bazi-panel', {
+    const res = await fetch(apiPath('/api/bazi-panel'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({
