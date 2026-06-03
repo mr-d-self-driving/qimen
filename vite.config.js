@@ -48,9 +48,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        // preview 分支开发：指向 preview worker（含 image_analysis 等新功能）
-        // 切回 main 时改为 https://qimen.oceanjustinlin.workers.dev
-        target: 'https://qimen-preview.oceanjustinlin.workers.dev',
+        target: 'https://qimen.oceanjustinlin.workers.dev',
         changeOrigin: true,
       }
     }
