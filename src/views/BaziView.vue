@@ -2976,7 +2976,7 @@ const fetchProfileContextDraft = async () => {
     }
     try {
         const accessToken = await getAccessToken()
-        const response = await fetch(`/api/context-notes?scope=profile&profile_id=${encodeURIComponent(activeProfile.value.id)}`, {
+        const response = await fetch(apiPath(`/api/context-notes?scope=profile&profile_id=${encodeURIComponent(activeProfile.value.id)}`), {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         const payload = await response.json()
@@ -2999,7 +2999,7 @@ const fetchMonthlyContextDraft = async () => {
     }
     try {
         const accessToken = await getAccessToken()
-        const response = await fetch(`/api/context-notes?scope=monthly&profile_id=${encodeURIComponent(activeProfile.value.id)}&month_key=${encodeURIComponent(notesMonthKey.value)}`, {
+        const response = await fetch(apiPath(`/api/context-notes?scope=monthly&profile_id=${encodeURIComponent(activeProfile.value.id)}&month_key=${encodeURIComponent(notesMonthKey.value)}`), {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         const payload = await response.json()
@@ -3022,7 +3022,7 @@ const saveProfileContextDraft = async () => {
     try {
         const shouldRefreshInterpretation = computeProfileContextRefreshSignal(profileContextBaseline.value, profileContextDraft.value)
         const accessToken = await getAccessToken()
-        const response = await fetch('/api/context-notes', {
+        const response = await fetch(apiPath('/api/context-notes'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -3056,7 +3056,7 @@ const saveMonthlyContextDraft = async () => {
     try {
         const shouldRefreshInterpretation = computeMonthlyContextRefreshSignal(monthlyContextBaseline.value, monthlyContextDraft.value)
         const accessToken = await getAccessToken()
-        const response = await fetch('/api/context-notes', {
+        const response = await fetch(apiPath('/api/context-notes'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
