@@ -2959,7 +2959,7 @@ const loadProfileDetail = async (profileId) => {
     if (profileDetailCache.value[profileId]) return  // 已有缓存，跳过
     isLoadingProfileDetail.value = true
     try {
-        const { data } = await supabase.from('bazi_profiles').select('bazi_detail, calibration_data').eq('id', profileId).single()
+        const { data } = await supabase.from('bazi_profiles').select('bazi_detail').eq('id', profileId).single()
         if (data) profileDetailCache.value = { ...profileDetailCache.value, [profileId]: data }
     } finally {
         isLoadingProfileDetail.value = false
