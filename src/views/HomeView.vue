@@ -1685,6 +1685,93 @@ const fetchMissingPanelData = async (data) => {
   }
 }
 
+// ── v1→v2 读取时适配器（§9.11）── ────────────────────────────────────────
+// 幂等：v2 记录（schema_version===2）原样返回；v1 记录映射到 v2 结构
+function adaptBaziResultToV2(data) {
+  if (!data || data?.meta?.schema_version === 2) return data
+  const readings = data.readings || data.mode_analysis || {}
+  const summary  = data.summary  || {}
+  const ag       = data.action_guide || {}
+  const advice   = data.advice   || {}
+
+  // ── summary.basis ──
+  if (!summary.basis) {
+    summary.basis = summary.basis
+      || summary.score_basis?.score_logic
+      || ''
+  }
+
+  // ── readings v1→v2 ──
+  const r = { ...readings }
+
+  // base_foundation（从 base_state / key_signals 降级）
+  if (!r.base_foundation) {
+    r.base_foundation = {
+      text: data.chart_foundation?.base_state || data.analysis?.pattern || '',
+      signals: (data.key_signals || []).slice(0, 3).map(s => s.title || '').filter(Boolean)
+    }
+  }
+
+  // target_state（从 target_state_reading 包成数组）
+  if (!r.target_state && r.target_state_reading) {
+    r.target_state = [{ title: '目标用神状态', text: r.target_state_reading }]
+  }
+
+  // dayun_field（从 dayun_reading）
+  if (!r.dayun_field && r.dayun_reading) {
+    r.dayun_field = { text: r.dayun_reading }
+  }
+
+  // liunian_trigger（从 liunian_reading）
+  if (!r.liunian_trigger && r.liunian_reading) {
+    r.liunian_trigger = { text: r.liunian_reading, phenomena: [] }
+  }
+
+  // structural_verdict（从 pattern_verdict）
+  if (!r.structural_verdict && r.pattern_verdict) {
+    r.structural_verdict = r.pattern_verdict
+  }
+
+  // trigger_windows: best/worst_window 字符串→对象
+  if (typeof r.best_window === 'string' && r.best_window) {
+    r.best_window = { year: null, reason: r.best_window }
+  }
+  if (!r.worst_window && r.avoid_window) {
+    r.worst_window = typeof r.avoid_window === 'string'
+      ? { year: null, reason: r.avoid_window }
+      : r.avoid_window
+  }
+
+  // trigger_windows: mechanisms_text → phenomena 单条包装
+  if (Array.isArray(r.trigger_windows)) {
+    r.trigger_windows = r.trigger_windows.map(w => {
+      if (!w.phenomena && w.mechanisms_text) {
+        return { ...w, phenomena: [{ tag: '核心机制', explain: w.mechanisms_text }] }
+      }
+      return w
+    })
+  }
+
+  // ── action_guide v1→v2 ──
+  if (!ag.text && !Array.isArray(ag.items)) {
+    const doList    = Array.isArray(ag.do)    ? ag.do    : (Array.isArray(advice.strategy) ? advice.strategy : [])
+    const avoidList = Array.isArray(ag.avoid) ? ag.avoid : (Array.isArray(advice.avoid)   ? advice.avoid   : [])
+    ag.text  = ag.hidden_insight || advice.risk || ''
+    ag.items = [
+      ...doList,
+      ...avoidList.map(a => `避：${a}`)
+    ].filter(Boolean)
+  }
+
+  return {
+    ...data,
+    summary,
+    readings: r,
+    action_guide: ag,
+    meta: { ...(data.meta || {}), schema_version: 2 }
+  }
+}
+
 const activateBaziResultPanel = (data) => {
   showBaziBackingAnchor.value = false
   showBaziPanelAnchor.value = false
@@ -1694,6 +1781,8 @@ const activateBaziResultPanel = (data) => {
     baziCardSelectedYear.value = null
     return
   }
+  // 存量 v1 记录在进渲染前统一映射到 v2 结构（幂等）
+  data = adaptBaziResultToV2(data)
   activeBaziResultData.value = data
   if (data.meta.analysis_mode === 'timing') {
     const windows = data.readings?.trigger_windows || data.mode_analysis?.trigger_windows || []
@@ -2136,19 +2225,22 @@ const buildBaziQuestionCardHTML = (data) => {
   const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
   // ── Hero：短标题 + verdict ──
-  // title 来自 LLM，是一个精炼的短标题（如"财多身弱宜守印"），不是问题重复
   const heroTitle = summary.title || '八字推演'
   const heroKeyword = summary.keyword || ''
 
-  // ── Section 1: 结论先行 ──
-  // verdict 是完整的一句话定论，放在 mag-question 下方正文里
+  // ── Section 1: 结论先行（v2: +summary.basis 底盘交代） ──
+  const basisText = summary.basis || ''
   const m1HTML = `<section class="mag-section" id="bazi-m1">
     <div class="module-heading"><h2>结论先行</h2></div>
     ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
     ${verdict ? `<p class="bazi-verdict-body">${sanitizeBaziDisplayText(verdict, targetLabel)}</p>` : ''}
+    ${basisText ? `<p class="bazi-basis-text">${sanitizeBaziDisplayText(basisText, targetLabel)}</p>` : ''}
   </section>`
 
-  // ── Section 2: 命局信号（inference-flow 风格，连续流） ──
+  // ── Section 2: 命局解读（v2: base_foundation 底盘 + panel anchor） ──
+  // v2: base_foundation.text + signals；v1 兼容: key_signals
+  const bf = readings.base_foundation || {}
+  const bfSignals = Array.isArray(bf.signals) ? bf.signals : []
   const signalsFlowHTML = keySignals.length
     ? `<div class="inference-flow">
         ${keySignals.map(sig => `<article class="inference-card">
@@ -2159,121 +2251,181 @@ const buildBaziQuestionCardHTML = (data) => {
         </article>`).join('')}
       </div>`
     : ''
+  const bfHTML = bf.text
+    ? `<div class="bazi-base-foundation">
+        <p class="bazi-bf-text">${sanitizeBaziDisplayText(bf.text, targetLabel)}</p>
+        ${bfSignals.length ? `<div class="bazi-bf-signals">${bfSignals.map(s => `<span class="bazi-bf-signal">${sanitizeBaziDisplayText(s, targetLabel)}</span>`).join('')}</div>` : ''}
+      </div>`
+    : ''
 
-  // 命局底盘 panel anchor（BaziStaticPanel + BaziDynamicPanel 由 Teleport 注入）
   const m2HTML = `<section class="mag-section" id="bazi-m2">
       <div class="module-heading"><h2>命局解读</h2></div>
+      ${bfHTML}
       ${signalsFlowHTML ? `<div class="module-heading"><h2>命局信号</h2></div>${signalsFlowHTML}` : ''}
       <div id="bazi-panel-anchor" class="bazi-panel-anchor"></div>
     </section>`
 
-  // ── Section 3: 推演解读（mode 专属内容，连续流） ──
-  // 用 inference-flow 风格：每块 inference-card，label 小标，h4 正文
+  // ── Section 3: 推演解读（v2 字段优先，v1 兼容降级） ──
+  // 工具：渲染一个 inference-card
+  const inferCard = (label, text, tone = '', extra = '') => {
+    if (!text) return ''
+    const cls = tone === 'mirror' ? ' bazi-infer-mirror' : tone === 'positive' ? ' bazi-infer-positive' : tone === 'outcome' ? ' bazi-infer-outcome' : tone === 'muted' ? ' bazi-infer-muted' : ''
+    const body = sanitizeBaziDisplayText(text, targetLabel).replace(/\n/g, '<br>')
+    return `<article class="inference-card${cls}">
+      <div class="inference-body">
+        <div class="inference-head"><span>${label}</span></div>
+        <h4>${body}</h4>
+        ${extra}
+      </div>
+    </article>`
+  }
+
+  // ── phenomena 行（liunian_trigger.phenomena / timing window phenomena） ──
+  const phenomenaHTML = (phenomena) => {
+    if (!Array.isArray(phenomena) || !phenomena.length) return ''
+    return `<div class="bazi-phenomena-rows">${phenomena.map(ph =>
+      `<div class="bazi-ph-row"><span class="bazi-ph-tag">${sanitizeBaziDisplayText(ph.tag || '', targetLabel)}</span><span class="bazi-ph-explain">${sanitizeBaziDisplayText(ph.explain || '', targetLabel)}</span></div>`
+    ).join('')}</div>`
+  }
+
+  // ── strength 档 → CSS 类（供 timing window 徽章颜色） ──
+  const strengthClass = (s) => {
+    if (s === '最强' || s === '次强') return 'quality-strong'
+    if (s === '较强' || s === '中等') return 'quality-medium'
+    return 'quality-weak'
+  }
+
   const inferItems = []
 
-  // status mode
-  const psychMirror = readings.psychological_mirror || ''
-  const movNature = readings.movement_nature || null
-  const dayunReading = readings.dayun_reading || ''
-  const liunianReading = readings.liunian_reading || ''
-  const targetReading = readings.target_state_reading || ''
-  const outcomeProj = readings.outcome_projection || null
+  const mode = meta.analysis_mode || ''
 
-  if (psychMirror) {
-    inferItems.push({ label: '当下感受', text: psychMirror, tone: 'mirror' })
+  // ── v2: target_state[]（所有 mode，≤3条，在大运建场前展示目标用神状态） ──
+  const targetStateItems = Array.isArray(readings.target_state) ? readings.target_state : []
+
+  // ── status / profile_driven: 大运建场 + 流年触发 ──
+  const dayunFieldText = readings.dayun_field?.text || readings.dayun_reading || ''
+  const liunianTrigger = readings.liunian_trigger || {}
+  const liunianText = liunianTrigger.text || readings.liunian_reading || ''
+  const liunianPhenomena = Array.isArray(liunianTrigger.phenomena) ? liunianTrigger.phenomena : []
+
+  if (mode !== 'pattern' && mode !== 'character' && mode !== 'timing') {
+    // status / profile_driven / legacy
+    const psychMirror = readings.psychological_mirror || ''
+    const movNature = readings.movement_nature || null
+    if (psychMirror) inferItems.push({ label: '当下感受', text: psychMirror, tone: 'mirror' })
+
+    // target_state 在大运前展示（v2）
+    targetStateItems.slice(0, 3).forEach(ts => {
+      if (ts.text) inferItems.push({ label: ts.title || targetLabel, text: ts.text, tone: '' })
+    })
+    // v1 fallback: target_state_reading
+    if (!targetStateItems.length && readings.target_state_reading) {
+      inferItems.push({ label: `${targetLabel}状态`, text: readings.target_state_reading, tone: '' })
+    }
+
+    if (dayunFieldText) {
+      const movNote = movNature?.type && movNature.type !== '暂无明显变动'
+        ? `（${movNature.type} · ${movNature.quality}）` : ''
+      inferItems.push({ label: `大运建场${movNote}`, text: dayunFieldText, tone: '', phenomena: [] })
+    }
+    if (liunianText) {
+      inferItems.push({ label: '流年触发', text: liunianText, tone: '', phenomena: liunianPhenomena })
+    }
+
+    // v1 only: outcome_projection
+    const outcomeProj = readings.outcome_projection || null
+    if (outcomeProj) {
+      const parts = [
+        outcomeProj.if_happens ? `若变动发生：${outcomeProj.if_happens}` : '',
+        outcomeProj.satisfaction_forecast ? `满意度：${outcomeProj.satisfaction_forecast}` : '',
+        outcomeProj.hidden_catch ? `隐藏代价：${outcomeProj.hidden_catch}` : ''
+      ].filter(Boolean).join('\n')
+      if (parts) inferItems.push({ label: '后续推演', text: parts, tone: 'outcome', phenomena: [] })
+    }
+
+    // profile_driven path_readings
+    const pathReadings = readings.path_readings || []
+    pathReadings.forEach(p => {
+      const body = [
+        p.structural_fit || '',
+        p.likely_experience ? `\n近1-3年：${p.likely_experience}` : '',
+        p.satisfaction_prediction ? `满意度：${p.satisfaction_prediction}` : '',
+        p.peak_period ? `最顺期：${p.peak_period}` : '',
+        p.risk ? `风险：${p.risk}` : ''
+      ].filter(Boolean).join('\n')
+      if (body) inferItems.push({ label: p.path || '路径', text: body, tone: '' })
+    })
+    // v1 profile_driven
+    if (readings.structural_reading) inferItems.push({ label: '结构分析', text: readings.structural_reading, tone: '' })
   }
-  // movement_nature 折叠进 dayun_reading 的 label 里，不单独作为 badge 渲染
-  if (dayunReading) {
-    const movNote = movNature?.type && movNature.type !== '暂无明显变动'
-      ? `（${movNature.type} · ${movNature.quality}）`
-      : ''
-    inferItems.push({ label: `大运影响${movNote}`, text: dayunReading, tone: '' })
-  }
-  if (liunianReading) {
-    inferItems.push({ label: '流年触发', text: liunianReading, tone: '' })
-  }
-  if (targetReading) {
-    inferItems.push({ label: `${targetLabel}状态`, text: targetReading, tone: '' })
-  }
-  if (outcomeProj) {
-    const parts = [
-      outcomeProj.if_happens ? `若变动发生：${outcomeProj.if_happens}` : '',
-      outcomeProj.satisfaction_forecast ? `满意度：${outcomeProj.satisfaction_forecast}` : '',
-      outcomeProj.hidden_catch ? `隐藏代价：${outcomeProj.hidden_catch}` : ''
-    ].filter(Boolean).join('\n')
-    if (parts) inferItems.push({ label: '后续推演', text: parts, tone: 'outcome' })
+
+  // ── pattern: structural_supports/risks/verdict ──
+  if (mode === 'pattern') {
+    targetStateItems.slice(0, 3).forEach(ts => {
+      if (ts.text) inferItems.push({ label: ts.title || targetLabel, text: ts.text, tone: '' })
+    })
+    const strVerdict = readings.structural_verdict || readings.pattern_verdict || ''
+    if (strVerdict) inferItems.push({ label: '先天格局', text: strVerdict, tone: '' })
+    const supports = Array.isArray(readings.structural_supports) ? readings.structural_supports : []
+    const risks    = Array.isArray(readings.structural_risks)    ? readings.structural_risks    : []
+    if (supports.length) inferItems.push({ label: '结构支撑', text: supports.join('；'), tone: 'positive' })
+    if (risks.length)    inferItems.push({ label: '结构风险', text: risks.join('；'),    tone: 'outcome' })
+    if (readings.real_world_expression) inferItems.push({ label: '日常表现', text: readings.real_world_expression, tone: '' })
+    if (readings.how_to_leverage)       inferItems.push({ label: '发力方向', text: readings.how_to_leverage, tone: 'positive' })
+    if (readings.current_status_note)   inferItems.push({ label: '当前时机', text: readings.current_status_note, tone: '' })
   }
 
-  // pattern mode
-  const patternVerdict = readings.pattern_verdict || readings.verdict || ''
-  if (patternVerdict) inferItems.push({ label: '先天格局', text: patternVerdict, tone: '' })
-  if (readings.real_world_expression) inferItems.push({ label: '日常表现', text: readings.real_world_expression, tone: '' })
-  if (readings.how_to_leverage) inferItems.push({ label: '发力方向', text: readings.how_to_leverage, tone: 'positive' })
-  if (readings.current_status_note) inferItems.push({ label: '当前时机', text: readings.current_status_note, tone: '' })
+  // ── character mode（不变） ──
+  if (mode === 'character') {
+    if (readings.appearance_tendency?.text)  inferItems.push({ label: '外貌气质', text: readings.appearance_tendency.text, tone: '' })
+    if (readings.personality_tendency?.text) inferItems.push({ label: '性格倾向', text: readings.personality_tendency.text, tone: '' })
+    if (readings.career_style?.text)         inferItems.push({ label: '行事风格', text: readings.career_style.text, tone: '' })
+    if (readings.relationship_dynamic)       inferItems.push({ label: '关系动态', text: readings.relationship_dynamic, tone: '' })
+    if (readings.do_not_overclaim)           inferItems.push({ label: '说明', text: readings.do_not_overclaim, tone: 'muted' })
+  }
 
-  // character mode
-  if (readings.appearance_tendency?.text) inferItems.push({ label: '外貌气质', text: readings.appearance_tendency.text, tone: '' })
-  if (readings.personality_tendency?.text) inferItems.push({ label: '性格倾向', text: readings.personality_tendency.text, tone: '' })
-  if (readings.career_style?.text) inferItems.push({ label: '行事风格', text: readings.career_style.text, tone: '' })
-  if (readings.relationship_dynamic) inferItems.push({ label: '关系动态', text: readings.relationship_dynamic, tone: '' })
-  if (readings.do_not_overclaim) inferItems.push({ label: '说明', text: readings.do_not_overclaim, tone: 'muted' })
+  // ── timing: best/worst_window 概览（v2 对象/v1 字符串均支持） ──
+  if (mode === 'timing') {
+    targetStateItems.slice(0, 3).forEach(ts => {
+      if (ts.text) inferItems.push({ label: ts.title || targetLabel, text: ts.text, tone: '' })
+    })
+    if (dayunFieldText) inferItems.push({ label: '大运建场', text: dayunFieldText, tone: '' })
+    const bwObj = readings.best_window
+    const wwObj = readings.worst_window || (readings.avoid_window ? { reason: readings.avoid_window } : null)
+    const metaLine = [
+      bwObj ? `最优窗口：${bwObj.year ? `${bwObj.year}年 ` : ''}${bwObj.reason || bwObj}` : '',
+      wwObj ? `规避：${wwObj.year ? `${wwObj.year}年 ` : ''}${wwObj.reason || wwObj}` : ''
+    ].filter(Boolean).join('　')
+    if (metaLine) inferItems.push({ label: '应期概览', text: metaLine, tone: '' })
+  }
 
-  // profile_driven mode
-  if (readings.psychological_mirror && !psychMirror) inferItems.push({ label: '当下感受', text: readings.psychological_mirror, tone: 'mirror' })
-  if (readings.structural_reading) inferItems.push({ label: '结构分析', text: readings.structural_reading, tone: '' })
-
-  // timing mode windows — 单独渲染保留卡片风格（年份需要结构感）
-  const windows = Array.isArray(readings.trigger_windows) ? readings.trigger_windows : []
-  const timingMetaLine = [
-    readings.best_window ? `最优窗口：${readings.best_window}` : '',
-    readings.avoid_window ? `回避：${readings.avoid_window}` : ''
-  ].filter(Boolean).join('　')
-  if (timingMetaLine) inferItems.push({ label: '应期概览', text: timingMetaLine, tone: '' })
-
-  // profile_driven path_readings — 每条路径作为一个 inference-card
-  const pathReadings = readings.path_readings || []
-  const pathItems = pathReadings.map(p => {
-    const body = [
-      p.structural_fit || '',
-      p.likely_experience ? `\n近1-3年：${p.likely_experience}` : '',
-      p.satisfaction_prediction ? `满意度：${p.satisfaction_prediction}` : '',
-      p.peak_period ? `最顺期：${p.peak_period}` : '',
-      p.risk ? `风险：${p.risk}` : ''
-    ].filter(Boolean).join('\n')
-    return { label: p.path || '路径', text: body, tone: '' }
-  })
-
-  const allInferItems = [...inferItems, ...pathItems]
-
-  const inferFlowHTML = allInferItems.length
+  const inferFlowHTML = inferItems.length
     ? `<div class="inference-flow">
-        ${allInferItems.map(item => {
-          const toneAttr = item.tone === 'mirror' ? ' bazi-infer-mirror' : item.tone === 'positive' ? ' bazi-infer-positive' : item.tone === 'outcome' ? ' bazi-infer-outcome' : item.tone === 'muted' ? ' bazi-infer-muted' : ''
-          // 换行转 <br>
-          const bodyHTML = sanitizeBaziDisplayText(item.text, targetLabel).replace(/\n/g, '<br>')
-          return `<article class="inference-card${toneAttr}">
-            <div class="inference-body">
-              <div class="inference-head"><span>${item.label}</span></div>
-              <h4>${bodyHTML}</h4>
-            </div>
-          </article>`
-        }).join('')}
+        ${inferItems.map(item => inferCard(item.label, item.text, item.tone, phenomenaHTML(item.phenomena))).filter(Boolean).join('')}
       </div>`
     : ''
 
-  // timing windows 依然保留独立的年份卡片布局
+  // ── timing windows（v2: strength + phenomena；v1: mechanisms_text） ──
+  const windows = Array.isArray(readings.trigger_windows) ? readings.trigger_windows : []
   const timingWindowsHTML = windows.length
     ? `<div class="bazi-timing-flow">
-        ${windows.map(item => `<article class="inference-card">
-          <div class="inference-body">
-            <div class="inference-head">
-              <span>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</span>
-              <strong class="quality-${item.quality || 'weak'}">${baziLevelLabel(item.quality)}</strong>
+        ${windows.map(item => {
+          const strengthLabel = item.strength || baziLevelLabel(item.quality)
+          const sCls = item.strength ? strengthClass(item.strength) : `quality-${item.quality || 'weak'}`
+          const ph = Array.isArray(item.phenomena) && item.phenomena.length
+            ? phenomenaHTML(item.phenomena)
+            : (item.mechanisms_text ? `<p class="bazi-mechanisms">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</p>` : '')
+          return `<article class="inference-card">
+            <div class="inference-body">
+              <div class="inference-head">
+                <span>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</span>
+                <strong class="${sCls}">${strengthLabel}</strong>
+              </div>
+              <h4>${sanitizeBaziDisplayText(item.verdict || '', targetLabel)}</h4>
+              ${ph}
             </div>
-            <h4>${sanitizeBaziDisplayText(item.verdict || '', targetLabel)}</h4>
-            ${item.mechanisms_text ? `<p class="bazi-mechanisms">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</p>` : ''}
-          </div>
-        </article>`).join('')}
+          </article>`
+        }).join('')}
       </div>`
     : ''
 
@@ -2314,12 +2466,33 @@ const buildBaziQuestionCardHTML = (data) => {
       </section>`
     : ''
 
-  // ── Section 5: 行动建议（guidance-card 风格，双栏） ──
-  const doItems   = actionGuide.do    || data.advice?.strategy || []
-  const avoidItems = actionGuide.avoid || data.advice?.avoid   || []
+  // ── Section 5: 行动建议（v2: text+items；v1 兼容: do/avoid/hidden_insight） ──
+  const agText  = actionGuide.text  || ''
+  const agItems = Array.isArray(actionGuide.items) && actionGuide.items.length ? actionGuide.items : []
+  const doItems    = actionGuide.do    || data.advice?.strategy || []
+  const avoidItems = actionGuide.avoid || data.advice?.avoid    || []
   const hiddenInsight = actionGuide.hidden_insight || ''
 
-  const guidanceCardsHTML = [
+  // v2: text 作导语卡，items 统一列表
+  const agTextHTML = agText
+    ? `<article class="inference-card bazi-infer-positive" style="margin-bottom:12px">
+        <div class="inference-body">
+          <h4>${sanitizeBaziDisplayText(agText, targetLabel)}</h4>
+        </div>
+      </article>`
+    : ''
+
+  const agItemsHTML = agItems.length
+    ? `<article class="guidance-card">
+        <div class="guidance-kicker">行动指引</div>
+        <div class="guidance-rows">
+          ${agItems.slice(0, 4).map((s, i) => `<div class="guidance-row"><span>${i + 1}</span><p>${sanitizeBaziDisplayText(s, targetLabel)}</p></div>`).join('')}
+        </div>
+      </article>`
+    : ''
+
+  // v1 compat: do/avoid 双栏（仅当 items 为空时渲染）
+  const guidanceCardsHTML = agItems.length ? '' : [
     doItems.length ? `<article class="guidance-card">
       <div class="guidance-kicker">该做什么</div>
       <div class="guidance-rows">
@@ -2334,7 +2507,7 @@ const buildBaziQuestionCardHTML = (data) => {
     </article>` : ''
   ].filter(Boolean).join('')
 
-  const hiddenHTML = hiddenInsight
+  const hiddenHTML = !agText && hiddenInsight
     ? `<article class="inference-card bazi-infer-mirror" style="margin-top:0">
         <div class="inference-body">
           <div class="inference-head"><span>盲点提醒</span></div>
@@ -2343,9 +2516,11 @@ const buildBaziQuestionCardHTML = (data) => {
       </article>`
     : ''
 
-  const m5HTML = guidanceCardsHTML || hiddenHTML
+  const m5HTML = agText || agItemsHTML || guidanceCardsHTML || hiddenHTML
     ? `<section class="mag-section" id="bazi-m5">
         <div class="module-heading"><h2>行动建议</h2></div>
+        ${agTextHTML}
+        ${agItemsHTML ? `<div class="guidance-grid">${agItemsHTML}</div>` : ''}
         ${guidanceCardsHTML ? `<div class="guidance-grid">${guidanceCardsHTML}</div>` : ''}
         ${hiddenHTML}
       </section>`
@@ -2433,7 +2608,8 @@ const deriveScoreBasisFromM3 = (m3, formations) => {
 }
 
 const buildCardHTML = (data) => {
-  if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(data)
+  // 八字分支：v1 存量记录在进渲染前统一适配到 v2（幂等）
+  if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(adaptBaziResultToV2(data))
 
   data = normalizeQimenCardData(data)
   const report = data.qimen_report || {}
@@ -3575,6 +3751,18 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-signal-list),
 /* ── bazi 新结构：复用 inference-flow/card/head 样式，仅补充差异部分 ── */
 :deep(.bazi-verdict-body) { margin:0; color:var(--ink-muted); font-size:15px; line-height:1.82; overflow-wrap:anywhere; }
+/* v2: summary.basis 底盘交代 */
+:deep(.bazi-basis-text) { margin:10px 0 0; color:var(--ink-dim); font-size:13px; line-height:1.75; overflow-wrap:anywhere; padding:10px 12px; background:rgba(181,141,59,0.05); border-left:2px solid rgba(181,141,59,0.3); border-radius:0 6px 6px 0; }
+/* v2: base_foundation 原局底盘 */
+:deep(.bazi-base-foundation) { margin:0 0 12px; }
+:deep(.bazi-bf-text) { margin:0 0 8px; font-size:13px; color:var(--ink-muted); line-height:1.72; overflow-wrap:anywhere; }
+:deep(.bazi-bf-signals) { display:flex; flex-wrap:wrap; gap:6px; }
+:deep(.bazi-bf-signal) { font-size:11.5px; color:var(--gold,#B58D3B); background:rgba(181,141,59,0.08); border:1px solid rgba(181,141,59,0.2); border-radius:5px; padding:2px 8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+/* v2: phenomena 行（liunian_trigger / timing window） */
+:deep(.bazi-phenomena-rows) { display:flex; flex-direction:column; gap:5px; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+:deep(.bazi-ph-row) { display:flex; align-items:baseline; gap:8px; font-size:12px; line-height:1.5; flex-wrap:wrap; }
+:deep(.bazi-ph-tag) { font-weight:700; color:var(--theme-color,#B58D3B); white-space:nowrap; flex-shrink:0; font-size:11.5px; }
+:deep(.bazi-ph-explain) { color:var(--ink-dim); flex:1; min-width:0; overflow-wrap:anywhere; }
 /* inference-card tone variants for bazi */
 :deep(.bazi-infer-mirror .inference-head span) { color:#7C6FBF; }
 :deep(.bazi-infer-mirror h4) { font-style:italic; color:var(--ink,#1a1a1a) !important; }
