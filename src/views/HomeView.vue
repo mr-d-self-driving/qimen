@@ -1694,11 +1694,17 @@ function adaptBaziResultToV2(data) {
   const ag       = data.action_guide || {}
   const advice   = data.advice   || {}
 
-  // ── summary.basis ──
-  if (!summary.basis) {
-    summary.basis = summary.basis
-      || summary.score_basis?.score_logic
-      || ''
+  // ── summary.basis：旧格式是 {logic, positive_signals, negative_signals} 对象，需提取为字符串 ──
+  if (typeof summary.basis === 'object' && summary.basis !== null) {
+    // 把老的 logic + positive/negative signals 拼成一段文字
+    const parts = [
+      summary.basis.logic || '',
+      ...(Array.isArray(summary.basis.positive_signals) ? summary.basis.positive_signals.map(s => `+${s}`) : []),
+      ...(Array.isArray(summary.basis.negative_signals) ? summary.basis.negative_signals.map(s => `-${s}`) : [])
+    ].filter(Boolean)
+    summary.basis = parts.join('；')
+  } else if (!summary.basis) {
+    summary.basis = summary.score_basis?.score_logic || ''
   }
 
   // ── readings v1→v2 ──
@@ -2229,7 +2235,9 @@ const buildBaziQuestionCardHTML = (data) => {
   const heroKeyword = summary.keyword || ''
 
   // ── Section 1: 结论先行（v2: +summary.basis 底盘交代） ──
-  const basisText = summary.basis || ''
+  // 防御：老记录 summary.basis 可能是对象（adaptBaziResultToV2 应已处理，这里兜底）
+  const basisRaw = summary.basis || ''
+  const basisText = typeof basisRaw === 'string' ? basisRaw : (basisRaw.logic || '')
   const m1HTML = `<section class="mag-section" id="bazi-m1">
     <div class="module-heading"><h2>结论先行</h2></div>
     ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
