@@ -900,7 +900,8 @@ async function handleBaziQuestion(request, env) {
     });
 
     try {
-      const { error: auditError } = await supabase.from('bazi_question_audit').insert(auditSnapshot);
+      const auditSupabase = createSupabaseClient(env);
+      const { error: auditError } = await auditSupabase.from('bazi_question_audit').insert(auditSnapshot);
       if (auditError) console.warn('[qimen-api] bazi audit insert failed:', auditError.message || auditError);
     } catch (auditErr) {
       console.warn('[qimen-api] bazi audit insert failed:', auditErr.message || auditErr);

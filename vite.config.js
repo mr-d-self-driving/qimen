@@ -48,7 +48,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://qimen.oceanjustinlin.workers.dev',
+        // 临时指向 preview worker（含 v2 LLM prompt）；测试 v2 期间使用，验收后改回 qimen.oceanjustinlin.workers.dev
+        target: 'https://qimen-preview.oceanjustinlin.workers.dev',
         changeOrigin: true,
       }
     }

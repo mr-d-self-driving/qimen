@@ -24,7 +24,7 @@
         <p v-if="dayunImpact.gaitou_jiejiao_note" class="gz-note">{{ dayunImpact.gaitou_jiejiao_note }}</p>
 
         <div
-          v-for="(mech, i) in dayunImpact.mechanisms"
+          v-for="(mech, i) in visibleMechanisms(dayunImpact)"
           :key="i"
           class="mech-row"
           :class="mechRowClass(mech)"
@@ -41,7 +41,7 @@
           >{{ t.name }}</span>
         </div>
 
-        <div v-if="dayunImpact.mechanisms?.length === 0" class="mech-empty">大运未直接引动目标元素</div>
+        <div v-if="visibleMechanisms(dayunImpact).length === 0" class="mech-empty">大运未直接引动目标元素</div>
 
         <div class="vigor-track">
           <div class="vigor-fill" :class="vigorFillClass(dayunImpact.trigger_vigor)"
@@ -70,7 +70,7 @@
         <p v-if="liunianImpact.gaitou_jiejiao_note" class="gz-note">{{ liunianImpact.gaitou_jiejiao_note }}</p>
 
         <div
-          v-for="(mech, i) in liunianImpact.mechanisms"
+          v-for="(mech, i) in visibleMechanisms(liunianImpact)"
           :key="i"
           class="mech-row"
           :class="mechRowClass(mech)"
@@ -87,7 +87,7 @@
           >{{ t.name }}</span>
         </div>
 
-        <div v-if="liunianImpact.mechanisms?.length === 0" class="mech-empty">流年未直接引动目标元素</div>
+        <div v-if="visibleMechanisms(liunianImpact).length === 0" class="mech-empty">流年未直接引动目标元素</div>
 
         <div class="vigor-track">
           <div class="vigor-fill" :class="vigorFillClass(liunianImpact.trigger_vigor)"
@@ -123,7 +123,7 @@
           </div>
           <template v-if="expandedYears.has(tw.year)">
             <div
-              v-for="(mech, i) in tw.dynamicReport.liunian_impact.mechanisms"
+              v-for="(mech, i) in visibleMechanisms(tw.dynamicReport.liunian_impact)"
               :key="i"
               class="mech-row mech-row-indented"
               :class="mechRowClass(mech)"
@@ -167,7 +167,7 @@
                 <span v-if="group.dayunImpact.field_type" class="field-chip">{{ group.dayunImpact.field_type }}</span>
               </div>
               <div
-                v-for="(mech, i) in group.dayunImpact.mechanisms"
+                v-for="(mech, i) in visibleMechanisms(group.dayunImpact)"
                 :key="i"
                 class="mech-row"
                 :class="mechRowClass(mech)"
@@ -219,7 +219,7 @@
                 </div>
                 <template v-if="expandedYears.has(tw.year)">
                   <div
-                    v-for="(mech, i) in tw.dynamicReport.liunian_impact.mechanisms"
+                    v-for="(mech, i) in visibleMechanisms(tw.dynamicReport.liunian_impact)"
                     :key="i"
                     class="mech-row mech-row-indented"
                     :class="mechRowClass(mech)"
@@ -269,14 +269,9 @@
       </span>
     </div>
 
-    <!-- ── 综合结论框 ── -->
-    <div class="conclusion-box">
-      <div class="conclusion-header">综合结论</div>
-      <p class="conclusion-text">{{ conclusionText || dynamicVerdict }}</p>
-      <div v-if="avoidWindowText" class="avoid-note">
-        <span class="avoid-label">规避</span>
-        <span class="avoid-text">{{ avoidWindowText }}</span>
-      </div>
+    <div v-if="avoidWindowText" class="avoid-note avoid-note-standalone">
+      <span class="avoid-label">规避</span>
+      <span class="avoid-text">{{ avoidWindowText }}</span>
     </div>
 
   </div>
@@ -291,7 +286,6 @@ const props = defineProps({
   triggerWindows:  { type: Array,  default: () => [] }, // timing 单大运：[{year, dynamicReport, verdict?}]
   bestWindowYear:  { type: Number, default: null },
   avoidWindowText: { type: String, default: '' },
-  conclusionText:  { type: String, default: '' },
   // 目标映射表，父组件预计算传入，用于 mech 行显示命中的十神/宫位名称
   // 格式：{ [柱名]: Array<{ kind: 'shishen' | 'gongwei', name: string }> }
   targetMap: { type: Object, default: () => ({}) },
@@ -338,6 +332,16 @@ function mechRowClass(mech) {
   if (type === '冲动' || type === '反吟' || type === '填实三刑') return 'mech-bad'
   if (type === '合化' || type === '合动' || type === '填实三合') return 'mech-good'
   return ''
+}
+
+function visibleMechanisms(impact) {
+  const seen = new Set()
+  return (impact?.mechanisms ?? []).filter(mech => {
+    const key = `${mech?.type ?? ''}|${mech?.description ?? ''}|${mech?.vigor_check?.is_effective ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
 }
 
 // 返回该 mech 命中的目标列表（从 targetMap 查找）
@@ -423,14 +427,6 @@ const targetTrigger = computed(() => {
   return props.dynamicReport?.target_trigger || {}
 })
 
-const dynamicVerdict = computed(() => {
-  if (props.mode === 'timing' && props.bestWindowYear != null) {
-    const best = allWindows.value.find(tw => tw.year === props.bestWindowYear)
-    // 用 || 而非 ??：dynamic_verdict 可能是空字符串，需降级到 verdict
-    return best?.dynamicReport?.dynamic_verdict || best?.verdict || ''
-  }
-  return props.dynamicReport?.dynamic_verdict || ''
-})
 </script>
 
 <style scoped>
@@ -902,8 +898,8 @@ const dynamicVerdict = computed(() => {
 /* ── 目标状态变化行 ──────────────────────────────────────── */
 .target-trigger-row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   gap: 10px;
   padding: 10px 16px;
   background: rgba(181,141,59,0.03);
@@ -921,10 +917,8 @@ const dynamicVerdict = computed(() => {
 
 .tt-base {
   color: var(--text-muted);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 46%;
+  white-space: normal;
+  overflow-wrap: anywhere;
   flex-shrink: 1;
 }
 .tt-arrow { color: var(--gold, #b5893b); font-size: 13px; flex-shrink: 0; }
@@ -944,11 +938,14 @@ const dynamicVerdict = computed(() => {
 [data-theme="dark"] .tt-damaged .tt-new { color: #f87171; }
 
 .auspice-badge {
+  align-self: stretch;
   font-size: 10px;
   font-weight: 600;
   border-radius: 5px;
   padding: 2px 8px;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  line-height: 1.5;
   letter-spacing: .04em;
 }
 
@@ -974,38 +971,15 @@ const dynamicVerdict = computed(() => {
 [data-theme="dark"] .auspice-xiong { background: rgba(240,100,100,0.1); border-color: rgba(240,100,100,0.25); color: #f87171; }
 [data-theme="dark"] .auspice-neutral { color: #fbbf24; }
 
-/* ── 综合结论框 ───────────────────────────────────────────── */
-.conclusion-box {
-  padding: 14px 16px;
-  background: rgba(120,80,200,0.06);
-  border-top: 1px solid rgba(120,80,200,0.15);
-}
-
-[data-theme="dark"] .conclusion-box {
-  background: rgba(160,120,240,0.08);
-  border-top-color: rgba(160,120,240,0.2);
-}
-
-.conclusion-header {
-  font-size: 10px;
-  letter-spacing: .18em;
-  color: var(--text-muted);
-  margin-bottom: 8px;
-}
-
-.conclusion-text {
-  font-size: 13px;
-  line-height: 1.7;
-  color: var(--ink-main, inherit);
-  margin: 0;
-  white-space: pre-wrap;
-}
-
 .avoid-note {
   display: flex;
   align-items: baseline;
   gap: 8px;
   margin-top: 10px;
+}
+
+.avoid-note-standalone {
+  margin: 0 16px 14px;
 }
 
 .avoid-label {
