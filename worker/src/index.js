@@ -920,6 +920,7 @@ async function handleBaziQuestion(request, env) {
         state_report: pipelineResult.stateReport || null,
         target_spec: pipelineResult.targetSpec || null,
         dynamic_report: pipelineResult.dynamicReport || null,
+        timing_candidates: pipelineResult.timingCandidates || null,
       } : {})
     };
     emit({ type: 'complete', result: outputWithSnapshot });

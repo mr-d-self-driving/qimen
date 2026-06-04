@@ -910,16 +910,25 @@ const dynamicVerdict = computed(() => {
 }
 
 .tt-state-flow {
+  flex: 1;
+  min-width: 0;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  align-items: baseline;
+  gap: 6px;
   font-size: 12px;
   flex-wrap: wrap;
 }
 
-.tt-base { color: var(--text-muted); }
-.tt-arrow { color: var(--gold, #b5893b); font-size: 13px; }
-.tt-new   { font-weight: 600; color: var(--ink-main, inherit); }
+.tt-base {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 46%;
+  flex-shrink: 1;
+}
+.tt-arrow { color: var(--gold, #b5893b); font-size: 13px; flex-shrink: 0; }
+.tt-new   { font-weight: 600; color: var(--ink-main, inherit); flex: 1; min-width: 0; }
 
 /* 状态着色 */
 .tt-strong  .tt-new { color: #15803d; }

@@ -819,7 +819,11 @@ const baziPanelTargetMap = computed(() => {
 
 const baziPanelMode = computed(() => {
   const mode = activeBaziResultData.value?.meta?.analysis_mode
-  return mode === 'timing' ? 'timing' : 'status'
+  if (mode === 'timing') {
+    // 只有拿到 timing_candidates 才用 timing 视图；旧存量记录没有则降级到 status
+    return activeBaziResultData.value?.timing_candidates?.length ? 'timing' : 'status'
+  }
+  return 'status'
 })
 
 const baziPanelShishenTheory = computed(() => {
