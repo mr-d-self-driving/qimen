@@ -2279,6 +2279,14 @@ const sanitizeBaziDisplayText = (value, targetLabel = '本问题核心象') => {
 }
 
 const splitBaziFoundationSignal = (signal) => {
+  // v2：{title, detail} 对象格式（与 target_state 对齐）
+  if (signal && typeof signal === 'object') {
+    return {
+      label: String(signal.title || signal.label || '').trim(),
+      detail: String(signal.detail || signal.text || '').trim()
+    }
+  }
+  // v1 兼容：「标题：说明」冒号串，或仅标题
   const text = String(signal || '').trim()
   const separatorIndex = text.search(/[：:]/)
   if (separatorIndex < 0) return { label: text, detail: '' }
