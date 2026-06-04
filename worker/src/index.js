@@ -914,7 +914,10 @@ async function handleBaziQuestion(request, env) {
         birth_date: profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || null,
         gender: profile.gender || null,
         strong_weak: profile.strong_weak || null,
-        geju: profile.geju || null
+        geju: profile.geju || null,
+        // 命主身份与四柱随记录定格，前端四柱面板据此渲染，避免跟随当前选中 profile 串号
+        profile_id: profile.id || null,
+        pillars: profile.bazi_detail?.matrix?.pillars || null
       },
       five_shens: profile.bazi_detail?.five_shens || null,
       ...(pipelineResult ? {

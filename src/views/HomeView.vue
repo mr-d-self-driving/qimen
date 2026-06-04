@@ -408,6 +408,7 @@
                   :mode="baziPanelMode"
                   :dynamic-report="activeBaziResultData.dynamic_report || null"
                   :trigger-windows="baziPanelTimingWindows"
+                  :dayun-groups="baziPanelDayunGroups"
                   :best-window-year="baziPanelBestYear"
                   :avoid-window-text="baziPanelAvoidText"
                   :target-map="baziPanelTargetMap"
@@ -791,14 +792,32 @@ const snapshotLunarStr = computed(() => {
   }
 })
 // ── BaziStaticPanel + BaziDynamicPanel 数据 ──────────────────────
+// 判定「当前选中 profile」是否就是本条问题的命主，避免 admin 跨账号查看时
+// 四柱面板跟随当前 profile 串成别人的盘。优先按 profile_id，退而按姓名+出生时间。
+const subjectMatchesActiveProfile = () => {
+  const snap = activeBaziResultData.value?.subject_snapshot
+  const active = activeBaziProfile.value
+  if (!snap) return true           // 无快照（极旧记录）→ 沿用旧行为
+  if (!active) return false
+  if (snap.profile_id) return snap.profile_id === active.id
+  if (snap.name && snap.birth_date) {
+    return snap.name === active.name &&
+           String(snap.birth_date) === String(active.birth_date)
+  }
+  return true
+}
+
 const baziPanelMatrix = computed(() => {
-  // 优先用 fetchMissingPanelData 存入的已正规化 pillars（有 hidden_stems string 格式）
+  // 1) 记录自带的命主四柱快照（权威，随记录定格，不受当前选中 profile 影响）
+  const snapPillars = activeBaziResultData.value?.subject_snapshot?.pillars
+  if (snapPillars?.length) return { pillars: normalizeBaziPanelPillars(snapPillars) }
+  // 2) fetchMissingPanelMatrix / fetchMissingPanelData 回填的已正规化 pillars
   const fromPanel = activeBaziResultData.value?._panel_matrix
   if (fromPanel?.pillars?.length) return fromPanel
-  // 新问题的答案已含 subject_snapshot，但没有完整 bazi_detail
-  const pillars = snapshotProfile.value?.bazi_detail?.matrix?.pillars
-    || activeBaziProfile.value?.bazi_detail?.matrix?.pillars
-  return pillars ? { pillars } : null
+  // 3) 旧记录无快照四柱：仅当当前选中 profile 确为本问题命主时才回退，杜绝跨命主错盘
+  if (!subjectMatchesActiveProfile()) return null
+  const pillars = activeBaziProfile.value?.bazi_detail?.matrix?.pillars
+  return pillars?.length ? { pillars: normalizeBaziPanelPillars(pillars) } : null
 })
 
 const baziPanelTargetMap = computed(() => {
@@ -861,7 +880,39 @@ const baziPanelTimingWindows = computed(() => {
       dynamicReport: c.dynamicReport,
       verdict: llmByYear.get(String(c.year))?.verdict ?? ''
     }
-  })
+  }).sort((a, b) => a.year - b.year)  // 候选年按时间正序展示（存量按 rank 排序）
+})
+
+// 跨大运分组：把候选年按所属大运聚合，组内按年份正序，组间按起始年正序。
+// 多于一组时 BaziDynamicPanel 自动启用水平轮播翻页。
+const baziPanelDayunGroups = computed(() => {
+  const candidates = activeBaziResultData.value?.timing_candidates
+  if (!candidates?.length) return []
+  const llmWindows = activeBaziResultData.value?.readings?.trigger_windows ?? []
+  const llmByYear = new Map(llmWindows.map(w => [String(w.year), w]))
+  const groups = new Map()
+  for (const c of candidates) {
+    const dr = c.dynamicReport
+    const dyImpact = dr?.dayun_impact ?? {}
+    const key = c.dayun_ganzhi || `${dyImpact.gan ?? ''}${dyImpact.zhi ?? ''}`
+    if (!groups.has(key)) groups.set(key, { dayunImpact: dyImpact, windows: [] })
+    const liunian = dr?.liunian_impact
+    groups.get(key).windows.push({
+      year: c.year,
+      ganzhi: liunian ? `${liunian.gan}${liunian.zhi}` : (c.ganzhi || ''),
+      dynamicReport: dr,
+      verdict: llmByYear.get(String(c.year))?.verdict ?? ''
+    })
+  }
+  const arr = [...groups.values()]
+  for (const g of arr) {
+    g.windows.sort((a, b) => a.year - b.year)
+    const ys = g.windows.map(w => w.year)
+    const min = Math.min(...ys), max = Math.max(...ys)
+    g.label = min === max ? `${min}` : `${min}–${max}`
+  }
+  arr.sort((a, b) => (a.windows[0]?.year ?? 0) - (b.windows[0]?.year ?? 0))
+  return arr
 })
 
 const baziPanelBestYear = computed(() => {
@@ -1678,8 +1729,11 @@ const normalizeBaziPanelPillars = (pillars = []) => pillars.map(pillar => ({
 }))
 
 const fetchMissingPanelMatrix = async () => {
+  if (baziPanelMatrix.value) return
+  // 仅当当前选中 profile 确为本问题命主时才回填，避免 admin 跨账号查看时拉到别人的盘
+  if (!subjectMatchesActiveProfile()) return
   const profileId = activeBaziProfile.value?.id
-  if (!profileId || baziPanelMatrix.value) return
+  if (!profileId) return
   try {
     const { data } = await supabase
       .from('bazi_profiles')
@@ -1701,6 +1755,8 @@ const fetchMissingPanelMatrix = async () => {
 const fetchMissingPanelData = async (data) => {
   const mode = data?.meta?.analysis_mode
   if (!mode || mode === 'profile_driven') return
+  // 仅当当前选中 profile 确为本问题命主时才重算，避免 admin 跨账号查看时引擎跑在别人盘上
+  if (!subjectMatchesActiveProfile()) return
   const profileId = activeBaziProfile.value?.id
   if (!profileId) return
   try {
