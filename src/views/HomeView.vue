@@ -2558,7 +2558,13 @@ const buildBaziQuestionCardHTML = (data) => {
   const segments = rhythm.segments || []
   const normalizeRhythmText = (value) => sanitizeBaziDisplayText(value || '', targetLabel)
     .replace(/[\s，。；、：:“”"'（）()【】\[\]]/g, '')
-  const deepReadingTexts = [bf.text, dayunFieldText, liunianText]
+  // 去重对比集合：深度推演长文本 + 应期(trigger_windows)逐年 verdict/phenomena，
+  // 防止 rhythm 复述应期已给出的逐年判断（prompt 漏网时的前端兜底）
+  const triggerWindowTexts = (windows || []).flatMap(w => [
+    w.verdict,
+    ...((Array.isArray(w.phenomena) ? w.phenomena : []).map(p => p.explain))
+  ]).filter(Boolean)
+  const deepReadingTexts = [bf.text, dayunFieldText, liunianText, ...triggerWindowTexts]
     .map(normalizeRhythmText)
     .filter(Boolean)
   const isDistinctRhythmText = (value) => {
@@ -2569,10 +2575,11 @@ const buildBaziQuestionCardHTML = (data) => {
   const visibleRhythmSegments = segments
     .map(seg => ({
       ...seg,
+      phenomenon: isDistinctRhythmText(seg.phenomenon) ? seg.phenomenon : '',
       strategy: isDistinctRhythmText(seg.strategy) ? seg.strategy : '',
       key_liunians: (seg.key_liunians || []).filter(item => isDistinctRhythmText(item.note))
     }))
-    .filter(seg => seg.strategy || seg.key_liunians.length)
+    .filter(seg => seg.phenomenon || seg.strategy || seg.key_liunians.length)
 
   const rhythmFlowHTML = visibleRhythmSegments.length
     ? `<div class="inference-flow">
@@ -2586,6 +2593,7 @@ const buildBaziQuestionCardHTML = (data) => {
                 <span>${sanitizeBaziDisplayText(seg.period || '', targetLabel)}</span>
                 ${seg.dayun_shishen ? `<strong>${seg.dayun_shishen}</strong>` : ''}
               </div>
+              ${seg.phenomenon ? `<p class="bazi-rhythm-phenomenon">${sanitizeBaziDisplayText(seg.phenomenon, targetLabel)}</p>` : ''}
               ${seg.strategy ? `<h4>${sanitizeBaziDisplayText(seg.strategy, targetLabel)}</h4>` : ''}
               ${liunianLines ? `<div class="bazi-liunian-block">${liunianLines}</div>` : ''}
             </div>
@@ -3900,6 +3908,8 @@ input::placeholder { color: var(--text-muted); }
 :deep(.quality-medium) { color:#B58D3B; }
 :deep(.quality-weak)   { color:#d97706; }
 :deep(.bazi-mechanisms) { margin:6px 0 0; color:var(--ink-dim); font-size:13px; line-height:1.6; }
+/* 大运主要现象（rhythm phenomenon）：策略 h4 之上的气候定性引导句 */
+:deep(.bazi-rhythm-phenomenon) { margin:0 0 6px; color:var(--ink-dim); font-size:13px; line-height:1.6; }
 /* 时间线流年行 */
 :deep(.bazi-liunian-block) { display:grid; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
 :deep(.bazi-liunian-row) { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
