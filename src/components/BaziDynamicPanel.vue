@@ -433,7 +433,7 @@ const targetTrigger = computed(() => {
 /* ── 容器 ─────────────────────────────────────────────────── */
 .dynamic-panel {
   background: var(--bg-card);
-  border: 1px solid rgba(181,141,59,0.22);
+  border: 1px solid rgba(181,141,59,0.12);
   border-radius: var(--radius-card);
   padding: 0;
   overflow: hidden;
@@ -442,8 +442,8 @@ const targetTrigger = computed(() => {
 }
 
 [data-theme="dark"] .dynamic-panel {
-  border-color: rgba(212,175,55,0.35);
-  box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.12);
+  border-color: rgba(212,175,55,0.18);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.08);
 }
 
 /* ── 顶栏 ─────────────────────────────────────────────────── */

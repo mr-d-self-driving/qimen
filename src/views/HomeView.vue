@@ -3951,13 +3951,13 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-path-title) { margin:0 0 14px; font-size:13px; font-weight:700; letter-spacing:.08em; color:var(--gold, #b5893b); }
 :deep(.bazi-path-grid) { display:flex; flex-direction:column; gap:14px; }
 :deep(.bazi-path-card) {
-  border:1px solid var(--gold-border, rgba(181,141,59,0.18));
+  border:1px solid rgba(181,141,59,0.10);
   border-radius:16px; background:var(--bg-card); padding:16px 18px;
   box-shadow:0 4px 20px rgba(0,0,0,0.10);
 }
 [data-theme="dark"] :deep(.bazi-path-card) {
-  background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.22);
-  box-shadow:0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.10);
+  background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.14);
+  box-shadow:0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.06);
 }
 :deep(.bazi-path-head) { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
 :deep(.bazi-path-badge) { font-size:11px; font-weight:700; letter-spacing:.06em; color:#fff; background:var(--gold, #b5893b); border-radius:6px; padding:3px 9px; white-space:nowrap; }

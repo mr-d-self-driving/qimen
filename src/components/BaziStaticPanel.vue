@@ -105,6 +105,11 @@
       <!-- 取法依据（analysis_question） -->
       <p v-if="analysisRationale" class="theory-rationale">{{ analysisRationale }}</p>
 
+      <!-- 忌神（yongshen 锚定时单独标注，需大运流年制约） -->
+      <p v-if="isYongshenAnchor && jiShenText" class="ji-shen-note">
+        <span class="ji-shen-tag">忌神</span>{{ jiShenText }}　需大运流年制约/化解
+      </p>
+
       <!-- 与用神关系（yongshen 锚定时目标即用神，同义反复，隐藏） -->
       <p v-if="yongshenRelation && !isYongshenAnchor" class="yong-relation" :class="yongshenRelationClass">{{ yongshenRelation }}</p>
 
@@ -236,7 +241,16 @@ const props = defineProps({
   fiveShens:     { type: Object, default: null },  // bazi_detail.five_shens
 })
 
-const isYongshenAnchor = computed(() => props.anchorKind === 'yongshen')
+// 稳健：优先看显式 prop，回退读 targetSpec.anchor_kind（数据自带，避免 prop 接线遗漏）
+const isYongshenAnchor = computed(() =>
+  props.anchorKind === 'yongshen' || props.targetSpec?.anchor_kind === 'yongshen'
+)
+// 忌神（targetSpec.secondary_shishen，剔除占位词），yongshen 锚定时单独展示
+const jiShenText = computed(() =>
+  (props.targetSpec?.secondary_shishen || [])
+    .filter(s => s && s !== '用神' && s !== '忌神')
+    .join('、')
+)
 
 const GAN5   = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
 const ZHI_WX = { 子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水' }
@@ -531,7 +545,7 @@ function tagClass(tag) {
 /* ── 容器 ─────────────────────────────────────────────────── */
 .static-panel {
   background: var(--bg-card);
-  border: 1px solid rgba(181,141,59,0.22);
+  border: 1px solid rgba(181,141,59,0.12);
   border-radius: var(--radius-card);
   padding: 0;
   overflow: hidden;
@@ -574,8 +588,8 @@ function tagClass(tag) {
 
 [data-theme="dark"] .static-panel {
   /* background overridden at end of file with explicit #18182e */
-  border-color: rgba(212,175,55,0.35);
-  box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.12);
+  border-color: rgba(212,175,55,0.18);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.08);
 }
 
 /* ── 四柱牌面 ─────────────────────────────────────────────── */
@@ -851,6 +865,24 @@ function tagClass(tag) {
   border-left: 2px solid var(--gold-border);
   border-radius: 0 6px 6px 0;
 }
+
+/* ── 忌神标注（yongshen 锚定）────────────────────────────────── */
+.ji-shen-note {
+  font-size: 12px;
+  color: #b91c1c;
+  line-height: 1.6;
+  margin: 0 0 10px;
+  padding: 5px 10px;
+  background: rgba(180,60,60,0.06);
+  border-left: 2px solid rgba(180,60,60,0.35);
+  border-radius: 0 6px 6px 0;
+}
+.ji-shen-tag {
+  font-weight: 700;
+  margin-right: 6px;
+  letter-spacing: .04em;
+}
+[data-theme="dark"] .ji-shen-note { color: #fca5a5; background: rgba(240,100,100,0.08); border-left-color: rgba(240,100,100,0.4); }
 
 /* ── 取法依据 & 用神关系 ──────────────────────────────────────── */
 .theory-rationale {
