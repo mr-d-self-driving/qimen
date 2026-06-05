@@ -375,7 +375,7 @@ route = {
 | 层 | 内容 | 成本 | 何时注入 prompt |
 |---|---|---|---|
 | **Tier 1 原始命盘** | 四柱 + 全量大运 + 未来流年（`formatSizhuDetailBlock`） | 免费(存档) | **始终**（任何 framework/target；当前 `llm_derived` 只给 `formatBasicProfileBlock`，偏薄，需补足） |
-| **Tier 2 原局用神/忌神** | `favorable_gods`/`unfavorable_gods`/`favorable_verdict` | 免费(预计算) | **始终**（即使不跑引擎也作背景给 LLM；当前两个 builder 都漏注入，是缺口） |
+| **Tier 2 原局用神/忌神** | `favorable_gods`/`unfavorable_gods`/`favorable_verdict` | 免费(预计算) | **始终**（即使不跑引擎也作背景给 LLM；✅ 已核实：`formatBasicProfileBlock` 已在全部 6 个 builder 注入喜用/忌仇十神+五行） |
 | **Tier 3 用神/目标引擎评估** | `state_report` + `dynamic_report`（静态状态 + 岁运引动吉凶 + **面板卡**） | 需跑引擎 | **仅 `target_source` 可后端评估时**（backend_shishen / yongshen） |
 
 **`runFramework(framework, targetSpec, params)`**：现有 `runStatusPipeline / runTimingPipeline / runStaticPipeline` 改造为参数化吃 targetSpec，不再自己内部 `resolveBackendTargetSpec`。Tier 3 是否跑，**只看 targetSpec 是否为 null（即 target_source 是否 llm_derived），与 framework 无关**：
@@ -442,12 +442,14 @@ const prompt = buildPromptFor(route.framework, { ...,
 ### Phase 4 — Dispatch 重写（首个真行为变化）
 - 删 `buildBaziQuestionPrompt` 中 `llm_derived`/`profile_driven` 短路，改 `runFramework(framework, resolveTarget(target_source))`。`open_strategy+yongshen` 开始跑引擎。Preview：重提"创业还是打工"。
 
-### Phase 5 — 三层数据 + schema 按 framework
-- 所有 builder：Tier1 全量命盘 + Tier2 原局用神**恒注入**（修 `llm_derived` 偏薄 + 漏用神）。
-- schema key 改 `framework`；`open_strategy` schema = 现 profile_driven readings（含 `path_readings`）。
+### Phase 5 — 三层数据 + schema 按 framework ✅（核实后基本已满足，无需改生产代码）
+- ✅ Tier2 用神/忌神：`formatBasicProfileBlock` 已在全部 6 个 builder 注入（之前误判为缺口）。
+- ✅ schema：`buildUnifiedOutputSchemaBlock(mode)` 中 mode↔framework 1:1，profile_driven schema 已含 `path_readings`(=open_strategy)，已 framework 对齐。
+- 剩余仅两项低优先（挪 Phase 8）：① `llm_derived` 升级到完整 50 年时间线（现基础版，边界题够用）；② schema key 由 `mode` 字面改名为 `framework`（纯重命名，零行为）。
 
 ### Phase 6 — 前端面板
 - `HomeView.vue`：`baziPanelMode`/布局读 `meta.framework`；Tier3 卡有无看 `state_report`/`dynamic_report`；四柱恒显示；存量 `meta.analysis_mode` 经 migrate 兜底。
+- **TODO（待办）**：`open_strategy` 的 `path_readings`（多路径战略）前端样式要与 `流年触发`/逐年应期**视觉区分开**。现状两者并列、卡片样式雷同，用户分不清"哪个是多路径战略、哪个是逐年应期"。需要差异化（独立分区/不同卡头/图标或标题前缀），让"路径 A vs 路径 B"一眼可辨。
 
 ### Phase 7 — 路由 LLM 翻新形状（声明逻辑｜生产侧最后翻）
 重写 `divinationRouter.js` bazi 路由 prompt（350-419），显式声明双轴：
