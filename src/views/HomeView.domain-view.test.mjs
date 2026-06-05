@@ -408,3 +408,18 @@ test('八字问答前端过滤工程化内部表达', () => {
   assert.match(source, /estimated/)
   assert.match(source, /目标十神/)
 })
+
+test('八字 path_readings 以独立「路径推演」分区渲染，不再混入逐项解读扁平列表', () => {
+  // 独立分区 + 差异化卡片
+  assert.match(source, /路径推演 · 多路径对比/)
+  assert.match(source, /class="bazi-path-block"/)
+  assert.match(source, /class="bazi-path-card"/)
+  assert.match(source, /bazi-path-badge/)
+  // 结构化字段行（契合/近1-3年/满意度/最顺期/风险）
+  assert.match(source, /pathRow\('契合', p\.structural_fit\)/)
+  assert.match(source, /pathRow\('风险', p\.risk, ' bazi-path-risk'\)/)
+  // 不再把 path 作为普通 inferItems 行 push 进扁平列表
+  assert.doesNotMatch(source, /inferItems\.push\(\{ label: p\.path/)
+  // 差异化样式存在
+  assert.match(source, /:deep\(\.bazi-path-card\)/)
+})

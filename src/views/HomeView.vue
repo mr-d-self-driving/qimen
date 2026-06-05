@@ -2465,19 +2465,7 @@ const buildBaziQuestionCardHTML = (data) => {
     if (liunianText) {
       inferItems.push({ label: '流年触发', text: liunianText, tone: '', phenomena: liunianPhenomena })
     }
-
-    // profile_driven path_readings
-    const pathReadings = readings.path_readings || []
-    pathReadings.forEach(p => {
-      const body = [
-        p.structural_fit || '',
-        p.likely_experience ? `\n近1-3年：${p.likely_experience}` : '',
-        p.satisfaction_prediction ? `满意度：${p.satisfaction_prediction}` : '',
-        p.peak_period ? `最顺期：${p.peak_period}` : '',
-        p.risk ? `风险：${p.risk}` : ''
-      ].filter(Boolean).join('\n')
-      if (body) inferItems.push({ label: p.path || '路径', text: body, tone: '' })
-    })
+    // path_readings 不再混入扁平列表，改为独立「路径推演」分区（见 pathReadingsHTML）
     // v1 profile_driven
     if (readings.structural_reading) inferItems.push({ label: '结构分析', text: readings.structural_reading, tone: '' })
   }
@@ -2546,11 +2534,39 @@ const buildBaziQuestionCardHTML = (data) => {
       </div>`
     : ''
 
-  const m3HTML = inferFlowHTML || timingWindowsHTML
+  // ── 路径推演（open_strategy / profile_driven 多路径对比）：与上方逐项解读视觉区分 ──
+  const pathReadings = Array.isArray(readings.path_readings) ? readings.path_readings : []
+  const PATH_LETTERS = ['A', 'B', 'C', 'D']
+  const pathRow = (k, v, cls = '') => v
+    ? `<div class="bazi-path-row${cls}"><span class="bazi-path-k">${k}</span><span class="bazi-path-v">${sanitizeBaziDisplayText(v, targetLabel)}</span></div>`
+    : ''
+  const pathReadingsHTML = pathReadings.length
+    ? `<div class="bazi-path-block">
+        <h3 class="bazi-path-title">路径推演 · 多路径对比</h3>
+        <div class="bazi-path-grid">
+          ${pathReadings.map((p, i) => `<article class="bazi-path-card">
+            <div class="bazi-path-head">
+              <span class="bazi-path-badge">路径 ${PATH_LETTERS[i] || (i + 1)}</span>
+              <span class="bazi-path-name">${sanitizeBaziDisplayText(p.path || '路径', targetLabel)}</span>
+            </div>
+            <div class="bazi-path-rows">
+              ${pathRow('契合', p.structural_fit)}
+              ${pathRow('近1-3年', p.likely_experience)}
+              ${pathRow('满意度', p.satisfaction_prediction)}
+              ${pathRow('最顺期', p.peak_period)}
+              ${pathRow('风险', p.risk, ' bazi-path-risk')}
+            </div>
+          </article>`).join('')}
+        </div>
+      </div>`
+    : ''
+
+  const m3HTML = inferFlowHTML || timingWindowsHTML || pathReadingsHTML
     ? `<section class="mag-section" id="bazi-m3">
         <div class="module-heading"><h2>深度推演</h2></div>
         ${inferFlowHTML}
         ${timingWindowsHTML}
+        ${pathReadingsHTML}
       </section>`
     : ''
 
@@ -3918,6 +3934,22 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-liunian-note) { font-size:13px; color:var(--ink-muted); line-height:1.55; flex:1; min-width:0; overflow-wrap:anywhere; }
 /* timing flow 复用 inference-flow */
 :deep(.bazi-timing-flow) { display:flex; flex-direction:column; gap:0; border-top:1px solid var(--line); margin-top:16px; }
+/* ── 路径推演（多路径对比）：与逐项解读 inference-card 视觉区分 ── */
+:deep(.bazi-path-block) { margin-top:20px; padding-top:16px; border-top:1px dashed var(--gold-border, rgba(181,141,59,0.35)); }
+:deep(.bazi-path-title) { margin:0 0 12px; font-size:13px; font-weight:700; letter-spacing:.08em; color:var(--gold, #b5893b); }
+:deep(.bazi-path-grid) { display:flex; flex-direction:column; gap:12px; }
+:deep(.bazi-path-card) { border:1px solid var(--gold-border, rgba(181,141,59,0.28)); border-left:3px solid var(--gold, #b5893b); border-radius:8px; background:rgba(181,141,59,0.04); padding:12px 14px; }
+[data-theme="dark"] :deep(.bazi-path-card) { background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.3); border-left-color:#d4af37; }
+:deep(.bazi-path-head) { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+:deep(.bazi-path-badge) { font-size:11px; font-weight:700; letter-spacing:.06em; color:#fff; background:var(--gold, #b5893b); border-radius:5px; padding:2px 8px; white-space:nowrap; }
+[data-theme="dark"] :deep(.bazi-path-badge) { background:#b8923f; color:#1a1a1a; }
+:deep(.bazi-path-name) { font-size:15px; font-weight:700; color:var(--ink-main, inherit); }
+:deep(.bazi-path-rows) { display:grid; gap:6px; }
+:deep(.bazi-path-row) { display:flex; gap:8px; font-size:13px; line-height:1.6; }
+:deep(.bazi-path-k) { flex-shrink:0; min-width:48px; font-weight:600; color:var(--gold, #b5893b); }
+:deep(.bazi-path-v) { flex:1; min-width:0; color:var(--ink-muted); overflow-wrap:anywhere; }
+:deep(.bazi-path-risk) .bazi-path-k { color:#b91c1c; }
+[data-theme="dark"] :deep(.bazi-path-risk) .bazi-path-k { color:#f87171; }
 :deep(.bazi-action-intro) { margin:0 0 14px; color:var(--ink-muted); font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
 :deep(.bazi-action-list) { border-top:1px solid var(--line); }
 /* signal-list tags 保留（profile_driven structural_supports 等仍可能用到）*/
@@ -4514,6 +4546,7 @@ input::placeholder { color: var(--text-muted); }
   align-items: flex-end;
   gap: 20px;
   overflow-x: auto;
+  touch-action: pan-x;
   padding: 14px 0 10px;
   border-bottom: 1px solid var(--line);
   background: rgba(247,244,238,0.96);
