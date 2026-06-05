@@ -263,7 +263,7 @@ git diff --check
 
 因此 `resolveBackendTargetSpec` 的 fallback 就是：当 semanticRoute 给不出问题十神（`llm_derived` / `profile_driven`）时，**把 `favorable_gods` 作为目标元素、`unfavorable_gods` 作为反向元素**构造 targetSpec，并把 `favorable_verdict` 作为取用依据注入 prompt。无需任何"择用神"分支逻辑。
 
-**实现注意**：`favorable_gods` 存的是**十神**（如"正印"）而非五行。动态引动评估（A.4）需要五行口径时，要把用神十神展开为对应五行（如甲日正印→水，印比→水木），与 `assessDynamicTriggers` 的 `favorableWuxing` 对齐。
+**实现注意（已侦察确认）**：`favorable_gods` 存的是**十神**（如"正印"），而引擎 `assessDynamicTriggers` 内部已有 `deriveTargetElement(dayStem, targetSpec.primary_shishen)` 自动把目标十神换算成五行。因此用神 targetSpec 只需 `primary_shishen = favorable_gods`，**无需手动展开五行**；引擎自带的换算与 `favorableWuxing` 同源对齐。另需 `primary_gongwei = []`（用神无固定宫位目标）并验证引擎对空宫位/缺 `subcategory` 分支（`baziDynamicAssessor.js:627` 等处）不报错——这是落地前唯一需要实测的引擎兼容点。
 
 > **（理论背景，非运行步骤）** 命盘当初是怎么定的用神：取用神**按命局条件分叉**，不是固定优先级——常规格局走**扶抑**（善者财官印食顺用、不善者杀伤枭刃逆用）；火炎土燥/金寒水冷等失衡则**调候为先**；专旺从势则**顺应其势**不硬克；两强相战取**通关**。而**"病药原理"是贯穿全局的总原则**（忌神为病、用神为药），不是与上述并列的一个档位。这套逻辑已在排盘阶段执行并固化进 `favorable_gods` + `favorable_verdict`，本方案不重复。
 
@@ -327,8 +327,10 @@ git diff --check
 
 | 轴 | 决定 | 取值 |
 |---|---|---|
-| **A. 分析框架 `framework`** | 输出 schema + panel 露出 | `static_structure`(结构容量) / `dynamic_current`(当下引动) / `dynamic_scan`(应期扫描) / `portrait`(十神画像) |
+| **A. 分析框架 `framework`** | 输出 schema + panel 露出 | `static_structure`(结构容量) / `dynamic_current`(当下引动) / `dynamic_scan`(应期扫描) / `portrait`(十神画像) / `open_strategy`(开放战略·多路径) |
 | **B. 目标来源 `target_source`** | Step1 锚定谁 | `backend_shishen`(规则映射目标十神) / `yongshen`(原局用神忌神) / `llm_derived`(LLM 自拟) |
+
+> **为何需要 `open_strategy` 框架**：profile_driven 的招牌输出是 `readings.path_readings[]`（多路径战略推演），这是一套**独立的输出结构**，不属于 dynamic_current/static 的 schema。schema 只按 framework 选（B.6），所以必须把"开放战略·多路径"保留为一个 framework 值，承载 path_readings；它再与任意 `target_source`（通常 `yongshen`）组合。**`open_strategy` 与其他框架可叠加**（既给当下动态底盘，又给多路径推演）。
 
 现有 5 个 mode 在 (A×B) 网格上的位置（暴露耦合）：
 
@@ -338,16 +340,16 @@ git diff --check
 | timing | dynamic_scan | backend_shishen | ✅ |
 | pattern | static_structure | backend_shishen | ✅ |
 | character | portrait | backend_shishen / llm_derived | ✅ |
-| profile_driven | dynamic_current+structure | **yongshen/无** | ❌ 绕过 |
+| profile_driven | **open_strategy**（可叠 dynamic_current） | **yongshen/无** | ❌ 绕过 |
 | (flag) llm_derived | —不改框架— | **llm_derived** | ❌ 短路 |
 
 ### B.2 解耦后的路由形状
 
 ```
 route = {
-  framework:     'static_structure' | 'dynamic_current' | 'dynamic_scan' | 'portrait',
+  framework:     'static_structure' | 'dynamic_current' | 'dynamic_scan' | 'portrait' | 'open_strategy',
   target_source: 'backend_shishen'  | 'yongshen'        | 'llm_derived',
-  secondary?:    框架叠加（如 pattern + 当下动态）
+  secondary?:    框架叠加（如 pattern + 当下动态；open_strategy + dynamic_current）
   time_scope?:   仅 dynamic_scan 用
 }
 ```
@@ -361,7 +363,7 @@ route = {
 | target_source | 来源 | 后端可评估? |
 |---|---|---|
 | `backend_shishen` | `resolveBackendTargetSpec`（规则库映射问题→十神/宫位） | ✅ |
-| `yongshen` | 读 `favorable_gods`/`unfavorable_gods`（见 A.2，十神→五行展开） | ✅ |
+| `yongshen` | 构造 `{primary_shishen: favorable_gods, primary_gongwei: []}`，引擎自带 `deriveTargetElement` 换五行（见 A.2，无需手动展开） | ✅ |
 | `llm_derived` | LLM 自拟，**后端无 targetSpec** | ❌（Step2/3 跳过） |
 
 关键：`yongshen` 是**后端可评估**的——这正是今天做不到的，因为它被 profile_driven 连引擎一起关了。
@@ -388,13 +390,13 @@ const prompt = buildPromptFor(route.framework, { ...,
 
 > **两轴非对称（关键约束）**：`framework` + `target_source` 共同拼出最终 **prompt**，但**只有 `framework` 决定输出结构(JSON schema)与 panel 露出**。`target_source` 不选 schema，它只决定"对准谁"（Step1 锚定对象、断语措辞、confidence、目标标签文案）。换言之**目标换了，输出契约不能跟着抖**——否则前端渲染与存量记录又会碎。实现者切勿把两轴当成对称地各管一半结构。
 
-- `buildReadingsSchema` / `buildUnifiedOutputSchemaBlock` 的 key 从 `mode` 换成 `framework`。
+- `buildReadingsSchema` / `buildUnifiedOutputSchemaBlock` 的 key 从 `mode` 换成 `framework`；`open_strategy` 的 schema 即现 profile_driven 的 readings（含 `path_readings[]`），叠加框架时合并其 schema 块。
 - 前端 `baziPanelMode` 与面板露出只读 `framework`（`meta.framework`），不再读 `analysis_mode`。
 - `target_source` **只**影响：Step1 断语块的措辞、`confidence`（llm_derived/yongshen 标 low/medium）、面板里"目标"标签文案（"目标十神" vs "用神/忌神" vs "LLM 自拟框架"）。
 
 ### B.7 向后兼容（存量记录 + 客户端路由器）
 
-- 加一层 `migrateLegacyRoute(oldRoute)`：把旧 `analysis_mode`+`target_resolution` 映射到新 `framework`+`target_source`（按 B.1 表）。`profile_driven → {dynamic_current, yongshen}`、`llm_derived flag → target_source=llm_derived`。
+- 加一层 `migrateLegacyRoute(oldRoute)`：把旧 `analysis_mode`+`target_resolution` 映射到新 `framework`+`target_source`（按 B.1 表）。`profile_driven → {open_strategy, yongshen}`、`llm_derived flag → target_source=llm_derived`、status/timing/pattern/character → 各自 framework + `backend_shishen`。
 - 存量 `qimen_records.meta.analysis_mode` 读取时经同一 migrate 兜底，渲染不破。
 - 客户端语义路由 LLM 的产出 schema 同步改为输出双轴（过渡期两套都接）。
 
