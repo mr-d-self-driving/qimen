@@ -400,6 +400,7 @@
                   :state-report="activeBaziResultData.state_report"
                   :target-spec="activeBaziResultData.target_spec || { primary_shishen: [], primary_gongwei: [] }"
                   :anchor-kind="baziPanelAnchorKind"
+                  :category="activeBaziResultData.meta?.category || activeBaziResultData.category || ''"
                   :shishen-theory="baziPanelShishenTheory"
                   :profile-info="baziPanelProfileInfo"
                   :five-shens="baziPanelFiveShens"

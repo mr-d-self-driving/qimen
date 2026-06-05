@@ -108,12 +108,12 @@
       <!-- 与用神关系（yongshen 锚定时目标即用神，同义反复，隐藏） -->
       <p v-if="yongshenRelation && !isYongshenAnchor" class="yong-relation" :class="yongshenRelationClass">{{ yongshenRelation }}</p>
 
-      <!-- 找到的十神 card -->
+      <!-- 找到的十神 card（透干+地支主气优先显示；纯藏干折叠，陆致极"透出始为真"）-->
       <div
-        v-for="(sa, i) in stateReport.shishen_assessments"
+        v-for="(sa, i) in displayedShishenAssessments"
         :key="i"
         class="analysis-card"
-        :class="{ 'card-weak': sa.vigor < 0.2, 'card-active': highlightedPillar === sa.pillar, 'card-avoid': sa.is_avoid }"
+        :class="{ 'card-weak': sa.vigor < 0.2, 'card-active': highlightedPillar === sa.pillar, 'card-avoid': sa.is_avoid, 'card-hidden': sa.position === 'hidden' }"
         @click="highlightedPillar = highlightedPillar === sa.pillar ? null : sa.pillar"
         style="cursor:pointer"
       >
@@ -150,6 +150,16 @@
           <p class="mline-text">{{ line.text }}</p>
         </div>
       </div>
+
+      <!-- 纯藏干折叠开关（余气/墓气：未透出，静以待用） -->
+      <button
+        v-if="hiddenShishenAssessments.length"
+        class="hidden-stem-toggle"
+        @click="showHiddenStems = !showHiddenStems"
+      >
+        {{ showHiddenStems ? '收起' : '展开' }}藏干 · 余气/墓气（{{ hiddenShishenAssessments.length }}）
+        <span class="hst-hint">未透出，岁运透干或刑冲开库时激活</span>
+      </button>
 
       <!-- 查找范围内未见于命局的十神 -->
       <div v-for="name in missingShishen" :key="name" class="absent-row">
@@ -233,6 +243,7 @@ const props = defineProps({
   shishenTheory: { type: String, default: '' },
   gongweiTheory: { type: String, default: '' },
   anchorKind:    { type: String, default: '' },    // 'yongshen' ⇒ 目标即命主用神/忌神
+  category:      { type: String, default: '' },    // 问题领域，用于象义星标签（财星/夫星…）
   profileInfo:   { type: Object, default: null },  // { name, gender, birthDate }
   fiveShens:     { type: Object, default: null },  // bazi_detail.five_shens
 })
@@ -242,12 +253,49 @@ const isYongshenAnchor = computed(() =>
   props.anchorKind === 'yongshen' || props.targetSpec?.anchor_kind === 'yongshen'
 )
 
-// 卡片角色徽标：忌神(忌·红) / 用神(用·金，yongshen 锚定) / 目标十神(标·紫，backend)
+// 十神 → 领域象义星名（财星/官星/印星/食伤星/比劫星；婚恋→夫/妻星，子女→子星）
+const SHISHEN_STAR = {
+  正财:'财星', 偏财:'财星', 财:'财星', 才:'财星',
+  正官:'官星', 七杀:'官星', 官:'官星', 杀:'官星',
+  正印:'印星', 偏印:'印星', 印:'印星', 枭:'印星',
+  食神:'食伤星', 伤官:'食伤星', 食:'食伤星', 伤:'食伤星',
+  比肩:'比劫星', 劫财:'比劫星', 比:'比劫星', 劫:'比劫星',
+}
+function starLabel(sa) {
+  const base = SHISHEN_STAR[sa?.shishen] || '十神'
+  const g = props.profileInfo?.gender
+  const cat = props.category || ''
+  if (cat === 'relationship') {
+    if (g === 'F' && base === '官星') return '夫星'
+    if (g === 'M' && base === '财星') return '妻星'
+  }
+  if (cat === 'children' || cat === 'health_action') {
+    if (g === 'F' && base === '食伤星') return '子星'
+    if (g === 'M' && base === '官星') return '子星'
+  }
+  return base
+}
+
+// 卡片角色徽标：忌神(忌·红) / 用神(用·金，yongshen) / 目标十神(领域象义星名·紫，backend)
 function cardRole(sa) {
   if (sa?.is_avoid) return { text: '忌', cls: 'role-ji' }
   if (isYongshenAnchor.value) return { text: '用', cls: 'role-yong' }
-  return { text: '标', cls: 'role-target' }
+  return { text: starLabel(sa), cls: 'role-target' }
 }
+
+// 透干/主气 优先显示；纯藏干（余气/墓气）默认折叠（陆致极：透出始为真，藏干静以待用）
+const showHiddenStems = ref(false)
+const primaryShishenAssessments = computed(() =>
+  (props.stateReport?.shishen_assessments || []).filter(sa => sa.position !== 'hidden')
+)
+const hiddenShishenAssessments = computed(() =>
+  (props.stateReport?.shishen_assessments || []).filter(sa => sa.position === 'hidden')
+)
+const displayedShishenAssessments = computed(() =>
+  showHiddenStems.value
+    ? [...primaryShishenAssessments.value, ...hiddenShishenAssessments.value]
+    : primaryShishenAssessments.value
+)
 
 const GAN5   = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
 const ZHI_WX = { 子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水' }
@@ -883,6 +931,20 @@ function tagClass(tag) {
 /* 忌神卡底色（与用神同样的旺衰底盘评估，红色标识区分） */
 .analysis-card.card-avoid { border-color: rgba(180,60,60,0.28); background: rgba(180,60,60,0.035); }
 [data-theme="dark"] .analysis-card.card-avoid { border-color: rgba(240,100,100,0.3); background: rgba(240,100,100,0.05); }
+/* 纯藏干卡：弱化（余气/墓气，未透出） */
+.analysis-card.card-hidden { opacity: .62; }
+.analysis-card.card-hidden .role-chip { opacity: .85; }
+/* 藏干折叠开关 */
+.hidden-stem-toggle {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  width: 100%; margin-top: 8px; padding: 7px 10px;
+  font-size: 12px; font-weight: 600; color: var(--text-muted, #888);
+  background: transparent; border: 1px dashed var(--gold-border, rgba(181,141,59,0.3));
+  border-radius: 7px; cursor: pointer; text-align: left;
+}
+.hidden-stem-toggle:hover { background: rgba(181,141,59,0.05); }
+.hst-hint { font-size: 10.5px; font-weight: 400; opacity: .8; }
+[data-theme="dark"] .hidden-stem-toggle { border-color: rgba(212,175,55,0.25); }
 
 /* ── 取法依据 & 用神关系 ──────────────────────────────────────── */
 .theory-rationale {
