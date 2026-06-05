@@ -420,3 +420,45 @@ const prompt = buildPromptFor(route.framework, { ...,
 6. 客户端路由器输出双轴；存量经 migrate。
 
 > 收益：Appendix A（动态框架 + 用神目标）变成一个**普通组合**而非特例；`profile_driven` 这个"什么都管"的 mode 被拆解消除；`character` 的 backend/llm 二选一推广为全局能力。
+
+---
+
+## Appendix C: 执行计划（mode → framework ⟂ target_source 双轴重构）
+
+> **原则**：消费侧先能吃"新形状"（经 `migrateLegacyRoute` 兼容旧的 + 原生新的），**生产侧（路由 LLM）最后才翻**。每步 test +（可见则）Preview + commit + 停下等批准（遵守本文 Working Rules）。
+
+### Phase 1 — 地基（零行为变化）
+- `lib/baziQuestionCore.js`：加 `FRAMEWORK`/`TARGET_SOURCE` 常量 + `migrateLegacyRoute(旧→新双轴)`（status→dynamic_current/backend_shishen；timing→dynamic_scan/backend_shishen；pattern→static_structure/backend_shishen；character→portrait/backend_shishen|llm_derived；profile_driven→open_strategy/**yongshen**；llm_derived flag→target_source=llm_derived）。
+- `normalizeBaziSemanticRoute` 末尾挂 migrate，route **同时带** `framework`/`target_source`（派生自旧字段），旧字段保留。
+- 测试：migrate 映射断言；**prompt/pipeline 输出逐字节不变**（尚未接线进 consumer）。可独立合入。
+
+### Phase 2 — `resolveTarget(target_source, params)`
+- 三分支：`backend_shishen`→现 `resolveBackendTargetSpec`；`yongshen`→`{primary_shishen:favorable_gods, primary_gongwei:[]}`；`llm_derived`→`null`。
+- **唯一实测未知点**：用神 targetSpec（空宫位/缺 subcategory）喂 `assessOriginalChartState`/`assessDynamicTriggers` 不报错（`baziDynamicAssessor.js:627` 等）。
+
+### Phase 3 — `runFramework(framework, targetSpec, params)`
+- `runStatusPipeline/runTimingPipeline/runStaticPipeline` 改吃 targetSpec，删内部 `resolveBackendTargetSpec`；`targetSpec==null` 只跳 Tier3。现有模式输出不变。
+
+### Phase 4 — Dispatch 重写（首个真行为变化）
+- 删 `buildBaziQuestionPrompt` 中 `llm_derived`/`profile_driven` 短路，改 `runFramework(framework, resolveTarget(target_source))`。`open_strategy+yongshen` 开始跑引擎。Preview：重提"创业还是打工"。
+
+### Phase 5 — 三层数据 + schema 按 framework
+- 所有 builder：Tier1 全量命盘 + Tier2 原局用神**恒注入**（修 `llm_derived` 偏薄 + 漏用神）。
+- schema key 改 `framework`；`open_strategy` schema = 现 profile_driven readings（含 `path_readings`）。
+
+### Phase 6 — 前端面板
+- `HomeView.vue`：`baziPanelMode`/布局读 `meta.framework`；Tier3 卡有无看 `state_report`/`dynamic_report`；四柱恒显示；存量 `meta.analysis_mode` 经 migrate 兜底。
+
+### Phase 7 — 路由 LLM 翻新形状（声明逻辑｜生产侧最后翻）
+重写 `divinationRouter.js` bazi 路由 prompt（350-419），显式声明双轴：
+- **framework**：当下状态→dynamic_current；应期→dynamic_scan；先天结构→static_structure；他人画像→portrait；开放战略→open_strategy。
+- **target_source**（fall-through）：①能映射目标十神/宫位→backend_shishen；②命主自身吉凶可观察→yongshen；③边界型→llm_derived。
+- 约束：portrait 不配 yongshen；open_strategy 默认 yongshen；用神已在命盘，路由不自取。
+- 加齐 few-shot；`normalizeBaziSemanticRoute` 原生接受新字段，旧/存量走 migrate。部署 worker 验证。
+
+### Phase 8 — 收尾
+- migrate 跑稳后删旧 mode 死代码；文档标注完成。
+
+### 风险与回滚
+- 最危：Phase 4（首次行为变化）、Phase 7（LLM 契约）。各自独立 commit，可单独 revert。
+- 存量兼容：87 条记录全程靠 `migrateLegacyRoute` 兜底（Phase 1 即上线），后续不动存量数据。
