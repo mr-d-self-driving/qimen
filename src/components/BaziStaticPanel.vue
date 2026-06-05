@@ -117,9 +117,9 @@
         @click="highlightedPillar = highlightedPillar === sa.pillar ? null : sa.pillar"
         style="cursor:pointer"
       >
-        <!-- 头行：[忌] + 十神名 + 干支 + 柱位 + 空亡 -->
+        <!-- 头行：[用/忌/标] + 十神名 + 干支 + 柱位 + 空亡 -->
         <div class="card-head">
-          <span v-if="sa.is_avoid" class="avoid-chip">忌</span>
+          <span class="role-chip" :class="cardRole(sa).cls">{{ cardRole(sa).text }}</span>
           <span class="shishen-name" :class="elemClass(sa.element)">{{ sa.shishen }}</span>
           <!-- 天干位置：干支是一对（如庚申）；藏干/地支主气：只显示干，地支在chip里说明 -->
           <span class="card-ganzhi" :class="elemClass(sa.element)">
@@ -241,6 +241,13 @@ const props = defineProps({
 const isYongshenAnchor = computed(() =>
   props.anchorKind === 'yongshen' || props.targetSpec?.anchor_kind === 'yongshen'
 )
+
+// 卡片角色徽标：忌神(忌·红) / 用神(用·金，yongshen 锚定) / 目标十神(标·紫，backend)
+function cardRole(sa) {
+  if (sa?.is_avoid) return { text: '忌', cls: 'role-ji' }
+  if (isYongshenAnchor.value) return { text: '用', cls: 'role-yong' }
+  return { text: '标', cls: 'role-target' }
+}
 
 const GAN5   = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
 const ZHI_WX = { 子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水' }
@@ -856,19 +863,24 @@ function tagClass(tag) {
   border-radius: 0 6px 6px 0;
 }
 
-/* ── 忌神卡（yongshen 锚定，与用神同样的旺衰底盘评估，红色标识）────── */
-.avoid-chip {
+/* ── 卡片角色徽标：用(金)/忌(红)/标(紫) ───────────────────────── */
+.role-chip {
   font-size: 11px;
   font-weight: 700;
   color: #fff;
-  background: #b91c1c;
   border-radius: 5px;
   padding: 1px 7px;
   margin-right: 2px;
   letter-spacing: .04em;
   flex-shrink: 0;
 }
-[data-theme="dark"] .avoid-chip { background: #dc4a45; color: #fff; }
+.role-yong   { background: var(--gold, #b5893b); }
+.role-ji     { background: #b91c1c; }
+.role-target { background: #7c3aed; }
+[data-theme="dark"] .role-yong   { background: #b8923f; color: #1a1a1a; }
+[data-theme="dark"] .role-ji     { background: #dc4a45; }
+[data-theme="dark"] .role-target { background: #8b5cf6; }
+/* 忌神卡底色（与用神同样的旺衰底盘评估，红色标识区分） */
 .analysis-card.card-avoid { border-color: rgba(180,60,60,0.28); background: rgba(180,60,60,0.035); }
 [data-theme="dark"] .analysis-card.card-avoid { border-color: rgba(240,100,100,0.3); background: rgba(240,100,100,0.05); }
 
