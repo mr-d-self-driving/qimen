@@ -536,7 +536,7 @@ function tagClass(tag) {
   padding: 0;
   overflow: hidden;
   font-family: var(--font-serif);
-  box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10);
 }
 
 /* ── 命盘标识行 ─────────────────────────────────────────────── */
@@ -575,7 +575,7 @@ function tagClass(tag) {
 [data-theme="dark"] .static-panel {
   /* background overridden at end of file with explicit #18182e */
   border-color: rgba(212,175,55,0.35);
-  box-shadow: 0 4px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(212,175,55,0.12);
+  box-shadow: 0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.12);
 }
 
 /* ── 四柱牌面 ─────────────────────────────────────────────── */
