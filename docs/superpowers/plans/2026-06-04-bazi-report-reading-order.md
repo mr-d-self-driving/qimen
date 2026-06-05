@@ -368,12 +368,22 @@ route = {
 
 关键：`yongshen` 是**后端可评估**的——这正是今天做不到的，因为它被 profile_driven 连引擎一起关了。
 
-### B.4 框架执行：`runFramework(framework, targetSpec, params)`
+### B.4 框架执行与三层数据供给
 
-现有 `runStatusPipeline / runTimingPipeline / runStaticPipeline` 改造为**参数化吃 targetSpec**，不再自己内部 `resolveBackendTargetSpec`：
+**先厘清"喂什么"与"算什么"是两件事**——三层数据各有独立的供给条件，别再像现在这样"不跑引擎就什么都不给"：
 
-- `targetSpec != null`（backend_shishen 或 yongshen）→ 正常跑 `assessOriginalChartState` + `assessDynamicTriggers`（static 框架可只跑前者）。
-- `targetSpec == null`（llm_derived）→ Step2/3 跳过，但**框架仍决定 schema 与 panel**，prompt 走 LLM 自拟目标块（现 `formatLlmDerivedTargetForPrompt`）。
+| 层 | 内容 | 成本 | 何时注入 prompt |
+|---|---|---|---|
+| **Tier 1 原始命盘** | 四柱 + 全量大运 + 未来流年（`formatSizhuDetailBlock`） | 免费(存档) | **始终**（任何 framework/target；当前 `llm_derived` 只给 `formatBasicProfileBlock`，偏薄，需补足） |
+| **Tier 2 原局用神/忌神** | `favorable_gods`/`unfavorable_gods`/`favorable_verdict` | 免费(预计算) | **始终**（即使不跑引擎也作背景给 LLM；当前两个 builder 都漏注入，是缺口） |
+| **Tier 3 用神/目标引擎评估** | `state_report` + `dynamic_report`（静态状态 + 岁运引动吉凶 + **面板卡**） | 需跑引擎 | **仅 `target_source` 可后端评估时**（backend_shishen / yongshen） |
+
+**`runFramework(framework, targetSpec, params)`**：现有 `runStatusPipeline / runTimingPipeline / runStaticPipeline` 改造为参数化吃 targetSpec，不再自己内部 `resolveBackendTargetSpec`。Tier 3 是否跑，**只看 targetSpec 是否为 null（即 target_source 是否 llm_derived），与 framework 无关**：
+
+- `targetSpec != null`（backend_shishen / yongshen）→ 跑 `assessOriginalChartState` + `assessDynamicTriggers`（static 框架可只跑前者）→ 有 Tier 3。
+- `targetSpec == null`（llm_derived）→ **只跳 Tier 3**；Tier 1+2 照常注入，prompt 走 LLM 自拟目标块（`formatLlmDerivedTargetForPrompt`），框架仍决定 schema。
+
+**面板对应**：四柱牌面属 Tier 1 衍生，**始终可显示**；"用神状态/动态触发"卡属 Tier 3，**仅引擎跑了才显示**——这就是 `llm_derived` "不一定提供 panel 信息"的准确含义（四柱有、引擎卡无）。
 
 ### B.5 Dispatch 重写（核心改动）
 
@@ -391,7 +401,7 @@ const prompt = buildPromptFor(route.framework, { ...,
 > **两轴非对称（关键约束）**：`framework` + `target_source` 共同拼出最终 **prompt**，但**只有 `framework` 决定输出结构(JSON schema)与 panel 露出**。`target_source` 不选 schema，它只决定"对准谁"（Step1 锚定对象、断语措辞、confidence、目标标签文案）。换言之**目标换了，输出契约不能跟着抖**——否则前端渲染与存量记录又会碎。实现者切勿把两轴当成对称地各管一半结构。
 
 - `buildReadingsSchema` / `buildUnifiedOutputSchemaBlock` 的 key 从 `mode` 换成 `framework`；`open_strategy` 的 schema 即现 profile_driven 的 readings（含 `path_readings[]`），叠加框架时合并其 schema 块。
-- 前端 `baziPanelMode` 与面板露出只读 `framework`（`meta.framework`），不再读 `analysis_mode`。
+- 前端 `baziPanelMode` 与面板**区块布局**只读 `framework`（`meta.framework`），不再读 `analysis_mode`。但 Tier 3 卡（用神状态/动态触发）的**有无**看是否产出了 `state_report`/`dynamic_report`（即 target_source 是否 llm_derived）；四柱牌面属 Tier 1，恒显示（见 B.4）。
 - `target_source` **只**影响：Step1 断语块的措辞、`confidence`（llm_derived/yongshen 标 low/medium）、面板里"目标"标签文案（"目标十神" vs "用神/忌神" vs "LLM 自拟框架"）。
 
 ### B.7 向后兼容（存量记录 + 客户端路由器）
