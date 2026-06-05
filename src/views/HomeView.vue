@@ -3934,17 +3934,26 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-liunian-note) { font-size:13px; color:var(--ink-muted); line-height:1.55; flex:1; min-width:0; overflow-wrap:anywhere; }
 /* timing flow 复用 inference-flow */
 :deep(.bazi-timing-flow) { display:flex; flex-direction:column; gap:0; border-top:1px solid var(--line); margin-top:16px; }
-/* ── 路径推演（多路径对比）：与逐项解读 inference-card 视觉区分 ── */
+/* ── 路径推演（多路径对比）：横向滑动卡片，露出下一张 peek（参考 Wise 卡片） ── */
 :deep(.bazi-path-block) { margin-top:20px; padding-top:16px; border-top:1px dashed var(--gold-border, rgba(181,141,59,0.35)); }
 :deep(.bazi-path-title) { margin:0 0 12px; font-size:13px; font-weight:700; letter-spacing:.08em; color:var(--gold, #b5893b); }
-:deep(.bazi-path-grid) { display:flex; flex-direction:column; gap:12px; }
-:deep(.bazi-path-card) { border:1px solid var(--gold-border, rgba(181,141,59,0.28)); border-left:3px solid var(--gold, #b5893b); border-radius:8px; background:rgba(181,141,59,0.04); padding:12px 14px; }
-[data-theme="dark"] :deep(.bazi-path-card) { background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.3); border-left-color:#d4af37; }
-:deep(.bazi-path-head) { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
-:deep(.bazi-path-badge) { font-size:11px; font-weight:700; letter-spacing:.06em; color:#fff; background:var(--gold, #b5893b); border-radius:5px; padding:2px 8px; white-space:nowrap; }
+:deep(.bazi-path-grid) {
+  display:flex; gap:12px;
+  overflow-x:auto; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch;
+  scrollbar-width:none; padding:2px 0 6px; margin:0 -2px;
+}
+:deep(.bazi-path-grid)::-webkit-scrollbar { display:none; }
+:deep(.bazi-path-card) {
+  flex:0 0 86%; scroll-snap-align:start; min-width:0;
+  border:1px solid var(--gold-border, rgba(181,141,59,0.22));
+  border-radius:16px; background:rgba(181,141,59,0.05); padding:16px 16px 14px;
+}
+[data-theme="dark"] :deep(.bazi-path-card) { background:rgba(212,175,55,0.07); border-color:rgba(212,175,55,0.25); }
+:deep(.bazi-path-head) { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+:deep(.bazi-path-badge) { font-size:11px; font-weight:700; letter-spacing:.06em; color:#fff; background:var(--gold, #b5893b); border-radius:6px; padding:3px 9px; white-space:nowrap; }
 [data-theme="dark"] :deep(.bazi-path-badge) { background:#b8923f; color:#1a1a1a; }
 :deep(.bazi-path-name) { font-size:15px; font-weight:700; color:var(--ink-main, inherit); }
-:deep(.bazi-path-rows) { display:grid; gap:6px; }
+:deep(.bazi-path-rows) { display:grid; gap:7px; }
 :deep(.bazi-path-row) { display:flex; gap:8px; font-size:13px; line-height:1.6; }
 :deep(.bazi-path-k) { flex-shrink:0; min-width:48px; font-weight:600; color:var(--gold, #b5893b); }
 :deep(.bazi-path-v) { flex:1; min-width:0; color:var(--ink-muted); overflow-wrap:anywhere; }
