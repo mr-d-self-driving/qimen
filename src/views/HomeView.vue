@@ -399,6 +399,7 @@
                   :matrix="baziPanelMatrix"
                   :state-report="activeBaziResultData.state_report"
                   :target-spec="activeBaziResultData.target_spec || { primary_shishen: [], primary_gongwei: [] }"
+                  :anchor-kind="baziPanelAnchorKind"
                   :shishen-theory="baziPanelShishenTheory"
                   :profile-info="baziPanelProfileInfo"
                   :five-shens="baziPanelFiveShens"
@@ -844,12 +845,23 @@ const baziPanelMode = computed(() => {
   return 'status'
 })
 
+const baziPanelAnchorKind = computed(() => activeBaziResultData.value?.target_spec?.anchor_kind || '')
+
 const baziPanelShishenTheory = computed(() => {
   const spec = activeBaziResultData.value?.target_spec
   if (!spec) return ''
   const shishens = (spec.primary_shishen || []).join('、')
   const gongweis = (spec.primary_gongwei || []).join('、')
   if (!shishens && !gongweis) return ''
+  // yongshen 锚定：目标即命主用神/忌神，不写"目标十神"（否则与"用神关系"同义反复）
+  if (spec.anchor_kind === 'yongshen') {
+    const xi = shishens
+    const ji = (spec.secondary_shishen || []).filter(s => s && s !== '用神' && s !== '忌神').join('、')
+    const parts = []
+    if (xi) parts.push(`以命主用神 ${xi}`)
+    if (ji) parts.push(`忌神 ${ji}`)
+    return parts.length ? `${parts.join('、')} 为综合运势锚点` : ''
+  }
   const parts = []
   if (shishens) parts.push(`以 ${shishens} 为目标十神`)
   if (gongweis) parts.push(`${gongweis} 为目标宫位`)

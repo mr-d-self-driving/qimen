@@ -95,18 +95,18 @@
 
     <div class="panel-divider"></div>
 
-    <!-- ── 目标十神 ── -->
+    <!-- ── 目标十神 / 用神锚点 ── -->
     <section class="panel-section">
-      <div class="section-label">目标十神</div>
+      <div class="section-label">{{ isYongshenAnchor ? '用神 / 忌神（综合运势锚点）' : '目标十神' }}</div>
 
-      <!-- 理论说明行（结构：以XX为目标十神） -->
+      <!-- 理论说明行（结构：以XX为目标十神 / 以用神X为锚点） -->
       <p v-if="shishenTheory" class="theory-note">{{ shishenTheory }}</p>
 
       <!-- 取法依据（analysis_question） -->
       <p v-if="analysisRationale" class="theory-rationale">{{ analysisRationale }}</p>
 
-      <!-- 与用神关系 -->
-      <p v-if="yongshenRelation" class="yong-relation" :class="yongshenRelationClass">{{ yongshenRelation }}</p>
+      <!-- 与用神关系（yongshen 锚定时目标即用神，同义反复，隐藏） -->
+      <p v-if="yongshenRelation && !isYongshenAnchor" class="yong-relation" :class="yongshenRelationClass">{{ yongshenRelation }}</p>
 
       <!-- 找到的十神 card -->
       <div
@@ -231,9 +231,12 @@ const props = defineProps({
   matrix:        { type: Object, default: null },
   shishenTheory: { type: String, default: '' },
   gongweiTheory: { type: String, default: '' },
+  anchorKind:    { type: String, default: '' },    // 'yongshen' ⇒ 目标即命主用神/忌神
   profileInfo:   { type: Object, default: null },  // { name, gender, birthDate }
   fiveShens:     { type: Object, default: null },  // bazi_detail.five_shens
 })
+
+const isYongshenAnchor = computed(() => props.anchorKind === 'yongshen')
 
 const GAN5   = { 甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水' }
 const ZHI_WX = { 子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水' }
