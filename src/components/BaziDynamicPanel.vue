@@ -96,6 +96,35 @@
       </div>
     </section>
 
+    <!-- ── 忌神引动层（yongshen 锚定，凶侧）── -->
+    <section v-if="mode === 'status' && avoidImpact" class="panel-section">
+      <div class="section-label">忌神引动 · {{ avoidImpact.shishen }}</div>
+      <div class="gz-card card-avoid">
+        <div class="gz-card-head">
+          <span class="avoid-badge">忌</span>
+          <span v-if="avoidImpact.liunian_impact" class="gz-char gz-sm" :class="elemClass(GAN5[avoidImpact.liunian_impact.gan])">{{ avoidImpact.liunian_impact.gan }}</span>
+          <span v-if="avoidImpact.liunian_impact" class="gz-char gz-sm" :class="elemClass(ZHI_WX[avoidImpact.liunian_impact.zhi])">{{ avoidImpact.liunian_impact.zhi }}</span>
+          <span class="avoid-hint">岁运引动忌神＝病加重</span>
+        </div>
+        <div
+          v-for="(mech, i) in visibleMechanisms(avoidImpact.liunian_impact)"
+          :key="i"
+          class="mech-row"
+          :class="mechRowClass(mech)"
+        >
+          <span class="mech-type">{{ mech.type }}</span>
+          <span class="mech-desc">{{ mech.description }}</span>
+          <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
+            {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
+          </span>
+        </div>
+        <div v-if="visibleMechanisms(avoidImpact.liunian_impact).length === 0" class="mech-empty">当前岁运未直接引动忌神</div>
+        <p v-if="avoidImpact.target_trigger?.auspice_direction" class="avoid-trigger-note">
+          {{ avoidImpact.target_trigger.state_change }}　<em>{{ avoidImpact.target_trigger.auspice_direction }}</em>
+        </p>
+      </div>
+    </section>
+
     <!-- ── 流年层: timing 单大运（不轮播） ── -->
     <section v-if="mode === 'timing' && !isMultiDayun" class="panel-section">
       <div class="section-label">候选年运</div>
@@ -413,6 +442,7 @@ const dayunImpact = computed(() => {
 })
 
 const liunianImpact = computed(() => props.dynamicReport?.liunian_impact ?? {})
+const avoidImpact = computed(() => props.dynamicReport?.avoid_impact ?? null)
 
 // 所有候选年（跨多大运展平，用于查找 bestWindowYear）
 const allWindows = computed(() =>
@@ -510,6 +540,24 @@ const targetTrigger = computed(() => {
   border-color: rgba(200,130,60,0.4);
   background: rgba(200,130,60,0.07);
 }
+
+/* ── 忌神引动卡（凶侧）── */
+.gz-card.card-avoid { border-color: rgba(180,60,60,0.3); background: rgba(180,60,60,0.04); }
+[data-theme="dark"] .gz-card.card-avoid { border-color: rgba(240,100,100,0.32); background: rgba(240,100,100,0.05); }
+.avoid-badge {
+  font-size: 11px; font-weight: 700; color: #fff; background: #b91c1c;
+  border-radius: 5px; padding: 1px 7px; letter-spacing: .04em; flex-shrink: 0;
+}
+[data-theme="dark"] .avoid-badge { background: #dc4a45; }
+.avoid-hint { font-size: 10px; color: #b91c1c; letter-spacing: .04em; }
+[data-theme="dark"] .avoid-hint { color: #fca5a5; }
+.avoid-trigger-note {
+  font-size: 11.5px; color: var(--ink-muted, var(--text-muted)); margin: 0;
+  padding: 6px 8px; background: rgba(180,60,60,0.05);
+  border-left: 2px solid rgba(180,60,60,0.3); border-radius: 0 4px 4px 0; line-height: 1.5;
+}
+.avoid-trigger-note em { color: #b91c1c; font-style: normal; font-weight: 600; }
+[data-theme="dark"] .avoid-trigger-note em { color: #fca5a5; }
 
 .gz-card-head {
   display: flex;
