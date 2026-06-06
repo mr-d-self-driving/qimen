@@ -458,8 +458,13 @@ const prompt = buildPromptFor(route.framework, { ...,
 - 约束：portrait 不配 yongshen；open_strategy 默认 yongshen；用神已在命盘，路由不自取。
 - 加齐 few-shot；`normalizeBaziSemanticRoute` 原生接受新字段，旧/存量走 migrate。部署 worker 验证。
 
-### Phase 8 — 收尾
-- migrate 跑稳后删旧 mode 死代码；文档标注完成。
+### Phase 8 — 收尾 ✅（核实后：无安全清理项）
+- **旧 mode 代码非死代码**：dispatch 仍以 `analysis_mode` 为 framework 轴的键（双向归一保证它始终存在），prompt builder 仍按 mode 选。没有可安全删除的死代码。
+- **schema 字面改名 mode→framework**：纯 cosmetic，但 dispatch/builder 都以 mode 为键，改名需连带 rewire，属行为风险 > 收益，**主动放弃**（mode↔framework 已 1:1，语义等价）。
+- **7 条 domain-view 测试失败 = 预存技术债**：经核实在 Phase 6 之前的提交（bec12b9）即同样失败（26/7），与本次重构无关（PRD 渲染断言：mode卡片/枚举标签/logic长文/schema字段/高对比样式）。按 Working Rules"unrelated existing failures 单独报告"，**不纳入本重构**，建议另起任务处理。
+
+### 完成状态
+Phase 1-7 全部落地、测试（lib 41/41）、部署（worker `qimen-preview` + 前端 `phase6-preview.qimen-1ff.pages.dev`）、端到端验收（status+yongshen 综合运势真实跑通）。生产 `qimendao.com` 未动。
 
 ### 风险与回滚
 - 最危：Phase 4（首次行为变化）、Phase 7（LLM 契约）。各自独立 commit，可单独 revert。
