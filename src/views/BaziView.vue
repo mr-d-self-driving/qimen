@@ -3189,6 +3189,8 @@ const openAddProfile = () => {
         return
     }
     resetProfileEntry()
+    isProfileMenuOpen.value = false
+    swipedProfileId.value = null
     showAdd.value = true
     showRename.value = false
 }
@@ -3359,6 +3361,8 @@ const saveProfile = async () => {
         return
     }
     showAdd.value = false
+    isProfileMenuOpen.value = false
+    swipedProfileId.value = null
     resetProfileEntry()
     if (isGuest.value) {
         const profile = buildGuestProfile(payload)

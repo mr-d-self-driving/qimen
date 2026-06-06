@@ -158,5 +158,20 @@ test('新增档案校验通过后立即收起 bottom sheet', () => {
   assert.ok(guestStart > start)
   assert.match(block, /payload = buildProfilePayloadFromEntry\(\)/)
   assert.match(block, /showAdd\.value = false/)
+  assert.match(block, /isProfileMenuOpen\.value = false/)
+  assert.match(block, /swipedProfileId\.value = null/)
   assert.match(block, /resetProfileEntry\(\)/)
+})
+
+test('从档案切换层新增档案时先收起切换层', () => {
+  const start = source.indexOf('const openAddProfile = () => {')
+  const end = source.indexOf('const openRenameProfile', start)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(block, /resetProfileEntry\(\)/)
+  assert.match(block, /isProfileMenuOpen\.value = false/)
+  assert.match(block, /swipedProfileId\.value = null/)
+  assert.match(block, /showAdd\.value = true/)
 })
