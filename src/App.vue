@@ -428,6 +428,44 @@ onUnmounted(() => {
   display: none;
 }
 
+[data-theme="dark"] .update-notice-overlay {
+  background: rgba(0, 0, 0, 0.72);
+}
+
+[data-theme="dark"] .update-notice-panel {
+  border-color: rgba(212, 175, 55, 0.22);
+  background: linear-gradient(180deg, #141421 0%, #090910 100%);
+  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.58);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .update-notice-close {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}
+
+[data-theme="dark"] .update-notice-version {
+  color: var(--gold-light);
+}
+
+[data-theme="dark"] .update-notice-copy p:last-child {
+  color: var(--ink-muted);
+}
+
+[data-theme="dark"] .update-panel-demo {
+  border-color: rgba(212, 175, 55, 0.18);
+  background: #0e0e1f;
+}
+
+[data-theme="dark"] .update-panel-demo :deep(.static-panel) {
+  background: #0e0e1f;
+}
+
+[data-theme="dark"] .update-notice-primary {
+  background: var(--gold);
+  color: #08080d;
+}
+
 .update-notice-actions {
   display: flex;
   margin-top: 18px;
