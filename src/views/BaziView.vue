@@ -388,6 +388,14 @@
                         <div class="analysis-title">{{ isAnalyzing ? analysisSteps[analysisStageIndex] : analysisNotice }}</div>
                         <div class="analysis-subtitle">{{ isAnalyzing ? '排盘、格局、岁运与喜忌正在同步校验' : '最新结果已写入当前档案' }}</div>
                     </div>
+                    <button
+                        v-if="analysisNotice && !isAnalyzing"
+                        class="analysis-dismiss"
+                        type="button"
+                        aria-label="关闭推演状态提示"
+                        title="关闭"
+                        @click="analysisNotice = ''"
+                    >×</button>
                     <div v-if="isAnalyzing" class="analysis-progress">
                         <i :style="{ width: analysisProgress + '%' }"></i>
                     </div>
@@ -3350,14 +3358,14 @@ const saveProfile = async () => {
         alert(error.message)
         return
     }
+    showAdd.value = false
+    resetProfileEntry()
     if (isGuest.value) {
         const profile = buildGuestProfile(payload)
         saveGuestBaziProfile(undefined, profile)
         baziProfiles.value = [profile]
         selectedProfileId.value = profile.id
         setSelectedBaziProfileId(profile.id)
-        showAdd.value = false
-        resetProfileEntry()
         await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
         return
     }
@@ -3403,8 +3411,6 @@ const saveProfile = async () => {
             selectedProfileId.value = data.id
             setSelectedBaziProfileId(data.id)
         }
-        showAdd.value = false
-        resetProfileEntry()
         clearBaziProfilesCache()
         await fetchProfiles()
     }
@@ -4498,6 +4504,24 @@ const getShenColor = (shen) => {
 .analysis-copy { min-width: 0; flex: 1; }
 .analysis-title { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .analysis-subtitle { color: var(--text-muted); font-size: 11px; }
+.analysis-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(13,148,136,0.10);
+    color: var(--ink-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.analysis-dismiss:hover {
+    color: var(--ink);
+    background: rgba(13,148,136,0.16);
+}
 .analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }

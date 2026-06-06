@@ -137,3 +137,26 @@ test('八字 LLM 流式文本优先于持久化断语展示', () => {
   assert.match(source, /streamedBaziInterpretation\.value\.current_dayun\s*\|\|\s*resolvedInterpretation\.value\.current_dayun/)
   assert.match(source, /streamedBaziInterpretation\.value\.current_liunian\s*\|\|\s*resolvedInterpretation\.value\.current_liunian/)
 })
+
+test('推演完成提示提供关闭按钮', () => {
+  const start = source.indexOf('class="analysis-status"')
+  const end = source.indexOf('</div>', source.indexOf('class="analysis-progress"', start))
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.match(block, /analysis-dismiss/)
+  assert.match(block, /analysisNotice = ''/)
+  assert.match(block, /aria-label="关闭推演状态提示"/)
+})
+
+test('新增档案校验通过后立即收起 bottom sheet', () => {
+  const start = source.indexOf('const saveProfile = async')
+  const guestStart = source.indexOf('if (isGuest.value)', start)
+  const block = source.slice(start, guestStart)
+
+  assert.ok(start > -1)
+  assert.ok(guestStart > start)
+  assert.match(block, /payload = buildProfilePayloadFromEntry\(\)/)
+  assert.match(block, /showAdd\.value = false/)
+  assert.match(block, /resetProfileEntry\(\)/)
+})
