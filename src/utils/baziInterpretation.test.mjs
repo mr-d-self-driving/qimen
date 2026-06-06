@@ -52,3 +52,23 @@ test('resolveBaziInterpretation prefers llm, falls back to engine, then legacy s
     current_liunian: 'engine-liunian'
   })
 })
+
+test('resolveBaziInterpretation ignores null fields instead of rendering literal null', () => {
+  assert.deepEqual(resolveBaziInterpretation({
+    llm_yuanju_core: null,
+    llm_current_dayun: null,
+    llm_current_liunian: null,
+    bazi_detail: {
+      llm_yuanju_core: null,
+      llm_current_dayun: null,
+      llm_current_liunian: null,
+      engine_yuanju_core: 'engine-yuanju',
+      engine_current_dayun: 'engine-dayun',
+      engine_current_liunian: 'engine-liunian'
+    }
+  }), {
+    yuanju_core: 'engine-yuanju',
+    current_dayun: 'engine-dayun',
+    current_liunian: 'engine-liunian'
+  })
+})

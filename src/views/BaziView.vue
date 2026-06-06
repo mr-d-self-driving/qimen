@@ -388,6 +388,14 @@
                         <div class="analysis-title">{{ isAnalyzing ? analysisSteps[analysisStageIndex] : analysisNotice }}</div>
                         <div class="analysis-subtitle">{{ isAnalyzing ? '排盘、格局、岁运与喜忌正在同步校验' : '最新结果已写入当前档案' }}</div>
                     </div>
+                    <button
+                        v-if="analysisNotice && !isAnalyzing"
+                        class="analysis-dismiss"
+                        type="button"
+                        aria-label="关闭推演状态提示"
+                        title="关闭"
+                        @click="analysisNotice = ''"
+                    >×</button>
                     <div v-if="isAnalyzing" class="analysis-progress">
                         <i :style="{ width: analysisProgress + '%' }"></i>
                     </div>
@@ -641,7 +649,7 @@
                     @shensha-click="showShensha"
                 />
 
-                <div v-if="needsUpgrade && currentTab !== 'events'" class="matrix-fallback-note">
+                <div v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'" class="matrix-fallback-note">
                     基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
                 </div>
 
@@ -1098,7 +1106,9 @@
                     <!-- 原局核心 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">原局核心</span>
-                        <p class="rpt-prose" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <span v-if="isBaziSectionLoading('yuanju_core')" class="bazi-stream-badge">AI 生成中</span>
+                        <p v-if="resolvedYuanjuCore" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('yuanju_core') }" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('yuanju_core')" class="bazi-section-skeleton"><i></i><i></i><i></i></div>
                         <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1111,8 +1121,11 @@
                     <!-- 岁运推演 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">岁运推演</span>
-                        <p class="rpt-prose" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
-                        <p class="rpt-prose"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <span v-if="isBaziSectionLoading('current_dayun') || isBaziSectionLoading('current_liunian')" class="bazi-stream-badge">AI 生成中</span>
+                        <p v-if="resolvedCurrentDayun" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_dayun') }" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('current_dayun')" class="bazi-section-skeleton"><i></i><i></i></div>
+                        <p v-if="resolvedCurrentLiunian" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_liunian') }"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('current_liunian')" class="bazi-section-skeleton"><i></i><i></i></div>
                         <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1479,6 +1492,54 @@ const ANALYSIS_PROGRESS_FRAMES = [8, 12, 17, 23, 29, 36, 43, 50, 57, 64, 70, 76,
 let analysisTimer = null
 let analysisFrameIndex = 0
 let toastTimer = null
+const BAZI_STREAM_SECTION_KEYS = ['yuanju_core', 'current_dayun', 'current_liunian']
+
+const createBaziStreamSections = (status = 'idle') => ({
+    yuanju_core: { status, text: '' },
+    current_dayun: { status, text: '' },
+    current_liunian: { status, text: '' }
+})
+
+const llmStreamSections = ref(createBaziStreamSections())
+
+function resetLlmStreamSections(status = 'idle') {
+    llmStreamSections.value = createBaziStreamSections(status)
+}
+
+function patchLlmStreamSection(section, patch = {}) {
+    if (!BAZI_STREAM_SECTION_KEYS.includes(section)) return
+    llmStreamSections.value = {
+        ...llmStreamSections.value,
+        [section]: {
+            ...llmStreamSections.value[section],
+            ...patch
+        }
+    }
+}
+
+function isBaziSectionStreaming(section) {
+    return llmStreamSections.value[section]?.status === 'streaming'
+}
+
+function isBaziSectionPending(section) {
+    return llmStreamSections.value[section]?.status === 'pending'
+}
+
+function isBaziSectionLoading(section) {
+    return ['pending', 'streaming'].includes(llmStreamSections.value[section]?.status)
+}
+
+function isBaziSectionFailed(section) {
+    return llmStreamSections.value[section]?.status === 'failed'
+}
+
+function getBaziStreamText(section) {
+    return String(llmStreamSections.value[section]?.text || '').trim()
+}
+
+function shouldShowBaziSectionSkeleton(section) {
+    return isBaziSectionLoading(section) && !getBaziStreamText(section)
+}
 
 const form = reactive({
     name: '',
@@ -2609,16 +2670,34 @@ const showChengGeText = computed(() => {
 
 const resolvedInterpretation = computed(() => resolveBaziInterpretation(activeProfile.value || {}))
 
+const streamedBaziInterpretation = computed(() => ({
+    yuanju_core: ['streaming', 'done'].includes(llmStreamSections.value.yuanju_core?.status)
+        ? getBaziStreamText('yuanju_core')
+        : '',
+    current_dayun: ['streaming', 'done'].includes(llmStreamSections.value.current_dayun?.status)
+        ? getBaziStreamText('current_dayun')
+        : '',
+    current_liunian: ['streaming', 'done'].includes(llmStreamSections.value.current_liunian?.status)
+        ? getBaziStreamText('current_liunian')
+        : ''
+}))
+
 const resolvedYuanjuCore = computed(() => {
-    return resolvedInterpretation.value.yuanju_core
+    if (isBaziSectionLoading('yuanju_core')) return streamedBaziInterpretation.value.yuanju_core
+    if (isBaziSectionFailed('yuanju_core')) return resolvedInterpretation.value.yuanju_core
+    return streamedBaziInterpretation.value.yuanju_core || resolvedInterpretation.value.yuanju_core
 })
 
 const resolvedCurrentDayun = computed(() => {
-    return resolvedInterpretation.value.current_dayun
+    if (isBaziSectionLoading('current_dayun')) return streamedBaziInterpretation.value.current_dayun
+    if (isBaziSectionFailed('current_dayun')) return resolvedInterpretation.value.current_dayun
+    return streamedBaziInterpretation.value.current_dayun || resolvedInterpretation.value.current_dayun
 })
 
 const resolvedCurrentLiunian = computed(() => {
-    return resolvedInterpretation.value.current_liunian
+    if (isBaziSectionLoading('current_liunian')) return streamedBaziInterpretation.value.current_liunian
+    if (isBaziSectionFailed('current_liunian')) return resolvedInterpretation.value.current_liunian
+    return streamedBaziInterpretation.value.current_liunian || resolvedInterpretation.value.current_liunian
 })
 
 const feedbackCorrections = computed(() => ({
@@ -3132,6 +3211,8 @@ const openAddProfile = () => {
         return
     }
     resetProfileEntry()
+    isProfileMenuOpen.value = false
+    swipedProfileId.value = null
     showAdd.value = true
     showRename.value = false
 }
@@ -3301,14 +3382,16 @@ const saveProfile = async () => {
         alert(error.message)
         return
     }
+    showAdd.value = false
+    isProfileMenuOpen.value = false
+    swipedProfileId.value = null
+    resetProfileEntry()
     if (isGuest.value) {
         const profile = buildGuestProfile(payload)
         saveGuestBaziProfile(undefined, profile)
         baziProfiles.value = [profile]
         selectedProfileId.value = profile.id
         setSelectedBaziProfileId(profile.id)
-        showAdd.value = false
-        resetProfileEntry()
         await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
         return
     }
@@ -3354,8 +3437,6 @@ const saveProfile = async () => {
             selectedProfileId.value = data.id
             setSelectedBaziProfileId(data.id)
         }
-        showAdd.value = false
-        resetProfileEntry()
         clearBaziProfilesCache()
         await fetchProfiles()
     }
@@ -3447,6 +3528,70 @@ const stopAnalysisMotion = () => {
     }
 }
 
+async function readBaziSSEStream(response, profileId) {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) return null
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+            const line = part.trim()
+            if (!line.startsWith('data: ')) continue
+            let event
+            try { event = JSON.parse(line.slice(6)) } catch { continue }
+
+            if (event.type === 'step') {
+                analysisProgress.value = event.pct ?? analysisProgress.value
+                analysisStageIndex.value = Math.min(analysisSteps.length - 1, Math.max(0, Number(event.index || 0)))
+            } else if (event.type === 'engine_complete') {
+                analysisProgress.value = event.pct ?? 45
+                resetLlmStreamSections('pending')
+                clearBaziProfilesCache()
+                await fetchProfiles()
+            } else if (event.type === 'llm_section_start') {
+                patchLlmStreamSection(event.section, { status: 'streaming' })
+            } else if (event.type === 'llm_delta') {
+                const current = llmStreamSections.value[event.section]?.text || ''
+                patchLlmStreamSection(event.section, { status: 'streaming', text: current + (event.text || '') })
+            } else if (event.type === 'llm_section_done') {
+                patchLlmStreamSection(event.section, {
+                    status: 'done',
+                    text: event.text ?? llmStreamSections.value[event.section]?.text ?? ''
+                })
+            } else if (event.type === 'llm_error') {
+                BAZI_STREAM_SECTION_KEYS.forEach(section => {
+                    if (['pending', 'streaming'].includes(llmStreamSections.value[section]?.status)) {
+                        patchLlmStreamSection(section, { status: 'failed' })
+                    }
+                })
+                showToast(event.message || 'AI 深度断语暂时不可用，已保留规则引擎结果', 'error')
+            } else if (event.type === 'llm_complete') {
+                analysisProgress.value = 100
+                clearBaziProfilesCache()
+                await fetchProfiles()
+                return event.result || null
+            } else if (event.type === 'complete') {
+                analysisProgress.value = event.pct ?? 100
+                if (event.partial) {
+                    clearBaziProfilesCache()
+                    await fetchProfiles()
+                }
+                return event.result || null
+            } else if (event.type === 'error') {
+                const err = new Error(event.message || '八字推演失败')
+                err.profileId = profileId
+                throw err
+            }
+        }
+    }
+}
+
 // force=true 时引擎 + LLM 全量重推；force=false（默认）只在版本过期时刷新引擎，保留 LLM 断语
 const requestAiSummary = async ({ force = false } = {}) => {
     if (!activeProfile.value) return
@@ -3458,6 +3603,7 @@ const requestAiSummary = async ({ force = false } = {}) => {
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
     isAnalyzing.value = true
     analysisNotice.value = ''
+    resetLlmStreamSections()
     startAnalysisMotion()
     try {
         const pd = promptDataObj.value
@@ -3471,8 +3617,11 @@ const requestAiSummary = async ({ force = false } = {}) => {
             })
         })
 
-        const data = await response.json()
-        if (data.error) {
+        const contentType = response.headers.get('Content-Type') || ''
+        const data = contentType.includes('text/event-stream')
+            ? await readBaziSSEStream(response, profileId)
+            : await response.json()
+        if (data?.error) {
             const err = new Error(data.error)
             err.httpStatus = response.status
             throw err
@@ -4381,6 +4530,24 @@ const getShenColor = (shen) => {
 .analysis-copy { min-width: 0; flex: 1; }
 .analysis-title { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .analysis-subtitle { color: var(--text-muted); font-size: 11px; }
+.analysis-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(13,148,136,0.10);
+    color: var(--ink-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.analysis-dismiss:hover {
+    color: var(--ink);
+    background: rgba(13,148,136,0.16);
+}
 .analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -4928,6 +5095,38 @@ const getShenColor = (shen) => {
     margin: 0 0 10px;
 }
 .rpt-prose-warn { color: var(--crimson, #c62828); opacity: 0.85; }
+.bazi-stream-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0.84;
+}
+.bazi-stream-prose.streaming {
+    border-left: 2px solid rgba(201, 166, 107, 0.38);
+    padding-left: 10px;
+}
+.bazi-section-skeleton {
+    display: grid;
+    gap: 7px;
+    margin-top: 10px;
+    max-width: 680px;
+}
+.bazi-section-skeleton i {
+    display: block;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(201,166,107,0.12), rgba(201,166,107,0.28), rgba(201,166,107,0.12));
+    background-size: 220% 100%;
+    animation: baziSkeletonPulse 1.4s ease-in-out infinite;
+}
+.bazi-section-skeleton i:nth-child(2) { width: 82%; }
+.bazi-section-skeleton i:nth-child(3) { width: 62%; }
+@keyframes baziSkeletonPulse {
+    0% { background-position: 0% 50%; }
+    100% { background-position: -220% 50%; }
+}
 /* Sub-section within article */
 .rpt-sub {
     margin-top: 18px;

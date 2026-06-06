@@ -4,7 +4,7 @@ const SECTION_PATTERNS = {
   current_liunian: /当前流年[:：]\s*([\s\S]*?)$/
 }
 
-const cleanSection = (value = '') => String(value).trim()
+const cleanSection = (value = '') => value == null ? '' : String(value).trim()
 
 export function parseLegacyBaziSummary(summary) {
   const text = cleanSection(summary)

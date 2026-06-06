@@ -119,3 +119,80 @@ test('访客档案限制说明不再使用圆角提示框', () => {
   assert.match(source, /\.guest-limit-note\s*\{[^}]*background:\s*transparent;/s)
   assert.doesNotMatch(source, /\.guest-limit-note\s*\{[^}]*border-radius:/s)
 })
+
+test('八字排盘生成使用 SSE 接收引擎先出和 LLM 分区流式内容', () => {
+  assert.match(source, /const llmStreamSections = ref/)
+  assert.match(source, /function resetLlmStreamSections/)
+  assert.match(source, /async function readBaziSSEStream/)
+  assert.match(source, /event\.type === 'engine_complete'/)
+  assert.match(source, /event\.type === 'llm_delta'/)
+  assert.match(source, /event\.type === 'llm_section_done'/)
+  assert.match(source, /event\.type === 'llm_error'/)
+  assert.match(source, /streamedBaziInterpretation/)
+  assert.match(source, /isBaziSectionStreaming/)
+  assert.match(source, /isBaziSectionLoading/)
+  assert.match(source, /shouldShowBaziSectionSkeleton/)
+})
+
+test('八字 LLM 流式文本优先于持久化断语展示', () => {
+  assert.match(source, /if \(isBaziSectionLoading\('yuanju_core'\)\) return streamedBaziInterpretation\.value\.yuanju_core/)
+  assert.match(source, /if \(isBaziSectionFailed\('yuanju_core'\)\) return resolvedInterpretation\.value\.yuanju_core/)
+  assert.match(source, /if \(isBaziSectionLoading\('current_dayun'\)\) return streamedBaziInterpretation\.value\.current_dayun/)
+  assert.match(source, /if \(isBaziSectionFailed\('current_dayun'\)\) return resolvedInterpretation\.value\.current_dayun/)
+  assert.match(source, /if \(isBaziSectionLoading\('current_liunian'\)\) return streamedBaziInterpretation\.value\.current_liunian/)
+  assert.match(source, /if \(isBaziSectionFailed\('current_liunian'\)\) return resolvedInterpretation\.value\.current_liunian/)
+})
+
+test('推演中隐藏生成排盘引导', () => {
+  assert.match(source, /v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'"/)
+})
+
+test('LLM 等待态只显示骨架不混用兜底文案', () => {
+  const start = source.indexOf('<!-- 原局核心 -->')
+  const end = source.indexOf('<!-- 岁运推演 -->', start)
+  const yuanjuBlock = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(yuanjuBlock, /<p v-if="resolvedYuanjuCore"/)
+  assert.match(yuanjuBlock, /v-if="shouldShowBaziSectionSkeleton\('yuanju_core'\)"/)
+  assert.doesNotMatch(yuanjuBlock, /isBaziSectionPending\('yuanju_core'\)/)
+})
+
+test('推演完成提示提供关闭按钮', () => {
+  const start = source.indexOf('class="analysis-status"')
+  const end = source.indexOf('</div>', source.indexOf('class="analysis-progress"', start))
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.match(block, /analysis-dismiss/)
+  assert.match(block, /analysisNotice = ''/)
+  assert.match(block, /aria-label="关闭推演状态提示"/)
+})
+
+test('新增档案校验通过后立即收起 bottom sheet', () => {
+  const start = source.indexOf('const saveProfile = async')
+  const guestStart = source.indexOf('if (isGuest.value)', start)
+  const block = source.slice(start, guestStart)
+
+  assert.ok(start > -1)
+  assert.ok(guestStart > start)
+  assert.match(block, /payload = buildProfilePayloadFromEntry\(\)/)
+  assert.match(block, /showAdd\.value = false/)
+  assert.match(block, /isProfileMenuOpen\.value = false/)
+  assert.match(block, /swipedProfileId\.value = null/)
+  assert.match(block, /resetProfileEntry\(\)/)
+})
+
+test('从档案切换层新增档案时先收起切换层', () => {
+  const start = source.indexOf('const openAddProfile = () => {')
+  const end = source.indexOf('const openRenameProfile', start)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(block, /resetProfileEntry\(\)/)
+  assert.match(block, /isProfileMenuOpen\.value = false/)
+  assert.match(block, /swipedProfileId\.value = null/)
+  assert.match(block, /showAdd\.value = true/)
+})

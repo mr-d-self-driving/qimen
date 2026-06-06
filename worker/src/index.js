@@ -21,10 +21,12 @@ import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } fro
 import baziCore from '../../lib/baziCore.js';
 import qimenLlmOutput from '../../lib/qimenLlmOutput.js';
 import accountQuota from '../../lib/accountQuota.js';
+import baziLlmSections from '../../lib/baziLlmSections.js';
 
 const { buildCompleteBaziDetail, buildQualitativeSections, hasCompleteLlmCache, hasLatestEngineCache, hasExistingLlm, CALIBRATION_VERSION, computeEventsHash, hasValidCalibration } = baziCore;
 const { normalizeQimenLlmOutput } = qimenLlmOutput;
 const { assertDailyProfileActionQuota, assertDailyQimenQuota, isWhitelistedEmail, recordProfileAction } = accountQuota;
+const { buildBaziProfileSectionPrompt, buildBaziSummaryFromSections, createBaziSectionStreamParser, parseBaziSectionText } = baziLlmSections;
 
 
 const { buildBaziSemanticRoutePrompt, buildGeminiRoutePrompt, classifyDivinationQuestion, ruleRouteHint } = divinationRouter;
@@ -540,6 +542,74 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
   const rawContent = data.choices?.[0]?.message?.content || '{}';
   const cleaned = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
   return JSON.parse(cleaned);
+}
+
+async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
+  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+
+  const response = await fetch(LLM_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+      stream: true
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    const err = new Error('上游大模型接口故障');
+    err.status = 502;
+    err.details = `HTTP ${response.status}: ${errText.substring(0, 120)}`;
+    throw err;
+  }
+
+  const parser = createBaziSectionStreamParser(handlers);
+  const contentType = response.headers.get('Content-Type') || '';
+  if (!response.body || !contentType.includes('text/event-stream')) {
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    const content = data.choices?.[0]?.message?.content || '';
+    const parsed = parseBaziSectionText(content.replace(/```(?:text|json)?/g, '').replace(/```/g, '').trim());
+    for (const [section, text] of Object.entries(parsed.sections)) {
+      handlers.onSectionStart?.(section);
+      handlers.onDelta?.(section, text);
+      handlers.onSectionDone?.(section, text);
+    }
+    return parsed.sections;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+    for (const part of parts) {
+      const lines = part.split('\n').map(line => line.trim()).filter(Boolean);
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        let event;
+        try { event = JSON.parse(payload); } catch { continue; }
+        const delta = event.choices?.[0]?.delta?.content
+          ?? event.choices?.[0]?.message?.content
+          ?? '';
+        if (delta) parser.push(delta);
+      }
+    }
+  }
+
+  return parser.finish().sections;
 }
 
 async function assertProfileOwnership(userId, profileId, env) {
@@ -1777,91 +1847,166 @@ async function handleBazi(request, env) {
         }, { status: 200 }, request, env);
     }
 
-    // ── 模式 3：全量重推（force=true 或首次无 LLM）→ 引擎 + LLM 全跑 ─────────
-    const promptText = `你是最顶尖的八字命理大师... 
+    // ── 模式 3：全量重推（force=true 或首次无 LLM）→ SSE：引擎先出，LLM 分区流式补齐 ─────────
+    const { emit, close, response: sseResponse } = createSSEResponse(request, env);
 
-` +
-        `命主信息：${promptData.gender}，出生于${promptData.birthStr}。
+    (async () => {
+      try {
+        emit({ type: 'step', index: 0, pct: 10, label: '校验档案' });
+        emit({ type: 'step', index: 1, pct: 25, label: '排盘计算' });
 
-` +
-        `【四柱八字】
-${promptData.baziStr}
-` +
-        `【大运】
-${promptData.daYunStr}
-` +
-        `【格局推断】${geJu}
-【日主强弱】${baziDetail.strong_weak}
-【喜用神】${(baziDetail.favorable_gods || []).join('、')}
-【忌仇神】${(baziDetail.unfavorable_gods || []).join('、')}
-【当前大运】${currentDaYunText}
-【当前流年】${currentLiuNianText}
+        const engineQualitative = {
+          ...buildQualitativeSections({
+            llmSucceeded: false,
+            llmQualitativeData: null,
+            engineQualitativeData
+          }),
+          status: 'engine_ready',
+          display_source: 'engine'
+        };
+        const engineBaziDetail = {
+          ...baziDetail,
+          llm_yuanju_core: null,
+          llm_current_dayun: null,
+          llm_current_liunian: null,
+          engine_yuanju_core: engineQualitative.engine.yuanju_core,
+          engine_current_dayun: engineQualitative.engine.current_dayun,
+          engine_current_liunian: engineQualitative.engine.current_liunian,
+          qualitative: engineQualitative
+        };
+        const engineSummaryText = buildBaziSummaryFromSections({
+          geJu,
+          sections: engineQualitative.display
+        });
+        const engineUpdatePayload = {
+          bazi_str: promptData.baziStr,
+          bazi_detail: engineBaziDetail,
+          bazi_summary: engineSummaryText,
+          strong_weak: engineBaziDetail.strong_weak,
+          geju: engineBaziDetail.geju,
+          shensha: JSON.stringify(engineBaziDetail.shensha),
+          display_yuanju_core: engineQualitative.display.yuanju_core,
+          display_current_dayun: engineQualitative.display.current_dayun,
+          display_current_liunian: engineQualitative.display.current_liunian,
+          llm_yuanju_core: null,
+          llm_current_dayun: null,
+          llm_current_liunian: null,
+          engine_yuanju_core: engineQualitative.engine.yuanju_core,
+          engine_current_dayun: engineQualitative.engine.current_dayun,
+          engine_current_liunian: engineQualitative.engine.current_liunian,
+          favorable_elements: engineBaziDetail.favorable_gods,
+          unfavorable_elements: engineBaziDetail.unfavorable_gods,
+          day_zhi: engineBaziDetail.day_zhi,
+          year_zhi: engineBaziDetail.year_zhi,
+          month_zhi: engineBaziDetail.month_zhi,
+          ri_zhu: engineBaziDetail.ri_zhu
+        };
 
-` +
-        `请返回如下结构的JSON：{"summary":"整体评语", "yuanju_core": "原局核心", "current_dayun": "当前大运", "current_liunian": "当前流年", "favorable_elements": "喜用神", "unfavorable_elements": "忌神"}`;
-
-    const llmJson = await requestLLM(promptText, env, 'gemini-3.1-pro-preview', 0.65);
-    const qualitative = buildQualitativeSections({
-        llmSucceeded: true,
-        llmQualitativeData: llmJson,
-        engineQualitativeData
-    });
-    const finalBaziDetail = {
-        ...baziDetail,
-        llm_yuanju_core: qualitative.llm.yuanju_core,
-        llm_current_dayun: qualitative.llm.current_dayun,
-        llm_current_liunian: qualitative.llm.current_liunian,
-        engine_yuanju_core: qualitative.engine.yuanju_core,
-        engine_current_dayun: qualitative.engine.current_dayun,
-        engine_current_liunian: qualitative.engine.current_liunian,
-        qualitative
-    };
-    const combinedResultText = `【命造格局】：${geJu}\n\n原局核心：\n${qualitative.display.yuanju_core}\n\n当前大运：\n${qualitative.display.current_dayun}\n\n当前流年：\n${qualitative.display.current_liunian}`;
-
-    const dbUpdatePayload = {
-        bazi_str: promptData.baziStr,
-        bazi_detail: finalBaziDetail,
-        bazi_summary: combinedResultText,
-        strong_weak: finalBaziDetail.strong_weak,
-        geju: finalBaziDetail.geju,
-        shensha: JSON.stringify(finalBaziDetail.shensha),
-        display_yuanju_core: qualitative.display.yuanju_core,
-        display_current_dayun: qualitative.display.current_dayun,
-        display_current_liunian: qualitative.display.current_liunian,
-        llm_yuanju_core: qualitative.llm.yuanju_core,
-        llm_current_dayun: qualitative.llm.current_dayun,
-        llm_current_liunian: qualitative.llm.current_liunian,
-        engine_yuanju_core: qualitative.engine.yuanju_core,
-        engine_current_dayun: qualitative.engine.current_dayun,
-        engine_current_liunian: qualitative.engine.current_liunian,
-        favorable_elements: finalBaziDetail.favorable_gods,
-        unfavorable_elements: finalBaziDetail.unfavorable_gods,
-        day_zhi: finalBaziDetail.day_zhi,
-        year_zhi: finalBaziDetail.year_zhi,
-        month_zhi: finalBaziDetail.month_zhi,
-        ri_zhu: finalBaziDetail.ri_zhu
-    };
-
-    const { error: dbError } = await supabase.from('bazi_profiles').update(dbUpdatePayload).eq('id', promptData.profileId);
-    if (dbError) throw dbError;
-    await recordProfileAction({
-        supabase,
-        userId: user.id,
-        profileId: promptData.profileId,
-        metadata: {
+        const { error: engineDbError } = await supabase.from('bazi_profiles').update(engineUpdatePayload).eq('id', promptData.profileId);
+        if (engineDbError) throw engineDbError;
+        await recordProfileAction({
+          supabase,
+          userId: user.id,
+          profileId: promptData.profileId,
+          metadata: {
             mode: existingProfile.bazi_summary ? 'profile_refresh' : 'profile_add',
-            force: forceRegenerate
+            force: forceRegenerate,
+            stream: true
+          }
+        });
+
+        emit({
+          type: 'engine_complete',
+          pct: 45,
+          profileId: promptData.profileId,
+          result: {
+            result: engineSummaryText,
+            bazi_detail: engineBaziDetail,
+            favorable_elements: engineUpdatePayload.favorable_elements,
+            unfavorable_elements: engineUpdatePayload.unfavorable_elements
+          }
+        });
+        emit({ type: 'step', index: 2, pct: 50, label: 'AI 断语生成' });
+
+        const promptText = buildBaziProfileSectionPrompt({
+          gender: promptData.gender,
+          birthStr: promptData.birthStr,
+          baziStr: promptData.baziStr,
+          geJu,
+          strongWeak: baziDetail.strong_weak,
+          favorableGods: baziDetail.favorable_gods || [],
+          unfavorableGods: baziDetail.unfavorable_gods || [],
+          currentDaYunText,
+          currentLiuNianText
+        });
+
+        let llmSections;
+        try {
+          llmSections = await requestLLMStreamSections(promptText, env, {
+            onSectionStart: (section) => emit({ type: 'llm_section_start', section }),
+            onDelta: (section, text) => emit({ type: 'llm_delta', section, text }),
+            onSectionDone: (section, text) => emit({ type: 'llm_section_done', section, text }),
+          }, 'gemini-3.1-pro-preview', 0.65);
+        } catch (llmError) {
+          console.warn('[qimen-api] bazi llm stream failed:', llmError.message || llmError);
+          emit({ type: 'llm_error', message: 'AI 深度断语暂时不可用，已保留规则引擎结果' });
+          emit({ type: 'complete', pct: 100, profileId: promptData.profileId, partial: true });
+          return;
         }
-    });
 
-    const outputPayload = {
-        result: combinedResultText,
-        bazi_detail: finalBaziDetail,
-        favorable_elements: dbUpdatePayload.favorable_elements,
-        unfavorable_elements: dbUpdatePayload.unfavorable_elements
-    };
+        const llmQualitative = {
+          ...buildQualitativeSections({
+            llmSucceeded: true,
+            llmQualitativeData: llmSections,
+            engineQualitativeData
+          }),
+          status: 'llm_complete',
+          display_source: 'llm'
+        };
+        const finalBaziDetail = {
+          ...baziDetail,
+          llm_yuanju_core: llmQualitative.llm.yuanju_core,
+          llm_current_dayun: llmQualitative.llm.current_dayun,
+          llm_current_liunian: llmQualitative.llm.current_liunian,
+          engine_yuanju_core: llmQualitative.engine.yuanju_core,
+          engine_current_dayun: llmQualitative.engine.current_dayun,
+          engine_current_liunian: llmQualitative.engine.current_liunian,
+          qualitative: llmQualitative
+        };
+        const combinedResultText = buildBaziSummaryFromSections({ geJu, sections: llmQualitative.display });
+        const finalUpdatePayload = {
+          bazi_detail: finalBaziDetail,
+          bazi_summary: combinedResultText,
+          display_yuanju_core: llmQualitative.display.yuanju_core,
+          display_current_dayun: llmQualitative.display.current_dayun,
+          display_current_liunian: llmQualitative.display.current_liunian,
+          llm_yuanju_core: llmQualitative.llm.yuanju_core,
+          llm_current_dayun: llmQualitative.llm.current_dayun,
+          llm_current_liunian: llmQualitative.llm.current_liunian
+        };
+        const { error: finalDbError } = await supabase.from('bazi_profiles').update(finalUpdatePayload).eq('id', promptData.profileId);
+        if (finalDbError) throw finalDbError;
 
-    return json(outputPayload, { status: 200 }, request, env);
+        emit({
+          type: 'llm_complete',
+          pct: 100,
+          profileId: promptData.profileId,
+          result: {
+            sections: llmSections,
+            result: combinedResultText,
+            bazi_detail: finalBaziDetail
+          }
+        });
+        emit({ type: 'complete', pct: 100, profileId: promptData.profileId });
+      } catch (streamError) {
+        console.error('[qimen-api] bazi stream error:', streamError);
+        emit({ type: 'error', message: streamError.message || '八字引擎推演失败' });
+      } finally {
+        close();
+      }
+    })();
+
+    return sseResponse;
 
   } catch (error) {
     console.error('[qimen-api] bazi error:', error);
