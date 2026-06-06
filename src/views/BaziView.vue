@@ -649,7 +649,7 @@
                     @shensha-click="showShensha"
                 />
 
-                <div v-if="needsUpgrade && currentTab !== 'events'" class="matrix-fallback-note">
+                <div v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'" class="matrix-fallback-note">
                     基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
                 </div>
 
@@ -1106,9 +1106,9 @@
                     <!-- 原局核心 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">原局核心</span>
-                        <span v-if="isBaziSectionStreaming('yuanju_core')" class="bazi-stream-badge">AI 生成中</span>
-                        <p class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('yuanju_core') }" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
-                        <div v-if="isBaziSectionPending('yuanju_core')" class="bazi-section-skeleton"><i></i><i></i><i></i></div>
+                        <span v-if="isBaziSectionLoading('yuanju_core')" class="bazi-stream-badge">AI 生成中</span>
+                        <p v-if="resolvedYuanjuCore" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('yuanju_core') }" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('yuanju_core')" class="bazi-section-skeleton"><i></i><i></i><i></i></div>
                         <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1121,11 +1121,11 @@
                     <!-- 岁运推演 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">岁运推演</span>
-                        <span v-if="isBaziSectionStreaming('current_dayun') || isBaziSectionStreaming('current_liunian')" class="bazi-stream-badge">AI 生成中</span>
-                        <p class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_dayun') }" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
-                        <div v-if="isBaziSectionPending('current_dayun')" class="bazi-section-skeleton"><i></i><i></i></div>
-                        <p class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_liunian') }"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
-                        <div v-if="isBaziSectionPending('current_liunian')" class="bazi-section-skeleton"><i></i><i></i></div>
+                        <span v-if="isBaziSectionLoading('current_dayun') || isBaziSectionLoading('current_liunian')" class="bazi-stream-badge">AI 生成中</span>
+                        <p v-if="resolvedCurrentDayun" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_dayun') }" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('current_dayun')" class="bazi-section-skeleton"><i></i><i></i></div>
+                        <p v-if="resolvedCurrentLiunian" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_liunian') }"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('current_liunian')" class="bazi-section-skeleton"><i></i><i></i></div>
                         <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1523,6 +1523,22 @@ function isBaziSectionStreaming(section) {
 
 function isBaziSectionPending(section) {
     return llmStreamSections.value[section]?.status === 'pending'
+}
+
+function isBaziSectionLoading(section) {
+    return ['pending', 'streaming'].includes(llmStreamSections.value[section]?.status)
+}
+
+function isBaziSectionFailed(section) {
+    return llmStreamSections.value[section]?.status === 'failed'
+}
+
+function getBaziStreamText(section) {
+    return String(llmStreamSections.value[section]?.text || '').trim()
+}
+
+function shouldShowBaziSectionSkeleton(section) {
+    return isBaziSectionLoading(section) && !getBaziStreamText(section)
 }
 
 const form = reactive({
@@ -2656,25 +2672,31 @@ const resolvedInterpretation = computed(() => resolveBaziInterpretation(activePr
 
 const streamedBaziInterpretation = computed(() => ({
     yuanju_core: ['streaming', 'done'].includes(llmStreamSections.value.yuanju_core?.status)
-        ? String(llmStreamSections.value.yuanju_core?.text || '').trim()
+        ? getBaziStreamText('yuanju_core')
         : '',
     current_dayun: ['streaming', 'done'].includes(llmStreamSections.value.current_dayun?.status)
-        ? String(llmStreamSections.value.current_dayun?.text || '').trim()
+        ? getBaziStreamText('current_dayun')
         : '',
     current_liunian: ['streaming', 'done'].includes(llmStreamSections.value.current_liunian?.status)
-        ? String(llmStreamSections.value.current_liunian?.text || '').trim()
+        ? getBaziStreamText('current_liunian')
         : ''
 }))
 
 const resolvedYuanjuCore = computed(() => {
+    if (isBaziSectionLoading('yuanju_core')) return streamedBaziInterpretation.value.yuanju_core
+    if (isBaziSectionFailed('yuanju_core')) return resolvedInterpretation.value.yuanju_core
     return streamedBaziInterpretation.value.yuanju_core || resolvedInterpretation.value.yuanju_core
 })
 
 const resolvedCurrentDayun = computed(() => {
+    if (isBaziSectionLoading('current_dayun')) return streamedBaziInterpretation.value.current_dayun
+    if (isBaziSectionFailed('current_dayun')) return resolvedInterpretation.value.current_dayun
     return streamedBaziInterpretation.value.current_dayun || resolvedInterpretation.value.current_dayun
 })
 
 const resolvedCurrentLiunian = computed(() => {
+    if (isBaziSectionLoading('current_liunian')) return streamedBaziInterpretation.value.current_liunian
+    if (isBaziSectionFailed('current_liunian')) return resolvedInterpretation.value.current_liunian
     return streamedBaziInterpretation.value.current_liunian || resolvedInterpretation.value.current_liunian
 })
 

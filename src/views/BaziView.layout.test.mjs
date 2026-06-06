@@ -130,12 +130,33 @@ test('八字排盘生成使用 SSE 接收引擎先出和 LLM 分区流式内容'
   assert.match(source, /event\.type === 'llm_error'/)
   assert.match(source, /streamedBaziInterpretation/)
   assert.match(source, /isBaziSectionStreaming/)
+  assert.match(source, /isBaziSectionLoading/)
+  assert.match(source, /shouldShowBaziSectionSkeleton/)
 })
 
 test('八字 LLM 流式文本优先于持久化断语展示', () => {
-  assert.match(source, /streamedBaziInterpretation\.value\.yuanju_core\s*\|\|\s*resolvedInterpretation\.value\.yuanju_core/)
-  assert.match(source, /streamedBaziInterpretation\.value\.current_dayun\s*\|\|\s*resolvedInterpretation\.value\.current_dayun/)
-  assert.match(source, /streamedBaziInterpretation\.value\.current_liunian\s*\|\|\s*resolvedInterpretation\.value\.current_liunian/)
+  assert.match(source, /if \(isBaziSectionLoading\('yuanju_core'\)\) return streamedBaziInterpretation\.value\.yuanju_core/)
+  assert.match(source, /if \(isBaziSectionFailed\('yuanju_core'\)\) return resolvedInterpretation\.value\.yuanju_core/)
+  assert.match(source, /if \(isBaziSectionLoading\('current_dayun'\)\) return streamedBaziInterpretation\.value\.current_dayun/)
+  assert.match(source, /if \(isBaziSectionFailed\('current_dayun'\)\) return resolvedInterpretation\.value\.current_dayun/)
+  assert.match(source, /if \(isBaziSectionLoading\('current_liunian'\)\) return streamedBaziInterpretation\.value\.current_liunian/)
+  assert.match(source, /if \(isBaziSectionFailed\('current_liunian'\)\) return resolvedInterpretation\.value\.current_liunian/)
+})
+
+test('推演中隐藏生成排盘引导', () => {
+  assert.match(source, /v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'"/)
+})
+
+test('LLM 等待态只显示骨架不混用兜底文案', () => {
+  const start = source.indexOf('<!-- 原局核心 -->')
+  const end = source.indexOf('<!-- 岁运推演 -->', start)
+  const yuanjuBlock = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(yuanjuBlock, /<p v-if="resolvedYuanjuCore"/)
+  assert.match(yuanjuBlock, /v-if="shouldShowBaziSectionSkeleton\('yuanju_core'\)"/)
+  assert.doesNotMatch(yuanjuBlock, /isBaziSectionPending\('yuanju_core'\)/)
 })
 
 test('推演完成提示提供关闭按钮', () => {
