@@ -7,6 +7,11 @@ const source = readFileSync(new URL('./EngineeringView.vue', import.meta.url), '
 test('关于页改为教程向系统说明', () => {
   assert.match(source, /<div class="about-title">关于<\/div>/)
   assert.match(source, /这个项目不是让人工智能直接算命/)
+  assert.match(source, /本轮更新/)
+  assert.match(source, /历史更新/)
+  assert.match(source, /古籍命例评测纠偏/)
+  assert.match(source, /动态 panel 拾取逻辑/)
+  assert.match(source, /双轴语义路由/)
   assert.match(source, /第三步 · 约束解读/)
   assert.match(source, /第四步 · 页面展示/)
   assert.match(source, /反馈会变成下一轮规则和提示词的依据/)
