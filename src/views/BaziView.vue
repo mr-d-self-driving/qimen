@@ -1098,7 +1098,9 @@
                     <!-- 原局核心 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">原局核心</span>
-                        <p class="rpt-prose" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <span v-if="isBaziSectionStreaming('yuanju_core')" class="bazi-stream-badge">AI 生成中</span>
+                        <p class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('yuanju_core') }" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <div v-if="isBaziSectionPending('yuanju_core')" class="bazi-section-skeleton"><i></i><i></i><i></i></div>
                         <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1111,8 +1113,11 @@
                     <!-- 岁运推演 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">岁运推演</span>
-                        <p class="rpt-prose" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
-                        <p class="rpt-prose"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <span v-if="isBaziSectionStreaming('current_dayun') || isBaziSectionStreaming('current_liunian')" class="bazi-stream-badge">AI 生成中</span>
+                        <p class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_dayun') }" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
+                        <div v-if="isBaziSectionPending('current_dayun')" class="bazi-section-skeleton"><i></i><i></i></div>
+                        <p class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_liunian') }"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <div v-if="isBaziSectionPending('current_liunian')" class="bazi-section-skeleton"><i></i><i></i></div>
                         <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1479,6 +1484,38 @@ const ANALYSIS_PROGRESS_FRAMES = [8, 12, 17, 23, 29, 36, 43, 50, 57, 64, 70, 76,
 let analysisTimer = null
 let analysisFrameIndex = 0
 let toastTimer = null
+const BAZI_STREAM_SECTION_KEYS = ['yuanju_core', 'current_dayun', 'current_liunian']
+
+const createBaziStreamSections = (status = 'idle') => ({
+    yuanju_core: { status, text: '' },
+    current_dayun: { status, text: '' },
+    current_liunian: { status, text: '' }
+})
+
+const llmStreamSections = ref(createBaziStreamSections())
+
+function resetLlmStreamSections(status = 'idle') {
+    llmStreamSections.value = createBaziStreamSections(status)
+}
+
+function patchLlmStreamSection(section, patch = {}) {
+    if (!BAZI_STREAM_SECTION_KEYS.includes(section)) return
+    llmStreamSections.value = {
+        ...llmStreamSections.value,
+        [section]: {
+            ...llmStreamSections.value[section],
+            ...patch
+        }
+    }
+}
+
+function isBaziSectionStreaming(section) {
+    return llmStreamSections.value[section]?.status === 'streaming'
+}
+
+function isBaziSectionPending(section) {
+    return llmStreamSections.value[section]?.status === 'pending'
+}
 
 const form = reactive({
     name: '',
@@ -2609,16 +2646,28 @@ const showChengGeText = computed(() => {
 
 const resolvedInterpretation = computed(() => resolveBaziInterpretation(activeProfile.value || {}))
 
+const streamedBaziInterpretation = computed(() => ({
+    yuanju_core: ['streaming', 'done'].includes(llmStreamSections.value.yuanju_core?.status)
+        ? String(llmStreamSections.value.yuanju_core?.text || '').trim()
+        : '',
+    current_dayun: ['streaming', 'done'].includes(llmStreamSections.value.current_dayun?.status)
+        ? String(llmStreamSections.value.current_dayun?.text || '').trim()
+        : '',
+    current_liunian: ['streaming', 'done'].includes(llmStreamSections.value.current_liunian?.status)
+        ? String(llmStreamSections.value.current_liunian?.text || '').trim()
+        : ''
+}))
+
 const resolvedYuanjuCore = computed(() => {
-    return resolvedInterpretation.value.yuanju_core
+    return streamedBaziInterpretation.value.yuanju_core || resolvedInterpretation.value.yuanju_core
 })
 
 const resolvedCurrentDayun = computed(() => {
-    return resolvedInterpretation.value.current_dayun
+    return streamedBaziInterpretation.value.current_dayun || resolvedInterpretation.value.current_dayun
 })
 
 const resolvedCurrentLiunian = computed(() => {
-    return resolvedInterpretation.value.current_liunian
+    return streamedBaziInterpretation.value.current_liunian || resolvedInterpretation.value.current_liunian
 })
 
 const feedbackCorrections = computed(() => ({
@@ -3447,6 +3496,70 @@ const stopAnalysisMotion = () => {
     }
 }
 
+async function readBaziSSEStream(response, profileId) {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) return null
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+            const line = part.trim()
+            if (!line.startsWith('data: ')) continue
+            let event
+            try { event = JSON.parse(line.slice(6)) } catch { continue }
+
+            if (event.type === 'step') {
+                analysisProgress.value = event.pct ?? analysisProgress.value
+                analysisStageIndex.value = Math.min(analysisSteps.length - 1, Math.max(0, Number(event.index || 0)))
+            } else if (event.type === 'engine_complete') {
+                analysisProgress.value = event.pct ?? 45
+                resetLlmStreamSections('pending')
+                clearBaziProfilesCache()
+                await fetchProfiles()
+            } else if (event.type === 'llm_section_start') {
+                patchLlmStreamSection(event.section, { status: 'streaming' })
+            } else if (event.type === 'llm_delta') {
+                const current = llmStreamSections.value[event.section]?.text || ''
+                patchLlmStreamSection(event.section, { status: 'streaming', text: current + (event.text || '') })
+            } else if (event.type === 'llm_section_done') {
+                patchLlmStreamSection(event.section, {
+                    status: 'done',
+                    text: event.text ?? llmStreamSections.value[event.section]?.text ?? ''
+                })
+            } else if (event.type === 'llm_error') {
+                BAZI_STREAM_SECTION_KEYS.forEach(section => {
+                    if (['pending', 'streaming'].includes(llmStreamSections.value[section]?.status)) {
+                        patchLlmStreamSection(section, { status: 'failed' })
+                    }
+                })
+                showToast(event.message || 'AI 深度断语暂时不可用，已保留规则引擎结果', 'error')
+            } else if (event.type === 'llm_complete') {
+                analysisProgress.value = 100
+                clearBaziProfilesCache()
+                await fetchProfiles()
+                return event.result || null
+            } else if (event.type === 'complete') {
+                analysisProgress.value = event.pct ?? 100
+                if (event.partial) {
+                    clearBaziProfilesCache()
+                    await fetchProfiles()
+                }
+                return event.result || null
+            } else if (event.type === 'error') {
+                const err = new Error(event.message || '八字推演失败')
+                err.profileId = profileId
+                throw err
+            }
+        }
+    }
+}
+
 // force=true 时引擎 + LLM 全量重推；force=false（默认）只在版本过期时刷新引擎，保留 LLM 断语
 const requestAiSummary = async ({ force = false } = {}) => {
     if (!activeProfile.value) return
@@ -3458,6 +3571,7 @@ const requestAiSummary = async ({ force = false } = {}) => {
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
     isAnalyzing.value = true
     analysisNotice.value = ''
+    resetLlmStreamSections()
     startAnalysisMotion()
     try {
         const pd = promptDataObj.value
@@ -3471,8 +3585,11 @@ const requestAiSummary = async ({ force = false } = {}) => {
             })
         })
 
-        const data = await response.json()
-        if (data.error) {
+        const contentType = response.headers.get('Content-Type') || ''
+        const data = contentType.includes('text/event-stream')
+            ? await readBaziSSEStream(response, profileId)
+            : await response.json()
+        if (data?.error) {
             const err = new Error(data.error)
             err.httpStatus = response.status
             throw err
@@ -4928,6 +5045,38 @@ const getShenColor = (shen) => {
     margin: 0 0 10px;
 }
 .rpt-prose-warn { color: var(--crimson, #c62828); opacity: 0.85; }
+.bazi-stream-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0.84;
+}
+.bazi-stream-prose.streaming {
+    border-left: 2px solid rgba(201, 166, 107, 0.38);
+    padding-left: 10px;
+}
+.bazi-section-skeleton {
+    display: grid;
+    gap: 7px;
+    margin-top: 10px;
+    max-width: 680px;
+}
+.bazi-section-skeleton i {
+    display: block;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(201,166,107,0.12), rgba(201,166,107,0.28), rgba(201,166,107,0.12));
+    background-size: 220% 100%;
+    animation: baziSkeletonPulse 1.4s ease-in-out infinite;
+}
+.bazi-section-skeleton i:nth-child(2) { width: 82%; }
+.bazi-section-skeleton i:nth-child(3) { width: 62%; }
+@keyframes baziSkeletonPulse {
+    0% { background-position: 0% 50%; }
+    100% { background-position: -220% 50%; }
+}
 /* Sub-section within article */
 .rpt-sub {
     margin-top: 18px;

@@ -119,3 +119,21 @@ test('访客档案限制说明不再使用圆角提示框', () => {
   assert.match(source, /\.guest-limit-note\s*\{[^}]*background:\s*transparent;/s)
   assert.doesNotMatch(source, /\.guest-limit-note\s*\{[^}]*border-radius:/s)
 })
+
+test('八字排盘生成使用 SSE 接收引擎先出和 LLM 分区流式内容', () => {
+  assert.match(source, /const llmStreamSections = ref/)
+  assert.match(source, /function resetLlmStreamSections/)
+  assert.match(source, /async function readBaziSSEStream/)
+  assert.match(source, /event\.type === 'engine_complete'/)
+  assert.match(source, /event\.type === 'llm_delta'/)
+  assert.match(source, /event\.type === 'llm_section_done'/)
+  assert.match(source, /event\.type === 'llm_error'/)
+  assert.match(source, /streamedBaziInterpretation/)
+  assert.match(source, /isBaziSectionStreaming/)
+})
+
+test('八字 LLM 流式文本优先于持久化断语展示', () => {
+  assert.match(source, /streamedBaziInterpretation\.value\.yuanju_core\s*\|\|\s*resolvedInterpretation\.value\.yuanju_core/)
+  assert.match(source, /streamedBaziInterpretation\.value\.current_dayun\s*\|\|\s*resolvedInterpretation\.value\.current_dayun/)
+  assert.match(source, /streamedBaziInterpretation\.value\.current_liunian\s*\|\|\s*resolvedInterpretation\.value\.current_liunian/)
+})
