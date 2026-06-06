@@ -36,7 +36,7 @@
 @keyframes tabSlideIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
 /* Date Scroll */
-.date-scroll-container { display:flex; overflow-x:auto; gap:12px; padding-bottom:10px; margin-bottom:16px; }
+.date-scroll-container { display:flex; overflow-x:auto; touch-action:pan-x; gap:12px; padding-bottom:10px; margin-bottom:16px; }
 .day-scroll-container { justify-content:center; }
 .month-scroll-container { padding-left:2px; padding-right:2px; scroll-snap-type:x proximity; }
 .week-scroll-container { padding-left:2px; padding-right:2px; scroll-snap-type:x proximity; }
