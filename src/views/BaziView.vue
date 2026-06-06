@@ -1056,7 +1056,7 @@
                 </div>
 
                 <!-- 天机锦囊 -->
-                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="rpt-section">
+                <div v-if="currentTab !== 'events' && shouldShowBaziInterpretationSection" class="rpt-section">
                     <div class="rpt-head">
                         <span class="rpt-kicker">天机锦囊</span>
                         <button class="info-button" title="查看用神决策链与四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
@@ -1137,7 +1137,7 @@
                     </div>
                 </div>
 
-                <div v-else-if="currentTab !== 'events' && activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
+                <div v-else-if="currentTab !== 'events' && !isBaziLlmLoading && activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
                     {{ activeProfile.bazi_summary }}
                 </div>
 
@@ -1540,6 +1540,8 @@ function getBaziStreamText(section) {
 function shouldShowBaziSectionSkeleton(section) {
     return isBaziSectionLoading(section) && !getBaziStreamText(section)
 }
+
+const isBaziLlmLoading = computed(() => BAZI_STREAM_SECTION_KEYS.some(section => isBaziSectionLoading(section)))
 
 const form = reactive({
     name: '',
@@ -2699,6 +2701,11 @@ const resolvedCurrentLiunian = computed(() => {
     if (isBaziSectionFailed('current_liunian')) return resolvedInterpretation.value.current_liunian
     return streamedBaziInterpretation.value.current_liunian || resolvedInterpretation.value.current_liunian
 })
+
+const shouldShowBaziInterpretationSection = computed(() => (
+    Boolean(resolvedYuanjuCore.value)
+    || isBaziLlmLoading.value
+))
 
 const feedbackCorrections = computed(() => ({
     yuanju_core: String(activeProfile.value?.calibrated_yuanju_core || '').trim(),

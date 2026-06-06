@@ -159,6 +159,13 @@ test('LLM 等待态只显示骨架不混用兜底文案', () => {
   assert.doesNotMatch(yuanjuBlock, /isBaziSectionPending\('yuanju_core'\)/)
 })
 
+test('LLM 等待态不回落到 legacy summary 兜底卡片', () => {
+  assert.match(source, /const isBaziLlmLoading = computed/)
+  assert.match(source, /const shouldShowBaziInterpretationSection = computed/)
+  assert.match(source, /v-if="currentTab !== 'events' && shouldShowBaziInterpretationSection"/)
+  assert.match(source, /v-else-if="currentTab !== 'events' && !isBaziLlmLoading && activeProfile\.bazi_summary"/)
+})
+
 test('推演完成提示提供关闭按钮', () => {
   const start = source.indexOf('class="analysis-status"')
   const end = source.indexOf('</div>', source.indexOf('class="analysis-progress"', start))
