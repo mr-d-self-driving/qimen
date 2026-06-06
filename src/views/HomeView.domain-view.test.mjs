@@ -309,16 +309,16 @@ test('问事结果页 Tab 随滚动位置通用联动', () => {
 
 test('八字问答结果按 PRD 补齐 pattern character 和 timing 字段展示', () => {
   assert.match(source, /先天结构适配/)
-  assert.match(source, /mode\.structural_supports/)
-  assert.match(source, /mode\.structural_risks/)
+  assert.match(source, /readings\.structural_supports/)
+  assert.match(source, /readings\.structural_risks/)
   assert.match(source, /人物倾向画像/)
   assert.match(source, /buildPortraitBlockHTML/)
-  assert.match(source, /mode\.appearance_tendency/)
-  assert.match(source, /mode\.personality_tendency/)
-  assert.match(source, /mode\.career_style/)
-  assert.match(source, /mode\.best_window/)
-  assert.match(source, /mode\.avoid_window/)
-  assert.doesNotMatch(source, /mode\.why_not_now/)
+  assert.match(source, /readings\.appearance_tendency/)
+  assert.match(source, /readings\.personality_tendency/)
+  assert.match(source, /readings\.career_style/)
+  assert.match(source, /readings\.best_window/)
+  assert.match(source, /readings\.avoid_window/)
+  assert.doesNotMatch(source, /readings\.why_not_now/)
 })
 
 test('八字问答行动建议展示 strategy 之外的 advice 价值字段', () => {

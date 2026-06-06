@@ -2387,8 +2387,7 @@ const buildBaziQuestionCardHTML = (data) => {
 
   // ── Section 1: 结论先行（v2: +summary.basis 底盘交代） ──
   // 防御：老记录 summary.basis 可能是对象（adaptBaziResultToV2 应已处理，这里兜底）
-  const basisRaw = summary.basis || ''
-  const basisText = typeof basisRaw === 'string' ? basisRaw : (basisRaw.logic || '')
+  const basisText = typeof summary.basis === 'string' ? summary.basis : (summary.basis?.logic || '')
   const m1HTML = `<section class="mag-section" id="bazi-m1">
     <div class="module-heading"><h2>结论先行</h2></div>
     ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
@@ -2586,7 +2585,7 @@ const buildBaziQuestionCardHTML = (data) => {
   // ── Section 4: 时间线（guidance-grid 双栏 → 竖排大运段） ──
   const segments = rhythm.segments || []
   const normalizeRhythmText = (value) => sanitizeBaziDisplayText(value || '', targetLabel)
-    .replace(/[\s，。；、：:“”"'（）()【】\[\]]/g, '')
+    .replace(/[\s，。；、：:\u201c\u201d"'（）()【】\[\]]/g, '')
   // 去重对比集合：深度推演长文本 + 应期(trigger_windows)逐年 verdict/phenomena，
   // 防止 rhythm 复述应期已给出的逐年判断（prompt 漏网时的前端兜底）
   const triggerWindowTexts = (windows || []).flatMap(w => [
@@ -2608,7 +2607,7 @@ const buildBaziQuestionCardHTML = (data) => {
       strategy: isDistinctRhythmText(seg.strategy) ? seg.strategy : '',
       key_liunians: (seg.key_liunians || []).filter(item => isDistinctRhythmText(item.note))
     }))
-    .filter(seg => seg.phenomenon || seg.strategy || seg.key_liunians.length)
+    .filter(seg => seg.strategy || seg.key_liunians.length)
 
   const rhythmFlowHTML = visibleRhythmSegments.length
     ? `<div class="inference-flow">
@@ -3105,7 +3104,7 @@ const buildCardHTML = (data) => {
   return `<div class="mag-result tone-${heroTone}" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="mag-hero" id="mag-hero">
       <div class="mag-hero-panel">
-        <div class="mag-score-inline"><strong id="vueScoreValue">${score}</strong><span>分</span></div>
+        ${summary.score !== null && summary.score !== undefined ? `<div class="mag-score-inline"><strong id="vueScoreValue">${score}</strong><span>分</span></div>` : ''}
         <div class="mag-hero-tags">
           <span class="mag-verdict-badge mag-verdict-${vd.cls}">${vd.label}</span>
           <span>${reportM1.keyword || summary.keyword || '本局总判'}</span>
