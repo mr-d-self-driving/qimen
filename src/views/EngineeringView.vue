@@ -31,6 +31,44 @@
         </div>
       </section>
 
+      <section class="about-section">
+        <div class="section-inner release-inner">
+          <div class="module-copy">
+            <p class="eyebrow">最近更新</p>
+            <h2>把“算得准”拆成可评测、可纠偏、可回放</h2>
+            <p class="lead">这轮重点不是多写几段断语，而是把用神、目标十神和动态引动做成更稳定的工程链路。</p>
+          </div>
+          <div class="release-list">
+            <article v-for="item in currentUpdates" :key="item.title" class="release-item is-current">
+              <span>{{ item.tag }}</span>
+              <div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.body }}</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="about-section">
+        <div class="section-inner release-inner">
+          <div class="module-copy">
+            <p class="eyebrow">历史更新</p>
+            <h2>从排盘工具，逐步变成可审计的推演系统</h2>
+            <p class="lead">早期工作主要在补齐体验和基础能力：问事、排盘、运势、反馈、缓存和报告展示都逐步从单点功能收敛到同一套规则优先的架构里。</p>
+          </div>
+          <div class="release-list">
+            <article v-for="item in historyUpdates" :key="item.title" class="release-item">
+              <span>{{ item.tag }}</span>
+              <div>
+                <h3>{{ item.title }}</h3>
+                <p>{{ item.body }}</p>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
       <section v-for="module in modules" :key="module.title" class="about-section">
         <div class="section-inner module-inner">
           <div class="module-copy">
@@ -80,14 +118,55 @@ const pipeline = [
   { title: '前端呈现', body: '前端只读取约定字段，按模块稳定展示总判、定基、推演和指南。' },
 ]
 
+const currentUpdates = [
+  {
+    tag: '评测',
+    title: '用神基于古籍命例评测纠偏',
+    body: '新增用神 / 目标十神评测口径，用陆致极《八字命理学进阶教程》命例对照本地规则引擎，修复从儿格、调候为急、印星救主、弃官就印等关键偏差。',
+  },
+  {
+    tag: '面板',
+    title: '八字动态展示取材逻辑',
+    body: '动态展示不再只等模型给结论，而是从规则算出的原局状态、岁运变化和候选年份里提取目标十神、宫位与引动机制，让页面展示和底层计算同源。',
+  },
+  {
+    tag: '路由',
+    title: '两条线判断',
+    body: '八字问事先判断用户是在问当下状态、未来年份、先天结构、人物倾向还是方向选择；再判断应该看领域十神、命局喜用神，还是只给低把握的参考。',
+  },
+]
+
+const historyUpdates = [
+  {
+    tag: '运势',
+    title: '日、周、月、年四层运势',
+    body: '运势页从单一日运扩展到七日曲线、流月节奏和年度岁运窗口，并保留分数依据、低谷期和可执行建议。',
+  },
+  {
+    tag: '问事',
+    title: '奇门、八字、联合推演分流',
+    body: '用户自然语言提问先进入术数路由，具体事件走奇门，长期结构走八字，兼具眼前事件和命局背景时再做联合推演。',
+  },
+  {
+    tag: '档案',
+    title: '八字档案与现实断事笔记',
+    body: '支持阳历、农历、四柱反查、出生地与真太阳时修正；断事笔记会进入月运详批，让解释贴近当下真实处境。',
+  },
+  {
+    tag: '反馈',
+    title: '应验反馈与审计留痕',
+    body: '奇门和八字问答保留路由、规则、模型输出与后处理快照，用户回填结果后可以用于后续评分权重和提示词校准。',
+  },
+]
+
 const modules = [
   {
     kicker: '第一步 · 判断问题类型',
     title: '先判断问题属于哪条推演链路',
-    lead: '用户只输入一句自然语言，系统先判断它应该走奇门问事、八字问答，还是需要结合八字档案的综合模式。',
+    lead: '用户只输入一句自然语言，系统先判断它应该走奇门问事、八字问答，还是需要结合八字档案的综合模式；八字问事再用两条线判断“问哪类事”和“看哪类依据”。',
     items: [
       { label: '输入', title: '问题原文', body: '保留用户原话，作为报告里的“问题”字段，也用于后续反馈比对。' },
-      { label: '路由', title: '分支识别', body: '后端根据问题意图选择奇门、八字或综合模式，避免所有问题都塞进同一套提示词。' },
+      { label: '路由', title: '两条线识别', body: '后端根据问题意图选择推演方式和判断依据，避免所有问题都塞进同一套提示词。' },
       { label: '上下文', title: '八字档案可选注入', body: '只有当链路需要时，才把已选档案摘要传入推演，不让出生信息污染普通奇门盘。' },
     ],
   },
@@ -117,7 +196,7 @@ const modules = [
     lead: '报告页面不是一篇长文，而是按用户决策顺序拆成稳定组件：先看结论，再看依据，最后看行动。',
     items: [
       { label: '总判', title: '首屏决策', body: '用结论标签、分数、总结词和背景渐变建立第一判断。' },
-      { label: '导航', title: '锚点模块', body: '向下滚动后用模块导航切换四个部分，不固定总判首屏。' },
+      { label: '展示', title: '动态展示同源', body: '动态展示从规则报告里提取目标十神、宫位和岁运引动，不让页面只复述模型段落。' },
       { label: '兼容', title: '字段兜底', body: '遇到旧报告时自动从概要、分析段落和展示块中补齐展示。' },
     ],
   },
@@ -214,7 +293,8 @@ const promises = [
 }
 
 .hero-inner,
-.module-inner {
+.module-inner,
+.release-inner {
   display: grid;
   grid-template-columns: minmax(0, .9fr) minmax(320px, .82fr);
   gap: 34px;
@@ -259,6 +339,7 @@ const promises = [
 
 .pipeline-card,
 .lesson-list,
+.release-list,
 .promise-grid {
   border-top: 1px solid var(--line);
 }
@@ -277,6 +358,7 @@ const promises = [
   font-weight: 800;
 }
 .pipeline-step strong,
+.release-item h3,
 .lesson-item h3,
 .promise-item strong {
   display: block;
@@ -286,6 +368,7 @@ const promises = [
   font-weight: 760;
 }
 .pipeline-step p,
+.release-item p,
 .lesson-item p,
 .promise-item p {
   margin: 0;
@@ -301,11 +384,34 @@ const promises = [
   padding: 18px 0;
   border-bottom: 1px solid var(--line);
 }
+.release-item {
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 16px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
 .lesson-item > span {
   color: var(--gold);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: .12em;
+}
+.release-item > span {
+  width: 46px;
+  height: 26px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid rgba(181,141,59,0.24);
+  border-radius: 4px;
+  color: var(--gold);
+  font-size: 11px;
+  font-weight: 800;
+}
+.release-item.is-current > span {
+  border-color: rgba(4,117,111,0.28);
+  color: #04756f;
+  background: rgba(13,148,136,0.06);
 }
 
 .closing-inner {
@@ -375,7 +481,8 @@ const promises = [
     width: min(100vw - 32px, 520px);
   }
   .hero-inner,
-  .module-inner {
+  .module-inner,
+  .release-inner {
     min-height: calc(100svh - 108px);
     display: flex;
     flex-direction: column;
@@ -393,8 +500,16 @@ const promises = [
     line-height: 1.72;
   }
   .pipeline-card,
-  .lesson-list {
+  .lesson-list,
+  .release-list {
     width: 100%;
+  }
+  .release-item {
+    grid-template-columns: 52px minmax(0, 1fr);
+    padding: 13px 0;
+  }
+  .release-item > span {
+    width: 40px;
   }
   .lesson-item {
     grid-template-columns: 58px minmax(0, 1fr);

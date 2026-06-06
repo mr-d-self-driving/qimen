@@ -582,7 +582,7 @@ defineExpose({ centerActiveItems })
   margin-bottom: 6px;
   border: 1px solid rgba(181,141,59,0.12);
   border-radius: 8px;
-  background: var(--paper-soft);
+  background: rgba(255,253,247,0.72);
   overflow: hidden;
 }
 .row-label {
@@ -592,7 +592,7 @@ defineExpose({ centerActiveItems })
   justify-content: center;
   background: rgba(181,141,59,0.09);
   color: var(--gold);
-  font-size: 12px;
+  font-size: 13px;
   text-align: center;
   font-weight: 700;
   border-right: 1px solid rgba(181,141,59,0.12);

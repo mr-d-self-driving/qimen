@@ -52,6 +52,7 @@ Thumbs.db
 .mock/
 .dist/
 .cache/
+.playwright-cli/
 .eslintcache
 .vitest/
 .turbo/
@@ -64,6 +65,9 @@ tmp/
 temp/
 output/
 push.sh
+skills-lock.json
+.agents/skills/karpathy-guidelines/
+.claude/skills/
 
 # Local prototypes / design demos
 compatibility/

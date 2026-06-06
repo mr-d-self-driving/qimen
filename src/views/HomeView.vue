@@ -392,6 +392,31 @@
                   </template>
                 </BaziBackingPanel>
               </Teleport>
+
+              <!-- 静态底盘 + 动态触发 panel（推演解读 section） -->
+              <Teleport v-if="showBaziPanelAnchor" to="#bazi-panel-anchor">
+                <BaziStaticPanel
+                  :matrix="baziPanelMatrix"
+                  :state-report="activeBaziResultData.state_report"
+                  :target-spec="activeBaziResultData.target_spec || { primary_shishen: [], primary_gongwei: [] }"
+                  :anchor-kind="baziPanelAnchorKind"
+                  :category="activeBaziResultData.meta?.category || activeBaziResultData.category || ''"
+                  :shishen-theory="baziPanelShishenTheory"
+                  :profile-info="baziPanelProfileInfo"
+                  :five-shens="baziPanelFiveShens"
+                />
+                <BaziDynamicPanel
+                  v-if="activeBaziResultData.dynamic_report || baziPanelTimingWindows.length"
+                  :mode="baziPanelMode"
+                  :dynamic-report="activeBaziResultData.dynamic_report || null"
+                  :trigger-windows="baziPanelTimingWindows"
+                  :dayun-groups="baziPanelDayunGroups"
+                  :best-window-year="baziPanelBestYear"
+                  :avoid-window-text="baziPanelAvoidText"
+                  :target-map="baziPanelTargetMap"
+                  style="margin-top:16px;"
+                />
+              </Teleport>
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -615,6 +640,8 @@ import {
 import { warmFortuneCacheFromSupabase } from '../fortuneWarmup.mjs'
 import AccountMenu from '../components/AccountMenu.vue'
 import BaziBackingPanel from '../components/BaziBackingPanel.vue'
+import BaziStaticPanel from '../components/BaziStaticPanel.vue'
+import BaziDynamicPanel from '../components/BaziDynamicPanel.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
@@ -766,6 +793,172 @@ const snapshotLunarStr = computed(() => {
     return ''
   }
 })
+// ── BaziStaticPanel + BaziDynamicPanel 数据 ──────────────────────
+// 判定「当前选中 profile」是否就是本条问题的命主，避免 admin 跨账号查看时
+// 四柱面板跟随当前 profile 串成别人的盘。优先按 profile_id，退而按姓名+出生时间。
+const subjectMatchesActiveProfile = () => {
+  const snap = activeBaziResultData.value?.subject_snapshot
+  const active = activeBaziProfile.value
+  if (!snap) return true           // 无快照（极旧记录）→ 沿用旧行为
+  if (!active) return false
+  if (snap.profile_id) return snap.profile_id === active.id
+  if (snap.name && snap.birth_date) {
+    return snap.name === active.name &&
+           String(snap.birth_date) === String(active.birth_date)
+  }
+  return true
+}
+
+const baziPanelMatrix = computed(() => {
+  // 1) 记录自带的命主四柱快照（权威，随记录定格，不受当前选中 profile 影响）
+  const snapPillars = activeBaziResultData.value?.subject_snapshot?.pillars
+  if (snapPillars?.length) return { pillars: normalizeBaziPanelPillars(snapPillars) }
+  // 2) fetchMissingPanelMatrix / fetchMissingPanelData 回填的已正规化 pillars
+  const fromPanel = activeBaziResultData.value?._panel_matrix
+  if (fromPanel?.pillars?.length) return fromPanel
+  // 3) 旧记录无快照四柱：仅当当前选中 profile 确为本问题命主时才回退，杜绝跨命主错盘
+  if (!subjectMatchesActiveProfile()) return null
+  const pillars = activeBaziProfile.value?.bazi_detail?.matrix?.pillars
+  return pillars?.length ? { pillars: normalizeBaziPanelPillars(pillars) } : null
+})
+
+const baziPanelTargetMap = computed(() => {
+  const sr = activeBaziResultData.value?.state_report
+  if (!sr) return {}
+  const map = {}
+  for (const sa of sr.shishen_assessments ?? []) {
+    if (!map[sa.pillar]) map[sa.pillar] = []
+    map[sa.pillar].push({ kind: 'shishen', name: sa.shishen })
+  }
+  for (const ga of sr.gongwei_assessments ?? []) {
+    if (!map[ga.pillar_name]) map[ga.pillar_name] = []
+    map[ga.pillar_name].push({ kind: 'gongwei', name: ga.gongwei })
+  }
+  return map
+})
+
+const baziPanelMode = computed(() => {
+  const mode = activeBaziResultData.value?.meta?.analysis_mode
+  if (mode === 'timing') {
+    // 只有拿到 timing_candidates 才用 timing 视图；旧存量记录没有则降级到 status
+    return activeBaziResultData.value?.timing_candidates?.length ? 'timing' : 'status'
+  }
+  return 'status'
+})
+
+const baziPanelAnchorKind = computed(() => activeBaziResultData.value?.target_spec?.anchor_kind || '')
+
+const baziPanelShishenTheory = computed(() => {
+  const spec = activeBaziResultData.value?.target_spec
+  if (!spec) return ''
+  const shishens = (spec.primary_shishen || []).join('、')
+  const gongweis = (spec.primary_gongwei || []).join('、')
+  if (!shishens && !gongweis) return ''
+  // yongshen 锚定：目标即命主用神/忌神，不写"目标十神"（否则与"用神关系"同义反复）
+  if (spec.anchor_kind === 'yongshen') {
+    const xi = shishens
+    const ji = (spec.secondary_shishen || []).filter(s => s && s !== '用神' && s !== '忌神').join('、')
+    const parts = []
+    if (xi) parts.push(`以命主用神 ${xi}`)
+    if (ji) parts.push(`忌神 ${ji}`)
+    return parts.length ? `${parts.join('、')} 为综合运势锚点` : ''
+  }
+  const parts = []
+  if (shishens) parts.push(`以 ${shishens} 为目标十神`)
+  if (gongweis) parts.push(`${gongweis} 为目标宫位`)
+  return parts.join('，')
+})
+
+const baziPanelProfileInfo = computed(() => {
+  const p = snapshotProfile.value
+  if (!p) return null
+  const birthDate = formatSolarDate(p.birth_date)
+  return {
+    name: p.name || '',
+    gender: p.gender || '',
+    birthDate: birthDate !== '阳历待确认' ? birthDate : ''
+  }
+})
+
+const baziPanelTimingWindows = computed(() => {
+  const candidates = activeBaziResultData.value?.timing_candidates
+  if (!candidates?.length) return []
+  const llmWindows = activeBaziResultData.value?.readings?.trigger_windows ?? []
+  const llmByYear = new Map(llmWindows.map(w => [String(w.year), w]))
+  return candidates.map(c => {
+    const liunian = c.dynamicReport?.liunian_impact
+    return {
+      year: c.year,
+      ganzhi: liunian ? `${liunian.gan}${liunian.zhi}` : '',
+      dynamicReport: c.dynamicReport,
+      verdict: llmByYear.get(String(c.year))?.verdict ?? ''
+    }
+  }).sort((a, b) => a.year - b.year)  // 候选年按时间正序展示（存量按 rank 排序）
+})
+
+// 跨大运分组：把候选年按所属大运聚合，组内按年份正序，组间按起始年正序。
+// 多于一组时 BaziDynamicPanel 自动启用水平轮播翻页。
+const baziPanelDayunGroups = computed(() => {
+  const candidates = activeBaziResultData.value?.timing_candidates
+  if (!candidates?.length) return []
+  const llmWindows = activeBaziResultData.value?.readings?.trigger_windows ?? []
+  const llmByYear = new Map(llmWindows.map(w => [String(w.year), w]))
+  const groups = new Map()
+  for (const c of candidates) {
+    const dr = c.dynamicReport
+    const dyImpact = dr?.dayun_impact ?? {}
+    const key = c.dayun_ganzhi || `${dyImpact.gan ?? ''}${dyImpact.zhi ?? ''}`
+    if (!groups.has(key)) groups.set(key, { dayunImpact: dyImpact, windows: [] })
+    const liunian = dr?.liunian_impact
+    groups.get(key).windows.push({
+      year: c.year,
+      ganzhi: liunian ? `${liunian.gan}${liunian.zhi}` : (c.ganzhi || ''),
+      dynamicReport: dr,
+      verdict: llmByYear.get(String(c.year))?.verdict ?? ''
+    })
+  }
+  const arr = [...groups.values()]
+  for (const g of arr) {
+    g.windows.sort((a, b) => a.year - b.year)
+    const ys = g.windows.map(w => w.year)
+    const min = Math.min(...ys), max = Math.max(...ys)
+    g.label = min === max ? `${min}` : `${min}–${max}`
+  }
+  arr.sort((a, b) => (a.windows[0]?.year ?? 0) - (b.windows[0]?.year ?? 0))
+  return arr
+})
+
+const baziPanelBestYear = computed(() => {
+  const windows = activeBaziResultData.value?.readings?.trigger_windows ?? []
+  const best = windows.find(w => w.quality === 'strong') || windows[0]
+  return best?.year ? Number(best.year) : null
+})
+
+const baziPanelAvoidText = computed(() => activeBaziResultData.value?.readings?.avoid_window ?? '')
+
+const _baziPanelFiveShensFetched = ref(null)
+const baziPanelFiveShens = computed(() =>
+  activeBaziResultData.value?.five_shens ||
+  _baziPanelFiveShensFetched.value ||
+  null
+)
+
+async function fetchMissingFiveShens() {
+  const profileId = activeBaziProfile.value?.id
+  if (!profileId) return
+  if (activeBaziResultData.value?.five_shens) return
+  try {
+    const { data } = await supabase
+      .from('bazi_profiles')
+      .select('bazi_detail')
+      .eq('id', profileId)
+      .single()
+    _baziPanelFiveShensFetched.value = data?.bazi_detail?.five_shens || null
+  } catch {
+    // silent — 用神关系标注降级为不显示
+  }
+}
+
 const showProfileSwitcher = computed(() => baziProfiles.value.length > 0)
 const activeProfileName = computed(() => activeBaziProfile.value?.name || '命主未设')
 const isGuest = computed(() => globalState.isGuest)
@@ -793,6 +986,45 @@ const feedbackForm = reactive(buildDefaultFeedbackForm())
 const feedbackConclusion = computed(() => feedbackTargetRecord.value?.qimen_data?.summary?.conclusion || feedbackTargetRecord.value?.conclusion || '')
 
 const resultHtml = ref('')
+let magTabScrollFrame = null
+
+const setMagTabActive = (nav, active) => {
+  const tabs = [...nav.querySelectorAll('.mag-tab')]
+  if (!active || active.classList.contains('mag-tab-active')) return
+  tabs.forEach(tab => tab.classList.toggle('mag-tab-active', tab === active))
+  const ink = nav.querySelector('.mag-tab-ink')
+  if (ink) {
+    ink.style.width = active.offsetWidth + 'px'
+    ink.style.transform = `translateX(${active.offsetLeft}px)`
+  }
+  const targetLeft = active.offsetLeft - (nav.clientWidth - active.offsetWidth) / 2
+  nav.scrollTo({ left: Math.max(0, targetLeft), behavior: 'smooth' })
+}
+
+const syncMagTabsToScroll = () => {
+  document.querySelectorAll('.mag-tabs').forEach(nav => {
+    const result = nav.closest('.mag-result')
+    if (!result) return
+    const tabs = [...nav.querySelectorAll('.mag-tab')]
+    const sections = [...result.querySelectorAll('.mag-section[id]')]
+    if (!tabs.length || tabs.length !== sections.length) return
+    const threshold = Math.max(nav.getBoundingClientRect().bottom + 72, window.innerHeight * 0.22)
+    let activeIndex = 0
+    sections.forEach((section, index) => {
+      if (section.getBoundingClientRect().top <= threshold) activeIndex = index
+    })
+    setMagTabActive(nav, tabs[activeIndex])
+  })
+}
+
+const scheduleMagTabScrollSync = () => {
+  if (magTabScrollFrame !== null) return
+  magTabScrollFrame = requestAnimationFrame(() => {
+    magTabScrollFrame = null
+    syncMagTabsToScroll()
+  })
+}
+
 const initMagTabInk = () => {
   document.querySelectorAll('.mag-tabs').forEach(nav => {
     const active = nav.querySelector('.mag-tab-active')
@@ -802,11 +1034,13 @@ const initMagTabInk = () => {
       ink.style.transform = `translateX(${active.offsetLeft}px)`
     }
   })
+  scheduleMagTabScrollSync()
 }
 const currentScore = ref(0)
 const activeBaziResultData = ref(null)
 const baziCardSelectedYear = ref(null)
 const showBaziBackingAnchor = ref(false)
+const showBaziPanelAnchor = ref(false)
 let scoreTimer = null
 
 // 保存长图
@@ -1212,6 +1446,8 @@ onMounted(() => {
   }, 5000)
   document.addEventListener('click', handleDocumentClick)
   document.addEventListener('click', handleGeTagClick)
+  document.addEventListener('scroll', scheduleMagTabScrollSync, true)
+  window.addEventListener('resize', scheduleMagTabScrollSync)
 
   supabase.auth.getSession().then(({ data: { session } }) => {
     handleSessionUpdate(session)
@@ -1226,6 +1462,9 @@ watch(() => route.query.auth, syncAuthModeFromRoute)
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('click', handleGeTagClick)
+  document.removeEventListener('scroll', scheduleMagTabScrollSync, true)
+  window.removeEventListener('resize', scheduleMagTabScrollSync)
+  if (magTabScrollFrame !== null) cancelAnimationFrame(magTabScrollFrame)
   geModalEl?.remove()
   geOverlayEl?.remove()
   geModalEl = null
@@ -1467,6 +1706,7 @@ const resetToInput = () => {
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
   showBaziBackingAnchor.value = false
+  showBaziPanelAnchor.value = false
 }
 
 const startNewSession = () => {
@@ -1484,22 +1724,219 @@ const syncBaziBackingAnchor = () => {
   })
 }
 
+const syncBaziPanelAnchor = () => {
+  nextTick(() => {
+    showBaziPanelAnchor.value = Boolean(
+      activeBaziResultData.value?.state_report &&
+      document.getElementById('bazi-panel-anchor')
+    )
+  })
+}
+
+const normalizeBaziPanelPillars = (pillars = []) => pillars.map(pillar => ({
+  ...pillar,
+  hidden_stems: Array.isArray(pillar.hidden_stems)
+    ? pillar.hidden_stems.map(stem => (typeof stem === 'string' ? stem : stem?.gan)).filter(Boolean)
+    : [],
+  is_kong: pillar.is_kong ?? false
+}))
+
+const fetchMissingPanelMatrix = async () => {
+  if (baziPanelMatrix.value) return
+  // 仅当当前选中 profile 确为本问题命主时才回填，避免 admin 跨账号查看时拉到别人的盘
+  if (!subjectMatchesActiveProfile()) return
+  const profileId = activeBaziProfile.value?.id
+  if (!profileId) return
+  try {
+    const { data } = await supabase
+      .from('bazi_profiles')
+      .select('bazi_detail')
+      .eq('id', profileId)
+      .single()
+    const pillars = normalizeBaziPanelPillars(data?.bazi_detail?.matrix?.pillars || [])
+    if (!pillars.length) return
+    activeBaziResultData.value = {
+      ...activeBaziResultData.value,
+      _panel_matrix: { pillars }
+    }
+  } catch (e) {
+    console.warn('[panel] fetchMissingPanelMatrix failed', e)
+  }
+}
+
+// 存量记录缺少 state_report 时，按需从后端重算（纯引擎，不调 LLM）
+const fetchMissingPanelData = async (data) => {
+  const mode = data?.meta?.analysis_mode
+  if (!mode || mode === 'profile_driven') return
+  // 仅当当前选中 profile 确为本问题命主时才重算，避免 admin 跨账号查看时引擎跑在别人盘上
+  if (!subjectMatchesActiveProfile()) return
+  const profileId = activeBaziProfile.value?.id
+  if (!profileId) return
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    // activeBaziProfile 不含 bazi_detail（被 BAZI_PROFILE_QIMEN_SELECT 排除），先补全
+    let profile = activeBaziProfile.value
+    if (!profile?.bazi_detail?.matrix?.pillars?.length) {
+      const { data: full } = await supabase
+        .from('bazi_profiles')
+        .select('bazi_detail, favorable_elements, unfavorable_elements')
+        .eq('id', profileId)
+        .single()
+      if (full) profile = { ...profile, ...full }
+    }
+    const res = await fetch(apiPath('/api/bazi-panel'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        profileId,
+        profileData: profile,
+        category: data.meta?.category,
+        subcategory: data.meta?.subcategory,
+        analysis_mode: mode
+      })
+    })
+    if (!res.ok) return
+    const panelData = await res.json()
+    if (!panelData.state_report) return
+    // 把 profile 的 matrix pillars 一并存入（BaziStaticPanel 渲染四柱需要）
+    // 将 hidden_stems 中的 object 格式正规化为 string 数组
+    const normalizedPillars = normalizeBaziPanelPillars(profile.bazi_detail?.matrix?.pillars || [])
+    // 合并引擎数据，重建 HTML（anchor 才会出现在 DOM 里），再触发 Teleport
+    const mergedData = {
+      ...activeBaziResultData.value,
+      ...panelData,
+      _panel_matrix: normalizedPillars.length ? { pillars: normalizedPillars } : null
+    }
+    activeBaziResultData.value = mergedData
+    resultHtml.value = buildCardHTML(mergedData)
+    await nextTick()
+    syncBaziPanelAnchor()
+    initMagTabInk()
+  } catch (e) {
+    console.warn('[panel] fetchMissingPanelData failed', e)
+  }
+}
+
+// ── v1→v2 读取时适配器（§9.11）── ────────────────────────────────────────
+// 幂等：v2 记录（schema_version===2）原样返回；v1 记录映射到 v2 结构
+function adaptBaziResultToV2(data) {
+  if (!data || data?.meta?.schema_version === 2) return data
+  const readings = data.readings || data.mode_analysis || {}
+  const summary  = data.summary  || {}
+  const ag       = data.action_guide || {}
+  const advice   = data.advice   || {}
+
+  // ── summary.basis：旧格式是 {logic, positive_signals, negative_signals} 对象，需提取为字符串 ──
+  if (typeof summary.basis === 'object' && summary.basis !== null) {
+    // 把老的 logic + positive/negative signals 拼成一段文字
+    const parts = [
+      summary.basis.logic || '',
+      ...(Array.isArray(summary.basis.positive_signals) ? summary.basis.positive_signals.map(s => `+${s}`) : []),
+      ...(Array.isArray(summary.basis.negative_signals) ? summary.basis.negative_signals.map(s => `-${s}`) : [])
+    ].filter(Boolean)
+    summary.basis = parts.join('；')
+  } else if (!summary.basis) {
+    summary.basis = summary.score_basis?.score_logic || ''
+  }
+
+  // ── readings v1→v2 ──
+  const r = { ...readings }
+
+  // base_foundation（从 base_state / key_signals 降级）
+  if (!r.base_foundation) {
+    r.base_foundation = {
+      text: data.chart_foundation?.base_state || data.analysis?.pattern || '',
+      signals: (data.key_signals || []).slice(0, 3).map(s => s.title || '').filter(Boolean)
+    }
+  }
+
+  // target_state（从 target_state_reading 包成数组）
+  if (!r.target_state && r.target_state_reading) {
+    r.target_state = [{ title: '目标用神状态', text: r.target_state_reading }]
+  }
+
+  // dayun_field（从 dayun_reading）
+  if (!r.dayun_field && r.dayun_reading) {
+    r.dayun_field = { text: r.dayun_reading }
+  }
+
+  // liunian_trigger（从 liunian_reading）
+  if (!r.liunian_trigger && r.liunian_reading) {
+    r.liunian_trigger = { text: r.liunian_reading, phenomena: [] }
+  }
+
+  // structural_verdict（从 pattern_verdict）
+  if (!r.structural_verdict && r.pattern_verdict) {
+    r.structural_verdict = r.pattern_verdict
+  }
+
+  // trigger_windows: best/worst_window 字符串→对象
+  if (typeof r.best_window === 'string' && r.best_window) {
+    r.best_window = { year: null, reason: r.best_window }
+  }
+  if (!r.worst_window && r.avoid_window) {
+    r.worst_window = typeof r.avoid_window === 'string'
+      ? { year: null, reason: r.avoid_window }
+      : r.avoid_window
+  }
+
+  // trigger_windows: mechanisms_text → phenomena 单条包装
+  if (Array.isArray(r.trigger_windows)) {
+    r.trigger_windows = r.trigger_windows.map(w => {
+      if (!w.phenomena && w.mechanisms_text) {
+        return { ...w, phenomena: [{ tag: '核心机制', explain: w.mechanisms_text }] }
+      }
+      return w
+    })
+  }
+
+  // ── action_guide v1→v2 ──
+  if (!ag.text && !Array.isArray(ag.items)) {
+    const doList    = Array.isArray(ag.do)    ? ag.do    : (Array.isArray(advice.strategy) ? advice.strategy : [])
+    const avoidList = Array.isArray(ag.avoid) ? ag.avoid : (Array.isArray(advice.avoid)   ? advice.avoid   : [])
+    ag.text  = ag.hidden_insight || advice.risk || ''
+    ag.items = [
+      ...doList,
+      ...avoidList.map(a => `避：${a}`)
+    ].filter(Boolean)
+  }
+
+  return {
+    ...data,
+    summary,
+    readings: r,
+    action_guide: ag,
+    meta: { ...(data.meta || {}), schema_version: 2 }
+  }
+}
+
 const activateBaziResultPanel = (data) => {
   showBaziBackingAnchor.value = false
+  showBaziPanelAnchor.value = false
+  _baziPanelFiveShensFetched.value = null
   if (!(data?.branch === 'bazi' && data.meta?.analysis_mode)) {
     activeBaziResultData.value = null
     baziCardSelectedYear.value = null
     return
   }
+  // 存量 v1 记录在进渲染前统一映射到 v2 结构（幂等）
+  data = adaptBaziResultToV2(data)
   activeBaziResultData.value = data
   if (data.meta.analysis_mode === 'timing') {
-    const windows = data.mode_analysis?.trigger_windows || []
+    const windows = data.readings?.trigger_windows || data.mode_analysis?.trigger_windows || []
     const best = windows.find(window => window.quality === 'strong') || windows[0]
     baziCardSelectedYear.value = Number(best?.year) || activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
   } else {
     baziCardSelectedYear.value = activeBaziProfile.value?.bazi_detail?.matrix?.current_liunian?.year || null
   }
   syncBaziBackingAnchor()
+  syncBaziPanelAnchor()
+  // 存量记录无 state_report → 按需补算；所有 mode 缺四柱矩阵时单独补全
+  if (!data.state_report) fetchMissingPanelData(data)
+  if (!baziPanelMatrix.value) fetchMissingPanelMatrix()
+  // 存量记录无 five_shens → 补查 profile bazi_detail
+  if (!data.five_shens) fetchMissingFiveShens()
 }
 
 const startDivination = async () => {
@@ -1508,6 +1945,7 @@ const startDivination = async () => {
   activeBaziResultData.value = null
   baziCardSelectedYear.value = null
   showBaziBackingAnchor.value = false
+  showBaziPanelAnchor.value = false
 
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return alert("请先登录")
@@ -1853,6 +2291,24 @@ const sanitizeBaziDisplayText = (value, targetLabel = '本问题核心象') => {
     .trim()
 }
 
+const splitBaziFoundationSignal = (signal) => {
+  // v2：{title, detail} 对象格式（与 target_state 对齐）
+  if (signal && typeof signal === 'object') {
+    return {
+      label: String(signal.title || signal.label || '').trim(),
+      detail: String(signal.detail || signal.text || '').trim()
+    }
+  }
+  // v1 兼容：「标题：说明」冒号串，或仅标题
+  const text = String(signal || '').trim()
+  const separatorIndex = text.search(/[：:]/)
+  if (separatorIndex < 0) return { label: text, detail: '' }
+  return {
+    label: text.slice(0, separatorIndex).trim(),
+    detail: text.slice(separatorIndex + 1).trim()
+  }
+}
+
 const buildBaziTextListHTML = (items = [], cls = '', targetLabel = '本问题核心象') => {
   if (!Array.isArray(items) || !items.length) return ''
   const labels = items.map(item => sanitizeBaziDisplayText(item, targetLabel)).filter(Boolean)
@@ -1909,185 +2365,348 @@ const buildBaziAdviceExtrasHTML = (advice = {}, targetLabel = '本问题核心�
 }
 
 const buildBaziQuestionCardHTML = (data) => {
-  const summary = data.summary || { title: '八字分析', conclusion: '暂无数据', score: null, level: 'unknown' }
   const meta = data.meta || {}
-  const foundation = data.chart_foundation || {}
-  const mode = data.mode_analysis || {}
-  const advice = data.advice || {}
+  const readings = data.readings || data.mode_analysis || {}
+  const verdict = data.verdict || data.summary?.conclusion || ''
+  const actionGuide = data.action_guide || {}
+  const rhythm = data.rhythm || {}
+  const summary = data.summary || {}
   const question = data.question || ''
-  const assessmentType = summary.assessment_type || 'current_climate'
-  const hasScore = summary.score !== null && summary.score !== undefined
-  const levelLabel = baziLevelLabel(summary.level)
   const targetLabel = concreteTargetLabel(data)
 
-  // Derive tone / theme-color from score (if present) or level
-  let heroTone, THEME, THEME_DIM
-  if (hasScore) {
-    const sc = summary.score
-    heroTone = sc >= 75 ? 'auspicious' : sc >= 55 ? 'neutral' : 'caution'
-    THEME    = sc >= 75 ? '#0D9488' : sc >= 55 ? '#B58D3B' : '#C84A45'
-    THEME_DIM= sc >= 75 ? 'rgba(13,148,136,0.15)' : sc >= 55 ? 'rgba(181,141,59,0.17)' : 'rgba(200,74,69,0.16)'
-  } else {
-    const lvl = summary.level || 'unknown'
-    heroTone = lvl === 'strong' ? 'auspicious' : lvl === 'medium' ? 'neutral' : 'caution'
-    THEME    = heroTone === 'auspicious' ? '#0D9488' : heroTone === 'neutral' ? '#B58D3B' : '#C84A45'
-    THEME_DIM= heroTone === 'auspicious' ? 'rgba(13,148,136,0.15)' : heroTone === 'neutral' ? 'rgba(181,141,59,0.17)' : 'rgba(200,74,69,0.16)'
-  }
-  const verdictCls = { strong: 'ji', medium: 'ping', weak: 'warn', mixed: 'ping', unknown: 'ping' }[summary.level || 'unknown'] || 'ping'
+  const lvl = summary.level || 'unknown'
+  const heroTone = lvl === 'strong' ? 'auspicious' : lvl === 'weak' ? 'caution' : 'neutral'
+  const THEME    = heroTone === 'auspicious' ? '#0D9488' : heroTone === 'caution' ? '#C84A45' : '#B58D3B'
+  const THEME_DIM= heroTone === 'auspicious' ? 'rgba(13,148,136,0.15)' : heroTone === 'caution' ? 'rgba(200,74,69,0.16)' : 'rgba(181,141,59,0.17)'
 
   const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
-  const heroScoreHTML = hasScore
-    ? `<div class="mag-score-inline"><strong>${summary.score}</strong><span>分</span></div>`
-    : ''
+  // ── Hero：短标题 + verdict ──
+  const heroTitle = summary.title || '八字推演'
+  const heroKeyword = summary.keyword || ''
 
-  // ── Section 1: 结论总判 ──
-  const basisLogic = summary.basis?.logic || ''
+  // ── Section 1: 结论先行（v2: +summary.basis 底盘交代） ──
+  // 防御：老记录 summary.basis 可能是对象（adaptBaziResultToV2 应已处理，这里兜底）
+  const basisText = typeof summary.basis === 'string' ? summary.basis : (summary.basis?.logic || '')
   const m1HTML = `<section class="mag-section" id="bazi-m1">
-      <div class="module-heading"><h2>结论总判</h2></div>
-      ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
-      ${summary.keyword ? `<div class="report-subtitle">关键判断</div><p class="bazi-card-copy">${sanitizeBaziDisplayText(summary.keyword, targetLabel)}</p>` : ''}
-      ${basisLogic ? `<div class="report-subtitle">推断逻辑</div><p class="bazi-card-copy">${sanitizeBaziDisplayText(basisLogic, targetLabel)}</p>` : ''}
-    </section>`
+    <div class="module-heading"><h2>结论先行</h2></div>
+    ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
+    ${basisText ? `<p class="bazi-basis-text">${sanitizeBaziDisplayText(basisText, targetLabel)}</p>` : ''}
+  </section>`
 
-  // ── Section 2: 命局解读 ──
-  const positive = summary.basis?.positive_signals || []
-  const negative = summary.basis?.negative_signals || []
-  const basisSignalsHTML = positive.length || negative.length
-    ? `<div class="report-subtitle">判断依据</div>${buildBaziTextListHTML(positive, 'bazi-signal-list positive', targetLabel)}${buildBaziTextListHTML(negative, 'bazi-signal-list warning', targetLabel)}`
+  // ── Section 2: 命局解读（panel → 命局现象 → 用神状态） ──
+  const bf = readings.base_foundation || {}
+  const bfSignals = Array.isArray(bf.signals) ? bf.signals : []
+  const bfPhenomena = bfSignals
+    .map(splitBaziFoundationSignal)
+    .filter(row => row.label || row.detail)
+  const targetStateItems = Array.isArray(readings.target_state) ? readings.target_state : []
+  const fallbackTargetState = !targetStateItems.length && readings.target_state_reading
+    ? [{ title: '目标用神状态', text: readings.target_state_reading }]
+    : []
+  const visibleTargetStates = (targetStateItems.length ? targetStateItems : fallbackTargetState).slice(0, 3)
+
+  const foundationPhenomenaHTML = bfPhenomena.length
+    ? `<div class="bazi-foundation-block">
+        <h3 class="bazi-bf-title">命局现象</h3>
+        <div class="bazi-bf-signals">${bfPhenomena.map(row => `<div class="bazi-bf-signal-row">
+          <span class="bazi-bf-signal-label">${sanitizeBaziDisplayText(row.label, targetLabel)}</span>
+          ${row.detail ? `<span class="bazi-bf-signal-detail">${sanitizeBaziDisplayText(row.detail, targetLabel)}</span>` : ''}
+        </div>`).join('')}</div>
+      </div>`
     : ''
-
-  const foundationEvidence = foundation.evidence || []
-  const foundationSupports = foundation.supports || []
-  const foundationObstacles = foundation.obstacles || []
-  const foundationHTML = foundation.base_state || foundationSupports.length || foundationObstacles.length || foundationEvidence.length
-    ? `<div class="report-subtitle">原局底盘</div>
-       ${foundation.base_state ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(foundation.base_state, targetLabel)}</p>` : ''}
-       ${buildBaziFoundationGroupHTML('支撑', foundationSupports, 'bazi-signal-list positive', targetLabel)}
-       ${buildBaziFoundationGroupHTML('阻力', foundationObstacles, 'bazi-signal-list warning', targetLabel)}
-       ${buildBaziFoundationGroupHTML('依据', foundationEvidence, 'bazi-evidence-list', targetLabel)}`
+  const targetStateHTML = visibleTargetStates.length
+    ? `<div class="bazi-foundation-block">
+        <h3 class="bazi-bf-title">用神状态</h3>
+        <div class="bazi-target-state-list">${visibleTargetStates.map(item => `<div class="bazi-target-state-row">
+          <h4>${sanitizeBaziDisplayText(item.title || targetLabel, targetLabel)}</h4>
+          ${item.text ? `<p>${sanitizeBaziDisplayText(item.text, targetLabel)}</p>` : ''}
+        </div>`).join('')}</div>
+      </div>`
     : ''
-
-  const windows = Array.isArray(mode.trigger_windows) ? mode.trigger_windows : []
-  const timingHTML = windows.length
-    ? `<div class="report-subtitle">候选时间窗</div>
-       ${meta.analysis_mode === 'timing' ? `<div class="bazi-timing-meta">
-          ${mode.best_window ? `<div class="timing-best">最优窗口：${sanitizeBaziDisplayText(mode.best_window, targetLabel)}</div>` : ''}
-          ${mode.avoid_window ? `<div class="timing-avoid">回避：${sanitizeBaziDisplayText(mode.avoid_window, targetLabel)}</div>` : ''}
-          <div class="timing-disclaimer">候选强度代表应期信号强弱，不是事件必然发生概率。</div>
-        </div>` : ''}
-       <div class="bazi-timing-window-list">
-          ${windows.map(item => `<div class="bazi-timing-window-card quality-${item.quality || 'weak'}">
-            <div class="bazi-window-top">
-              <strong>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</strong>
-              <span class="quality-badge quality-${item.quality}">${baziLevelLabel(item.quality)}</span>
-              ${item.is_major_window ? '<span class="major-window-badge">双引动</span>' : ''}
-            </div>
-            <div class="bazi-window-meta"><span>大运 ${item.dayun_ganzhi || '-'}</span></div>
-            ${item.verdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(item.verdict, targetLabel)}</p>` : ''}
-            ${item.mechanisms_text ? `<div class="bazi-logic">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</div>` : ''}
-            ${buildBaziTextListHTML(item.supporting_evidence || [], 'bazi-signal-list positive', targetLabel)}
-            ${buildBaziTextListHTML(item.blocking_evidence || [], 'bazi-signal-list warning', targetLabel)}
-          </div>`).join('')}
-        </div>`
-    : ''
-
-  const patternHTML = meta.analysis_mode === 'pattern' && (mode.capacity_level || mode.structural_supports?.length || mode.structural_risks?.length || mode.verdict || mode.current_status_note)
-    ? `<div class="report-subtitle">先天结构适配</div>
-       ${mode.capacity_level ? `<div class="bazi-capacity-row"><span class="capacity-label">容量</span><span class="capacity-level level-${mode.capacity_level}">${baziLevelLabel(mode.capacity_level)}</span></div>` : ''}
-       ${mode.verdict ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(mode.verdict, targetLabel)}</p>` : ''}
-       ${buildBaziTextListHTML(mode.structural_supports || [], 'bazi-signal-list positive', targetLabel)}
-       ${buildBaziTextListHTML(mode.structural_risks || [], 'bazi-signal-list warning', targetLabel)}
-       ${mode.current_status_note ? `<p class="bazi-logic">${sanitizeBaziDisplayText(mode.current_status_note, targetLabel)}</p>` : ''}`
-    : ''
-
-  const characterHTML = meta.analysis_mode === 'character' && (mode.character_portrait || mode.appearance_tendency?.text || mode.personality_tendency?.text || mode.career_style?.text || mode.relationship_dynamic || mode.do_not_overclaim)
-    ? `<div class="report-subtitle">人物倾向画像</div>
-       ${mode.character_portrait ? `<p class="bazi-card-copy">${sanitizeBaziDisplayText(mode.character_portrait, targetLabel)}</p>` : ''}
-       ${buildPortraitBlockHTML(mode.appearance_tendency, '外貌气质', targetLabel)}
-       ${buildPortraitBlockHTML(mode.personality_tendency, '性格倾向', targetLabel)}
-       ${buildPortraitBlockHTML(mode.career_style, '行事风格', targetLabel)}
-       ${mode.relationship_dynamic ? `<div class="bazi-logic">${sanitizeBaziDisplayText(mode.relationship_dynamic, targetLabel)}</div>` : ''}
-       ${mode.do_not_overclaim ? `<div class="bazi-disclaimer">${sanitizeBaziDisplayText(mode.do_not_overclaim, targetLabel)}</div>` : ''}`
-    : ''
-
-  let dynamicHTML = ''
-  if (meta.analysis_mode === 'status') {
-    const dayunReading = mode.dayun_reading || ''
-    const liunianReading = mode.liunian_reading || ''
-    const targetReading = mode.target_state_reading || ''
-    const psychMirror = mode.psychological_mirror || ''
-    const movNature = mode.movement_nature || null
-    const movNatureHTML = movNature
-      ? (() => {
-          const typeClass = movNature.type === '主动换' ? 'active' : movNature.type === '被动换' ? 'passive' : movNature.type === '内部变动' ? 'internal' : 'none'
-          const qualityClass = movNature.quality === '顺势' ? 'favorable' : movNature.quality === '逆势' ? 'unfavorable' : 'neutral'
-          return `<div class="bazi-movement-nature">
-            <span class="movement-type movement-type-${typeClass}">${movNature.type || ''}</span>
-            <span class="movement-quality movement-quality-${qualityClass}">${movNature.quality || ''}</span>
-            ${movNature.evidence ? `<span class="movement-evidence">${sanitizeBaziDisplayText(movNature.evidence, targetLabel)}</span>` : ''}
-          </div>`
-        })()
-      : ''
-    if (psychMirror || dayunReading || liunianReading || targetReading) {
-      dynamicHTML = `<div class="report-subtitle">当前运势气候</div>
-        ${psychMirror ? `<div class="bazi-reading-block bazi-mirror-block"><div class="reading-label reading-label-mirror">当下感受</div><p class="bazi-mirror-text">${sanitizeBaziDisplayText(psychMirror, targetLabel)}</p></div>` : ''}
-        ${movNatureHTML}
-        ${dayunReading ? `<div class="bazi-reading-block"><div class="reading-label">大运影响</div><p>${sanitizeBaziDisplayText(dayunReading, targetLabel)}</p></div>` : ''}
-        ${liunianReading ? `<div class="bazi-reading-block"><div class="reading-label">流年触发</div><p>${sanitizeBaziDisplayText(liunianReading, targetLabel)}</p></div>` : ''}
-        ${targetReading ? `<div class="bazi-reading-block"><div class="reading-label">${targetLabel}状态</div><p>${sanitizeBaziDisplayText(targetReading, targetLabel)}</p></div>` : ''}`
-    }
-  }
-
-  const m2Content = basisSignalsHTML + foundationHTML + patternHTML + characterHTML + dynamicHTML + timingHTML
   const m2HTML = `<section class="mag-section" id="bazi-m2">
       <div class="module-heading"><h2>命局解读</h2></div>
-      <div id="bazi-backing-anchor" class="bazi-backing-anchor"></div>
-      ${m2Content || '<p class="bazi-card-copy">暂无详细解读数据</p>'}
+      <div id="bazi-panel-anchor" class="bazi-panel-anchor"></div>
+      ${foundationPhenomenaHTML}
+      ${targetStateHTML}
     </section>`
 
-  // ── Section 3: 行动建议 ──
-  const adviceExtrasHTML = buildBaziAdviceExtrasHTML(advice, targetLabel)
-  const strategyItems = Array.isArray(advice.strategy) && advice.strategy.length ? advice.strategy.slice(0, 3) : []
-  const magStrategyHTML = strategyItems.length
-    ? `<div class="mag-action-list">${strategyItems.map((s, i) => `<div class="mag-action-item"><div class="mag-action-num">${i + 1}</div><div class="mag-action-body">${sanitizeBaziDisplayText(s, targetLabel)}</div></div>`).join('')}</div>`
+  // ── Section 3: 深度推演（按 mode 收敛字段归属） ──
+  const deepReadingRow = (label, text, tone = '', extra = '', factor = '') => {
+    if (!text) return ''
+    const cls = tone === 'mirror' ? ' bazi-infer-mirror' : tone === 'positive' ? ' bazi-infer-positive' : tone === 'outcome' ? ' bazi-infer-outcome' : tone === 'muted' ? ' bazi-infer-muted' : ''
+    const body = sanitizeBaziDisplayText(text, targetLabel).replace(/\n/g, '<br>')
+    return `<article class="inference-card${cls}">
+      <div class="inference-body">
+        <div class="inference-head"><span>${label}</span>${factor ? `<strong class="inference-factor">${sanitizeBaziDisplayText(factor, targetLabel)}</strong>` : ''}</div>
+        <h4>${body}</h4>
+        ${extra}
+      </div>
+    </article>`
+  }
+
+  // ── phenomena 行（liunian_trigger.phenomena / timing window phenomena） ──
+  const phenomenaHTML = (phenomena) => {
+    if (!Array.isArray(phenomena) || !phenomena.length) return ''
+    return `<div class="bazi-phenomena-rows">${phenomena.map(ph =>
+      `<div class="bazi-ph-row"><span class="bazi-ph-tag">${sanitizeBaziDisplayText(ph.tag || '', targetLabel)}</span><span class="bazi-ph-explain">${sanitizeBaziDisplayText(ph.explain || '', targetLabel)}</span></div>`
+    ).join('')}</div>`
+  }
+
+  // ── strength 档 → CSS 类（供 timing window 徽章颜色） ──
+  const strengthClass = (s) => {
+    if (s === '最强' || s === '次强') return 'quality-strong'
+    if (s === '较强' || s === '中等') return 'quality-medium'
+    return 'quality-weak'
+  }
+
+  const inferItems = []
+
+  const mode = meta.analysis_mode || ''
+  if (bf.text) inferItems.push({ label: '原局底盘', text: bf.text, tone: '' })
+
+  // ── status / profile_driven: 大运建场 + 流年触发 ──
+  const dayunFieldText = readings.dayun_field?.text || readings.dayun_reading || ''
+  const liunianTrigger = readings.liunian_trigger || {}
+  const liunianText = liunianTrigger.text || readings.liunian_reading || ''
+  const liunianPhenomena = Array.isArray(liunianTrigger.phenomena) ? liunianTrigger.phenomena : []
+
+  if (mode !== 'pattern' && mode !== 'character' && mode !== 'timing') {
+    // status / profile_driven / legacy
+    if (dayunFieldText) inferItems.push({ label: '大运建场', text: dayunFieldText, tone: '', phenomena: [] })
+    if (liunianText) {
+      inferItems.push({ label: '流年触发', text: liunianText, tone: '', phenomena: liunianPhenomena })
+    }
+    // path_readings 不再混入扁平列表，改为独立「路径推演」分区（见 pathReadingsHTML）
+    // v1 profile_driven
+    if (readings.structural_reading) inferItems.push({ label: '结构分析', text: readings.structural_reading, tone: '' })
+  }
+
+  // ── pattern: structural_supports/risks/verdict ──
+  if (mode === 'pattern') {
+    const strVerdict = readings.structural_verdict || readings.pattern_verdict || ''
+    if (strVerdict) inferItems.push({ label: '先天格局', text: strVerdict, tone: '' })
+    const supports = Array.isArray(readings.structural_supports) ? readings.structural_supports : []
+    const risks    = Array.isArray(readings.structural_risks)    ? readings.structural_risks    : []
+    if (supports.length) inferItems.push({ label: '结构支撑', text: supports.join('；'), tone: 'positive' })
+    if (risks.length)    inferItems.push({ label: '结构风险', text: risks.join('；'),    tone: 'outcome' })
+    if (readings.real_world_expression) inferItems.push({ label: '日常表现', text: readings.real_world_expression, tone: '' })
+    if (readings.how_to_leverage)       inferItems.push({ label: '发力方向', text: readings.how_to_leverage, tone: 'positive' })
+    if (readings.current_status_note)   inferItems.push({ label: '当前时机', text: readings.current_status_note, tone: '' })
+  }
+
+  // ── character mode（不变） ──
+  if (mode === 'character') {
+    if (readings.appearance_tendency?.text)  inferItems.push({ label: '外貌气质', text: readings.appearance_tendency.text, tone: '' })
+    if (readings.personality_tendency?.text) inferItems.push({ label: '性格倾向', text: readings.personality_tendency.text, tone: '' })
+    if (readings.career_style?.text)         inferItems.push({ label: '行事风格', text: readings.career_style.text, tone: '' })
+    if (readings.relationship_dynamic)       inferItems.push({ label: '关系动态', text: readings.relationship_dynamic, tone: '' })
+    if (readings.do_not_overclaim)           inferItems.push({ label: '说明', text: readings.do_not_overclaim, tone: 'muted' })
+  }
+
+  // ── timing: best/worst_window 概览（v2 对象/v1 字符串均支持） ──
+  if (mode === 'timing') {
+    if (dayunFieldText) inferItems.push({ label: '大运建场', text: dayunFieldText, tone: '' })
+    const bwObj = readings.best_window
+    const wwObj = readings.worst_window || (readings.avoid_window ? { reason: readings.avoid_window } : null)
+    const metaLine = [
+      bwObj ? `最优窗口：${bwObj.year ? `${bwObj.year}年 ` : ''}${bwObj.reason || bwObj}` : '',
+      wwObj ? `规避：${wwObj.year ? `${wwObj.year}年 ` : ''}${wwObj.reason || wwObj}` : ''
+    ].filter(Boolean).join('　')
+    if (metaLine) inferItems.push({ label: '应期概览', text: metaLine, tone: '' })
+  }
+
+  const inferFlowHTML = inferItems.length
+    ? `<div class="inference-flow bazi-deep-flow">
+        ${inferItems.map(item => deepReadingRow(item.label, item.text, item.tone, phenomenaHTML(item.phenomena), item.factor)).filter(Boolean).join('')}
+      </div>`
     : ''
 
-  const m3HTML = magStrategyHTML || adviceExtrasHTML
+  // ── timing windows（v2: strength + phenomena；v1: mechanisms_text） ──
+  const windows = Array.isArray(readings.trigger_windows) ? readings.trigger_windows : []
+  const timingWindowsHTML = windows.length
+    ? `<div class="bazi-timing-flow">
+        ${windows.map(item => {
+          const strengthLabel = item.strength || baziLevelLabel(item.quality)
+          const sCls = item.strength ? strengthClass(item.strength) : `quality-${item.quality || 'weak'}`
+          const ph = Array.isArray(item.phenomena) && item.phenomena.length
+            ? phenomenaHTML(item.phenomena)
+            : (item.mechanisms_text ? `<p class="bazi-mechanisms">${sanitizeBaziDisplayText(item.mechanisms_text, targetLabel)}</p>` : '')
+          return `<article class="inference-card">
+            <div class="inference-body">
+              <div class="inference-head">
+                <span>${item.ganzhi ? `${item.year} ${item.ganzhi}` : item.year || '-'}</span>
+                <strong class="${sCls}">${strengthLabel}</strong>
+              </div>
+              <h4>${sanitizeBaziDisplayText(item.verdict || '', targetLabel)}</h4>
+              ${ph}
+            </div>
+          </article>`
+        }).join('')}
+      </div>`
+    : ''
+
+  // ── 路径推演（open_strategy / profile_driven 多路径对比）：与上方逐项解读视觉区分 ──
+  const pathReadings = Array.isArray(readings.path_readings) ? readings.path_readings : []
+  const PATH_LETTERS = ['A', 'B', 'C', 'D']
+  const pathRow = (k, v, cls = '') => v
+    ? `<div class="bazi-path-row${cls}"><span class="bazi-path-k">${k}</span><span class="bazi-path-v">${sanitizeBaziDisplayText(v, targetLabel)}</span></div>`
+    : ''
+  const pathReadingsHTML = pathReadings.length
+    ? `<div class="bazi-path-block">
+        <h3 class="bazi-path-title">路径推演 · 多路径对比</h3>
+        <div class="bazi-path-grid">
+          ${pathReadings.map((p, i) => `<article class="bazi-path-card">
+            <div class="bazi-path-head">
+              <span class="bazi-path-badge">路径 ${PATH_LETTERS[i] || (i + 1)}</span>
+              <span class="bazi-path-name">${sanitizeBaziDisplayText(p.path || '路径', targetLabel)}</span>
+            </div>
+            <div class="bazi-path-rows">
+              ${pathRow('契合', p.structural_fit)}
+              ${pathRow('近1-3年', p.likely_experience)}
+              ${pathRow('满意度', p.satisfaction_prediction)}
+              ${pathRow('最顺期', p.peak_period)}
+              ${pathRow('风险', p.risk, ' bazi-path-risk')}
+            </div>
+          </article>`).join('')}
+        </div>
+      </div>`
+    : ''
+
+  const m3HTML = inferFlowHTML || timingWindowsHTML || pathReadingsHTML
     ? `<section class="mag-section" id="bazi-m3">
-        <div class="module-heading"><h2>行动建议</h2></div>
-        ${magStrategyHTML}
-        ${adviceExtrasHTML}
+        <div class="module-heading"><h2>深度推演</h2></div>
+        ${inferFlowHTML}
+        ${timingWindowsHTML}
+        ${pathReadingsHTML}
       </section>`
     : ''
 
-  const tabs = [
-    `<button class="mag-tab mag-tab-active" onclick="${tabClick('bazi-m1')}">结论总判</button>`,
-    `<button class="mag-tab" onclick="${tabClick('bazi-m2')}">命局解读</button>`,
-    m3HTML ? `<button class="mag-tab" onclick="${tabClick('bazi-m3')}">行动建议</button>` : ''
-  ].filter(Boolean).join('')
+  // ── Section 4: 时间线（guidance-grid 双栏 → 竖排大运段） ──
+  const segments = rhythm.segments || []
+  const normalizeRhythmText = (value) => sanitizeBaziDisplayText(value || '', targetLabel)
+    .replace(/[\s，。；、：:\u201c\u201d"'（）()【】\[\]]/g, '')
+  // 去重对比集合：深度推演长文本 + 应期(trigger_windows)逐年 verdict/phenomena，
+  // 防止 rhythm 复述应期已给出的逐年判断（prompt 漏网时的前端兜底）
+  const triggerWindowTexts = (windows || []).flatMap(w => [
+    w.verdict,
+    ...((Array.isArray(w.phenomena) ? w.phenomena : []).map(p => p.explain))
+  ]).filter(Boolean)
+  const deepReadingTexts = [bf.text, dayunFieldText, liunianText, ...triggerWindowTexts]
+    .map(normalizeRhythmText)
+    .filter(Boolean)
+  const isDistinctRhythmText = (value) => {
+    const normalized = normalizeRhythmText(value)
+    if (!normalized) return false
+    return !deepReadingTexts.some(text => text.includes(normalized) || normalized.includes(text))
+  }
+  const visibleRhythmSegments = segments
+    .map(seg => ({
+      ...seg,
+      phenomenon: isDistinctRhythmText(seg.phenomenon) ? seg.phenomenon : '',
+      strategy: isDistinctRhythmText(seg.strategy) ? seg.strategy : '',
+      key_liunians: (seg.key_liunians || []).filter(item => isDistinctRhythmText(item.note))
+    }))
+    .filter(seg => seg.strategy || seg.key_liunians.length)
+
+  const rhythmFlowHTML = visibleRhythmSegments.length
+    ? `<div class="inference-flow">
+        ${visibleRhythmSegments.map(seg => {
+          const liunianLines = (seg.key_liunians || []).map(l =>
+            `<div class="bazi-liunian-row"><span class="bazi-liunian-gz">${l.year || ''} ${l.gz || ''}</span>${l.shishen ? `<span class="bazi-liunian-ss">${l.shishen}</span>` : ''}<span class="bazi-liunian-note">${sanitizeBaziDisplayText(l.note || '', targetLabel)}</span></div>`
+          ).join('')
+          return `<article class="inference-card">
+            <div class="inference-body">
+              <div class="inference-head">
+                <span>${sanitizeBaziDisplayText(seg.period || '', targetLabel)}</span>
+                ${seg.dayun_shishen ? `<strong>${seg.dayun_shishen}</strong>` : ''}
+              </div>
+              ${seg.phenomenon ? `<p class="bazi-rhythm-phenomenon">${sanitizeBaziDisplayText(seg.phenomenon, targetLabel)}</p>` : ''}
+              ${seg.strategy ? `<h4>${sanitizeBaziDisplayText(seg.strategy, targetLabel)}</h4>` : ''}
+              ${liunianLines ? `<div class="bazi-liunian-block">${liunianLines}</div>` : ''}
+            </div>
+          </article>`
+        }).join('')}
+      </div>`
+    : ''
+
+  const m4HTML = rhythmFlowHTML
+    ? `<section class="mag-section" id="bazi-m4">
+        <div class="module-heading"><h2>时间节奏</h2></div>
+        ${rhythmFlowHTML}
+      </section>`
+    : ''
+
+  // ── Section 5: 行动建议（v2: text+items；v1 兼容: do/avoid/hidden_insight） ──
+  const agText  = actionGuide.text  || ''
+  const agItems = Array.isArray(actionGuide.items) && actionGuide.items.length ? actionGuide.items : []
+  const doItems    = actionGuide.do    || data.advice?.strategy || []
+  const avoidItems = actionGuide.avoid || data.advice?.avoid    || []
+  const hiddenInsight = actionGuide.hidden_insight || ''
+  const adviceItems = agItems.length
+    ? agItems
+    : [...doItems, ...avoidItems]
+
+  const adviceIntroHTML = agText
+    ? `<p class="bazi-action-intro">${sanitizeBaziDisplayText(agText, targetLabel)}</p>`
+    : ''
+
+  const adviceListHTML = adviceItems.length
+    ? `<div class="mag-action-list bazi-action-list">
+        ${adviceItems.slice(0, 6).map((item, i) => `<div class="mag-action-item">
+          <div class="mag-action-num">${String(i + 1).padStart(2, '0')}</div>
+          <div class="mag-action-body">${sanitizeBaziDisplayText(item, targetLabel)}</div>
+        </div>`).join('')}
+      </div>`
+    : ''
+
+  const hiddenHTML = !agText && hiddenInsight
+    ? `<article class="inference-card bazi-infer-mirror" style="margin-top:0">
+        <div class="inference-body">
+          <div class="inference-head"><span>盲点提醒</span></div>
+          <h4>${sanitizeBaziDisplayText(hiddenInsight, targetLabel)}</h4>
+        </div>
+      </article>`
+    : ''
+
+  const m5HTML = agText || adviceListHTML || hiddenHTML
+    ? `<section class="mag-section" id="bazi-m5">
+        <div class="module-heading"><h2>行动建议</h2></div>
+        ${adviceIntroHTML}
+        ${adviceListHTML}
+        ${hiddenHTML}
+      </section>`
+    : ''
+
+  const tabDefs = [
+    { id: 'bazi-m1', label: '结论先行', show: true },
+    { id: 'bazi-m2', label: '命局解读', show: true },
+    { id: 'bazi-m3', label: '深度推演', show: !!m3HTML },
+    { id: 'bazi-m4', label: '时间节奏', show: !!m4HTML },
+    { id: 'bazi-m5', label: '行动建议', show: !!m5HTML }
+  ].filter(d => d.show)
+  const tabsHTML = tabDefs.map((d, i) =>
+    `<button class="mag-tab${i === 0 ? ' mag-tab-active' : ''}" onclick="${tabClick(d.id)}">${d.label}</button>`
+  ).join('') + '<span class="mag-tab-ink"></span>'
 
   return `<div class="mag-result tone-${heroTone}" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="mag-hero" id="bazi-hero">
       <div class="mag-hero-panel">
-        ${heroScoreHTML}
         <div class="mag-hero-tags">
-          <span class="mag-verdict-badge mag-verdict-${verdictCls}">${levelLabel}</span>
-          ${summary.keyword ? `<span>${sanitizeBaziDisplayText(summary.keyword, targetLabel)}</span>` : ''}
+          ${heroKeyword ? `<span>${sanitizeBaziDisplayText(heroKeyword, targetLabel)}</span>` : ''}
         </div>
-        <h1>${summary.title || baziAssessmentLabel(assessmentType)}</h1>
-        <p>${sanitizeBaziDisplayText(summary.conclusion || '', targetLabel)}</p>
+        <h1>${sanitizeBaziDisplayText(heroTitle, targetLabel)}</h1>
+        <p>${sanitizeBaziDisplayText(verdict, targetLabel)}</p>
       </div>
     </section>
 
-    <nav class="mag-tabs">
-      ${tabs}
-      <span class="mag-tab-ink"></span>
-    </nav>
+    <nav class="mag-tabs">${tabsHTML}</nav>
 
     ${m1HTML}
     ${m2HTML}
     ${m3HTML}
+    ${m4HTML}
+    ${m5HTML}
   </div>`
 }
 
@@ -2141,7 +2760,8 @@ const deriveScoreBasisFromM3 = (m3, formations) => {
 }
 
 const buildCardHTML = (data) => {
-  if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(data)
+  // 八字分支：v1 存量记录在进渲染前统一适配到 v2（幂等）
+  if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(adaptBaziResultToV2(data))
 
   data = normalizeQimenCardData(data)
   const report = data.qimen_report || {}
@@ -2484,7 +3104,7 @@ const buildCardHTML = (data) => {
   return `<div class="mag-result tone-${heroTone}" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
     <section class="mag-hero" id="mag-hero">
       <div class="mag-hero-panel">
-        <div class="mag-score-inline"><strong id="vueScoreValue">${score}</strong><span>分</span></div>
+        ${summary.score !== null && summary.score !== undefined ? `<div class="mag-score-inline"><strong id="vueScoreValue">${score}</strong><span>分</span></div>` : ''}
         <div class="mag-hero-tags">
           <span class="mag-verdict-badge mag-verdict-${vd.cls}">${vd.label}</span>
           <span>${reportM1.keyword || summary.keyword || '本局总判'}</span>
@@ -3281,58 +3901,84 @@ input::placeholder { color: var(--text-muted); }
 :deep(.bazi-logic) { margin:0; color:var(--ink-muted); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
 :deep(.bazi-basis-summary) { margin:0 0 10px; color:var(--ink-muted); font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
 :deep(.bazi-signal-list),
+/* ── bazi 新结构：复用 inference-flow/card/head 样式，仅补充差异部分 ── */
+/* v2: summary.basis 底盘交代 */
+:deep(.bazi-basis-text) { margin:10px 0 0; color:var(--ink-dim); font-size:13px; line-height:1.75; overflow-wrap:anywhere; padding:10px 12px; background:rgba(181,141,59,0.05); border-left:2px solid rgba(181,141,59,0.3); border-radius:0 6px 6px 0; }
+:deep(.bazi-panel-anchor) { margin-bottom:28px; }
+:deep(.bazi-foundation-block) { margin:0 0 26px; }
+:deep(.bazi-bf-title) { margin:0 0 12px; color:var(--ink,#1a1a1a); font-size:16px; font-weight:700; line-height:1.4; }
+:deep(.bazi-bf-signals) { display:grid; border-top:1px solid var(--line); }
+:deep(.bazi-bf-signal-row) { display:grid; grid-template-columns:minmax(110px,0.8fr) minmax(0,1.7fr); gap:14px; padding:10px 0; border-bottom:1px solid var(--line); }
+:deep(.bazi-bf-signal-label) { color:var(--gold,#B58D3B); font-size:12px; font-weight:700; line-height:1.55; }
+:deep(.bazi-bf-signal-detail) { color:var(--ink-muted); font-size:12.5px; line-height:1.65; overflow-wrap:anywhere; }
+:deep(.bazi-target-state-list) { display:grid; border-top:1px solid var(--line); }
+:deep(.bazi-target-state-row) { display:grid; grid-template-columns:minmax(110px,0.8fr) minmax(0,1.7fr); gap:14px; padding:11px 0; border-bottom:1px solid var(--line); }
+:deep(.bazi-target-state-row h4) { margin:0; color:var(--gold,#B58D3B); font-size:12px; font-weight:700; line-height:1.55; }
+:deep(.bazi-target-state-row p) { margin:0; color:var(--ink-muted); font-size:12.5px; line-height:1.65; overflow-wrap:anywhere; }
+@media(max-width:520px) {
+  :deep(.bazi-bf-signal-row),
+  :deep(.bazi-target-state-row) { grid-template-columns:1fr; gap:4px; }
+}
+/* v2: phenomena 行（liunian_trigger / timing window） */
+:deep(.bazi-phenomena-rows) { display:flex; flex-direction:column; gap:5px; margin-top:8px; padding-top:8px; border-top:1px solid var(--line); }
+:deep(.bazi-ph-row) { display:flex; align-items:baseline; gap:8px; font-size:12px; line-height:1.5; flex-wrap:wrap; }
+:deep(.bazi-ph-tag) { font-weight:700; color:var(--theme-color,#B58D3B); white-space:nowrap; flex-shrink:0; font-size:11.5px; }
+:deep(.bazi-ph-explain) { color:var(--ink-dim); flex:1; min-width:0; overflow-wrap:anywhere; }
+/* inference-card tone variants for bazi */
+:deep(.bazi-infer-mirror .inference-head span) { color:#7C6FBF; }
+:deep(.bazi-infer-mirror h4) { font-style:italic; color:var(--ink,#1a1a1a) !important; }
+:deep(.bazi-infer-positive .inference-head span) { color:#0d9488; }
+:deep(.bazi-infer-positive h4) { color:#0d9488; }
+:deep(.bazi-infer-outcome .inference-head span) { color:#0d9488; }
+:deep(.bazi-infer-muted h4) { font-size:12px; color:var(--ink-dim); font-weight:400; }
+/* quality color for timing window */
+:deep(.quality-strong) { color:#0d9488; }
+:deep(.quality-medium) { color:#B58D3B; }
+:deep(.quality-weak)   { color:#d97706; }
+:deep(.bazi-mechanisms) { margin:6px 0 0; color:var(--ink-dim); font-size:13px; line-height:1.6; }
+/* 大运主要现象（rhythm phenomenon）：策略 h4 之上的气候定性引导句 */
+:deep(.bazi-rhythm-phenomenon) { margin:0 0 6px; color:var(--ink-dim); font-size:13px; line-height:1.6; }
+/* 时间线流年行 */
+:deep(.bazi-liunian-block) { display:grid; gap:8px; margin-top:10px; padding-top:10px; border-top:1px solid var(--line); }
+:deep(.bazi-liunian-row) { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; }
+:deep(.bazi-liunian-gz) { font-size:14px; font-weight:700; color:var(--theme-color); min-width:68px; font-family:var(--font-serif); }
+:deep(.bazi-liunian-ss) { font-size:11px; color:var(--text-muted); padding:1px 5px; border-radius:3px; border:1px solid var(--line); white-space:nowrap; }
+:deep(.bazi-liunian-note) { font-size:13px; color:var(--ink-muted); line-height:1.55; flex:1; min-width:0; overflow-wrap:anywhere; }
+/* timing flow 复用 inference-flow */
+:deep(.bazi-timing-flow) { display:flex; flex-direction:column; gap:0; border-top:1px solid var(--line); margin-top:16px; }
+/* ── 路径推演（多路径对比）：悬浮阴影卡，与 panel 同一设计语言 ── */
+:deep(.bazi-path-block) { margin-top:20px; padding-top:16px; border-top:1px dashed var(--gold-border, rgba(181,141,59,0.35)); }
+:deep(.bazi-path-title) { margin:0 0 14px; font-size:13px; font-weight:700; letter-spacing:.08em; color:var(--gold, #b5893b); }
+:deep(.bazi-path-grid) { display:flex; flex-direction:column; gap:14px; }
+:deep(.bazi-path-card) {
+  border:1px solid rgba(181,141,59,0.10);
+  border-radius:16px; background:var(--bg-card); padding:16px 18px;
+  box-shadow:0 4px 20px rgba(0,0,0,0.10);
+}
+[data-theme="dark"] :deep(.bazi-path-card) {
+  background:rgba(212,175,55,0.06); border-color:rgba(212,175,55,0.14);
+  box-shadow:0 6px 28px rgba(0,0,0,0.55), 0 0 0 1px rgba(212,175,55,0.06);
+}
+:deep(.bazi-path-head) { display:flex; align-items:center; gap:8px; margin-bottom:12px; }
+:deep(.bazi-path-badge) { font-size:11px; font-weight:700; letter-spacing:.06em; color:#fff; background:var(--gold, #b5893b); border-radius:6px; padding:3px 9px; white-space:nowrap; }
+[data-theme="dark"] :deep(.bazi-path-badge) { background:#b8923f; color:#1a1a1a; }
+:deep(.bazi-path-name) { font-size:15px; font-weight:700; color:var(--ink-main, inherit); }
+:deep(.bazi-path-rows) { display:grid; gap:7px; }
+:deep(.bazi-path-row) { display:flex; gap:8px; font-size:13px; line-height:1.6; }
+:deep(.bazi-path-k) { flex-shrink:0; min-width:48px; font-weight:600; color:var(--gold, #b5893b); }
+:deep(.bazi-path-v) { flex:1; min-width:0; color:var(--ink-muted); overflow-wrap:anywhere; }
+:deep(.bazi-path-risk) .bazi-path-k { color:#b91c1c; }
+[data-theme="dark"] :deep(.bazi-path-risk) .bazi-path-k { color:#f87171; }
+:deep(.bazi-action-intro) { margin:0 0 14px; color:var(--ink-muted); font-size:14px; line-height:1.75; overflow-wrap:anywhere; }
+:deep(.bazi-action-list) { border-top:1px solid var(--line); }
+/* signal-list tags 保留（profile_driven structural_supports 等仍可能用到）*/
+:deep(.bazi-signal-list),
 :deep(.bazi-evidence-list) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
 :deep(.bazi-signal-list span),
-:deep(.bazi-evidence-list span) { padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--paper-soft); color:var(--ink-muted); font-size:12px; line-height:1.45; overflow-wrap:anywhere; }
-:deep(.bazi-signal-list.positive span) { border-color:rgba(13,148,136,0.2); background:rgba(13,148,136,0.06); color:#0d9488; }
-:deep(.bazi-signal-list.warning span) { border-color:rgba(217,119,6,0.2); background:rgba(217,119,6,0.06); color:#d97706; }
-:deep(.bazi-foundation-group) { margin-top:10px; }
-:deep(.foundation-group-label) { color:var(--text-muted); font-size:11px; letter-spacing:1px; margin-bottom:6px; }
-:deep(.bazi-foundation-group .bazi-signal-list),
-:deep(.bazi-foundation-group .bazi-evidence-list) { margin-top:0; }
-:deep(.bazi-dynamic-grid) { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
-:deep(.bazi-dynamic-grid div) { min-width:0; padding:12px; border-radius:10px; background:var(--paper-soft); border:1px solid var(--line); }
-:deep(.bazi-dynamic-grid span) { display:block; color:var(--text-muted); font-size:10px; margin-bottom:5px; }
-:deep(.bazi-dynamic-grid strong) { color:var(--gold); font-size:15px; }
-:deep(.bazi-dynamic-grid p) { margin:7px 0 0; color:var(--ink-muted); font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
-:deep(.bazi-timing-window-list) { display:grid; gap:10px; }
-:deep(.bazi-timing-window-card) { padding:12px; border-radius:10px; border:1px solid var(--line); background:var(--paper-soft); }
-:deep(.bazi-window-top) { display:flex; justify-content:space-between; gap:10px; align-items:center; margin-bottom:8px; }
-:deep(.bazi-window-top strong) { color:var(--gold); font-size:15px; }
-:deep(.bazi-window-top span) { color:var(--ink-muted); font-size:11px; }
-:deep(.bazi-timing-window-card p) { margin:0; color:var(--ink-muted); font-size:13px; line-height:1.62; }
-:deep(.bazi-window-meta) { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-:deep(.bazi-window-meta span) { color:var(--text-muted); font-size:11px; }
-:deep(.bazi-reading-block) { margin:8px 0; padding:8px 12px; background:var(--paper-soft); border-left:2px solid var(--gold-border); border-radius:0 6px 6px 0; }
-:deep(.bazi-reading-block.warning) { border-left-color:rgba(217,119,6,0.5); background:rgba(217,119,6,0.04); }
-:deep(.bazi-reading-block .reading-label) { font-size:11px; color:var(--text-muted); margin-bottom:4px; text-transform:uppercase; letter-spacing:0.5px; }
-:deep(.bazi-reading-block p) { margin:0; color:var(--ink-muted); font-size:14px; line-height:1.78; overflow-wrap:anywhere; }
-:deep(.bazi-mirror-block) { border-left-color:#7C6FBF; background:rgba(124,111,191,0.06); }
-:deep(.reading-label-mirror) { color:#7C6FBF !important; }
-:deep(.bazi-mirror-text) { font-style:italic; color:var(--ink-body,#2c2c2c) !important; }
-:deep(.bazi-movement-nature) { display:flex; align-items:center; gap:6px; flex-wrap:wrap; margin:6px 0 10px; }
-:deep(.movement-type) { font-size:12px; font-weight:600; padding:2px 8px; border-radius:4px; }
-:deep(.movement-type-active) { background:rgba(13,148,136,0.12); color:#0D9488; }
-:deep(.movement-type-passive) { background:rgba(200,74,69,0.12); color:#C84A45; }
-:deep(.movement-type-internal) { background:rgba(181,141,59,0.14); color:#B58D3B; }
-:deep(.movement-type-none) { background:var(--paper-soft); color:var(--text-muted); }
-:deep(.movement-quality) { font-size:11px; padding:2px 6px; border-radius:4px; }
-:deep(.movement-quality-favorable) { background:rgba(13,148,136,0.08); color:#0D9488; }
-:deep(.movement-quality-unfavorable) { background:rgba(200,74,69,0.08); color:#C84A45; }
-:deep(.movement-quality-neutral) { background:var(--paper-soft); color:var(--text-muted); }
-:deep(.movement-evidence) { font-size:12px; color:var(--ink-muted); flex:1; }
-:deep(.bazi-advice-extra) { display:grid; gap:8px; margin-top:10px; }
-:deep(.bazi-advice-rows) { display:grid; gap:6px; margin-top:8px; }
-:deep(.bazi-advice-row) { display:grid; grid-template-columns:72px minmax(0,1fr); gap:10px; align-items:start; padding:7px 0; border-top:1px solid var(--line); }
-:deep(.bazi-advice-row:first-child) { border-top:0; }
-:deep(.advice-row-label) { color:var(--text-muted); font-size:12px; line-height:1.7; white-space:nowrap; }
-:deep(.advice-row-text) { color:var(--ink-muted); font-size:14px; line-height:1.7; overflow-wrap:anywhere; }
-:deep(.bazi-advice-row.tone-warning .advice-row-label) { color:#d97706; }
-:deep(.bazi-advice-row.tone-positive .advice-row-label) { color:#0d9488; }
-:deep(.bazi-timing-meta) { display:grid; gap:8px; margin-bottom:12px; padding:10px 12px; border-radius:10px; background:var(--paper-soft); border:1px solid var(--line); }
-:deep(.timing-best) { color:#0d9488; font-size:13px; line-height:1.6; }
-:deep(.timing-avoid) { color:#d97706; font-size:13px; line-height:1.6; }
-:deep(.timing-disclaimer) { color:var(--text-muted); font-size:11px; line-height:1.5; }
+:deep(.bazi-evidence-list span) { padding:5px 9px; border-radius:999px; border:1px solid var(--line); color:var(--ink-muted); font-size:12px; line-height:1.4; overflow-wrap:anywhere; }
+:deep(.bazi-signal-list.positive span) { border-color:rgba(13,148,136,0.25); background:rgba(13,148,136,0.06); color:#0d9488; }
+:deep(.bazi-signal-list.warning span) { border-color:rgba(217,119,6,0.22); background:rgba(217,119,6,0.06); color:#d97706; }
+/* capacity row */
 :deep(.bazi-capacity-row) { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
 :deep(.capacity-label) { font-size:11px; color:var(--text-muted); }
 :deep(.capacity-level) { font-size:14px; font-family:var(--font-serif); color:var(--gold); }
@@ -3919,6 +4565,7 @@ input::placeholder { color: var(--text-muted); }
   align-items: flex-end;
   gap: 20px;
   overflow-x: auto;
+  touch-action: pan-x;
   padding: 14px 0 10px;
   border-bottom: 1px solid var(--line);
   background: rgba(247,244,238,0.96);

@@ -388,6 +388,14 @@
                         <div class="analysis-title">{{ isAnalyzing ? analysisSteps[analysisStageIndex] : analysisNotice }}</div>
                         <div class="analysis-subtitle">{{ isAnalyzing ? '排盘、格局、岁运与喜忌正在同步校验' : '最新结果已写入当前档案' }}</div>
                     </div>
+                    <button
+                        v-if="analysisNotice && !isAnalyzing"
+                        class="analysis-dismiss"
+                        type="button"
+                        aria-label="关闭推演状态提示"
+                        title="关闭"
+                        @click="analysisNotice = ''"
+                    >×</button>
                     <div v-if="isAnalyzing" class="analysis-progress">
                         <i :style="{ width: analysisProgress + '%' }"></i>
                     </div>
@@ -641,7 +649,7 @@
                     @shensha-click="showShensha"
                 />
 
-                <div v-if="needsUpgrade && currentTab !== 'events'" class="matrix-fallback-note">
+                <div v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'" class="matrix-fallback-note">
                     基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
                 </div>
 
@@ -658,7 +666,7 @@
 
                     <div v-if="interactions" class="ai-section" style="margin-top:20px;">
                         <div class="timeline-title">生克合化注意</div>
-                        
+
                         <div class="insight-card" v-if="intGroups.ganYuanju">
                             <h4 style="color:var(--gold)">天干本命</h4>
                             <p>{{ intGroups.ganYuanju }}</p>
@@ -675,7 +683,7 @@
                             <h4 style="color:#FF5E57">地支运势</h4>
                             <p>{{ intGroups.zhiYun }}</p>
                         </div>
-                        
+
                         <div v-if="!intGroups.ganYuanju && !intGroups.zhiYuanju && !intGroups.ganYun && !intGroups.zhiYun" style="text-align:center;color:#666;font-size:12px;">暂无明显的合冲破害关系</div>
                     </div>
                 </div>
@@ -772,6 +780,23 @@
                                                 <div v-for="step in gejuPanelContent.extractionSteps" :key="step.key" class="insight-step-row">
                                                     <span class="insight-step-label">{{ step.label }}</span>
                                                     <span class="insight-step-val">{{ step.value }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div v-if="gejuPanelContent.imageCandidate" class="insight-prose-item">
+                                            <div class="insight-prose-head"><span class="insight-prose-label">形象校验</span></div>
+                                            <p class="insight-prose-main">{{ gejuPanelContent.imageCandidate.subtype }} · {{ gejuPanelContent.imageCandidate.match_score }}%</p>
+                                            <div v-if="gejuPanelContent.imageCandidate.dimensions.length" class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.imageCandidate.dimensions" :key="item.key" class="insight-step-row">
+                                                    <span class="insight-step-label">{{ item.text }}</span>
+                                                    <span class="insight-step-val">{{ formatImageMetric(item.score, item.max) }}</span>
+                                                </div>
+                                            </div>
+                                            <div v-if="gejuPanelContent.imageCandidate.penalties.length" class="insight-step-list">
+                                                <div v-for="item in gejuPanelContent.imageCandidate.penalties" :key="item.key" class="insight-inline-row">
+                                                    <span class="insight-inline-dot insight-dot-warn">—</span>
+                                                    <span class="insight-step-val insight-val-warn">{{ item.text }}</span>
+                                                    <strong v-if="item.score !== ''" class="insight-val-warn">{{ formatImageMetric(item.score) }}</strong>
                                                 </div>
                                             </div>
                                         </div>
@@ -988,9 +1013,13 @@
                             <span class="wangge-sep">·</span>
                             <span class="wangge-val">{{ patternFinalName }}</span>
                             <span v-if="showChengGeText" class="rpt-h2-badge" style="margin-left:6px;">小格 {{ activeProfile.bazi_detail.chengge_detail.chengGe }}</span>
+                            <span v-if="gejuPanelContent?.imageHeadline" class="image-match-badge">{{ gejuPanelContent.imageHeadline }}</span>
                         </span>
                     </div>
                     <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
+                    <p v-if="gejuPanelContent?.imageCandidate" class="rpt-prose">
+                        <strong class="rpt-lead-w">基础格局　</strong>{{ gejuPanelContent.basePattern }}
+                    </p>
 
                     <!-- 调候诊断 -->
                     <div v-if="tiaohouPanelContent" class="rpt-sub">
@@ -1027,7 +1056,7 @@
                 </div>
 
                 <!-- 天机锦囊 -->
-                <div v-if="currentTab !== 'events' && resolvedYuanjuCore" class="rpt-section">
+                <div v-if="currentTab !== 'events' && shouldShowBaziInterpretationSection" class="rpt-section">
                     <div class="rpt-head">
                         <span class="rpt-kicker">天机锦囊</span>
                         <button class="info-button" title="查看用神决策链与四维剖析" @click="activeInfoPanel = 'scoring'">i</button>
@@ -1077,7 +1106,9 @@
                     <!-- 原局核心 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">原局核心</span>
-                        <p class="rpt-prose" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <span v-if="isBaziSectionLoading('yuanju_core')" class="bazi-stream-badge">AI 生成中</span>
+                        <p v-if="resolvedYuanjuCore" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('yuanju_core') }" style="margin-top:8px;">{{ resolvedYuanjuCore }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('yuanju_core')" class="bazi-section-skeleton"><i></i><i></i><i></i></div>
                         <div v-if="feedbackCorrections.yuanju_core" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1090,8 +1121,11 @@
                     <!-- 岁运推演 -->
                     <div class="rpt-sub">
                         <span class="rpt-kicker-sm">岁运推演</span>
-                        <p class="rpt-prose" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
-                        <p class="rpt-prose"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <span v-if="isBaziSectionLoading('current_dayun') || isBaziSectionLoading('current_liunian')" class="bazi-stream-badge">AI 生成中</span>
+                        <p v-if="resolvedCurrentDayun" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_dayun') }" style="margin-top:8px;"><strong class="rpt-run-label">大运</strong>{{ resolvedCurrentDayun }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('current_dayun')" class="bazi-section-skeleton"><i></i><i></i></div>
+                        <p v-if="resolvedCurrentLiunian" class="rpt-prose bazi-stream-prose" :class="{ streaming: isBaziSectionStreaming('current_liunian') }"><strong class="rpt-run-label">流年</strong>{{ resolvedCurrentLiunian }}</p>
+                        <div v-if="shouldShowBaziSectionSkeleton('current_liunian')" class="bazi-section-skeleton"><i></i><i></i></div>
                         <div v-if="feedbackCorrections.current_dayun || feedbackCorrections.current_liunian" class="rpt-feedback">
                             <div class="rpt-feedback-head">
                                 <span>命主反馈纠偏</span>
@@ -1103,7 +1137,7 @@
                     </div>
                 </div>
 
-                <div v-else-if="currentTab !== 'events' && activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
+                <div v-else-if="currentTab !== 'events' && !isBaziLlmLoading && activeProfile.bazi_summary" class="legacy-summary" style="display: block;">
                     {{ activeProfile.bazi_summary }}
                 </div>
 
@@ -1189,7 +1223,18 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 
 // 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
-const BAZI_ENGINE_VERSION = '1.6.3'
+const BAZI_ENGINE_VERSION = '1.7.0'
+
+// 兼容 Cloudflare Pages preview 域名，相对路径在 Pages 上会 404
+const _apiBase = (() => {
+    const configured = String(import.meta.env.VITE_API_BASE || '').replace(/\/+$/, '')
+    if (configured) return configured
+    if (typeof window !== 'undefined' && window.location.hostname.endsWith('.qimen-1ff.pages.dev')) {
+        return 'https://qimen-preview.oceanjustinlin.workers.dev'
+    }
+    return ''
+})()
+const apiPath = (path) => `${_apiBase}${path}`
 
 // 核心字典
 const WX_MAP = {'甲':'wx-mu','乙':'wx-mu','寅':'wx-mu','卯':'wx-mu','丙':'wx-huo','丁':'wx-huo','巳':'wx-huo','午':'wx-huo','戊':'wx-tu','己':'wx-tu','辰':'wx-tu','戌':'wx-tu','丑':'wx-tu','未':'wx-tu','庚':'wx-jin','辛':'wx-jin','申':'wx-jin','酉':'wx-jin','壬':'wx-shui','癸':'wx-shui','亥':'wx-shui','子':'wx-shui'}
@@ -1281,6 +1326,8 @@ const getWuxingClass = (wx) => {
 // 状态定义
 const currentUser = ref(null)
 const baziProfiles = ref([])
+const profileDetailCache = ref({})   // id → full bazi_detail data
+const isLoadingProfileDetail = ref(false)
 const selectedProfileId = ref('')
 const currentTab = ref('basic')
 const showAdd = ref(false)
@@ -1445,6 +1492,56 @@ const ANALYSIS_PROGRESS_FRAMES = [8, 12, 17, 23, 29, 36, 43, 50, 57, 64, 70, 76,
 let analysisTimer = null
 let analysisFrameIndex = 0
 let toastTimer = null
+const BAZI_STREAM_SECTION_KEYS = ['yuanju_core', 'current_dayun', 'current_liunian']
+
+const createBaziStreamSections = (status = 'idle') => ({
+    yuanju_core: { status, text: '' },
+    current_dayun: { status, text: '' },
+    current_liunian: { status, text: '' }
+})
+
+const llmStreamSections = ref(createBaziStreamSections())
+
+function resetLlmStreamSections(status = 'idle') {
+    llmStreamSections.value = createBaziStreamSections(status)
+}
+
+function patchLlmStreamSection(section, patch = {}) {
+    if (!BAZI_STREAM_SECTION_KEYS.includes(section)) return
+    llmStreamSections.value = {
+        ...llmStreamSections.value,
+        [section]: {
+            ...llmStreamSections.value[section],
+            ...patch
+        }
+    }
+}
+
+function isBaziSectionStreaming(section) {
+    return llmStreamSections.value[section]?.status === 'streaming'
+}
+
+function isBaziSectionPending(section) {
+    return llmStreamSections.value[section]?.status === 'pending'
+}
+
+function isBaziSectionLoading(section) {
+    return ['pending', 'streaming'].includes(llmStreamSections.value[section]?.status)
+}
+
+function isBaziSectionFailed(section) {
+    return llmStreamSections.value[section]?.status === 'failed'
+}
+
+function getBaziStreamText(section) {
+    return String(llmStreamSections.value[section]?.text || '').trim()
+}
+
+function shouldShowBaziSectionSkeleton(section) {
+    return isBaziSectionLoading(section) && !getBaziStreamText(section)
+}
+
+const isBaziLlmLoading = computed(() => BAZI_STREAM_SECTION_KEYS.some(section => isBaziSectionLoading(section)))
 
 const form = reactive({
     name: '',
@@ -1895,8 +1992,8 @@ watch(
             // 首次添加档案：尚无排盘/断语，自动生成（无需手动点击同步）
             console.log('[bazi] 新档案尚无排盘，自动生成…')
             requestAiSummary({ force: false })
-        } else if (hasBaziStr && hasLlm && profileEngineVersion && profileEngineVersion !== BAZI_ENGINE_VERSION) {
-            console.log(`[bazi] 检测到引擎版本旧 (${profileEngineVersion} → ${BAZI_ENGINE_VERSION})，自动刷新运算数据…`)
+        } else if (hasBaziStr && hasLlm && (!profileEngineVersion || profileEngineVersion !== BAZI_ENGINE_VERSION || (hasDetail && !activeProfile.value?.bazi_detail?.image_analysis))) {
+            console.log(`[bazi] 检测到引擎版本旧或 image_analysis 缺失 (${profileEngineVersion} → ${BAZI_ENGINE_VERSION})，自动刷新运算数据…`)
             requestAiSummary({ force: false })
         }
     },
@@ -2196,6 +2293,103 @@ const normalizeTraitItems = (value, fallback = []) => {
     return Array.isArray(fallback) ? fallback : []
 }
 
+const IMAGE_DIMENSION_LABELS = {
+    target_qi_score: '目标气势',
+    target_qi_ratio: '目标占比',
+    dominance_points: '主导气势',
+    rootlessness_points: '日主无根',
+    month_command_points: '月令助力',
+    exposed_target_points: '透干助力',
+    visible_support_penalty: '扶身干扰',
+    same_camp_dominance_points: '同党气势',
+    purity_points: '气势纯度',
+    counter_qi_ratio: '制衡占比',
+    counter_qi_exposed_count: '制衡透干',
+    counter_qi_branch_count: '制衡根气',
+    powerful_counter_penalty: '强力制衡',
+    wealth_qi_ratio: '财气占比',
+    wealth_drain_penalty: '财星泄气',
+    mixed_qi_ratio: '杂气占比',
+    mixed_qi_penalty: '杂气干扰',
+    adjacent_stem_combine_points: '相邻天干合',
+    branch_support_count: '地支助化',
+    branch_support_points: '地支助化分',
+    no_jealous_combine_points: '无争合',
+    competing_partner_count: '争合数量',
+    competing_day_stem_count: '日干争合',
+    original_qi_root_count: '原气根数',
+    original_qi_primary_root_count: '原气主根',
+    original_qi_root_score: '原气根分',
+    original_qi_weak_points: '原气弱化',
+    transform_qi_ratio: '化气占比',
+    transform_qi_counter_ratio: '化气受制',
+    transform_qi_intact_points: '化气完整',
+    transform_qi_damage_penalty: '化气受损',
+    two_qi_combined_ratio: '两气合计',
+    two_qi_combined_points: '两气集中',
+    two_qi_ratio_difference: '两气差值',
+    two_qi_balance_points: '两气均衡',
+    low_mixed_qi_points: '少杂气',
+    mixed_force_points: '从势基础',
+    mixed_force_combined_ratio: '从势占比',
+    mixed_force_combined_points: '从势集中',
+    no_visible_support_points: '无明扶',
+}
+
+const IMAGE_PENALTY_LABELS = {
+    DM_HAS_SUPPORT: '日主仍有扶助',
+    POWERFUL_COUNTER_QI: '制衡气势偏强',
+    WEALTH_DRAINS_DOMINANT_QI: '财星泄耗主势',
+    MIXED_QI_BREAKS_SINGLE_IMAGE: '杂气破坏专旺',
+    JEALOUS_COMBINE_CAP_79: '争合使成象分封顶',
+    DM_HAS_STRONG_ROOT_CAP_79: '日主强根使成象分封顶',
+    TRANSFORM_QI_DAMAGED: '化气受到损伤',
+}
+
+const normalizeImageDimensions = (value) => {
+    if (Array.isArray(value)) {
+        return value.map((item, index) => {
+            if (!item || typeof item !== 'object') {
+                return { key: `dimension-${index}`, text: String(item ?? ''), score: '', max: '' }
+            }
+            return {
+                key: item.key || `dimension-${index}`,
+                text: item.text || IMAGE_DIMENSION_LABELS[item.key] || item.key || `指标 ${index + 1}`,
+                score: item.score ?? '',
+                max: item.max ?? '',
+            }
+        })
+    }
+    if (!value || typeof value !== 'object') return []
+    return Object.entries(value).map(([key, score]) => ({
+        key,
+        text: IMAGE_DIMENSION_LABELS[key] || key,
+        score,
+        max: '',
+    }))
+}
+
+const normalizeImagePenalties = (value) => {
+    if (!Array.isArray(value)) return []
+    return value.map((item, index) => {
+        if (!item || typeof item !== 'object') {
+            const key = String(item ?? `penalty-${index}`)
+            return { key, text: IMAGE_PENALTY_LABELS[key] || key, score: '' }
+        }
+        return {
+            key: item.key || `penalty-${index}`,
+            text: item.text || IMAGE_PENALTY_LABELS[item.key] || item.key || `扣分项 ${index + 1}`,
+            score: item.score ?? '',
+        }
+    })
+}
+
+const formatImageMetric = (score, max = '') => {
+    const scoreText = typeof score === 'boolean' ? (score ? '是' : '否') : String(score ?? '')
+    if (max === '' || max == null) return scoreText
+    return `${Number(score) > 0 ? '+' : ''}${scoreText}/${max}`
+}
+
 const gejuPanelContent = computed(() => {
     const profile = activeProfile.value
     if (!profile?.bazi_detail) return null
@@ -2209,6 +2403,18 @@ const gejuPanelContent = computed(() => {
     const mergeInfo = gejuDetail.monthMergeInfo || null
     const finalPattern = extraction?.final_pattern || null
     const finalPatternName = finalPattern?.name || profile.geju || gejuDetail.geju || '未定格'
+    const imageAnalysis = detail.image_analysis || null
+    const primaryCandidate = imageAnalysis?.primary_candidate || null
+    const showImageCandidate = !!primaryCandidate && Number(primaryCandidate.match_score) >= 60
+    const imageCandidate = showImageCandidate
+        ? {
+            ...primaryCandidate,
+            subtype: primaryCandidate.subtype || '特殊形象',
+            dimensions: normalizeImageDimensions(primaryCandidate.dimensions),
+            penalties: normalizeImagePenalties(primaryCandidate.penalties),
+        }
+        : null
+    const basePattern = extraction?.base_pattern || profile.geju || gejuDetail.geju || '未定格'
     const chengGeResult = evaluation?.overall_status || chenggeDetail.chengGeResult || '待定'
     const chengGeStatus = PATTERN_STATUS_LABELS[chengGeResult] || (chengGeResult === '待定' ? '未成格' : chengGeResult)
     const showChengGe = !!chenggeDetail.chengGe && chenggeDetail.chengGe !== finalPatternName && chengGeResult !== 'PENDING' && chengGeResult !== '待定'
@@ -2231,6 +2437,11 @@ const gejuPanelContent = computed(() => {
         title: showChengGe ? `${finalPatternName} · ${chenggeDetail.chengGe}` : finalPatternName,
         strongWeak: profile.strong_weak || '未定',
         baseGeju: finalPatternName,
+        basePattern,
+        imageCandidate,
+        imageHeadline: imageCandidate
+            ? `${imageCandidate.override_normal_pattern ? '形象匹配度' : `${imageCandidate.subtype}倾向`} ${imageCandidate.match_score}%`
+            : '',
         chengGe: chenggeDetail.chengGe || finalPatternName || '待定',
         chengGeResult,
         chengGeStatus,
@@ -2461,17 +2672,40 @@ const showChengGeText = computed(() => {
 
 const resolvedInterpretation = computed(() => resolveBaziInterpretation(activeProfile.value || {}))
 
+const streamedBaziInterpretation = computed(() => ({
+    yuanju_core: ['streaming', 'done'].includes(llmStreamSections.value.yuanju_core?.status)
+        ? getBaziStreamText('yuanju_core')
+        : '',
+    current_dayun: ['streaming', 'done'].includes(llmStreamSections.value.current_dayun?.status)
+        ? getBaziStreamText('current_dayun')
+        : '',
+    current_liunian: ['streaming', 'done'].includes(llmStreamSections.value.current_liunian?.status)
+        ? getBaziStreamText('current_liunian')
+        : ''
+}))
+
 const resolvedYuanjuCore = computed(() => {
-    return resolvedInterpretation.value.yuanju_core
+    if (isBaziSectionLoading('yuanju_core')) return streamedBaziInterpretation.value.yuanju_core
+    if (isBaziSectionFailed('yuanju_core')) return resolvedInterpretation.value.yuanju_core
+    return streamedBaziInterpretation.value.yuanju_core || resolvedInterpretation.value.yuanju_core
 })
 
 const resolvedCurrentDayun = computed(() => {
-    return resolvedInterpretation.value.current_dayun
+    if (isBaziSectionLoading('current_dayun')) return streamedBaziInterpretation.value.current_dayun
+    if (isBaziSectionFailed('current_dayun')) return resolvedInterpretation.value.current_dayun
+    return streamedBaziInterpretation.value.current_dayun || resolvedInterpretation.value.current_dayun
 })
 
 const resolvedCurrentLiunian = computed(() => {
-    return resolvedInterpretation.value.current_liunian
+    if (isBaziSectionLoading('current_liunian')) return streamedBaziInterpretation.value.current_liunian
+    if (isBaziSectionFailed('current_liunian')) return resolvedInterpretation.value.current_liunian
+    return streamedBaziInterpretation.value.current_liunian || resolvedInterpretation.value.current_liunian
 })
+
+const shouldShowBaziInterpretationSection = computed(() => (
+    Boolean(resolvedYuanjuCore.value)
+    || isBaziLlmLoading.value
+))
 
 const feedbackCorrections = computed(() => ({
     yuanju_core: String(activeProfile.value?.calibrated_yuanju_core || '').trim(),
@@ -2795,6 +3029,18 @@ const fetchProfiles = async () => {
     applyProfiles(data || [])
 }
 
+const loadProfileDetail = async (profileId) => {
+    if (!profileId || isGuest.value) return
+    if (profileDetailCache.value[profileId]) return  // 已有缓存，跳过
+    isLoadingProfileDetail.value = true
+    try {
+        const { data } = await supabase.from('bazi_profiles').select('bazi_detail').eq('id', profileId).single()
+        if (data) profileDetailCache.value = { ...profileDetailCache.value, [profileId]: data }
+    } finally {
+        isLoadingProfileDetail.value = false
+    }
+}
+
 const getAccessToken = async () => {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token || ''
@@ -2816,7 +3062,7 @@ const fetchProfileContextDraft = async () => {
     }
     try {
         const accessToken = await getAccessToken()
-        const response = await fetch(`/api/context-notes?scope=profile&profile_id=${encodeURIComponent(activeProfile.value.id)}`, {
+        const response = await fetch(apiPath(`/api/context-notes?scope=profile&profile_id=${encodeURIComponent(activeProfile.value.id)}`), {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         const payload = await response.json()
@@ -2839,7 +3085,7 @@ const fetchMonthlyContextDraft = async () => {
     }
     try {
         const accessToken = await getAccessToken()
-        const response = await fetch(`/api/context-notes?scope=monthly&profile_id=${encodeURIComponent(activeProfile.value.id)}&month_key=${encodeURIComponent(notesMonthKey.value)}`, {
+        const response = await fetch(apiPath(`/api/context-notes?scope=monthly&profile_id=${encodeURIComponent(activeProfile.value.id)}&month_key=${encodeURIComponent(notesMonthKey.value)}`), {
             headers: { Authorization: `Bearer ${accessToken}` },
         })
         const payload = await response.json()
@@ -2862,7 +3108,7 @@ const saveProfileContextDraft = async () => {
     try {
         const shouldRefreshInterpretation = computeProfileContextRefreshSignal(profileContextBaseline.value, profileContextDraft.value)
         const accessToken = await getAccessToken()
-        const response = await fetch('/api/context-notes', {
+        const response = await fetch(apiPath('/api/context-notes'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2896,7 +3142,7 @@ const saveMonthlyContextDraft = async () => {
     try {
         const shouldRefreshInterpretation = computeMonthlyContextRefreshSignal(monthlyContextBaseline.value, monthlyContextDraft.value)
         const accessToken = await getAccessToken()
-        const response = await fetch('/api/context-notes', {
+        const response = await fetch(apiPath('/api/context-notes'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -2972,6 +3218,8 @@ const openAddProfile = () => {
         return
     }
     resetProfileEntry()
+    isProfileMenuOpen.value = false
+    swipedProfileId.value = null
     showAdd.value = true
     showRename.value = false
 }
@@ -3141,14 +3389,16 @@ const saveProfile = async () => {
         alert(error.message)
         return
     }
+    showAdd.value = false
+    isProfileMenuOpen.value = false
+    swipedProfileId.value = null
+    resetProfileEntry()
     if (isGuest.value) {
         const profile = buildGuestProfile(payload)
         saveGuestBaziProfile(undefined, profile)
         baziProfiles.value = [profile]
         selectedProfileId.value = profile.id
         setSelectedBaziProfileId(profile.id)
-        showAdd.value = false
-        resetProfileEntry()
         await trackGuestEvent(supabase, 'guest_bazi_profile_added', 'bazi', { limit_reached: true })
         return
     }
@@ -3194,8 +3444,6 @@ const saveProfile = async () => {
             selectedProfileId.value = data.id
             setSelectedBaziProfileId(data.id)
         }
-        showAdd.value = false
-        resetProfileEntry()
         clearBaziProfilesCache()
         await fetchProfiles()
     }
@@ -3287,6 +3535,70 @@ const stopAnalysisMotion = () => {
     }
 }
 
+async function readBaziSSEStream(response, profileId) {
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+
+    while (true) {
+        const { done, value } = await reader.read()
+        if (done) return null
+        buffer += decoder.decode(value, { stream: true })
+        const parts = buffer.split('\n\n')
+        buffer = parts.pop() ?? ''
+
+        for (const part of parts) {
+            const line = part.trim()
+            if (!line.startsWith('data: ')) continue
+            let event
+            try { event = JSON.parse(line.slice(6)) } catch { continue }
+
+            if (event.type === 'step') {
+                analysisProgress.value = event.pct ?? analysisProgress.value
+                analysisStageIndex.value = Math.min(analysisSteps.length - 1, Math.max(0, Number(event.index || 0)))
+            } else if (event.type === 'engine_complete') {
+                analysisProgress.value = event.pct ?? 45
+                resetLlmStreamSections('pending')
+                clearBaziProfilesCache()
+                await fetchProfiles()
+            } else if (event.type === 'llm_section_start') {
+                patchLlmStreamSection(event.section, { status: 'streaming' })
+            } else if (event.type === 'llm_delta') {
+                const current = llmStreamSections.value[event.section]?.text || ''
+                patchLlmStreamSection(event.section, { status: 'streaming', text: current + (event.text || '') })
+            } else if (event.type === 'llm_section_done') {
+                patchLlmStreamSection(event.section, {
+                    status: 'done',
+                    text: event.text ?? llmStreamSections.value[event.section]?.text ?? ''
+                })
+            } else if (event.type === 'llm_error') {
+                BAZI_STREAM_SECTION_KEYS.forEach(section => {
+                    if (['pending', 'streaming'].includes(llmStreamSections.value[section]?.status)) {
+                        patchLlmStreamSection(section, { status: 'failed' })
+                    }
+                })
+                showToast(event.message || 'AI 深度断语暂时不可用，已保留规则引擎结果', 'error')
+            } else if (event.type === 'llm_complete') {
+                analysisProgress.value = 100
+                clearBaziProfilesCache()
+                await fetchProfiles()
+                return event.result || null
+            } else if (event.type === 'complete') {
+                analysisProgress.value = event.pct ?? 100
+                if (event.partial) {
+                    clearBaziProfilesCache()
+                    await fetchProfiles()
+                }
+                return event.result || null
+            } else if (event.type === 'error') {
+                const err = new Error(event.message || '八字推演失败')
+                err.profileId = profileId
+                throw err
+            }
+        }
+    }
+}
+
 // force=true 时引擎 + LLM 全量重推；force=false（默认）只在版本过期时刷新引擎，保留 LLM 断语
 const requestAiSummary = async ({ force = false } = {}) => {
     if (!activeProfile.value) return
@@ -3298,12 +3610,13 @@ const requestAiSummary = async ({ force = false } = {}) => {
     const shouldCalibrateFromEvents = lifeEvents.value.length > 0
     isAnalyzing.value = true
     analysisNotice.value = ''
+    resetLlmStreamSections()
     startAnalysisMotion()
     try {
         const pd = promptDataObj.value
         const { data: { session } } = await supabase.auth.getSession()
 
-        const response = await fetch('/api/bazi', {
+        const response = await fetch(apiPath('/api/bazi'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
             body: JSON.stringify({ 
@@ -3311,8 +3624,11 @@ const requestAiSummary = async ({ force = false } = {}) => {
             })
         })
 
-        const data = await response.json()
-        if (data.error) {
+        const contentType = response.headers.get('Content-Type') || ''
+        const data = contentType.includes('text/event-stream')
+            ? await readBaziSSEStream(response, profileId)
+            : await response.json()
+        if (data?.error) {
             const err = new Error(data.error)
             err.httpStatus = response.status
             throw err
@@ -3404,7 +3720,7 @@ const triggerCalibration = async ({ profileId = activeProfile.value?.id, force =
         const { data: { session } } = await supabase.auth.getSession()
         if (!session?.access_token) throw new Error('登录状态已失效，请重新登录')
 
-        const res = await fetch('/api/bazi-calibrate', {
+        const res = await fetch(apiPath('/api/bazi-calibrate'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -4221,6 +4537,24 @@ const getShenColor = (shen) => {
 .analysis-copy { min-width: 0; flex: 1; }
 .analysis-title { color: var(--ink); font-size: 13px; font-weight: 700; margin-bottom: 3px; }
 .analysis-subtitle { color: var(--text-muted); font-size: 11px; }
+.analysis-dismiss {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 24px;
+    height: 24px;
+    border: 0;
+    border-radius: 50%;
+    background: rgba(13,148,136,0.10);
+    color: var(--ink-muted);
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+}
+.analysis-dismiss:hover {
+    color: var(--ink);
+    background: rgba(13,148,136,0.16);
+}
 .analysis-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--line); }
 .analysis-progress i { display: block; height: 100%; background: linear-gradient(90deg, var(--gold), var(--teal)); transition: width .55s ease; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -4768,6 +5102,38 @@ const getShenColor = (shen) => {
     margin: 0 0 10px;
 }
 .rpt-prose-warn { color: var(--crimson, #c62828); opacity: 0.85; }
+.bazi-stream-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    font-size: 11px;
+    color: var(--gold);
+    opacity: 0.84;
+}
+.bazi-stream-prose.streaming {
+    border-left: 2px solid rgba(201, 166, 107, 0.38);
+    padding-left: 10px;
+}
+.bazi-section-skeleton {
+    display: grid;
+    gap: 7px;
+    margin-top: 10px;
+    max-width: 680px;
+}
+.bazi-section-skeleton i {
+    display: block;
+    height: 10px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(201,166,107,0.12), rgba(201,166,107,0.28), rgba(201,166,107,0.12));
+    background-size: 220% 100%;
+    animation: baziSkeletonPulse 1.4s ease-in-out infinite;
+}
+.bazi-section-skeleton i:nth-child(2) { width: 82%; }
+.bazi-section-skeleton i:nth-child(3) { width: 62%; }
+@keyframes baziSkeletonPulse {
+    0% { background-position: 0% 50%; }
+    100% { background-position: -220% 50%; }
+}
 /* Sub-section within article */
 .rpt-sub {
     margin-top: 18px;
@@ -5105,6 +5471,16 @@ const getShenColor = (shen) => {
     color: var(--ink-muted);
     font-weight: 300;
     margin: 0 1px;
+}
+.image-match-badge {
+    display: inline-flex;
+    align-items: center;
+    margin-left: 8px;
+    padding: 2px 6px;
+    border: 1px solid rgba(212, 175, 55, 0.28);
+    color: #e8cc80;
+    font-size: 11px;
+    line-height: 1.4;
 }
 /* insight bottom sheet tab bar 对齐主页 bazi-tab */
 .insight-tab-bar {

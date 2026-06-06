@@ -180,18 +180,145 @@ test('八字问答结果挂载原局排盘背书板块', () => {
   assert.match(source, /原局命盘/)
 })
 
+test('八字命局解读先展示分析 panel，并在四柱缺失时补全 panel 数据', () => {
+  const m2Start = source.indexOf('const m2HTML = `<section class="mag-section" id="bazi-m2">')
+  const m2End = source.indexOf('// ── Section 3: 深度推演', m2Start)
+  const m2Source = source.slice(m2Start, m2End)
+
+  assert.ok(m2Start > -1)
+  assert.ok(m2End > m2Start)
+  assert.ok(m2Source.indexOf('id="bazi-panel-anchor"') < m2Source.indexOf('${foundationPhenomenaHTML}'))
+  assert.match(source, /if \(!data\.state_report\) fetchMissingPanelData\(data\)/)
+  assert.match(source, /if \(!baziPanelMatrix\.value\) fetchMissingPanelMatrix\(\)/)
+  assert.match(source, /const fetchMissingPanelMatrix = async \(\) =>/)
+  assert.match(source, /:deep\(\.bazi-panel-anchor\)[\s\S]{0,120}margin-bottom:\s*28px/)
+})
+
+test('八字动态 panel 的长断语正常换行，不压缩状态变化文本', () => {
+  const component = readFileSync(new URL('../components/BaziDynamicPanel.vue', import.meta.url), 'utf8')
+
+  assert.match(component, /\.target-trigger-row[\s\S]{0,180}flex-direction:\s*column/)
+  assert.match(component, /\.auspice-badge[\s\S]{0,220}white-space:\s*normal/)
+  assert.match(component, /\.auspice-badge[\s\S]{0,260}align-self:\s*stretch/)
+})
+
+test('八字动态 panel 对旧记录中的重复机制做语义去重', () => {
+  const component = readFileSync(new URL('../components/BaziDynamicPanel.vue', import.meta.url), 'utf8')
+
+  assert.match(component, /function visibleMechanisms\(impact\)/)
+  assert.match(component, /const key = `\$\{mech\?\.type/)
+  assert.match(component, /v-for="\(mech, i\) in visibleMechanisms\(liunianImpact\)"/)
+})
+
+test('八字报告只在 Hero 展示总结结论', () => {
+  const component = readFileSync(new URL('../components/BaziDynamicPanel.vue', import.meta.url), 'utf8')
+  const m1Start = source.indexOf('const m1HTML = `<section class="mag-section" id="bazi-m1">')
+  const m1End = source.indexOf('// ── Section 2: 命局解读', m1Start)
+  const m1Source = source.slice(m1Start, m1End)
+
+  assert.ok(m1Start > -1)
+  assert.ok(m1End > m1Start)
+  assert.doesNotMatch(m1Source, /bazi-verdict-body/)
+  assert.doesNotMatch(component, /综合结论/)
+  assert.doesNotMatch(component, /conclusionText/)
+  assert.doesNotMatch(source, /baziPanelConclusionText/)
+})
+
+test('八字命局底盘信号按现象和说明拆成表格行展示', () => {
+  assert.match(source, /const splitBaziFoundationSignal = \(signal\) =>/)
+  assert.match(source, /<h3 class="bazi-bf-title">命局现象<\/h3>/)
+  assert.match(source, /<h3 class="bazi-bf-title">用神状态<\/h3>/)
+  assert.match(source, /class="bazi-bf-signal-row"/)
+  assert.match(source, /class="bazi-bf-signal-label"/)
+  assert.match(source, /class="bazi-bf-signal-detail"/)
+  assert.doesNotMatch(source, /class="bazi-bf-signal"/)
+  assert.match(source, /:deep\(\.bazi-bf-signals\)[\s\S]{0,120}display:grid/)
+})
+
+test('八字命局解读按 panel、命局现象、用神状态排列，原局底盘进入深度推演', () => {
+  const m2Start = source.indexOf('const m2HTML = `<section class="mag-section" id="bazi-m2">')
+  const m2End = source.indexOf('// ── Section 3: 深度推演', m2Start)
+  const m2Source = source.slice(m2Start, m2End)
+  const m3End = source.indexOf('// ── Section 4: 时间线', m2End)
+  const m3Source = source.slice(m2End, m3End)
+
+  assert.ok(m2Source.indexOf('id="bazi-panel-anchor"') < m2Source.indexOf('${foundationPhenomenaHTML}'))
+  assert.ok(m2Source.indexOf('${foundationPhenomenaHTML}') < m2Source.indexOf('${targetStateHTML}'))
+  assert.doesNotMatch(m2Source, /\$\{bfHTML\}|原局底盘/)
+  assert.doesNotMatch(m2Source, /signalsFlowHTML|命局信号|keySignals/)
+  assert.doesNotMatch(source, /inferItems\.push\(\{ label: ts\.title/)
+  assert.doesNotMatch(source, /inferItems\.push\(\{ label: `\$\{targetLabel\}状态`/)
+  assert.match(m3Source, /inferItems\.push\(\{ label: '原局底盘', text: bf\.text/)
+  assert.match(m3Source, /<div class="module-heading"><h2>深度推演<\/h2><\/div>/)
+  assert.match(source, /\{ id: 'bazi-m3', label: '深度推演'/)
+})
+
+test('八字深度推演按 mode 收敛内容并使用统一纵向段落', () => {
+  const m3Start = source.indexOf('// ── Section 3: 深度推演')
+  const m3End = source.indexOf('// ── Section 4: 时间线', m3Start)
+  const m3Source = source.slice(m3Start, m3End)
+
+  assert.match(m3Source, /const deepReadingRow = \(label, text, tone = '', extra = '', factor = ''\) =>/)
+  assert.match(m3Source, /class="inference-flow bazi-deep-flow"/)
+  assert.match(m3Source, /class="inference-factor"/)
+  assert.doesNotMatch(m3Source, /psychological_mirror|outcome_projection|当下感受|后续推演/)
+  assert.match(m3Source, /label: '大运建场'/)
+  assert.match(m3Source, /label: '流年触发'/)
+  assert.match(m3Source, /label: '先天格局'/)
+  assert.match(m3Source, /label: '外貌气质'/)
+  assert.match(m3Source, /label: '应期概览'/)
+})
+
+test('八字时间节奏只展示深度推演之外的增量内容', () => {
+  const m4Start = source.indexOf('// ── Section 4: 时间线')
+  const m4End = source.indexOf('// ── Section 5: 行动建议', m4Start)
+  const m4Source = source.slice(m4Start, m4End)
+
+  assert.match(m4Source, /const normalizeRhythmText = \(value\) =>/)
+  assert.match(m4Source, /const isDistinctRhythmText = \(value\) =>/)
+  assert.match(m4Source, /const visibleRhythmSegments = segments/)
+  assert.match(m4Source, /strategy: isDistinctRhythmText\(seg\.strategy\) \? seg\.strategy : ''/)
+  assert.match(m4Source, /key_liunians: \(seg\.key_liunians \|\| \[\]\)\.filter/)
+  assert.match(m4Source, /\.filter\(seg => seg\.strategy \|\| seg\.key_liunians\.length\)/)
+  assert.match(m4Source, /const rhythmFlowHTML = visibleRhythmSegments\.length/)
+})
+
+test('八字行动建议使用总述加单列两位数编号列表', () => {
+  const m5Start = source.indexOf('// ── Section 5: 行动建议')
+  const m5End = source.indexOf('const tabDefs = [', m5Start)
+  const m5Source = source.slice(m5Start, m5End)
+
+  assert.match(m5Source, /const adviceItems = agItems\.length/)
+  assert.match(m5Source, /const adviceIntroHTML = agText/)
+  assert.match(m5Source, /class="bazi-action-intro"/)
+  assert.match(m5Source, /class="mag-action-list bazi-action-list"/)
+  assert.match(m5Source, /class="mag-action-item"/)
+  assert.match(m5Source, /class="mag-action-num"/)
+  assert.match(m5Source, /String\(i \+ 1\)\.padStart\(2, '0'\)/)
+  assert.doesNotMatch(m5Source, /guidance-grid|guidance-card|guidance-kicker|guidance-row/)
+})
+
+test('问事结果页 Tab 随滚动位置通用联动', () => {
+  assert.match(source, /const syncMagTabsToScroll = \(\) =>/)
+  assert.match(source, /nav\.closest\('\.mag-result'\)/)
+  assert.match(source, /querySelectorAll\('\.mag-section\[id\]'\)/)
+  assert.match(source, /section\.getBoundingClientRect\(\)\.top <= threshold/)
+  assert.match(source, /document\.addEventListener\('scroll', scheduleMagTabScrollSync, true\)/)
+  assert.match(source, /document\.removeEventListener\('scroll', scheduleMagTabScrollSync, true\)/)
+})
+
 test('八字问答结果按 PRD 补齐 pattern character 和 timing 字段展示', () => {
   assert.match(source, /先天结构适配/)
-  assert.match(source, /mode\.structural_supports/)
-  assert.match(source, /mode\.structural_risks/)
+  assert.match(source, /readings\.structural_supports/)
+  assert.match(source, /readings\.structural_risks/)
   assert.match(source, /人物倾向画像/)
   assert.match(source, /buildPortraitBlockHTML/)
-  assert.match(source, /mode\.appearance_tendency/)
-  assert.match(source, /mode\.personality_tendency/)
-  assert.match(source, /mode\.career_style/)
-  assert.match(source, /mode\.best_window/)
-  assert.match(source, /mode\.avoid_window/)
-  assert.doesNotMatch(source, /mode\.why_not_now/)
+  assert.match(source, /readings\.appearance_tendency/)
+  assert.match(source, /readings\.personality_tendency/)
+  assert.match(source, /readings\.career_style/)
+  assert.match(source, /readings\.best_window/)
+  assert.match(source, /readings\.avoid_window/)
+  assert.doesNotMatch(source, /readings\.why_not_now/)
 })
 
 test('八字问答行动建议展示 strategy 之外的 advice 价值字段', () => {
@@ -280,4 +407,33 @@ test('八字问答前端过滤工程化内部表达', () => {
   assert.match(source, /置信度需下调/)
   assert.match(source, /estimated/)
   assert.match(source, /目标十神/)
+})
+
+test('八字 path_readings 以独立「路径推演」分区渲染，不再混入逐项解读扁平列表', () => {
+  // 独立分区 + 差异化卡片
+  assert.match(source, /路径推演 · 多路径对比/)
+  assert.match(source, /class="bazi-path-block"/)
+  assert.match(source, /class="bazi-path-card"/)
+  assert.match(source, /bazi-path-badge/)
+  // 结构化字段行（契合/近1-3年/满意度/最顺期/风险）
+  assert.match(source, /pathRow\('契合', p\.structural_fit\)/)
+  assert.match(source, /pathRow\('风险', p\.risk, ' bazi-path-risk'\)/)
+  // 不再把 path 作为普通 inferItems 行 push 进扁平列表
+  assert.doesNotMatch(source, /inferItems\.push\(\{ label: p\.path/)
+  // 差异化样式存在
+  assert.match(source, /:deep\(\.bazi-path-card\)/)
+})
+
+test('八字 yongshen 锚定时面板用神标签自适应（不写"目标十神"）', () => {
+  // HomeView：theory 文案按 anchor_kind 切换
+  assert.match(source, /anchor_kind === 'yongshen'/)
+  assert.match(source, /为综合运势锚点/)
+  assert.match(source, /baziPanelAnchorKind/)
+  assert.match(source, /:anchor-kind="baziPanelAnchorKind"/)
+  // StaticPanel：section 标题与"用神关系"行按 anchor 切换/隐藏
+  const panel = readFileSync(new URL('../components/BaziStaticPanel.vue', import.meta.url), 'utf8')
+  assert.match(panel, /isYongshenAnchor/)
+  assert.match(panel, /用神 \/ 忌神（综合运势锚点）/)
+  assert.match(panel, /yongshenRelation && !isYongshenAnchor/)
+  assert.match(panel, /anchorKind:\s*\{ type: String/)
 })

@@ -14,3 +14,10 @@ test('bazi question worker builds and optionally inserts audit snapshot', () => 
   assert.match(source, /insert\(auditSnapshot\)/)
   assert.match(source, /console\.warn\('\[qimen-api\] bazi audit insert failed:/)
 })
+
+test('bazi question audit uses a service-role client without the user JWT', () => {
+  assert.match(
+    source,
+    /const auditSupabase = createSupabaseClient\(env\);\s+const \{ error: auditError \} = await auditSupabase\.from\('bazi_question_audit'\)\.insert\(auditSnapshot\)/
+  )
+})
