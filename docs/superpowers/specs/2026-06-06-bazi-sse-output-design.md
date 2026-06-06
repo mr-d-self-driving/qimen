@@ -1,142 +1,148 @@
-# Bazi SSE Output Product Design
+# 八字 SSE 流式出参产品方案
 
-## Background
+## 背景
 
-The current Bazi profile generation flow blocks the entire frontend result until `/api/bazi` finishes both deterministic backend calculation and LLM interpretation. This makes the first useful output dependent on LLM latency and stability, even though the backend already produces complete chart structure, pattern analysis, favorable/unfavorable gods, current dayun/liunian, and engine-owned qualitative copy before the LLM call.
+当前八字档案生成流程需要等待 `/api/bazi` 同时完成后端确定性计算和 LLM 解读后，前端才刷新展示完整结果。这样会让首屏可用结果依赖 LLM 的响应速度和稳定性。实际上，在调用 LLM 之前，后端已经可以产出完整的命盘结构、格局分析、喜忌神、当前大运/流年，以及规则引擎自有的定性断语。
 
-The desired experience is progressive:
+目标体验应改为渐进式：
 
-1. Show backend-generated Bazi artifacts as soon as they are available.
-2. Keep the LLM interpretation areas visible as skeleton sections.
-3. Stream LLM text into the relevant sections through SSE.
-4. Persist final LLM sections only after they are complete enough to replace the engine fallback.
+1. 后端规则引擎产物一完成，前端立即展示。
+2. LLM 解读区域先显示骨架屏。
+3. LLM 文本通过 SSE 按区块流式填充到对应区域。
+4. 只有当 LLM 区块完整产出后，才将最终文本写入持久化字段，用来替换引擎兜底文案。
 
-## Goals
+## 目标
 
-- Reduce perceived wait time for Bazi profile generation and refresh.
-- Decouple deterministic backend output from LLM availability.
-- Preserve existing Bazi profile fields and rendering paths where possible.
-- Make LLM output streamable by section, not by one late JSON blob.
-- Keep failed or interrupted LLM generation from invalidating backend-produced chart data.
+- 降低八字档案生成和刷新时的体感等待时间。
+- 将确定性的后端产物与 LLM 可用性解耦。
+- 尽量保留现有八字档案字段和前端渲染路径。
+- 让 LLM 输出按区块流式出参，而不是最后一次性返回 JSON。
+- LLM 失败或中断时，不影响后端已经生成的命盘和规则结果。
 
-## Non-Goals
+## 非目标
 
-- Redesign the whole Bazi report UI.
-- Change the database table shape as a hard dependency.
-- Stream partial JSON to the browser.
-- Rewrite `/api/bazi-question`; it can remain a reference implementation for SSE style.
-- Introduce background queues in the first version.
+- 不整体重设计八字报告页面。
+- 不把数据库表结构调整作为首版前置条件。
+- 不向浏览器流式输出半截 JSON。
+- 不重写 `/api/bazi-question`；它只作为现有 SSE 风格参考。
+- 首版不引入后台队列或异步任务系统。
 
-## Options Considered
+## 方案对比
 
-### Option A: SSE Stages, LLM JSON At End
+### 方案 A：SSE 阶段事件 + LLM 最后返回 JSON
 
-The backend sends `engine_complete`, then waits for the current JSON LLM response and sends `llm_complete`.
+后端先发送 `engine_complete`，然后等待当前 JSON 格式的 LLM 响应，最后发送 `llm_complete`。
 
-Pros:
-- Smallest backend change.
-- Keeps existing JSON parsing and database fields.
+优点：
 
-Cons:
-- Does not satisfy section-level skeleton streaming.
-- Users still see blank LLM sections until the model completes.
+- 后端改动最小。
+- 保留现有 JSON 解析和数据库字段。
 
-### Option B: SSE Section Streaming With Sentinel Prompt
+缺点：
 
-The backend changes the LLM prompt to output ordered text sections with explicit sentinels. The Worker parses the upstream stream and emits section deltas to the frontend.
+- 不满足按区块骨架屏流式填充。
+- 用户仍然要等模型完整返回后，才能看到 LLM 解读内容。
 
-Pros:
-- Supports section skeletons and progressive text fill.
-- Avoids fragile partial JSON parsing.
-- Keeps final storage compatible with `llm_yuanju_core`, `llm_current_dayun`, and `llm_current_liunian`.
-- Provides a clear contract between prompt, backend parser, and frontend.
+### 方案 B：SSE 区块流式输出 + Sentinel Prompt
 
-Cons:
-- Requires a streaming LLM request helper.
-- Requires a small parser for section sentinels.
-- Requires fallback behavior when the LLM violates the section contract.
+后端将 LLM prompt 改为按固定顺序输出文本区块，并用显式 sentinel 标记区块起止。Worker 解析上游流式响应，再向前端发对应区块的 delta。
 
-### Option C: Separate LLM Calls Per Section
+优点：
 
-The backend calls the LLM three times: original chart, current dayun, current liunian. Each section can complete independently.
+- 支持 LLM 区块骨架屏和渐进式文本填充。
+- 避免解析半截 JSON 的脆弱性。
+- 最终落库仍兼容现有 `llm_yuanju_core`、`llm_current_dayun`、`llm_current_liunian` 字段。
+- prompt、后端解析器、前端渲染之间有明确契约。
 
-Pros:
-- Very simple section ownership.
-- Easy retry per section.
+缺点：
 
-Cons:
-- More model calls and higher cost.
-- Harder to keep the three sections stylistically consistent.
-- Slower total backend work under provider concurrency limits.
+- 需要新增流式 LLM 请求 helper。
+- 需要新增轻量 section sentinel 解析器。
+- 需要处理 LLM 不遵守 section 协议时的降级逻辑。
 
-## Recommendation
+### 方案 C：每个区块单独调用一次 LLM
 
-Use Option B for the first implementation.
+后端分别调用三次 LLM：原局核心、当前大运、当前流年。每个区块可以独立完成和重试。
 
-The product behavior should be: backend artifacts appear first, then three LLM skeleton sections start filling in order. If streaming fails, the page keeps the backend artifacts and engine fallback copy, and the user sees a non-blocking message that AI interpretation can be retried.
+优点：
 
-## User Experience
+- 区块归属非常清楚。
+- 单区块重试简单。
 
-### Initial State
+缺点：
 
-When the user adds or refreshes a Bazi profile, the current progress indicator remains visible, but the report surface should no longer wait for final LLM completion.
+- 模型调用次数更多，成本更高。
+- 三个区块的语气和判断一致性更难保证。
+- 如果上游有并发限制，总体后端耗时可能更长。
 
-The UI should distinguish three states:
+## 推荐方案
 
-- `calculating_engine`: backend chart and rule engine are running.
-- `streaming_llm`: backend result is visible; LLM sections are streaming.
-- `complete`: backend and LLM have both finished, or backend has finished and LLM was gracefully skipped or failed.
+首版采用方案 B。
 
-### Backend Result Ready
+产品行为为：后端规则产物先展示，然后三个 LLM 解读区块以骨架屏状态出现，并按顺序流式填充。若流式生成失败，页面保留后端规则产物和引擎兜底文案，并以非阻塞方式提示用户 AI 深度断语可稍后重试。
 
-After `engine_complete`, the frontend immediately refreshes the active profile and renders:
+## 用户体验
 
-- Four pillars and matrix.
-- Dayun/liunian timeline.
-- Geju, strong/weak, image analysis, favorable/unfavorable gods.
-- Engine fallback text for original chart, current dayun, and current liunian.
+### 初始状态
 
-The LLM interpretation cards remain in place, but their content region shows skeleton treatment until deltas arrive.
+用户新增或刷新八字档案时，现有进度提示仍保留，但报告主体不再等待 LLM 全部完成后才出现。
 
-### LLM Streaming
+前端需要区分三个状态：
 
-Each LLM section owns its own display state:
+- `calculating_engine`：后端排盘和规则引擎计算中。
+- `streaming_llm`：后端结果已展示，LLM 区块正在流式生成。
+- `complete`：后端和 LLM 均完成，或后端已完成且 LLM 已被优雅跳过/失败降级。
 
-- `pending`: skeleton only.
-- `streaming`: partial text is visible with subtle loading treatment.
-- `done`: final streamed text is shown.
-- `failed`: engine fallback remains visible with a small non-blocking AI failure label.
+### 后端结果就绪
 
-The three sections are:
+收到 `engine_complete` 后，前端立即刷新当前档案并渲染：
 
-- `yuanju_core`: original chart and natal structure.
-- `current_dayun`: current ten-year fortune cycle.
-- `current_liunian`: current annual fortune.
+- 四柱与命盘矩阵。
+- 大运/流年时间轴。
+- 格局、强弱、象局分析、喜神、忌神。
+- 原局核心、当前大运、当前流年的规则引擎兜底文案。
 
-### Completion
+LLM 解读卡片保持可见，但内容区域显示骨架屏，直到收到对应区块的 delta。
 
-When `llm_complete` arrives, the frontend refreshes the profile once more so the displayed text matches persisted database state. Local streaming text can then be cleared.
+### LLM 流式生成
 
-## Backend Contract
+每个 LLM 区块都有独立展示状态：
 
-### Endpoint
+- `pending`：仅展示骨架屏。
+- `streaming`：展示部分文本，并保留轻量 loading 状态。
+- `done`：展示完整流式文本。
+- `failed`：继续展示引擎兜底文案，并显示小型非阻塞 AI 失败提示。
 
-`POST /api/bazi` should support SSE for normal profile generation and refresh.
+三个区块为：
 
-Pre-stream validation errors still return JSON:
+- `yuanju_core`：原局核心与命盘底色。
+- `current_dayun`：当前十年大运。
+- `current_liunian`：当前流年。
 
-- unauthenticated
-- missing profile id
-- profile not found
-- unauthorized profile access
-- missing birth time
-- quota exceeded
+### 完成状态
 
-Once SSE starts, errors are emitted as SSE events.
+收到 `llm_complete` 后，前端再次刷新档案，确保页面文本与数据库持久化状态一致。随后可清理本地临时流式文本。
 
-### SSE Events
+## 后端契约
 
-The endpoint should emit these events:
+### 接口
+
+`POST /api/bazi` 应支持常规八字档案生成和刷新场景下的 SSE。
+
+以下前置校验错误仍返回普通 JSON：
+
+- 未登录。
+- 缺少档案 ID。
+- 档案不存在。
+- 无权访问档案。
+- 缺少出生时间。
+- 额度不足。
+
+一旦 SSE 开始，后续错误均通过 SSE 事件发送。
+
+### SSE 事件
+
+接口应发送以下事件：
 
 ```json
 {"type":"step","index":0,"pct":10,"label":"校验档案"}
@@ -156,18 +162,18 @@ The endpoint should emit these events:
 {"type":"complete","pct":100,"profileId":"..."}
 ```
 
-If the LLM fails after `engine_complete`, emit:
+如果 LLM 在 `engine_complete` 后失败，发送：
 
 ```json
 {"type":"llm_error","message":"AI 深度断语暂时不可用，已保留规则引擎结果"}
 {"type":"complete","pct":100,"profileId":"...","partial":true}
 ```
 
-### Engine Persistence
+### 引擎结果落库
 
-Immediately after `buildCompleteBaziDetail()` succeeds, write an engine-first payload to `bazi_profiles`.
+`buildCompleteBaziDetail()` 成功后，应立即向 `bazi_profiles` 写入 engine-first payload。
 
-The payload should include:
+写入内容包括：
 
 - `bazi_str`
 - `bazi_detail`
@@ -191,7 +197,7 @@ The payload should include:
 - `month_zhi`
 - `ri_zhu`
 
-`bazi_detail.qualitative` should represent the fallback state:
+`bazi_detail.qualitative` 表示当前兜底状态：
 
 ```json
 {
@@ -215,9 +221,9 @@ The payload should include:
 }
 ```
 
-### LLM Persistence
+### LLM 结果落库
 
-After all three sections complete, write the final LLM payload:
+三个区块全部完成后，写入最终 LLM payload：
 
 - `llm_yuanju_core`
 - `llm_current_dayun`
@@ -229,13 +235,13 @@ After all three sections complete, write the final LLM payload:
 - `bazi_detail.qualitative.status: "llm_complete"`
 - `bazi_detail.qualitative.display_source: "llm"`
 
-Partial section text should stay in frontend memory until a section is complete. The first implementation should not write every token delta to Supabase.
+区块的部分文本只保存在前端内存中，直到区块完整结束。首版不把每个 token delta 写入 Supabase。
 
-## Prompt Section Contract
+## Prompt Section 契约
 
-The current JSON response prompt should be replaced with a stream-friendly section protocol.
+当前要求 LLM 返回 JSON 的 prompt 应改为适合流式输出的 section 协议。
 
-The prompt should instruct the model:
+Prompt 应要求模型：
 
 ```text
 你是专业子平八字命理分析师。你会收到后端规则引擎已经确定的命盘结构、格局、强弱、喜忌神、当前大运和当前流年。
@@ -255,25 +261,25 @@ The prompt should instruct the model:
 <<<END_SECTION:current_liunian>>>
 ```
 
-The section parser should tolerate:
+section 解析器应容忍：
 
-- chunks splitting sentinel tokens
-- extra whitespace around sentinels
-- missing final newline
+- chunk 将 sentinel 标记切开。
+- sentinel 前后存在额外空白。
+- 最后没有换行。
 
-The parser should not accept:
+section 解析器不应接受：
 
-- unknown section names
-- content before the first `<<<SECTION:...>>>` marker as displayable content
-- a section that exceeds a defensive maximum length
+- 未知 section 名。
+- 第一个 `<<<SECTION:...>>>` 标记之前的内容作为可展示内容。
+- 超过防御性最大长度的 section。
 
-If the model violates the protocol but still returns recognizable labels such as `原局核心：`, the backend may use a fallback parser once. If fallback parsing fails, emit `llm_error` and keep the engine result.
+如果模型违反协议，但仍返回类似 `原局核心：` 的可识别标签，后端可尝试一次 fallback 解析。若 fallback 解析仍失败，则发送 `llm_error` 并保留引擎结果。
 
-## Frontend Contract
+## 前端契约
 
-`BaziView.vue` should replace the current `response.json()` path for `/api/bazi` with an SSE reader similar to the one used in `HomeView.vue` and `FortuneView.vue`.
+`BaziView.vue` 应将 `/api/bazi` 当前 `response.json()` 的读取方式替换为 SSE reader，可参考 `HomeView.vue` 和 `FortuneView.vue` 的现有实现。
 
-Local state should include:
+本地状态建议为：
 
 ```js
 const llmStreamSections = ref({
@@ -283,44 +289,44 @@ const llmStreamSections = ref({
 })
 ```
 
-Display resolution should become:
+展示优先级调整为：
 
-1. If a section is streaming or done locally, show local streamed text.
-2. Else if persisted LLM text exists, show persisted LLM text.
-3. Else show engine fallback text.
+1. 如果某个 section 正在本地 streaming 或已 done，展示本地流式文本。
+2. 否则如果已有持久化 LLM 文本，展示持久化 LLM 文本。
+3. 否则展示规则引擎兜底文案。
 
-This preserves existing `resolveBaziInterpretation()` behavior while adding temporary streamed overrides during generation.
+这样可以保留现有 `resolveBaziInterpretation()` 的行为，同时在生成过程中加入临时流式覆盖层。
 
-## Error Handling
+## 错误处理
 
-- If engine calculation fails, the endpoint emits or returns a blocking error and no profile update is shown.
-- If engine persistence fails, the endpoint emits a blocking error because the frontend cannot reliably refresh the result.
-- If LLM request fails after engine persistence, the endpoint emits `llm_error`, records no LLM fields, and completes as partial.
-- If the stream disconnects after `engine_complete`, the user can reload and still see backend artifacts from Supabase.
-- If the stream disconnects during LLM, the persisted state remains engine fallback unless the final LLM write already completed.
+- 如果引擎计算失败，接口返回或发送阻塞错误，不展示新的档案结果。
+- 如果引擎结果落库失败，接口发送阻塞错误，因为前端无法可靠刷新结果。
+- 如果 LLM 请求在引擎落库后失败，接口发送 `llm_error`，不写入 LLM 字段，并以 partial 状态完成。
+- 如果连接在 `engine_complete` 后断开，用户刷新页面后仍能从 Supabase 看到后端规则产物。
+- 如果连接在 LLM 流式过程中断开，除非最终 LLM 写入已经完成，否则持久化状态仍保持引擎兜底。
 
-## Rollout Plan
+## 推进计划
 
-1. Add tests for prompt section parsing and SSE event parsing.
-2. Add a streaming LLM helper that supports OpenAI-compatible chat completion chunks.
-3. Convert `/api/bazi` to SSE while preserving JSON errors before the stream starts.
-4. Add frontend Bazi streaming state and skeleton rendering.
-5. Verify cache hit and engine-refresh paths still work without unnecessary LLM calls.
-6. Test LLM failure, malformed section output, and client disconnect behavior.
+1. 为 prompt section 解析和 SSE 事件解析补测试。
+2. 新增支持 OpenAI-compatible chat completion chunks 的流式 LLM helper。
+3. 将 `/api/bazi` 改为 SSE，同时保留 stream 开始前的 JSON 错误返回。
+4. 在前端新增八字 LLM streaming state 和骨架屏渲染。
+5. 验证缓存命中、仅刷新引擎、保留旧 LLM 文案等路径不会误触发 LLM。
+6. 测试 LLM 失败、模型输出 section 格式错误、客户端断连等场景。
 
-## Acceptance Criteria
+## 验收标准
 
-- A first-time Bazi profile shows backend chart data before LLM completion.
-- The three LLM sections show skeletons after engine completion.
-- LLM text appears progressively in the correct section.
-- Final LLM text persists to the existing `llm_*` fields.
-- If LLM fails, engine output remains visible and the request does not erase backend results.
-- Existing cache hit behavior remains fast.
-- Existing engine-only refresh with old LLM text still preserves the old LLM text.
-- No partial token deltas are written to Supabase.
+- 首次生成八字档案时，LLM 完成前即可看到后端命盘数据。
+- 引擎完成后，三个 LLM 解读区块显示骨架屏。
+- LLM 文本按正确 section 渐进式出现。
+- 最终 LLM 文本写入现有 `llm_*` 字段。
+- LLM 失败时，引擎输出仍可见，请求不会清空后端结果。
+- 现有缓存命中路径仍保持快速返回。
+- 现有仅刷新引擎且保留旧 LLM 文案的路径仍可用。
+- 不向 Supabase 写入半截 token delta。
 
-## Implementation Constraints
+## 实现约束
 
-- The upstream provider must support `stream: true` for `https://yinli.one/v1/chat/completions`. If it does not, keep the same frontend skeleton and section protocol, but emit section events after the non-streaming response is parsed.
-- `bazi_detail.qualitative.status` can be introduced without a migration because `bazi_detail` is JSON.
-- A dedicated `requestLLMStreamSections()` helper should own provider chunk parsing and section parsing so `handleBazi()` does not become harder to read.
+- 上游 `https://yinli.one/v1/chat/completions` 需要支持 `stream: true`。如果不支持，则保留相同前端骨架屏和 section 协议，但在非流式响应解析完成后再发送 section 事件。
+- `bazi_detail.qualitative.status` 可直接写入 JSON 字段，不需要数据库 migration。
+- 建议由专门的 `requestLLMStreamSections()` helper 负责上游 chunk 解析和 section 解析，避免 `handleBazi()` 继续膨胀。
