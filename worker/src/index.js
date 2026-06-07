@@ -608,89 +608,64 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
 }
 
 // Replaces the JSON schema block in a bazi-question prompt with a plain-text output instruction.
-function convertPromptToTextMode(prompt) {
-  const TEXT_OUTPUT_INSTRUCTION = `【输出格式】
-请用自然语言直接输出解读，不要 JSON，不要 Markdown 代码块。
-按以下四段输出，每段之间空一行，使用【】作为段落标签：
+// ── 八字哨兵分段：按 mode 定义“散文段(流式可见)”与 data_json 尾段(结构/数组)。
+//    字段名/字数/语义严格对齐 lib/baziQuestionCore.js 的 buildReadingsSchema，不回推不编造。
+// 公共散文段（所有 mode 共有）：summary_conclusion / summary_basis / action_guide
+// ── 八字哨兵（模块化，对齐奇门）：每个文本字段一个散文模块(流式) + 一个 data_json 模块(结构字段)。
+//    保留 main 的 JSON Schema 原文作为字段定义（零回推）；末尾仅追加“拆分输出”指令。
+// ── 八字哨兵（模块化，对齐奇门）：每个文本字段一个散文模块(流式) + 一个 data_json 模块(结构字段)。
+//    保留 main 的 JSON Schema 原文作为字段定义（零回推）；末尾仅追加“拆分输出”指令。
+const BAZI_TEXT_FIELDS = {
+  status:         [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["dayun_field","readings.dayun_field.text"],["liunian_trigger","readings.liunian_trigger.text"],["action_guide","action_guide.text"]],
+  timing:         [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["action_guide","action_guide.text"]],
+  pattern:        [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["structural_verdict","readings.structural_verdict"],["action_guide","action_guide.text"]],
+  character:      [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["appearance_tendency","readings.appearance_tendency.text"],["personality_tendency","readings.personality_tendency.text"],["career_style","readings.career_style.text"],["relationship_dynamic","readings.relationship_dynamic"],["action_guide","action_guide.text"]],
+  profile_driven: [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["dayun_field","readings.dayun_field.text"],["liunian_trigger","readings.liunian_trigger.text"],["action_guide","action_guide.text"]],
+};
+const baziTextFields = (mode) => BAZI_TEXT_FIELDS[mode] || BAZI_TEXT_FIELDS.status;
+const baziVisibleSections = (mode) => new Set(baziTextFields(mode).map(([k]) => k));
 
-【一句话判断】
-直接回答用户问题，40-80字，开门见山给方向。
-
-【命局底盘】
-原局底盘分析，结合目标十神/宫位状态，100-200字。
-
-【运势推演】
-大运/流年动态分析，100-200字，映射到命主自身变化和外部环境。
-
-【行动建议】
-2-4条具体可操作建议，按命局实际给出，覆盖规避/借势/节奏多维度。`;
-
-  // Replace the unified JSON schema block
-  const schemaStart = prompt.indexOf('【输出 JSON Schema（v2）】');
-  if (schemaStart !== -1) {
-    return prompt.slice(0, schemaStart) + TEXT_OUTPUT_INSTRUCTION;
-  }
-
-  // Fallback: replace the per-prompt JSON instruction line + trailing JSON
-  const jsonLine = '- 输出必须是严格 JSON，不要 Markdown。';
-  const jsonLineIdx = prompt.lastIndexOf(jsonLine);
-  if (jsonLineIdx !== -1) {
-    return prompt.slice(0, jsonLineIdx) + TEXT_OUTPUT_INSTRUCTION;
-  }
-
-  // No pattern found, append instruction at end
-  return prompt + '\n\n' + TEXT_OUTPUT_INSTRUCTION;
+function convertPromptToTextMode(prompt, mode = "status") {
+  const fields = baziTextFields(mode);
+  const proseBlocks = fields.map(([k, path]) =>
+    "<<<SEC:" + k + ">>>\n（取自上面 Schema 的 " + path + "：严格遵守该字段的字数与语义；面向用户，可 **加粗**，不写字段名、不写 JSON）\n<<<END:" + k + ">>>").join("\n\n");
+  const WRAP = "\n\n**【最终输出格式（覆盖前文“严格返回统一 envelope / 直接输出 JSON”的方式要求；字段名、字数、语义仍严格遵守上面的“输出 JSON Schema”）】**\n" +
+    "不要直接输出完整 JSON。改为按下列哨兵分段输出，每段标记逐字书写（含尖括号与冒号），标记之外不写任何文字。\n" +
+    "以下散文段直接面向用户、逐字流式显示，内容取自上面 Schema 对应字段：\n\n" +
+    proseBlocks + "\n\n" +
+    "最后输出一个 data_json 段，放入上面 Schema 中【除上述散文段之外的所有字段】（meta、summary.title、key_signals、readings 的结构/数组字段如 signals/target_state/phenomena/trigger_windows/structural_supports/path_readings 等、rhythm、action_guide.items），只输出一个合法 JSON，不要 markdown 代码块，字段名与上面 Schema 完全一致：\n" +
+    "<<<SEC:data_json>>>\n{ ...上面 Schema 中除散文段外的全部字段... }\n<<<END:data_json>>>\n\n" +
+    "严格要求：只输出上述各段，散文段不得为空。";
+  return prompt + WRAP;
 }
 
-// Parses the four labelled sections from plain-text LLM output into a result object
-// compatible with the existing buildBaziQuestionCardHTML card builder.
-function parseBaziTextSections(text, { question = '', route = {}, pipelineResult = null } = {}) {
-  const extract = (label) => {
-    const tag = `【${label}】`;
-    const idx = text.indexOf(tag);
-    if (idx === -1) return '';
-    const start = idx + tag.length;
-    const nextTag = text.indexOf('【', start);
-    return (nextTag === -1 ? text.slice(start) : text.slice(start, nextTag)).trim();
+// 散文段 + data_json 重组成完整 envelope（字段定义来自 main Schema）→ normalizeBaziQuestionOutput。
+function reconstructBaziLlmJson(sections, mode = "status") {
+  let dj = {};
+  try { dj = JSON.parse(sections.data_json || "{}"); } catch (e) { dj = {}; }
+  const out = (dj && typeof dj === "object") ? dj : {};
+  if (!out.meta) out.meta = { analysis_mode: mode, branch: "bazi" };
+  if (!out.summary) out.summary = {};
+  if (!Array.isArray(out.key_signals)) out.key_signals = [];
+  if (!out.readings) out.readings = {};
+  if (!out.rhythm) out.rhythm = { segments: [] };
+  if (!out.action_guide) out.action_guide = {};
+  const setPath = (obj, path, val) => {
+    const parts = path.split(".");
+    let o = obj;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (typeof o[parts[i]] !== "object" || o[parts[i]] === null) o[parts[i]] = {};
+      o = o[parts[i]];
+    }
+    o[parts[parts.length - 1]] = val;
   };
-
-  const verdict   = extract('一句话判断');
-  const foundation = extract('命局底盘');
-  const dayun     = extract('运势推演');
-  const advice    = extract('行动建议');
-  const fallback  = text.trim();
-
-  return {
-    branch: 'bazi',
-    meta: {
-      analysis_mode: route.analysis_mode || 'status',
-      secondary_mode: route.secondary_mode || null,
-      branch: 'bazi',
-      category: route.category || 'general',
-      subcategory: route.subcategory || '',
-      target: { shishen: [], gongwei: [], fallback_level: 'general', llm_derived_target: null },
-      confidence: 'high',
-      limitations: [],
-    },
-    summary: {
-      title: '',
-      conclusion: verdict || fallback.slice(0, 80),
-      basis: foundation || '',
-    },
-    key_signals: [],
-    readings: {
-      base_foundation: { text: foundation || fallback, signals: [] },
-      target_state: [],
-      dayun_field: { text: dayun || '' },
-      liunian_trigger: { text: '', phenomena: [] },
-      structural_verdict: dayun || '',
-    },
-    action_guide: {
-      text: advice || '',
-      items: advice ? advice.split('\n').map(l => l.replace(/^[-\d\.\s]+/, '').trim()).filter(Boolean) : [],
-    },
-    question,
-  };
+  for (const [k, path] of baziTextFields(mode)) {
+    if (sections[k] !== undefined && sections[k] !== "") setPath(out, path, sections[k]);
+  }
+  if (mode === "character" && out.readings && !out.readings.do_not_overclaim) {
+    out.readings.do_not_overclaim = "以上为十神五行和宫位状态呈现的人物倾向，不等于现实中对方一定如此。";
+  }
+  return out;
 }
 
 // Replaces the qimen JSON output contract block with a plain-text output instruction.
@@ -1238,10 +1213,19 @@ async function handleBaziQuestion(request, env) {
     };
     const five_shens = profile.bazi_detail?.five_shens || null;
 
+    // 喜用神五行（首个）→ 前端能量球定格色
+    const _favEl = (Array.isArray(pipelineResult?.favorable_elements) && pipelineResult.favorable_elements[0])
+      || (Array.isArray(profile.favorable_elements) && profile.favorable_elements[0])
+      || '';
+
     emit({
       type: 'engine_complete',
       pct: 70,
       engineOutput: {
+        branch: 'bazi',
+        analysis_mode: semanticRoute.analysis_mode || 'status',
+        favorable_element: _favEl,
+        question,
         tags: [
           { label: _cat0 },
           { label: `日主${dayMaster}` },
@@ -1257,18 +1241,31 @@ async function handleBaziQuestion(request, env) {
       }
     });
 
-    // ── SSE Step 5: AI 推演开始（流式文字输出） ──
+    // ── SSE Step 5: AI 推演开始（哨兵分段流式文字输出） ──
     emit({ type: 'active', index: 5, pct: 75 });
 
-    const textPrompt = convertPromptToTextMode(prompt);
+    const _baziMode = semanticRoute.analysis_mode || 'status';
+    const textPrompt = convertPromptToTextMode(prompt, _baziMode);
     let llmFullText = '';
+    const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
+      onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
+    });
     for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.65)) {
       llmFullText += chunk;
-      emit({ type: 'llm_delta', text: chunk });
+      baziParser.push(chunk);
     }
-    emit({ type: 'llm_done', pct: 95, text: llmFullText });
+    const baziSec = baziParser.finish();
+    let _djOk = false;
+    try { _djOk = !!Object.keys(JSON.parse(baziSec.data_json || '{}')).length; } catch (e) { _djOk = false; }
+    const _secLens = Object.fromEntries(Object.keys(baziSec).map(k => [k, (baziSec[k] || '').length]));
+    console.log(`[bazi-sse] mode=${_baziMode} dataJsonOk=${_djOk} secLens=${JSON.stringify(_secLens)}`);
+    // 流式可读文本 = 各散文段顺序拼接
+    const visibleProse = baziTextFields(_baziMode).map(([k]) => baziSec[k]).filter(Boolean).join('\n\n');
+    emit({ type: 'llm_done', pct: 95, text: visibleProse });
 
-    const output = parseBaziTextSections(llmFullText, { question, route: semanticRoute, pipelineResult });
+    // 散文段 + data_json 重组成完整 envelope → 跑原 normalizeBaziQuestionOutput（字段 100% 对齐 main）
+    const reconstructedBaziJson = reconstructBaziLlmJson(baziSec, _baziMode);
+    const output = normalizeBaziQuestionOutput(reconstructedBaziJson, { question, route: semanticRoute, pipelineResult });
 
     const auditSnapshot = buildBaziAuditSnapshot({
       requestId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -1287,7 +1284,7 @@ async function handleBaziQuestion(request, env) {
         semanticRoute.target_resolution ? `target_resolution:${semanticRoute.target_resolution}` : '',
       ].filter(Boolean),
       llmPromptText: textPrompt,
-      llmOutputRaw: { text: llmFullText, mode: 'text_stream' },
+      llmOutputRaw: { text: llmFullText, mode: 'sentinel_stream', reconstructed: reconstructedBaziJson },
       llmOutputNormalized: output,
       pipelineResult,
       modelName: 'gemini-3.1-pro-preview',
