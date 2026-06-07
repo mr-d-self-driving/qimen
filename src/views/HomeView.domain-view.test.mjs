@@ -142,7 +142,7 @@ test('奇门占卜结果分数旁不展示格局吉凶数量角标', () => {
 })
 
 test('奇门结果动态 HTML 使用标准属性引号以保留样式 class', () => {
-  const cardStart = source.indexOf('const buildCardHTML = (data) => {')
+  const cardStart = source.indexOf('const buildCardHTML = (data, opts = {}) => {')
   const cardEnd = source.indexOf('\n</script>', cardStart)
   const cardSource = source.slice(cardStart, cardEnd)
 
@@ -208,6 +208,53 @@ test('八字动态 panel 对旧记录中的重复机制做语义去重', () => {
   assert.match(component, /function visibleMechanisms\(impact\)/)
   assert.match(component, /const key = `\$\{mech\?\.type/)
   assert.match(component, /v-for="\(mech, i\) in visibleMechanisms\(liunianImpact\)"/)
+})
+
+test('八字动态 panel 透干引动优先显示透出天干的十神', () => {
+  const component = readFileSync(new URL('../components/BaziDynamicPanel.vue', import.meta.url), 'utf8')
+
+  assert.match(component, /function touGanShishen\(mech\)/)
+  assert.match(component, /mech\?\.type !== '透干引动'/)
+  assert.match(component, /match\(\/（\(\[\^）\]\+\)）透干\/\)/)
+  assert.match(component, /label: `透出天干\$\{name\}`/)
+})
+
+test('八字动态 panel 目标标签前置并用机制强度进度条替代有效潜伏文案', () => {
+  const component = readFileSync(new URL('../components/BaziDynamicPanel.vue', import.meta.url), 'utf8')
+
+  const rowStart = component.indexOf('v-for="(mech, i) in visibleMechanisms(liunianImpact)"')
+  const rowEnd = component.indexOf('<div v-if="visibleMechanisms(liunianImpact).length === 0"', rowStart)
+  const rowSource = component.slice(rowStart, rowEnd)
+
+  assert.ok(rowStart > -1)
+  assert.ok(rowEnd > rowStart)
+  assert.ok(rowSource.indexOf('target-chip') < rowSource.indexOf('mech-type'))
+  assert.ok(rowSource.indexOf('mech-detail-line') < rowSource.indexOf('mech-desc'))
+  assert.match(component, /function mechanismStrength\(mech\)/)
+  assert.match(component, /normalizeMechanismStrength\(mech\?\.effective_strength\)/)
+  assert.match(component, /mech-vigor-meter/)
+  assert.match(component, /mech-strength-label">机制强度/)
+  assert.doesNotMatch(component, /mech-strength-label">引动强度/)
+  assert.match(component, /\.mech-row[\s\S]{0,180}flex-direction:\s*column/)
+  assert.match(component, /\.mech-detail-line[\s\S]{0,120}align-items:\s*baseline/)
+  assert.doesNotMatch(component, /有效/)
+  assert.doesNotMatch(component, /潜伏/)
+})
+
+test('八字动态 panel 年份头部展示命主状态而非引动强度', () => {
+  const component = readFileSync(new URL('../components/BaziDynamicPanel.vue', import.meta.url), 'utf8')
+
+  assert.match(component, /class="year-subject-vigor"/)
+  assert.match(component, />命主状态</)
+  assert.match(component, /subjectVigorPercent\(tw\.dynamicReport\.liunian_impact\)/)
+  assert.match(component, /subjectVigorTitle\(tw\.dynamicReport\.liunian_impact\)/)
+  assert.doesNotMatch(component, /触发旺度/)
+})
+
+test('八字动态 panel 目标标签展示柱位来源和十神全称', () => {
+  assert.match(source, /const fullShishen = \{ 财: '正财', 才: '偏财'/)
+  assert.match(source, /const positionLabel = \{ gan: '干', zhi_main: '支主气', hidden: '支藏干' \}/)
+  assert.match(source, /label: source \? `\$\{source\}\$\{name\}` : name/)
 })
 
 test('八字报告只在 Hero 展示总结结论', () => {

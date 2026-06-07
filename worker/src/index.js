@@ -544,6 +544,295 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
   return JSON.parse(cleaned);
 }
 
+// Streams plain text chunks from the LLM (no JSON format constraint).
+// Yields raw text deltas for SSE forwarding.
+async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
+  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+
+  const response = await fetch(LLM_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+      stream: true
+    })
+  });
+
+  if (!response.ok) {
+    const errText = await response.text();
+    const err = new Error('上游大模型接口故障');
+    err.status = 502;
+    err.details = `HTTP ${response.status}: ${errText.substring(0, 120)}`;
+    throw err;
+  }
+
+  const contentType = response.headers.get('Content-Type') || '';
+  if (!response.body || !contentType.includes('text/event-stream')) {
+    // Fallback: non-streaming response
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+    const content = data.choices?.[0]?.message?.content || '';
+    if (content) yield content;
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+    for (const part of parts) {
+      const lines = part.split('\n').map(l => l.trim()).filter(Boolean);
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === '[DONE]') continue;
+        let event;
+        try { event = JSON.parse(payload); } catch { continue; }
+        const delta = event.choices?.[0]?.delta?.content
+          ?? event.choices?.[0]?.message?.content
+          ?? '';
+        if (delta) yield delta;
+      }
+    }
+  }
+}
+
+// Replaces the JSON schema block in a bazi-question prompt with a plain-text output instruction.
+function convertPromptToTextMode(prompt) {
+  const TEXT_OUTPUT_INSTRUCTION = `【输出格式】
+请用自然语言直接输出解读，不要 JSON，不要 Markdown 代码块。
+按以下四段输出，每段之间空一行，使用【】作为段落标签：
+
+【一句话判断】
+直接回答用户问题，40-80字，开门见山给方向。
+
+【命局底盘】
+原局底盘分析，结合目标十神/宫位状态，100-200字。
+
+【运势推演】
+大运/流年动态分析，100-200字，映射到命主自身变化和外部环境。
+
+【行动建议】
+2-4条具体可操作建议，按命局实际给出，覆盖规避/借势/节奏多维度。`;
+
+  // Replace the unified JSON schema block
+  const schemaStart = prompt.indexOf('【输出 JSON Schema（v2）】');
+  if (schemaStart !== -1) {
+    return prompt.slice(0, schemaStart) + TEXT_OUTPUT_INSTRUCTION;
+  }
+
+  // Fallback: replace the per-prompt JSON instruction line + trailing JSON
+  const jsonLine = '- 输出必须是严格 JSON，不要 Markdown。';
+  const jsonLineIdx = prompt.lastIndexOf(jsonLine);
+  if (jsonLineIdx !== -1) {
+    return prompt.slice(0, jsonLineIdx) + TEXT_OUTPUT_INSTRUCTION;
+  }
+
+  // No pattern found, append instruction at end
+  return prompt + '\n\n' + TEXT_OUTPUT_INSTRUCTION;
+}
+
+// Parses the four labelled sections from plain-text LLM output into a result object
+// compatible with the existing buildBaziQuestionCardHTML card builder.
+function parseBaziTextSections(text, { question = '', route = {}, pipelineResult = null } = {}) {
+  const extract = (label) => {
+    const tag = `【${label}】`;
+    const idx = text.indexOf(tag);
+    if (idx === -1) return '';
+    const start = idx + tag.length;
+    const nextTag = text.indexOf('【', start);
+    return (nextTag === -1 ? text.slice(start) : text.slice(start, nextTag)).trim();
+  };
+
+  const verdict   = extract('一句话判断');
+  const foundation = extract('命局底盘');
+  const dayun     = extract('运势推演');
+  const advice    = extract('行动建议');
+  const fallback  = text.trim();
+
+  return {
+    branch: 'bazi',
+    meta: {
+      analysis_mode: route.analysis_mode || 'status',
+      secondary_mode: route.secondary_mode || null,
+      branch: 'bazi',
+      category: route.category || 'general',
+      subcategory: route.subcategory || '',
+      target: { shishen: [], gongwei: [], fallback_level: 'general', llm_derived_target: null },
+      confidence: 'high',
+      limitations: [],
+    },
+    summary: {
+      title: '',
+      conclusion: verdict || fallback.slice(0, 80),
+      basis: foundation || '',
+    },
+    key_signals: [],
+    readings: {
+      base_foundation: { text: foundation || fallback, signals: [] },
+      target_state: [],
+      dayun_field: { text: dayun || '' },
+      liunian_trigger: { text: '', phenomena: [] },
+      structural_verdict: dayun || '',
+    },
+    action_guide: {
+      text: advice || '',
+      items: advice ? advice.split('\n').map(l => l.replace(/^[-\d\.\s]+/, '').trim()).filter(Boolean) : [],
+    },
+    question,
+  };
+}
+
+// Replaces the qimen JSON output contract block with a plain-text output instruction.
+function convertQimenPromptToTextMode(prompt) {
+  // 哨兵分段混合格式：7 个面向用户的散文段（流式可见）+ 1 个 JSON 尾段（承载结构/审计字段）。
+  // 字段含义、字数、语义约束仍严格遵守前文 qimen_report 各模块说明，本段只改变承载格式。
+  const SENTINEL_INSTRUCTION = `**【最终输出格式（本段覆盖前文所有关于 JSON / 输出字段契约的“格式”要求；字段含义、字数与语义约束仍严格遵守前文 qimen_report 各模块说明）】**
+
+请严格按以下顺序输出 8 个段落，每段用哨兵标记原样包裹（标记必须逐字书写，含尖括号与冒号）。前 7 个散文段直接面向用户，可在重点处使用 **加粗**，但不要使用其它 markdown、不要写标题符号、不要写字段名。
+
+<<<SEC:conclusion>>>
+（m1_conclusion.conclusion：35-80字总判，开门见山回答用户问题）
+<<<END:conclusion>>>
+
+<<<SEC:subject_reading>>>
+（m3_inference.subject_state.reading：80-140字，日干落宫的门星神、旺衰/空亡/马星如何影响求测人行动状态）
+<<<END:subject_reading>>>
+
+<<<SEC:target_reading>>>
+（m3_inference.target_state.reading：80-140字，领域核心用神落宫、临何门，旺衰与空亡如何影响目标事态）
+<<<END:target_reading>>>
+
+<<<SEC:environment_reading>>>
+（m3_inference.environment_state.reading：90-150字，值使门、值符宫位、宏观资源或流程管道的现实含义）
+<<<END:environment_reading>>>
+
+<<<SEC:support_summary>>>
+（m3_inference.support_factors.summary：45-90字，有利因素综述，把主要依据融合进结论，讲人话）
+<<<END:support_summary>>>
+
+<<<SEC:constraint_summary>>>
+（m3_inference.constraint_factors.summary：45-90字，不利因素综述，不恐吓、不写“必败”）
+<<<END:constraint_summary>>>
+
+<<<SEC:decision_reading>>>
+（m3_inference.interaction_decision.reading：80-140字，引用主客 subject↔target 生克，给方向性判断与现实动作边界）
+<<<END:decision_reading>>>
+
+<<<SEC:data_json>>>
+本段用 JSON 承载结构化字段，便于后端解析；它不会作为流式散文逐字显示，但其中所有文本字段（verdict、evidence、impact、do、avoid、reason、actions 等）都会渲染进用户最终看到的卡片，必须按前文字数与文案质量要求认真书写，不得敷衍或留空占位。只输出一个合法 JSON，不要额外文字、不要 markdown 代码块。必须包含以下结构（字段约束同前文）：
+{
+  "m1_conclusion": { "title": "8-14字，点明问题类型", "keyword": "4-12字核心判断词", "actions": ["3条，45-95字，动词开头，可落地，至少1条融合后端应期/时间检索；若无明确窗口说明先观察哪些触发条件", "第2条", "第3条"] },
+  "m2_basis": { "yongshen_cards": [ { "key": "subject|target|environment 或后端 axis key", "label": "卡片标题", "symbol": "如 日干 戊", "tone": "positive|mixed|warning", "verdict": "一句话状态", "evidence": "引用实际落宫/门/星/神/空亡/马星/有名格" } ] },
+  "m3_inference": {
+    "subject_state": { "symbol": "如 日干 辛", "palace": "如 震3宫", "tone": "positive|mixed|warning" },
+    "target_state": { "symbol": "", "palace": "", "tone": "" },
+    "environment_state": { "symbol": "如 值使门", "palace": "", "tone": "" },
+    "support_factors": { "tone": "positive", "items": [ { "name": "要素名", "impact": "45-90字影响说明" } ] },
+    "constraint_factors": { "tone": "warning", "items": [ { "name": "要素名", "impact": "45-90字影响说明" } ] },
+    "interaction_decision": { "subject_symbol": "如 日干", "target_symbol": "如 时干", "tone": "positive|mixed|warning" }
+  },
+  "m4_guidance": {
+    "environment_fengshui": { "suitable_direction": "宜用方位/坐向", "do": "环境布置或沟通场景", "avoid": "应避开的方位/环境", "reason": "盘面依据" },
+    "timing_behavior": { "window": "只用后端应期候选，或写“暂无明确窗口”", "wait_until": "可选触发条件", "do": "该窗口内动作", "avoid": "时机上的避坑", "reason": "为何是观察/启动窗口，不保证必然落地" }
+  },
+  "score_review": { "audit_delta": 0, "confidence": "low|medium|high", "role_review": "审计 role 是否合理", "layer_reviews": "逐层说明是否需修正", "audit_delta_breakdown": "audit_delta 落在哪些层", "missed_or_overweighted_factors": ["后端漏判/误判/过重/过轻的因素"], "audit_reason": "用自然语言说明修正原因" },
+  "intent_audit": { "route_confidence": "high|medium|low", "is_route_acceptable": true, "is_role_acceptable": true, "suggested_category": "", "suggested_subcategory": "", "suggested_role": "", "reason": "" },
+  "timing_review": { "summary": "评价后端应期候选是否可用", "usable_candidates": [], "limitations": [] }
+}
+其中 score_review.audit_delta 必须是 -20 到 +20 的整数；如无需修正写 0。
+<<<END:data_json>>>
+
+严格要求：只输出上述 8 段，不要在哨兵标记之外写任何文字。`;
+
+  // 替换 JSON 输出契约段，但保留契约段之后的“问题：…”尾部（原实现会误删它）。
+  const contractAnchor = '**【输出字段契约】**';
+  const idx = prompt.indexOf(contractAnchor);
+  if (idx === -1) return prompt + '\n\n' + SENTINEL_INSTRUCTION;
+  const qIdx = prompt.indexOf('问题：', idx);
+  const trailing = qIdx !== -1 ? prompt.slice(qIdx) : '';
+  return prompt.slice(0, idx) + SENTINEL_INSTRUCTION + (trailing ? '\n\n' + trailing : '');
+}
+
+// Incremental parser for <<<SEC:key>>> ... <<<END:key>>> sentinel sections.
+// Calls onVisibleDelta(text) only for sections whose key is in visibleKeys (for SSE streaming);
+// non-visible sections (e.g. data_json) are accumulated silently. finish() returns a {key: text} map.
+function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } = {}) {
+  let buffer = '';
+  let current = null; // current section key
+  const sections = {};
+
+  const longestSuffixThatIsPrefixOf = (text, marker) => {
+    const max = Math.min(text.length, marker.length - 1);
+    for (let len = max; len > 0; len--) {
+      if (marker.startsWith(text.slice(-len))) return len;
+    }
+    return 0;
+  };
+
+  const emit = (key, text) => {
+    if (!text) return;
+    sections[key] = (sections[key] || '') + text;
+    if (visibleKeys.has(key)) onVisibleDelta?.(key, text);
+  };
+
+  const processBuffer = () => {
+    while (buffer) {
+      if (!current) {
+        const m = buffer.match(/<<<SEC:([a-z_]+)>>>/);
+        if (!m) {
+          // keep only a possible partial start marker tail
+          const tail = longestSuffixThatIsPrefixOf(buffer, '<<<SEC:');
+          buffer = tail ? buffer.slice(-tail) : '';
+          return;
+        }
+        current = m[1];
+        buffer = buffer.slice(m.index + m[0].length);
+      }
+      const endToken = `<<<END:${current}>>>`;
+      const endIdx = buffer.indexOf(endToken);
+      if (endIdx !== -1) {
+        emit(current, buffer.slice(0, endIdx));
+        buffer = buffer.slice(endIdx + endToken.length);
+        current = null;
+        continue;
+      }
+      // emit everything except a possible partial end-marker tail
+      const keep = longestSuffixThatIsPrefixOf(buffer, endToken);
+      const safe = Math.max(0, buffer.length - keep);
+      if (safe > 0) {
+        emit(current, buffer.slice(0, safe));
+        buffer = buffer.slice(safe);
+      }
+      return;
+    }
+  };
+
+  return {
+    push(chunk = '') {
+      buffer += String(chunk);
+      processBuffer();
+    },
+    finish() {
+      if (current && buffer) { emit(current, buffer); buffer = ''; }
+      // trim each section
+      for (const k of Object.keys(sections)) sections[k] = sections[k].trim();
+      return sections;
+    },
+  };
+}
+
+
 async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
 
@@ -937,11 +1226,49 @@ async function handleBaziQuestion(request, env) {
     const _favorable = pipelineResult?.favorable_elements?.join('') || pipelineResult?.favorable || '';
     emit({ type: 'step', index: 4, pct: 62, chip: _favorable ? { main: `喜${_favorable}`, sub: '忌神已标记' } : null });
 
-    // ── SSE Step 5: AI 推演开始 ──
+    // ── Engine complete: emit pre-LLM structured data for immediate frontend display ──
+    const subject_snapshot = {
+      name: profile.name || null,
+      birth_date: profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || null,
+      gender: profile.gender || null,
+      strong_weak: profile.strong_weak || null,
+      geju: profile.geju || null,
+      profile_id: profile.id || null,
+      pillars: profile.bazi_detail?.matrix?.pillars || null,
+    };
+    const five_shens = profile.bazi_detail?.five_shens || null;
+
+    emit({
+      type: 'engine_complete',
+      pct: 70,
+      engineOutput: {
+        tags: [
+          { label: _cat0 },
+          { label: `日主${dayMaster}` },
+          ...(_favorable ? [{ label: `喜${_favorable}` }] : []),
+          { label: _modeLabel },
+        ],
+        stateReport:      pipelineResult?.stateReport      ?? null,
+        dynamicReport:    pipelineResult?.dynamicReport    ?? null,
+        targetSpec:       pipelineResult?.targetSpec       ?? null,
+        timingCandidates: pipelineResult?.timingCandidates ?? [],
+        subject_snapshot,
+        five_shens,
+      }
+    });
+
+    // ── SSE Step 5: AI 推演开始（流式文字输出） ──
     emit({ type: 'active', index: 5, pct: 75 });
 
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.65);
-    const output = normalizeBaziQuestionOutput(llmJson, { question, route: semanticRoute, pipelineResult });
+    const textPrompt = convertPromptToTextMode(prompt);
+    let llmFullText = '';
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.65)) {
+      llmFullText += chunk;
+      emit({ type: 'llm_delta', text: chunk });
+    }
+    emit({ type: 'llm_done', pct: 95, text: llmFullText });
+
+    const output = parseBaziTextSections(llmFullText, { question, route: semanticRoute, pipelineResult });
 
     const auditSnapshot = buildBaziAuditSnapshot({
       requestId: crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`,
@@ -959,14 +1286,14 @@ async function handleBaziQuestion(request, env) {
         semanticRoute.secondary_mode ? `secondary_mode:${semanticRoute.secondary_mode}` : '',
         semanticRoute.target_resolution ? `target_resolution:${semanticRoute.target_resolution}` : '',
       ].filter(Boolean),
-      llmPromptText: prompt,
-      llmOutputRaw: llmJson,
+      llmPromptText: textPrompt,
+      llmOutputRaw: { text: llmFullText, mode: 'text_stream' },
       llmOutputNormalized: output,
       pipelineResult,
       modelName: 'gemini-3.1-pro-preview',
       latencyMs: Date.now() - startedAt,
       fallbacks: semanticFallbacks,
-      llmLimitations: output.meta?.limitations || [],
+      llmLimitations: [],
     });
 
     try {
@@ -979,17 +1306,9 @@ async function handleBaziQuestion(request, env) {
 
     const outputWithSnapshot = {
       ...output,
-      subject_snapshot: {
-        name: profile.name || null,
-        birth_date: profile.birth_date || profile.bazi_detail?.base_info?.solar_birth || null,
-        gender: profile.gender || null,
-        strong_weak: profile.strong_weak || null,
-        geju: profile.geju || null,
-        // 命主身份与四柱随记录定格，前端四柱面板据此渲染，避免跟随当前选中 profile 串号
-        profile_id: profile.id || null,
-        pillars: profile.bazi_detail?.matrix?.pillars || null
-      },
-      five_shens: profile.bazi_detail?.five_shens || null,
+      llmText: llmFullText,
+      subject_snapshot,
+      five_shens,
       ...(pipelineResult ? {
         state_report: pipelineResult.stateReport || null,
         target_spec: pipelineResult.targetSpec || null,
@@ -1405,6 +1724,62 @@ async function handleQimen(request, env) {
     // ── SSE Step 4: 后端评分完成 ──
     emit({ type: 'step', index: 4, pct: 72, chip: { main: `初分 ${backendScoreAudit.final_score}`, sub: QIMEN_SCORE_LABEL(backendScoreAudit.final_score) } });
 
+    // ── 盘面/格局/起盘信息：引擎产物，先于 LLM 构建，供前端立即渲染奇门定基 ──
+    let qimenPalaces = [];
+    for (let i = 0; i < 9; i++) {
+        if (i === 4) {
+            qimenPalaces.push({ name: `${palaceNames[i]}${palaceNumbers[i]}宫`, is_center: true, earth: diPan[i], index: i });
+        } else {
+            qimenPalaces.push({
+                star: nineStars[i], sky: tianPanGan[i], ji_sky: (i === tianRuiIndex) ? centerEarthStem : "",
+                door: eightDoors[i], god: eightGods[i], earth: diPan[i], ji_earth: (i === 2) ? centerEarthStem : "",
+                kong_wang: { day: dayKongIndices.includes(i), is_kong: dayKongIndices.includes(i) || hourKongIndices.includes(i), hour: hourKongIndices.includes(i) },
+                ma_xing: { day: i === maXingMap[dayMa], has_ma: i === maXingMap[dayMa] || i === maXingMap[hourMa], hour: i === maXingMap[hourMa] },
+                name: `${palaceNames[i]}${palaceNumbers[i]}宫`, index: i
+            });
+        }
+    }
+    const backendFormationTags = (backendScoreAudit.adjustments || [])
+        .filter(item => item.layer === 'named_formation')
+        .map(item => ({
+            name: item.signal,
+            effect: item.effect,
+            type: String(item.effect || '').startsWith('+') ? 'ji' : 'xiong',
+            reason: item.reason || '',
+            text: item.reason || ''
+        }));
+    const qimenData = {
+        status: "success",
+        pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
+        timestamp: { solar: timestamp_solar, lunar: timestamp_lunar },
+        ju_info: { zhi_fu: zhiFuStar, zhi_fu_palace: `落${palaceNames[nineStars.indexOf(zhiFuStar)]}${palaceNumbers[nineStars.indexOf(zhiFuStar)]}宫`, zhi_shi_palace: `落${palaceNames[eightDoors.indexOf(zhiShiDoor)]}${palaceNumbers[eightDoors.indexOf(zhiShiDoor)]}宫`, jieqi: juResult.jieQiName, yuan: juResult.yuanName, zhi_shi: zhiShiDoor, name: qimen_structure, xun_shou: xunHead },
+        auxiliary: { ma_xing: { day: dayMa, hour: hourMa }, kong_wang: { day: dayKongObj, hour: hourKongObj } },
+        palaces: qimenPalaces
+    };
+
+    // ── Engine complete: emit pre-LLM data for immediate frontend display ──
+    emit({
+      type: 'engine_complete',
+      pct: 74,
+      engineOutput: {
+        branch: 'qimen',
+        question: userQuestion,
+        category: detectedIntent.category,
+        subcategory: detectedIntent.subcategory,
+        pre_score: backendScoreAudit.final_score,
+        score_label: QIMEN_SCORE_LABEL(backendScoreAudit.final_score),
+        qimen_data: qimenData,
+        formation_tags: backendFormationTags,
+        timing_window_count: _windows.length,
+        tags: [
+          { label: _cat0 },
+          { label: qimen_structure },
+          { label: `初分${backendScoreAudit.final_score} · ${QIMEN_SCORE_LABEL(backendScoreAudit.final_score)}`, isScore: true },
+          ...(_windows.length ? [{ label: `${_windows.length}个应期窗口` }] : []),
+        ],
+      }
+    });
+
     const yongshenPromptSection = buildYongshenPromptSection({
         intent: detectedIntent,
         rule: yongshenRule,
@@ -1477,10 +1852,55 @@ ${outputContractSection}
 务必做到有根据、有理论支持，分析的详细还要体会我问问题的心理潜在因素，照顾我的心理感受。你先分析，我下面要问你问题了。
 问题：${userQuestion}`;
 
-    // ── SSE Step 5: AI 推演开始 (awaiting LLM) ──
+    // ── SSE Step 5: AI 推演开始（流式文字输出） ──
     emit({ type: 'active', index: 5, pct: 78 });
 
-    const rawQimenLlmOutput = await requestLLM(finalPrompt, env, 'gemini-3.1-pro-preview', 0.7);
+    const textPrompt = convertQimenPromptToTextMode(finalPrompt);
+    // 7 个面向用户的散文段流式可见；data_json 段静默累积。
+    const QIMEN_VISIBLE_SECTIONS = new Set([
+      'conclusion', 'subject_reading', 'target_reading', 'environment_reading',
+      'support_summary', 'constraint_summary', 'decision_reading'
+    ]);
+    let llmFullText = '';
+    const sentinelParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {
+      onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
+    });
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.7)) {
+      llmFullText += chunk;
+      sentinelParser.push(chunk);
+    }
+    const sec = sentinelParser.finish();
+    // 拼出已展示的可读文字（兜底用完整可见段顺序拼接）
+    const visibleProse = ['conclusion', 'subject_reading', 'target_reading', 'environment_reading',
+      'support_summary', 'constraint_summary', 'decision_reading']
+      .map(k => sec[k]).filter(Boolean).join('\n\n');
+    emit({ type: 'llm_done', pct: 95, text: visibleProse });
+
+    // 把哨兵段（7 散文 + 1 JSON）重组成与原 JSON 输出同形的 LLM 产物，再走原后处理。
+    let dataJson = {};
+    try { dataJson = JSON.parse(sec.data_json || '{}'); } catch (e) { dataJson = {}; }
+    const _dj = dataJson || {};
+    const _djM3 = _dj.m3_inference || {};
+    const rawQimenLlmOutput = {
+      intent_audit: _dj.intent_audit || {},
+      score_review: _dj.score_review || {},
+      timing_review: _dj.timing_review || null,
+      qimen_report: {
+        m1_conclusion: { ...(_dj.m1_conclusion || {}), conclusion: sec.conclusion || _dj.m1_conclusion?.conclusion || '' },
+        m2_basis: { ...(_dj.m2_basis || {}) },
+        m3_inference: {
+          subject_state:        { ...(_djM3.subject_state || {}),        reading: sec.subject_reading || '' },
+          target_state:         { ...(_djM3.target_state || {}),         reading: sec.target_reading || '' },
+          environment_state:    { ...(_djM3.environment_state || {}),    reading: sec.environment_reading || '' },
+          support_factors:      { ...(_djM3.support_factors || {}),      summary: sec.support_summary || '' },
+          constraint_factors:   { ...(_djM3.constraint_factors || {}),   summary: sec.constraint_summary || '' },
+          interaction_decision: { ...(_djM3.interaction_decision || {}), reading: sec.decision_reading || '' },
+        },
+        m4_guidance: { ...(_dj.m4_guidance || {}) },
+      },
+    };
+
+    // ── 以下后处理逻辑与原 JSON 链路一致（保证字段 100% 对齐） ──
     const aiJsonData = normalizeQimenLlmOutput(rawQimenLlmOutput);
     const rawLlmScoreAudit = aiJsonData.score_review || aiJsonData.score_audit || {};
     const rawLlmTimingReview = aiJsonData.timing_review || aiJsonData.timing_analysis || null;
@@ -1516,6 +1936,7 @@ ${outputContractSection}
             : [],
         audit_reason: rawLlmScoreAudit.audit_reason || '模型未给出额外修正理由，本次沿用后端初算。'
     };
+
     const m3Inference = (aiJsonData.qimen_report || {}).m3_inference;
     const rawScoreBasisFallback = (aiJsonData.summary || {}).score_basis || {};
     const derivedBasis = m3Inference
@@ -1545,35 +1966,11 @@ ${outputContractSection}
         }
     };
 
-    let qimenPalaces = [];
-    for (let i = 0; i < 9; i++) {
-        if (i === 4) {
-            qimenPalaces.push({ name: `${palaceNames[i]}${palaceNumbers[i]}宫`, is_center: true, earth: diPan[i], index: i });
-        } else {
-            qimenPalaces.push({
-                star: nineStars[i], sky: tianPanGan[i], ji_sky: (i === tianRuiIndex) ? centerEarthStem : "",
-                door: eightDoors[i], god: eightGods[i], earth: diPan[i], ji_earth: (i === 2) ? centerEarthStem : "",
-                kong_wang: { day: dayKongIndices.includes(i), is_kong: dayKongIndices.includes(i) || hourKongIndices.includes(i), hour: hourKongIndices.includes(i) },
-                ma_xing: { day: i === maXingMap[dayMa], has_ma: i === maXingMap[dayMa] || i === maXingMap[hourMa], hour: i === maXingMap[hourMa] },
-                name: `${palaceNames[i]}${palaceNumbers[i]}宫`, index: i
-            });
-        }
-    }
-
     const scoreVerdictLabel = finalScore >= 90 ? '大吉'
         : finalScore >= 75 ? '小吉'
             : finalScore >= 55 ? '平'
                 : '凶';
     const reportTone = finalScore < 55 ? 'warning' : finalScore < 75 ? 'mixed' : 'positive';
-    const backendFormationTags = (backendScoreAudit.adjustments || [])
-        .filter(item => item.layer === 'named_formation')
-        .map(item => ({
-            name: item.signal,
-            effect: item.effect,
-            type: String(item.effect || '').startsWith('+') ? 'ji' : 'xiong',
-            reason: item.reason || '',
-            text: item.reason || ''
-        }));
     const qimenReport = aiJsonData.qimen_report || {};
     const qimenReportM3 = qimenReport.m3_inference || {};
     const interactionDecision = qimenReportM3.interaction_decision || qimenReportM3.interaction_verdict || {};
@@ -1634,14 +2031,7 @@ ${outputContractSection}
             ...timingAnalysis,
             llm_summary: rawLlmTimingReview
         },
-        qimen_data: {
-            status: "success",
-            pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
-            timestamp: { solar: timestamp_solar, lunar: timestamp_lunar },
-            ju_info: { zhi_fu: zhiFuStar, zhi_fu_palace: `落${palaceNames[nineStars.indexOf(zhiFuStar)]}${palaceNumbers[nineStars.indexOf(zhiFuStar)]}宫`, zhi_shi_palace: `落${palaceNames[eightDoors.indexOf(zhiShiDoor)]}${palaceNumbers[eightDoors.indexOf(zhiShiDoor)]}宫`, jieqi: juResult.jieQiName, yuan: juResult.yuanName, zhi_shi: zhiShiDoor, name: qimen_structure, xun_shou: xunHead },
-            auxiliary: { ma_xing: { day: dayMa, hour: hourMa }, kong_wang: { day: dayKongObj, hour: hourKongObj } },
-            palaces: qimenPalaces
-        }
+        qimen_data: qimenData
     };
 
         const qimenAuditSnapshot = buildQimenAuditSnapshot({
@@ -1702,8 +2092,8 @@ ${outputContractSection}
                 timing_analysis: timingAnalysis,
                 polarity_overrides: polarityOverrides
             },
-            llmPromptText: finalPrompt,
-            llmOutputRaw: rawQimenLlmOutput,
+            llmPromptText: textPrompt,
+            llmOutputRaw: { text: llmFullText, mode: 'sentinel_stream', parsed: rawQimenLlmOutput },
             llmOutputNormalized: aiJsonData,
             timingLlmOutput: rawLlmTimingReview,
             timingFinal: finalOutput.timing_analysis,

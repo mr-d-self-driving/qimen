@@ -19,6 +19,10 @@
             {{ gtjLabel(dayunImpact.gaitou_jiejiao) }}
           </span>
           <span v-if="dayunImpact.field_type" class="field-chip">{{ dayunImpact.field_type }}</span>
+          <span class="year-subject-vigor" :title="subjectVigorTitle(dayunImpact)">
+            <span>命主状态</span>
+            <strong>{{ subjectVigorPercent(dayunImpact) }}</strong>
+          </span>
         </div>
 
         <p v-if="dayunImpact.gaitou_jiejiao_note" class="gz-note">{{ dayunImpact.gaitou_jiejiao_note }}</p>
@@ -29,24 +33,31 @@
           class="mech-row"
           :class="mechRowClass(mech)"
         >
-          <span class="mech-type">{{ mech.type }}</span>
-          <span class="mech-desc">{{ mech.description }}</span>
-          <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
-            {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
-          </span>
-          <span
-            v-for="t in mechTargets(mech)" :key="t.name"
-            class="target-chip"
-            :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
-          >{{ t.name }}</span>
+          <div class="mech-mainline">
+            <span
+              v-for="t in mechTargets(mech)" :key="t.name"
+              class="target-chip"
+              :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
+            >{{ t.label ?? t.name }}</span>
+            <span class="mech-type">{{ mech.type }}</span>
+            <span v-if="i === 0" class="mech-strength-label">机制强度</span>
+          </div>
+          <div class="mech-detail-line">
+            <span class="mech-desc">{{ mech.description }}</span>
+            <span class="mech-vigor-meter" :title="vigorTitle(mech)">
+              <span class="mech-vigor-track">
+                <span
+                  class="mech-vigor-fill"
+                  :class="vigorFillClass(mechanismStrength(mech))"
+                  :style="{ width: mechanismStrengthPercent(mech) }"
+                ></span>
+              </span>
+              <span class="mech-vigor-text">{{ mechanismStrengthPercent(mech) }}</span>
+            </span>
+          </div>
         </div>
 
         <div v-if="visibleMechanisms(dayunImpact).length === 0" class="mech-empty">大运未直接引动目标元素</div>
-
-        <div class="vigor-track">
-          <div class="vigor-fill" :class="vigorFillClass(dayunImpact.trigger_vigor)"
-               :style="{ width: Math.round((dayunImpact.trigger_vigor ?? 0) * 100) + '%' }"></div>
-        </div>
       </div>
     </section>
 
@@ -65,6 +76,10 @@
             {{ gtjLabel(liunianImpact.gaitou_jiejiao) }}
           </span>
           <span v-if="dynamicReport.target_trigger?.is_activated" class="activated-chip">已引动</span>
+          <span class="year-subject-vigor" :title="subjectVigorTitle(liunianImpact)">
+            <span>命主状态</span>
+            <strong>{{ subjectVigorPercent(liunianImpact) }}</strong>
+          </span>
         </div>
 
         <p v-if="liunianImpact.gaitou_jiejiao_note" class="gz-note">{{ liunianImpact.gaitou_jiejiao_note }}</p>
@@ -75,24 +90,31 @@
           class="mech-row"
           :class="mechRowClass(mech)"
         >
-          <span class="mech-type">{{ mech.type }}</span>
-          <span class="mech-desc">{{ mech.description }}</span>
-          <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
-            {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
-          </span>
-          <span
-            v-for="t in mechTargets(mech)" :key="t.name"
-            class="target-chip"
-            :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
-          >{{ t.name }}</span>
+          <div class="mech-mainline">
+            <span
+              v-for="t in mechTargets(mech)" :key="t.name"
+              class="target-chip"
+              :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
+            >{{ t.label ?? t.name }}</span>
+            <span class="mech-type">{{ mech.type }}</span>
+            <span v-if="i === 0" class="mech-strength-label">机制强度</span>
+          </div>
+          <div class="mech-detail-line">
+            <span class="mech-desc">{{ mech.description }}</span>
+            <span class="mech-vigor-meter" :title="vigorTitle(mech)">
+              <span class="mech-vigor-track">
+                <span
+                  class="mech-vigor-fill"
+                  :class="vigorFillClass(mechanismStrength(mech))"
+                  :style="{ width: mechanismStrengthPercent(mech) }"
+                ></span>
+              </span>
+              <span class="mech-vigor-text">{{ mechanismStrengthPercent(mech) }}</span>
+            </span>
+          </div>
         </div>
 
         <div v-if="visibleMechanisms(liunianImpact).length === 0" class="mech-empty">流年未直接引动目标元素</div>
-
-        <div class="vigor-track">
-          <div class="vigor-fill" :class="vigorFillClass(liunianImpact.trigger_vigor)"
-               :style="{ width: Math.round((liunianImpact.trigger_vigor ?? 0) * 100) + '%' }"></div>
-        </div>
       </div>
     </section>
 
@@ -112,11 +134,23 @@
           class="mech-row"
           :class="mechRowClass(mech)"
         >
-          <span class="mech-type">{{ mech.type }}</span>
-          <span class="mech-desc">{{ mech.description }}</span>
-          <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
-            {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
-          </span>
+          <div class="mech-mainline">
+            <span class="mech-type">{{ mech.type }}</span>
+            <span v-if="i === 0" class="mech-strength-label">机制强度</span>
+          </div>
+          <div class="mech-detail-line">
+            <span class="mech-desc">{{ mech.description }}</span>
+            <span class="mech-vigor-meter" :title="vigorTitle(mech)">
+              <span class="mech-vigor-track">
+                <span
+                  class="mech-vigor-fill"
+                  :class="vigorFillClass(mechanismStrength(mech))"
+                  :style="{ width: mechanismStrengthPercent(mech) }"
+                ></span>
+              </span>
+              <span class="mech-vigor-text">{{ mechanismStrengthPercent(mech) }}</span>
+            </span>
+          </div>
         </div>
         <div v-if="visibleMechanisms(avoidImpact.liunian_impact).length === 0" class="mech-empty">当前岁运未直接引动忌神</div>
         <p v-if="avoidImpact.target_trigger?.auspice_direction" class="avoid-trigger-note">
@@ -143,8 +177,9 @@
             <span class="gz-char gz-sm" :class="elemClass(ZHI_WX[tw.dynamicReport.liunian_impact.zhi])">
               {{ tw.dynamicReport.liunian_impact.zhi }}
             </span>
-            <span class="year-vigor" :class="vigorFillClass(topMechVigor(tw.dynamicReport))">
-              {{ vigorLabelText(topMechVigor(tw.dynamicReport)) }}
+            <span class="year-subject-vigor" :title="subjectVigorTitle(tw.dynamicReport.liunian_impact)">
+              <span>命主状态</span>
+              <strong>{{ subjectVigorPercent(tw.dynamicReport.liunian_impact) }}</strong>
             </span>
             <span v-if="tw.dynamicReport.target_trigger?.is_activated" class="activated-chip activated-sm">已引动</span>
             <span v-if="tw.year === bestWindowYear" class="best-badge">最强窗口</span>
@@ -157,16 +192,28 @@
               class="mech-row mech-row-indented"
               :class="mechRowClass(mech)"
             >
-              <span class="mech-type">{{ mech.type }}</span>
-              <span class="mech-desc">{{ mech.description }}</span>
-              <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
-                {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
-              </span>
-              <span
-                v-for="t in mechTargets(mech)" :key="t.name"
-                class="target-chip"
-                :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
-              >{{ t.name }}</span>
+              <div class="mech-mainline">
+                <span
+                  v-for="t in mechTargets(mech)" :key="t.name"
+                  class="target-chip"
+                  :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
+                >{{ t.label ?? t.name }}</span>
+                <span class="mech-type">{{ mech.type }}</span>
+                <span v-if="i === 0" class="mech-strength-label">机制强度</span>
+              </div>
+              <div class="mech-detail-line">
+                <span class="mech-desc">{{ mech.description }}</span>
+                <span class="mech-vigor-meter" :title="vigorTitle(mech)">
+                  <span class="mech-vigor-track">
+                    <span
+                      class="mech-vigor-fill"
+                      :class="vigorFillClass(mechanismStrength(mech))"
+                      :style="{ width: mechanismStrengthPercent(mech) }"
+                    ></span>
+                  </span>
+                  <span class="mech-vigor-text">{{ mechanismStrengthPercent(mech) }}</span>
+                </span>
+              </div>
             </div>
             <p v-if="tw.verdict" class="year-verdict">{{ tw.verdict }}</p>
           </template>
@@ -194,6 +241,10 @@
                 <span class="gz-char" :class="elemClass(ZHI_WX[group.dayunImpact.zhi])">{{ group.dayunImpact.zhi }}</span>
                 <span class="phase-chip">{{ group.dayunImpact.twelve_phase }}</span>
                 <span v-if="group.dayunImpact.field_type" class="field-chip">{{ group.dayunImpact.field_type }}</span>
+                <span class="year-subject-vigor" :title="subjectVigorTitle(group.dayunImpact)">
+                  <span>命主状态</span>
+                  <strong>{{ subjectVigorPercent(group.dayunImpact) }}</strong>
+                </span>
               </div>
               <div
                 v-for="(mech, i) in visibleMechanisms(group.dayunImpact)"
@@ -201,20 +252,28 @@
                 class="mech-row"
                 :class="mechRowClass(mech)"
               >
-                <span class="mech-type">{{ mech.type }}</span>
-                <span class="mech-desc">{{ mech.description }}</span>
-                <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
-                  {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
-                </span>
-                <span
-                  v-for="t in mechTargets(mech)" :key="t.name"
-                  class="target-chip"
-                  :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
-                >{{ t.name }}</span>
-              </div>
-              <div class="vigor-track">
-                <div class="vigor-fill" :class="vigorFillClass(group.dayunImpact.trigger_vigor)"
-                     :style="{ width: Math.round((group.dayunImpact.trigger_vigor ?? 0) * 100) + '%' }"></div>
+                <div class="mech-mainline">
+                  <span
+                    v-for="t in mechTargets(mech)" :key="t.name"
+                    class="target-chip"
+                    :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
+                  >{{ t.label ?? t.name }}</span>
+                  <span class="mech-type">{{ mech.type }}</span>
+                  <span v-if="i === 0" class="mech-strength-label">机制强度</span>
+                </div>
+                <div class="mech-detail-line">
+                  <span class="mech-desc">{{ mech.description }}</span>
+                  <span class="mech-vigor-meter" :title="vigorTitle(mech)">
+                    <span class="mech-vigor-track">
+                      <span
+                        class="mech-vigor-fill"
+                        :class="vigorFillClass(mechanismStrength(mech))"
+                        :style="{ width: mechanismStrengthPercent(mech) }"
+                      ></span>
+                    </span>
+                    <span class="mech-vigor-text">{{ mechanismStrengthPercent(mech) }}</span>
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -239,8 +298,9 @@
                   <span class="gz-char gz-sm" :class="elemClass(ZHI_WX[tw.dynamicReport.liunian_impact.zhi])">
                     {{ tw.dynamicReport.liunian_impact.zhi }}
                   </span>
-                  <span class="year-vigor" :class="vigorFillClass(topMechVigor(tw.dynamicReport))">
-                    {{ vigorLabelText(topMechVigor(tw.dynamicReport)) }}
+                  <span class="year-subject-vigor" :title="subjectVigorTitle(tw.dynamicReport.liunian_impact)">
+                    <span>命主状态</span>
+                    <strong>{{ subjectVigorPercent(tw.dynamicReport.liunian_impact) }}</strong>
                   </span>
                   <span v-if="tw.dynamicReport.target_trigger?.is_activated" class="activated-chip activated-sm">已引动</span>
                   <span v-if="tw.year === bestWindowYear" class="best-badge">最强窗口</span>
@@ -253,16 +313,28 @@
                     class="mech-row mech-row-indented"
                     :class="mechRowClass(mech)"
                   >
-                    <span class="mech-type">{{ mech.type }}</span>
-                    <span class="mech-desc">{{ mech.description }}</span>
-                    <span class="mech-eff" :class="mech.vigor_check.is_effective ? 'eff-yes' : 'eff-no'">
-                      {{ mech.vigor_check.is_effective ? '有效' : '潜伏' }}
-                    </span>
-                    <span
-                      v-for="t in mechTargets(mech)" :key="t.name"
-                      class="target-chip"
-                      :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
-                    >{{ t.name }}</span>
+                    <div class="mech-mainline">
+                      <span
+                        v-for="t in mechTargets(mech)" :key="t.name"
+                        class="target-chip"
+                        :class="t.kind === 'gongwei' ? 'target-gongwei' : 'target-shishen'"
+                        >{{ t.label ?? t.name }}</span>
+                      <span class="mech-type">{{ mech.type }}</span>
+                      <span v-if="i === 0" class="mech-strength-label">机制强度</span>
+                    </div>
+                    <div class="mech-detail-line">
+                      <span class="mech-desc">{{ mech.description }}</span>
+                      <span class="mech-vigor-meter" :title="vigorTitle(mech)">
+                        <span class="mech-vigor-track">
+                          <span
+                            class="mech-vigor-fill"
+                            :class="vigorFillClass(mechanismStrength(mech))"
+                            :style="{ width: mechanismStrengthPercent(mech) }"
+                          ></span>
+                        </span>
+                        <span class="mech-vigor-text">{{ mechanismStrengthPercent(mech) }}</span>
+                      </span>
+                    </div>
                   </div>
                   <p v-if="tw.verdict" class="year-verdict">{{ tw.verdict }}</p>
                 </template>
@@ -335,12 +407,40 @@ function vigorFillClass(v) {
   return 'vf-strong'
 }
 
-function vigorLabelText(v) {
-  if (!v || v < 0.2) return '极弱'
-  if (v < 0.35)      return '偏弱'
-  if (v < 0.5)       return '力弱'
-  if (v < 0.75)      return '力中'
-  return '力旺'
+function normalizeVigor(v) {
+  const n = Number(v)
+  if (!Number.isFinite(n)) return 0
+  const normalized = n > 1 ? n / 100 : n
+  return Math.min(1, Math.max(0, normalized))
+}
+
+function normalizeMechanismStrength(v) {
+  return normalizeVigor(v)
+}
+
+function mechanismStrength(mech) {
+  return normalizeMechanismStrength(mech?.effective_strength)
+}
+
+function mechanismStrengthPercent(mech) {
+  return `${Math.round(mechanismStrength(mech) * 100)}%`
+}
+
+function subjectVigor(impact) {
+  return normalizeVigor(impact?.trigger_vigor)
+}
+
+function subjectVigorPercent(impact) {
+  return `${Math.round(subjectVigor(impact) * 100)}%`
+}
+
+function subjectVigorTitle(impact) {
+  const phase = impact?.twelve_phase ? `，十二长生：${impact.twelve_phase}` : ''
+  return `命主状态 ${subjectVigorPercent(impact)}${phase}，表示命主在该岁运中的承接状态`
+}
+
+function vigorTitle(mech) {
+  return `机制强度 ${mechanismStrengthPercent(mech)}，表示这条动态关系本身的触发力度`
 }
 
 function isImpaired(gtj) { return gtj === 'gaitou' || gtj === 'jiejiao' }
@@ -376,7 +476,30 @@ function visibleMechanisms(impact) {
 // 返回该 mech 命中的目标列表（从 targetMap 查找）
 // 结果：Array<{ kind: 'shishen'|'gongwei', name: string }>
 function mechTargets(mech) {
-  return props.targetMap[mech.target_pillar] ?? []
+  const mapped = (props.targetMap[mech.target_pillar] ?? []).map(t => ({
+    ...t,
+    label: t.label ?? t.name,
+  }))
+  const touGan = touGanShishen(mech)
+  if (!touGan) return mapped
+  return [
+    touGan,
+    ...mapped.filter(t => t.name !== touGan.name && t.label !== touGan.label),
+  ]
+}
+
+function touGanShishen(mech) {
+  if (mech?.type !== '透干引动') return null
+  const match = String(mech?.description ?? '').match(/（([^）]+)）透干/)
+  if (!match) return null
+  const name = expandShishen(match[1])
+  if (!name) return null
+  return { kind: 'shishen', name, label: `透出天干${name}` }
+}
+
+function expandShishen(token) {
+  const full = { 财: '正财', 才: '偏财', 官: '正官', 杀: '七杀', 印: '正印', 枭: '偏印', 食: '食神', 伤: '伤官', 比: '比肩', 劫: '劫财' }
+  return full[token] ?? token
 }
 
 function auspiceClass(dir) {
@@ -389,7 +512,7 @@ function auspiceClass(dir) {
 function topMechVigor(dr) {
   const mechs = dr?.liunian_impact?.mechanisms ?? []
   if (!mechs.length) return 0
-  return Math.max(...mechs.map(m => m.effective_strength ?? 0))
+  return Math.max(...mechs.map(m => mechanismStrength(m)))
 }
 
 // ── 展开/折叠状态（timing 模式） ──
@@ -661,6 +784,25 @@ const targetTrigger = computed(() => {
 
 .activated-sm { font-size: 9.5px; }
 
+.year-subject-vigor {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  font-size: 10px;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.year-subject-vigor strong {
+  color: var(--gold, #b5893b);
+  font-weight: 700;
+}
+
+[data-theme="dark"] .year-subject-vigor strong {
+  color: #fbbf24;
+}
+
 /* ── gz-note ──────────────────────────────────────────────── */
 .gz-note {
   font-size: 11.5px;
@@ -676,16 +818,34 @@ const targetTrigger = computed(() => {
 /* ── mech 行 ─────────────────────────────────────────────── */
 .mech-row {
   display: flex;
+  flex-direction: column;
   align-items: baseline;
-  gap: 8px;
+  gap: 5px;
   font-size: 11.5px;
   line-height: 1.45;
-  padding: 3px 0;
+  padding: 5px 0;
   border-top: 1px solid rgba(181,141,59,0.08);
 }
 
 .mech-row-indented {
-  padding-left: 8px;
+  padding-left: 18px;
+}
+
+.mech-mainline {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 7px;
+  width: 100%;
+  min-width: 0;
+}
+
+.mech-detail-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
 }
 
 .mech-type {
@@ -700,20 +860,48 @@ const targetTrigger = computed(() => {
   flex: 1;
   color: var(--ink-muted, var(--text-muted));
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
-.mech-eff {
+.mech-strength-label {
   font-size: 10px;
   font-weight: 600;
-  letter-spacing: .06em;
+  color: var(--text-muted);
+  margin-left: auto;
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
-.eff-yes { color: #15803d; }
-.eff-no  { color: var(--text-muted); opacity: .7; }
+.mech-vigor-meter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 110px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
 
-[data-theme="dark"] .eff-yes { color: #4ade80; }
+.mech-vigor-track {
+  width: 58px;
+  height: 5px;
+  background: rgba(181,141,59,0.12);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.mech-vigor-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  transition: width .3s ease;
+}
+
+.mech-vigor-text {
+  width: 34px;
+  text-align: right;
+  font-size: 10.5px;
+  font-variant-numeric: tabular-nums;
+}
 
 .mech-latent { opacity: .6; }
 
@@ -830,15 +1018,6 @@ const targetTrigger = computed(() => {
   padding: 4px 0;
 }
 
-/* ── vigor 条 ────────────────────────────────────────────── */
-.vigor-track {
-  height: 3px;
-  background: rgba(181,141,59,0.12);
-  border-radius: 2px;
-  overflow: hidden;
-  margin-top: 2px;
-}
-
 .vigor-fill {
   height: 100%;
   border-radius: 2px;
@@ -901,13 +1080,6 @@ const targetTrigger = computed(() => {
   color: var(--gold, #b5893b);
   min-width: 36px;
   letter-spacing: .02em;
-}
-
-.year-vigor {
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: .05em;
-  margin-left: 2px;
 }
 
 .best-badge {
