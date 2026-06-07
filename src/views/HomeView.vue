@@ -281,95 +281,59 @@
 
           <transition name="fade">
             <div v-show="viewState === 'loading'" id="loader">
-              <!-- Bagua wheel with correct 先天八卦 trigrams -->
-              <div class="bagua-ring-wrap">
-                <svg class="bagua-svg" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="60" cy="60" r="56" stroke="rgba(212,175,55,0.06)" stroke-width="1" fill="none"/>
-                  <g class="bagua-wheel">
-                    <path d="M41,9 L79,9 L111,41 L111,79 L79,111 L41,111 L9,79 L9,41 Z" fill="rgba(212,175,55,0.02)" stroke="rgba(212,175,55,0.26)" stroke-width="0.8"/>
-                    <g stroke="rgba(212,175,55,0.08)" stroke-width="0.5">
-                      <line x1="60" y1="60" x2="60" y2="9"/><line x1="60" y1="60" x2="111" y2="60"/>
-                      <line x1="60" y1="60" x2="60" y2="111"/><line x1="60" y1="60" x2="9" y2="60"/>
-                      <line x1="60" y1="60" x2="95" y2="25"/><line x1="60" y1="60" x2="95" y2="95"/>
-                      <line x1="60" y1="60" x2="25" y2="95"/><line x1="60" y1="60" x2="25" y2="25"/>
-                    </g>
-                    <g stroke="rgba(212,175,55,0.7)" stroke-width="1.5" stroke-linecap="round">
-                      <!-- 乾☰ top (rot 0) all yang -->
-                      <g transform="rotate(0,60,60)"><line x1="52" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="68" y2="17"/></g>
-                      <!-- 兑☱ top-right (rot 45) 爻3 yin -->
-                      <g transform="rotate(45,60,60)"><line x1="52" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="57.5" y2="17"/><line x1="62.5" y1="17" x2="68" y2="17"/></g>
-                      <!-- 离☲ right (rot 90) 爻2 yin -->
-                      <g transform="rotate(90,60,60)"><line x1="52" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="57.5" y2="13.5"/><line x1="62.5" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="68" y2="17"/></g>
-                      <!-- 震☳ bottom-right (rot 135) 爻2+爻3 yin -->
-                      <g transform="rotate(135,60,60)"><line x1="52" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="57.5" y2="13.5"/><line x1="62.5" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="57.5" y2="17"/><line x1="62.5" y1="17" x2="68" y2="17"/></g>
-                      <!-- 坤☷ bottom (rot 180) all yin -->
-                      <g transform="rotate(180,60,60)"><line x1="52" y1="10" x2="57.5" y2="10"/><line x1="62.5" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="57.5" y2="13.5"/><line x1="62.5" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="57.5" y2="17"/><line x1="62.5" y1="17" x2="68" y2="17"/></g>
-                      <!-- 艮☶ bottom-left (rot 225) 爻1+爻2 yin -->
-                      <g transform="rotate(225,60,60)"><line x1="52" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="57.5" y2="13.5"/><line x1="62.5" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="57.5" y2="17"/><line x1="62.5" y1="17" x2="68" y2="17"/></g>
-                      <!-- 坎☵ left (rot 270) 爻1+爻3 yin -->
-                      <g transform="rotate(270,60,60)"><line x1="52" y1="10" x2="57.5" y2="10"/><line x1="62.5" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="57.5" y2="17"/><line x1="62.5" y1="17" x2="68" y2="17"/></g>
-                      <!-- 巽☴ top-left (rot 315) 爻1 yin -->
-                      <g transform="rotate(315,60,60)"><line x1="52" y1="10" x2="57.5" y2="10"/><line x1="62.5" y1="10" x2="68" y2="10"/><line x1="52" y1="13.5" x2="68" y2="13.5"/><line x1="52" y1="17" x2="68" y2="17"/></g>
-                    </g>
-                  </g>
-                  <g class="bagua-inner-g">
-                    <circle cx="60" cy="60" r="36" stroke="rgba(212,175,55,0.22)" stroke-width="1" fill="none" stroke-dasharray="5 4.5" stroke-linecap="round"/>
-                    <circle cx="60" cy="60" r="28" stroke="rgba(107,140,255,0.15)" stroke-width="0.8" fill="rgba(107,140,255,0.015)"/>
-                  </g>
-                  <!-- Taiji center (subtle) -->
-                  <circle cx="60" cy="60" r="13" fill="rgba(5,5,10,0.7)" stroke="rgba(212,175,55,0.18)" stroke-width="0.7"/>
-                  <path d="M60,47 A6.5,6.5 0 0,1 60,60 A6.5,6.5 0 0,0 60,73 A13,13 0 0,1 60,47" fill="rgba(212,175,55,0.16)"/>
-                  <path d="M60,47 Q67,53 60,60 Q53,67 60,73" fill="none" stroke="rgba(212,175,55,0.2)" stroke-width="0.7"/>
-                  <circle cx="60" cy="53" r="2" fill="rgba(212,175,55,0.45)"/>
-                  <circle cx="60" cy="67" r="2" fill="rgba(5,5,10,0.8)"/>
-                  <circle cx="60" cy="60" r="3" fill="rgba(212,175,55,0.35)"/>
-                  <circle cx="60" cy="60" r="1.5" fill="rgba(212,175,55,0.8)"/>
-                </svg>
-              </div>
-
-              <!-- Branch badge -->
-              <div class="loader-branch-badge" :class="{ visible: sseActiveIndex >= 1 }">
-                {{ sseBranch === 'bazi' ? '八字命理' : '奇门遁甲' }}
-              </div>
-
-              <!-- Vertical SSE timeline -->
-              <div class="sse-timeline">
-                <div class="sse-spine">
-                  <div class="sse-spine-fill" :style="{ height: sseSpinePct + '%' }"></div>
-                </div>
-                <div
-                  v-for="(step, i) in sseCurrentSteps"
-                  :key="i"
-                  class="sse-step"
-                  :class="i < sseActiveIndex ? 'done' : i === sseActiveIndex ? 'active' : 'pending'"
-                >
-                  <div class="sse-dot"></div>
-                  <div class="sse-step-name">{{ step.name }}</div>
-                  <div class="sse-step-tag">{{ i < sseActiveIndex ? '✓ ' + step.tag : step.tag }}</div>
-                  <div v-if="step.detail && i === sseActiveIndex" class="sse-step-detail">
-                    {{ step.detail }}<span class="sse-typing-dots"></span>
-                  </div>
-                  <div v-if="sseChips[i] && i < sseActiveIndex" class="sse-chip">
-                    <span class="sse-chip-main">{{ sseChips[i].main }}</span>
-                    <span class="sse-chip-sep"></span>
-                    <span class="sse-chip-sub">{{ sseChips[i].sub }}</span>
+              <!-- 引擎中间产物 / 标签骨架 -->
+              <transition name="fade">
+                <div v-if="wenShiEngineResult" class="wenshi-engine-result">
+                  <div class="wenshi-tags">
+                    <span
+                      v-for="tag in wenShiEngineResult.tags"
+                      :key="tag.label"
+                      class="wenshi-tag"
+                      :class="{ 'score-pending': tag.isScore && isWenShiLlmLoading }"
+                    >{{ tag.label }}</span>
                   </div>
                 </div>
-              </div>
-
-              <!-- Progress bar -->
-              <div class="sse-progress-row">
-                <div class="sse-progress-track">
-                  <div class="sse-progress-fill" :style="{ width: ssePct + '%' }"></div>
+                <div v-else class="wenshi-tags-skeleton">
+                  <i style="width:88px"></i><i style="width:64px"></i><i style="width:116px"></i>
                 </div>
-                <div class="sse-progress-pct">{{ ssePct }}%</div>
+              </transition>
+
+              <!-- LLM 流式文字 / 文本骨架 -->
+              <div
+                v-if="wenShiLlm.text"
+                class="wenshi-stream-prose"
+                :class="{ streaming: wenShiLlm.status === 'streaming' }"
+                v-html="renderStreamProse(wenShiLlm.text)"
+              ></div>
+              <div v-else class="wenshi-llm-skeleton">
+                <i style="width:94%"></i><i style="width:80%"></i><i style="width:88%"></i>
+                <i style="width:62%"></i><i style="width:90%"></i><i style="width:74%"></i>
+                <i style="width:84%"></i><i style="width:58%"></i>
               </div>
             </div>
           </transition>
 
           <transition name="fade">
             <div v-show="viewState === 'result'" class="result-wrapper">
+              <!-- 持久能量球层：覆盖 hero 区，卡片切换时不销毁，保证膨胀/变色/定格全程丝滑 -->
+              <div v-show="showOrbFx" class="wenshi-orb-fx" :class="[orbSettling ? 'settling' : '', orbTone]">
+                <div class="wenshi-orb">
+                  <div class="wenshi-orb-layers">
+                    <div class="wo-satin"></div>
+                    <div class="wo-ray r1"></div><div class="wo-ray r2"></div><div class="wo-ray r3"></div>
+                    <div class="wo-wave w1"></div><div class="wo-wave w2"></div>
+                    <div class="wo-core"></div><div class="wo-shade"></div>
+                  </div>
+                  <!-- 终态色球：默认透明，定格时缓慢淡入并随 wrapper 放大 -->
+                  <div class="wo-final"></div>
+                </div>
+                <div class="wenshi-orb-status" v-show="!orbSettling"><span class="txt">{{ wenShiStatus }}</span><span class="dots"></span></div>
+              </div>
               <div v-html="resultHtml" class="html-container"></div>
+              <!-- 终态覆盖层：在脚手架之上淡入，盖满后底层再无声切换为终态，全程底层不空 -->
+              <Transition name="ov-fade">
+                <div v-if="finalOverlayHtml" v-html="finalOverlayHtml" class="html-container result-overlay"></div>
+              </Transition>
               <Teleport v-if="showBaziBackingAnchor" to="#bazi-backing-anchor">
                 <BaziBackingPanel
                   :profile="snapshotProfile"
@@ -826,13 +790,17 @@ const baziPanelTargetMap = computed(() => {
   const sr = activeBaziResultData.value?.state_report
   if (!sr) return {}
   const map = {}
+  const fullShishen = { 财: '正财', 才: '偏财', 官: '正官', 杀: '七杀', 印: '正印', 枭: '偏印', 食: '食神', 伤: '伤官', 比: '比肩', 劫: '劫财' }
+  const positionLabel = { gan: '干', zhi_main: '支主气', hidden: '支藏干' }
   for (const sa of sr.shishen_assessments ?? []) {
     if (!map[sa.pillar]) map[sa.pillar] = []
-    map[sa.pillar].push({ kind: 'shishen', name: sa.shishen })
+    const name = fullShishen[sa.shishen] || sa.shishen
+    const source = `${sa.pillar || ''}${positionLabel[sa.position] || ''}`
+    map[sa.pillar].push({ kind: 'shishen', name, label: source ? `${source}${name}` : name })
   }
   for (const ga of sr.gongwei_assessments ?? []) {
     if (!map[ga.pillar_name]) map[ga.pillar_name] = []
-    map[ga.pillar_name].push({ kind: 'gongwei', name: ga.gongwei })
+    map[ga.pillar_name].push({ kind: 'gongwei', name: ga.gongwei, label: ga.gongwei })
   }
   return map
 })
@@ -1270,11 +1238,229 @@ const sseSpinePct = computed(() => {
   return total > 0 ? (done / total) * 100 : 0
 })
 
+const wenShiEngineResult = ref(null)
+const wenShiLlm = ref({ status: 'idle', text: '' })
+const isWenShiLlmLoading = computed(() =>
+  ['pending', 'streaming'].includes(wenShiLlm.value.status)
+)
+const shouldShowWenShiSkeleton = computed(() =>
+  isWenShiLlmLoading.value && !wenShiLlm.value.text
+)
+
+// 奇门流式脚手架：在结果页内就地骨架→流式
+const wenShiStreaming = ref(false)
+const resultPhase = ref('stream') // 'stream' 流式脚手架 / 'final' 最终卡片，用于交叉淡入过渡
+const wenShiStatus = ref('正在解析问题') // hero 能量球下方的最新中间产物状态
+// 持久能量球覆盖层状态
+const showOrbFx = ref(false)   // 是否显示能量球层（加载~定格期间）
+const orbSettling = ref(false) // 是否进入定格态（膨胀+变色）
+const orbTone = ref('')        // wo-tone-gold / wo-tone-teal / wo-tone-warn
+const finalOverlayHtml = ref('') // 终态覆盖层 HTML（在脚手架之上淡入，避免空档）
+const wenShiStreamSections = {} // {sectionKey: 累计文本}（非响应式，直接 DOM 打补丁）
+// 更新 hero 能量球下方的状态行（响应式，只展示最新一条）
+function patchOrbStatus(text) {
+  if (text) wenShiStatus.value = text
+}
+// 完成时：能量球缓慢膨胀填满 hero + 变分数色 + 定格（同一 DOM，不重建，丝滑无断档）
+function settleOrbToResult(data) {
+  return new Promise(resolve => {
+    const score = data?.summary?.score ?? data?.qimen_report?.m1_conclusion?.score ?? 0
+    orbTone.value = 'wo-tone-' + (score < 55 ? 'warn' : score < 75 ? 'gold' : 'teal')
+    orbSettling.value = true
+    setTimeout(resolve, 900) // 膨胀进行中即可切入卡片正文（hero 透明，球持续膨胀到定格）
+  })
+}
+// 终态卡片包一层 wenshi-orb-mode：让其 hero 背景透明，露出下方定格的能量球
+function withOrbHero(html) {
+  return html.replace('class="mag-result ', 'class="mag-result wenshi-orb-mode ')
+}
+
+// ═══════ 开发用：奇门流式 mock（生产形态数据，走真实代码路径，不调 API）═══════
+const MOCK_QIMEN = (() => {
+  const palaces = [
+    { name:'巽4宫', index:0, god:'九天', sky:'丙', star:'天柱', door:'惊门', earth:'戊', kong_wang:{is_kong:false}, ma_xing:{has_ma:false} },
+    { name:'离9宫', index:1, god:'值符', sky:'壬', star:'天心', door:'开门', earth:'乙', kong_wang:{is_kong:false}, ma_xing:{has_ma:false} },
+    { name:'坤2宫', index:2, god:'九地', sky:'辛', star:'天蓬', door:'休门', earth:'癸', kong_wang:{is_kong:true}, ma_xing:{has_ma:false} },
+    { name:'震3宫', index:3, god:'玄武', sky:'乙', star:'天任', door:'生门', earth:'己', kong_wang:{is_kong:false}, ma_xing:{has_ma:false} },
+    { name:'中5宫', index:4, is_center:true, earth:'庚' },
+    { name:'兑7宫', index:5, god:'六合', sky:'丁', star:'天冲', door:'伤门', earth:'丁', kong_wang:{is_kong:false}, ma_xing:{has_ma:false} },
+    { name:'艮8宫', index:6, god:'白虎', sky:'癸', star:'天芮', door:'死门', earth:'壬', kong_wang:{is_kong:false}, ma_xing:{has_ma:true} },
+    { name:'坎1宫', index:7, god:'太阴', sky:'己', star:'天英', door:'景门', earth:'丙', kong_wang:{is_kong:false}, ma_xing:{has_ma:false} },
+    { name:'乾6宫', index:8, god:'螣蛇', sky:'庚', star:'天辅', door:'杜门', earth:'辛', kong_wang:{is_kong:false}, ma_xing:{has_ma:false} },
+  ]
+  const formation_tags = [
+    { name:'青龙耀明', type:'ji', effect:'+6', reason:'龙光耀明，事业有进，贵人相助。', text:'龙光耀明，事业有进，贵人相助。' },
+    { name:'值符临开门', type:'ji', effect:'+4', reason:'主导权与资源向你倾斜。', text:'主导权与资源向你倾斜。' },
+    { name:'天芮临死门', type:'xiong', effect:'-5', reason:'岗位本身或带历史遗留问题。', text:'岗位本身或带历史遗留问题。' },
+    { name:'壬空亡', type:'xiong', effect:'-3', reason:'部分承诺待落实，口头利好不可全信。', text:'部分承诺待落实，口头利好不可全信。' },
+  ]
+  const qimen_data = {
+    status:'success',
+    pillars:{ year:'丙午', month:'甲午', day:'戊戌', hour:'丁巳' },
+    timestamp:{ solar:'2026-06-06 10:00', lunar:'丙午年 甲午月 戊戌日 丁巳时' },
+    ju_info:{ name:'阳遁6局', jieqi:'芒种', yuan:'中元', zhi_fu:'天心', zhi_shi:'开门', xun_shou:'甲辰' },
+    auxiliary:{ ma_xing:{ day:'申', hour:'申' }, kong_wang:{ day:'辰巳', hour:'子丑' } },
+    palaces,
+  }
+  const engineOutput = {
+    branch:'qimen', question:'下周的3个面试中 有靠谱的吗', category:'求测事业', subcategory:'general_career',
+    pre_score:71, score_label:'平', qimen_data, formation_tags, timing_window_count:3,
+    tags:[ {label:'求测事业'}, {label:'阳遁6局·戊戌'}, {label:'初分71 · 平', isScore:true}, {label:'3个应期窗口'} ],
+  }
+  const sections = [
+    ['conclusion','下周的面试中**有靠谱的机会**。你的专业表现和现场沟通将非常出色，极易得到高层或核心决策人的赏识；但岗位本身可能带有一定挑战或内部信息不透明，需要你主动争取并在沟通中仔细甄别。'],
+    ['subject_reading','日干辛金落震3宫，临天任星与生门，说明你本身专业素养扎实、状态平稳，在面试这种正式场合反而能稳定发挥。唯一要注意的是辛金偏内敛，若只被动等待提问而不主动展示亮点，容易被埋没，需要你主动出击。'],
+    ['target_reading','目标机会以生门为用，生门临旺相之地，代表这几个岗位中确有实质性的好机会，并非画饼。生门主生意、生机，落宫得力说明录用概率与后续发展空间都不错，是值得全力争取的方向。'],
+    ['environment_reading','值符天心临开门，主整个面试流程开通顺畅，不会卡在繁琐环节；然艮8宫天芮病星临死门，又见壬水空亡，提示岗位的部分内部信息（如真实汇报线、团队稳定性）可能对外有所保留，入职前务必多方核实。'],
+    ['support_summary','青龙耀明格成局，主贵人赏识、名声彰显，面试中极易给高层留下深刻印象；值符临开门，主导权与资源都在向你倾斜，大方向上是有利的。'],
+    ['constraint_summary','天芮病星临死门，提示岗位本身可能存在历史遗留问题或团队活力不足；壬水空亡，部分承诺需落到书面才算数，口头利好不可全信，签约前需谨慎甄别。'],
+    ['decision_reading','日干辛与生门形成相生之势，整体属于「你能接住这个机会」的格局。建议主动出击、突出专业，同时对岗位真实情况保持一份清醒甄别，先难后易，稳中求进。'],
+  ]
+  const result = {
+    branch:'qimen', question:'下周的3个面试中 有靠谱的吗', category:'求测事业', subcategory:'general_career',
+    summary:{ score:71, score_basis:{ positive_signals:['青龙耀明','值符临开门'], negative_signals:['天芮临死门','壬空亡'], score_logic:'贵人与流程有利，唯岗位本身带瑕疵与空亡，整体偏中上可争取。' } },
+    qimen_report:{
+      m1_conclusion:{ question:'下周的3个面试中 有靠谱的吗', score:71, verdict_label:'平', tone:'mixed',
+        title:'求职面试机会评估', keyword:'表现亮眼，高层赏识',
+        conclusion:sections[0][1],
+        actions:[
+          '**充分展示专业能力**，利用面试环节放大自身优势，大胆表达见解，不要被动等待提问。',
+          '重点关注能与高管或核心决策人**直接沟通**的面试场次，你的胜算会明显更大。',
+          '面试后主动跟进，**巳日或申时**信息更明朗时再做最终判断，不急于签约。',
+        ],
+        score_basis:{ positive_signals:['青龙耀明','值符临开门'], negative_signals:['天芮临死门','壬空亡'], score_logic:'贵人与流程有利，唯岗位本身带瑕疵与空亡。' } },
+      m2_basis:{
+        chart_summary:{ pillars:qimen_data.pillars, ju_name:'阳遁6局', jieqi:'芒种', yuan:'中元', zhi_fu:'天心', zhi_shi:'开门' },
+        palaces, formation_tags,
+        yongshen_cards:[
+          { key:'subject', label:'问测人', symbol:'日干 辛', tone:'mixed', verdict:'自身专业过硬，但略缺主动', evidence:'日干辛落震3宫临生门，金气清贵主才华，唯需主动出击。' },
+          { key:'target', label:'目标机会', symbol:'生门', tone:'positive', verdict:'机会成色不错，值得争取', evidence:'生门临旺，主有实质性的录用与发展空间。' },
+          { key:'environment', label:'关键环境', symbol:'值使 开门', tone:'mixed', verdict:'流程顺畅但信息不透明', evidence:'值使开门主开通，然环境带空亡，内部信息或有保留。' },
+        ],
+      },
+      m3_inference:{
+        subject_state:{ symbol:'日干 辛', palace:'震3宫', tone:'mixed', reading:sections[1][1] },
+        target_state:{ symbol:'生门', palace:'震3宫', tone:'positive', reading:sections[2][1] },
+        environment_state:{ symbol:'值使门', palace:'离9宫', tone:'mixed', reading:sections[3][1] },
+        support_factors:{ tone:'positive', summary:sections[4][1], items:[
+          { name:'青龙耀明', impact:'贵人赏识、名声彰显，易给高层留下深刻印象。' },
+          { name:'值符临开门', impact:'主导权与资源向你倾斜，大方向有利。' },
+        ] },
+        constraint_factors:{ tone:'warning', summary:sections[5][1], items:[
+          { name:'天芮临死门', impact:'岗位或有历史遗留问题、团队活力不足。' },
+          { name:'壬空亡', impact:'口头承诺待落实，签约前需书面确认。' },
+        ] },
+        interaction_decision:{ subject_symbol:'日干', target_symbol:'生门', tone:'mixed', reading:sections[6][1], relation:{ effect:1, reason:'日干辛与生门相生，你能接住这个机会。' } },
+      },
+      m4_guidance:{
+        environment_fengshui:{ suitable_direction:'西方 / 西北', do:'面试选在光线明亮、安静的场合，着装偏冷色调显专业。', avoid:'避免在嘈杂、信息混乱的环境仓促决定。', reason:'辛金喜净、喜西方旺地，利清晰展示自我。' },
+        timing_behavior:{ window:'巳日、申时', wait_until:'对方明确反馈前', do:'此时段跟进、确认细节、表达诚意。', avoid:'空亡时辰（壬水当令）轻信口头承诺。', reason:'巳申填实并冲动马星，是信息明朗、事情催动的窗口。' },
+      },
+    },
+    backend_score_audit:{ adjustments:formation_tags.map(t=>({ ...t, layer:'named_formation', signal:t.name })), relations:[{ effect:1, reason:'日干辛与生门相生。' }] },
+    qimen_data,
+  }
+  return { engineOutput, sections, result }
+})()
+
+function mockQimenResponse() {
+  const enc = new TextEncoder()
+  const send = (ctrl, obj) => ctrl.enqueue(enc.encode('data: ' + JSON.stringify(obj) + '\n\n'))
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  const body = new ReadableStream({
+    async start(ctrl) {
+      send(ctrl, { type:'step', index:0, pct:10, chip:{ main:'求测事业', sub:'奇门遁甲' } }); await sleep(550)
+      send(ctrl, { type:'step', index:1, pct:25, chip:{ main:'阳遁6局', sub:'戊戌' } }); await sleep(520)
+      send(ctrl, { type:'step', index:2, pct:42, chip:{ main:'生门', sub:'求测事业' } }); await sleep(480)
+      send(ctrl, { type:'step', index:3, pct:58, chip:{ main:'发现 3 个窗口', sub:'巳日/申时' } }); await sleep(480)
+      send(ctrl, { type:'step', index:4, pct:72, chip:{ main:'初分 71', sub:'平' } }); await sleep(560)
+      send(ctrl, { type:'engine_complete', pct:74, engineOutput:MOCK_QIMEN.engineOutput }); await sleep(700)
+      send(ctrl, { type:'active', index:5, pct:78 }); await sleep(450)
+      for (const [sec, text] of MOCK_QIMEN.sections) {
+        for (let i = 0; i < text.length; i += 2) { send(ctrl, { type:'llm_delta', section:sec, text:text.slice(i, i+2) }); await sleep(22) }
+        await sleep(180)
+      }
+      send(ctrl, { type:'llm_done', pct:95, text:'' }); await sleep(250)
+      send(ctrl, { type:'complete', result:MOCK_QIMEN.result })
+      ctrl.close()
+    }
+  })
+  return { ok:true, body }
+}
+
+async function runQimenMock() {
+  questionInput.value = MOCK_QIMEN.result.question
+  isSubmitting.value = true
+  resetSseState()
+  sseBranch.value = 'qimen'
+  wenShiStreaming.value = true
+  resultPhase.value = 'stream'
+  wenShiStatus.value = '正在解析问题'
+  showOrbFx.value = true
+  orbSettling.value = false
+  orbTone.value = ''
+  resultHtml.value = buildStreamingScaffoldHTML(null, wenShiStatus.value)
+  viewState.value = 'result'
+  await nextTick(); initMagTabInk()
+  try {
+    const data = await readSSEStream(mockQimenResponse())
+    const fromScore = wenShiEngineResult.value?.pre_score || 0
+    if (wenShiStreaming.value) await settleOrbToResult(data)
+    wenShiStreaming.value = false
+    activeResultRecord.value = null
+    activateBaziResultPanel(data)
+    const finalCard = applyCardMdBold(buildCardHTML(data))
+    finalOverlayHtml.value = finalCard
+    await nextTick()
+    initMagTabInk()
+    animateScore(data.summary?.score || 0, fromScore)
+    setTimeout(() => document.querySelectorAll('.result-overlay .reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 300)
+    await new Promise(r => setTimeout(r, 700))
+    resultHtml.value = finalCard
+    await nextTick()
+    document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+    initMagTabInk()
+    finalOverlayHtml.value = ''
+    showOrbFx.value = false
+    viewState.value = 'result'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+if (typeof window !== 'undefined') window.__mockQimen = runQimenMock
+// 把某段流式文本就地补丁进卡片对应槽位（带 ** 加粗 + 流式光标）
+function patchStreamSlot(section, fullText) {
+  const root = document.querySelector('.html-container .wenshi-streaming')
+  if (!root) return
+  const el = root.querySelector(`[data-wslot="${section}"]`)
+  if (!el) return
+  el.classList.add('wstream-active')
+  el.innerHTML = renderStreamProse(fullText)
+}
+
+// 仅支持 **加粗**：先转义 HTML，再把成对 ** 转成 <strong>
+const escapeHtmlText = (s) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+const mdBold = (s) => String(s ?? '').replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>')
+// 流式实时文字：转义后渲染加粗（换行交给 white-space: pre-wrap）
+const renderStreamProse = (text) => mdBold(escapeHtmlText(text))
+// 最终卡片 HTML：内容已是受控 HTML，只把残留 ** 转成加粗
+const applyCardMdBold = (html) => mdBold(html)
+
 function resetSseState() {
   sseBranch.value = 'qimen'
   sseActiveIndex.value = 0
   sseChips.value = {}
   ssePct.value = 0
+  wenShiEngineResult.value = null
+  wenShiLlm.value = { status: 'idle', text: '' }
+  wenShiStreaming.value = false
+  wenShiStatus.value = '正在解析问题'
+  showOrbFx.value = false
+  orbSettling.value = false
+  orbTone.value = ''
+  finalOverlayHtml.value = ''
+  for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
 }
 
 async function readSSEStream(response) {
@@ -1296,8 +1482,52 @@ async function readSSEStream(response) {
         sseActiveIndex.value = event.index + 1
         if (event.chip) sseChips.value = { ...sseChips.value, [event.index]: event.chip }
         ssePct.value = event.pct
+        if (wenShiStreaming.value) {
+          // 状态行只展示最新中间产物：优先 chip（产物），否则当前步骤名
+          const stepName = sseCurrentSteps.value[event.index + 1]?.name || sseCurrentSteps.value[event.index]?.name || ''
+          const label = event.chip ? `${event.chip.main}${event.chip.sub ? ' · ' + event.chip.sub : ''}` : stepName
+          patchOrbStatus(label)
+        }
+      } else if (event.type === 'engine_complete') {
+        wenShiEngineResult.value = event.engineOutput
+        ssePct.value = event.pct
+        if (event.engineOutput?.branch === 'qimen') {
+          wenShiStreaming.value = true
+          for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
+          patchOrbStatus(`初分 ${event.engineOutput.pre_score} · 深度推演`)
+          const root = document.querySelector('.html-container .wenshi-streaming')
+          if (root) {
+            // 已在脚手架中：只就地补丁「奇门定基」(盘面/格局)，保留能量球 DOM，避免重建闪动
+            const fresh = document.createElement('div')
+            fresh.innerHTML = buildStreamingScaffoldHTML(event.engineOutput, wenShiStatus.value)
+            const a = fresh.querySelector('#mag-m2'), b = root.querySelector('#mag-m2')
+            if (a && b) b.innerHTML = a.innerHTML
+          } else {
+            resultPhase.value = 'stream'
+            resultHtml.value = buildStreamingScaffoldHTML(event.engineOutput, wenShiStatus.value)
+            viewState.value = 'result'
+          }
+        }
       } else if (event.type === 'active') {
         sseActiveIndex.value = event.index
+        ssePct.value = event.pct
+        if (wenShiStreaming.value) patchOrbStatus(sseCurrentSteps.value[event.index]?.name || 'AI 推演解盘')
+        else wenShiLlm.value = { status: 'pending', text: '' }
+      } else if (event.type === 'llm_delta') {
+        if (wenShiStreaming.value && event.section) {
+          // 奇门：累加并就地补丁到对应卡片槽位
+          wenShiStreamSections[event.section] = (wenShiStreamSections[event.section] || '') + event.text
+          patchStreamSlot(event.section, wenShiStreamSections[event.section])
+        } else {
+          // 八字：旧的整段流式文字
+          wenShiLlm.value.status = 'streaming'
+          wenShiLlm.value.text += event.text
+        }
+      } else if (event.type === 'llm_done') {
+        if (!wenShiStreaming.value) {
+          wenShiLlm.value.status = 'done'
+          wenShiLlm.value.text = event.text
+        }
         ssePct.value = event.pct
       } else if (event.type === 'complete') {
         sseActiveIndex.value = sseCurrentSteps.value.length
@@ -1439,6 +1669,8 @@ const handleGeTagClick = (e) => {
 
 onMounted(() => {
   syncAuthModeFromRoute()
+  // 开发用：?mock=qimen 自动播放奇门流式生成（不调 API）
+  if (route.query.mock === 'qimen') setTimeout(() => runQimenMock(), 600)
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
   suggestionTimer = setInterval(() => {
@@ -1809,7 +2041,7 @@ const fetchMissingPanelData = async (data) => {
       _panel_matrix: normalizedPillars.length ? { pillars: normalizedPillars } : null
     }
     activeBaziResultData.value = mergedData
-    resultHtml.value = buildCardHTML(mergedData)
+    resultHtml.value = applyCardMdBold(buildCardHTML(mergedData))
     await nextTick()
     syncBaziPanelAnchor()
     initMagTabInk()
@@ -1954,8 +2186,17 @@ const startDivination = async () => {
   let routeData = null
 
   isSubmitting.value = true
-  viewState.value = 'loading'
   resetSseState()
+  // 提交后立即进入结果页（持久能量球覆盖层 + 透明 hero 脚手架），不再经过中间的半屏加载页
+  wenShiStreaming.value = true
+  resultPhase.value = 'stream'
+  wenShiStatus.value = '正在解析问题'
+  showOrbFx.value = true
+  orbSettling.value = false
+  orbTone.value = ''
+  resultHtml.value = buildStreamingScaffoldHTML(null, wenShiStatus.value)
+  viewState.value = 'result'
+  nextTick(() => initMagTabInk())
 
   try {
     const routeResponse = await fetch(ROUTE_API_URL, {
@@ -1986,6 +2227,10 @@ const startDivination = async () => {
     ssePct.value = 10
 
     if (routeData.branch === 'bazi') {
+      // 八字分支暂仍用旧加载页（脚手架待后续接入）
+      wenShiStreaming.value = false
+      showOrbFx.value = false
+      viewState.value = 'loading'
       if (!baziProfiles.value.length) await fetchBaziProfiles()
       const profileId = selectedProfileId.value || baziProfiles.value.find(p => p.is_default)?.id || baziProfiles.value[0]?.id || ''
       if (!profileId) {
@@ -2014,7 +2259,7 @@ const startDivination = async () => {
       const data = await readSSEStream(response)
       const savedRecord = await saveRecordToDatabase(input, data)
       activeResultRecord.value = savedRecord
-      resultHtml.value = buildCardHTML(data)
+      resultHtml.value = applyCardMdBold(buildCardHTML(data))
       activateBaziResultPanel(data)
       viewState.value = 'result'
       nextTick(() => {
@@ -2045,16 +2290,29 @@ const startDivination = async () => {
       throw err
     }
     const data = await readSSEStream(response)
+    const fromScore = wenShiEngineResult.value?.pre_score || 0
+    // 奇门：能量球收敛——变分数色 + 扩散成最终渐变，再切最终卡片
+    if (wenShiStreaming.value) await settleOrbToResult(data)
+    wenShiStreaming.value = false
     const savedRecord = await saveRecordToDatabase(input, data)
     activeResultRecord.value = savedRecord
     activateBaziResultPanel(data)
-    resultHtml.value = buildCardHTML(data)
+    // 终态卡片用自带渐变 hero（球已放大化开成渐变，由卡片渐变无缝接管）
+    const finalCard = applyCardMdBold(buildCardHTML(data))
+    finalOverlayHtml.value = finalCard
+    await nextTick()
+    initMagTabInk()
+    animateScore(data.summary?.score || 0, fromScore)
+    setTimeout(() => document.querySelectorAll('.result-overlay .reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 300)
+    await new Promise(r => setTimeout(r, 700))
+    // 先把底层换成终态并点亮 reveal，再撤掉覆盖层与能量球层，避免任何一帧空白
+    resultHtml.value = finalCard
+    await nextTick()
+    document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+    initMagTabInk()
+    finalOverlayHtml.value = ''
+    showOrbFx.value = false
     viewState.value = 'result'
-    nextTick(() => {
-      initMagTabInk()
-      animateScore(data.summary?.score || 0)
-      setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
-    })
   } catch (err) {
     if (err.httpStatus === 403) {
       showToast(err.message || '今日额度已用尽，请明日再来')
@@ -2067,14 +2325,16 @@ const startDivination = async () => {
   }
 }
 
-const animateScore = (targetScore) => {
+const animateScore = (targetScore, fromScore = 0) => {
   if(scoreTimer) clearInterval(scoreTimer)
-  let current = 0
+  let current = fromScore || 0
+  const step = Math.max(Math.abs(targetScore - current) / 40, 0.5)
   scoreTimer = setInterval(() => {
-    current = Math.min(current + (targetScore/60), targetScore)
+    if (current < targetScore) current = Math.min(current + step, targetScore)
+    else if (current > targetScore) current = Math.max(current - step, targetScore)
     const el = document.getElementById('vueScoreValue')
     if (el) el.textContent = String(Math.round(current))
-    if (current >= targetScore) clearInterval(scoreTimer)
+    if (current === targetScore) clearInterval(scoreTimer)
   }, 16)
 }
 
@@ -2153,7 +2413,7 @@ const loadRecord = async (item) => {
     if (data?.qimen_data) item.qimen_data = data.qimen_data
   }
   activeResultRecord.value = item
-  resultHtml.value = buildCardHTML(item.qimen_data)
+  resultHtml.value = applyCardMdBold(buildCardHTML(item.qimen_data))
   activateBaziResultPanel(item.qimen_data)
   viewState.value = 'result'
   nextTick(() => {
@@ -2759,9 +3019,126 @@ const deriveScoreBasisFromM3 = (m3, formations) => {
   } : null
 }
 
-const buildCardHTML = (data) => {
+// ── 流式脚手架：复用真实卡片的 CSS class，保证与最终 buildCardHTML 视觉一致。 ──
+// engine 为 engine_complete 的 engineOutput（可为 null，表示尚未起盘）。
+// 7 个流式散文段以 <span data-wslot="KEY"> 占位，初始为骨架，由 SSE delta 就地打补丁。
+const QIMEN_STREAM_SLOTS = {
+  conclusion: { lines: 3 },
+  subject_reading: { lines: 2 }, target_reading: { lines: 2 }, environment_reading: { lines: 2 },
+  support_summary: { lines: 2 }, constraint_summary: { lines: 2 }, decision_reading: { lines: 2 },
+}
+const buildStreamingScaffoldHTML = (engine = null, statusText = '') => {
+  const sk = (lines = 2) => `<span class="wsk">${'<i></i>'.repeat(lines)}</span>`
+  // 流式槽位：初始骨架，data-wslot 供 DOM 打补丁
+  const slot = (key) => `<span class="wstream-slot" data-wslot="${key}">${sk(QIMEN_STREAM_SLOTS[key]?.lines || 2)}</span>`
+  const chart = engine?.qimen_data || null
+  const palaces = chart?.palaces || []
+  const ju = chart?.ju_info || {}
+  const ts = chart?.timestamp || {}
+  const pillars = chart?.pillars || {}
+  const preScore = engine?.pre_score
+  const vd = (preScore !== undefined && preScore !== null) ? getVerdictInfo(preScore) : null
+  const heroTone = preScore == null ? 'neutral' : preScore < 55 ? 'caution' : preScore < 75 ? 'neutral' : 'auspicious'
+  const THEME = preScore == null ? '#B58D3B' : preScore < 55 ? '#C84A45' : preScore < 75 ? '#B58D3B' : '#0D9488'
+  const THEME_DIM = preScore == null ? 'rgba(181,141,59,0.17)' : preScore < 55 ? 'rgba(200,74,69,0.16)' : preScore < 75 ? 'rgba(181,141,59,0.17)' : 'rgba(13,148,136,0.15)'
+  const question = engine?.question || ''
+
+  // 九宫盘（引擎产物，秒出）
+  let panInnerHTML = ''
+  if (palaces.length) {
+    const isZhiFu = s => s && ju.zhi_fu && s.includes(ju.zhi_fu)
+    const isZhiShi = d => d && ju.zhi_shi && d.includes(ju.zhi_shi)
+    const cells = palaces.map(p => {
+      if (p.is_center) return `<div class="pan-cell"><div class="pan-center-earth">${p.earth || ''}</div></div>`
+      let marks = ''
+      if (p.ma_xing?.has_ma) marks += `<span class="pan-mark mark-ma">马</span>`
+      if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`
+      return `<div class="pan-cell"><div class="pan-god">${p.god || ''}</div><div class="pan-stem stem-sky">${p.sky || ''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${isZhiFu(p.star) ? 'highlight-text' : ''}">${p.star || ''}</div><div class="pan-door ${isZhiShi(p.door) ? 'highlight-text' : ''}">${p.door || ''}</div><div class="pan-stem stem-earth">${p.earth || ''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`
+    }).join('')
+    panInnerHTML = `<div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
+  } else {
+    panInnerHTML = `<div class="pan-skeleton">${sk(1)}<div class="pan-grid">${'<div class="pan-cell"><span class="wsk"><i></i></span></div>'.repeat(9)}</div></div>`
+  }
+
+  // 格局吉凶（引擎产物）
+  const formationTags = engine?.formation_tags || []
+  const formationHTML = formationTags.length
+    ? `<div class="formation-tag-row">${formationTags.map(h => `<span class="formation-tag ${h.type === 'ji' ? 'tag-ji' : 'tag-xiong'}">${h.name}</span>`).join('')}</div>`
+    : (chart ? `<div class="formation-tag-row"><span class="formation-tag tag-neutral">无显著有名格</span></div>` : `<div>${sk(1)}</div>`)
+
+  // 用神选取（symbol/verdict/evidence 来自 data_json，complete 时到，先骨架）
+  const yongshenHTML = `<div class="yongshen-card-grid">${['问测人', '目标事态', '关键环境'].map(label => `<article class="yongshen-card tone-mixed"><div class="yongshen-card-head"><span>${label}</span><strong>—</strong></div>${sk(2)}</article>`).join('')}</div>`
+
+  // 局象推演六段：翻译层 reading 流式；提炼层 summary 流式；制约/支持/环境亦流式
+  const inferCard = (label, symbol, slotKey, cls = '') => `<article class="inference-card tone-mixed ${cls}"><div class="inference-body"><div class="inference-head"><span>${label}</span><strong>${symbol}</strong></div><h4>${slot(slotKey)}</h4></div></article>`
+  const inferenceHTML = `<div class="inference-flow">
+    ${inferCard('求测人状态', '日干', 'subject_reading')}
+    ${inferCard('目标事态', '用神', 'target_reading')}
+    ${inferCard('环境制约', '值使门', 'environment_reading')}
+    <article class="inference-card inference-support tone-positive"><div class="inference-body"><div class="inference-head"><span>有利因素</span></div><h4>${slot('support_summary')}</h4></div></article>
+    <article class="inference-card inference-constraint tone-warning"><div class="inference-body"><div class="inference-head"><span>不利因素</span></div><h4>${slot('constraint_summary')}</h4></div></article>
+    ${inferCard('生克决断', '日干 ↔ 用神', 'decision_reading')}
+  </div>`
+
+  // 开运指南（m4，data_json，complete 到，先骨架）
+  const guidanceHTML = `<div class="guidance-grid">
+    <article class="guidance-card"><div class="guidance-kicker">环境风水</div>${sk(3)}</article>
+    <article class="guidance-card"><div class="guidance-kicker">时空行为</div>${sk(3)}</article>
+  </div>`
+
+  // 行动建议（m1.actions，data_json，complete 到，先一整块大骨架，不分 01/02/03）
+  const actionsHTML = `<div class="mag-action-list"><span class="wsk-block"></span></div>`
+
+  const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
+
+  return `<div class="mag-result tone-${heroTone} wenshi-streaming" style="--theme-color:${THEME};--theme-color-dim:${THEME_DIM};">
+    <section class="mag-hero wenshi-orb-spacer" id="mag-hero"></section>
+
+    <nav class="mag-tabs">
+      <button class="mag-tab mag-tab-active" onclick="${tabClick('mag-m1')}">结论先行</button>
+      <button class="mag-tab" onclick="${tabClick('mag-m2')}">奇门定基</button>
+      <button class="mag-tab" onclick="${tabClick('mag-m3')}">局象推演</button>
+      <button class="mag-tab" onclick="${tabClick('mag-m4')}">开运指南</button>
+      <span class="mag-tab-ink"></span>
+    </nav>
+
+    <section class="mag-section" id="mag-m1">
+      <div class="module-heading"><h2>结论先行</h2></div>
+      ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
+      <div class="report-subtitle">行动建议</div>
+      ${actionsHTML}
+    </section>
+
+    <section class="mag-section" id="mag-m2">
+      <div class="module-heading"><h2>奇门定基</h2></div>
+      ${panInnerHTML ? `<div class="mag-pan-block">${panInnerHTML}</div>` : ''}
+      <div class="report-subtitle">格局吉凶</div>
+      ${formationHTML}
+      <div class="report-subtitle">用神选取</div>
+      ${yongshenHTML}
+    </section>
+
+    <section class="mag-section" id="mag-m3">
+      <div class="module-heading"><h2>局象推演</h2></div>
+      ${inferenceHTML}
+    </section>
+
+    <section class="mag-section" id="mag-m4">
+      <div class="module-heading"><h2>开运指南</h2></div>
+      ${guidanceHTML}
+    </section>
+  </div>`
+}
+
+const buildCardHTML = (data, opts = {}) => {
   // 八字分支：v1 存量记录在进渲染前统一适配到 v2（幂等）
   if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(adaptBaziResultToV2(data))
+
+  // 流式脚手架模式：未到的 LLM 字段渲染成骨架，而不是 fallback 占位文案
+  const streaming = !!opts.streaming
+  const skel = (lines = 2) => `<span class="wsk">${'<i></i>'.repeat(lines)}</span>`
+  // 取值或骨架：streaming 时空值→骨架；非 streaming 时空值→fallback
+  const orSkel = (val, fb = '', lines = 2) => streaming ? (val ? val : skel(lines)) : (val || fb)
 
   data = normalizeQimenCardData(data)
   const report = data.qimen_report || {}
@@ -3107,10 +3484,10 @@ const buildCardHTML = (data) => {
         ${summary.score !== null && summary.score !== undefined ? `<div class="mag-score-inline"><strong id="vueScoreValue">${score}</strong><span>分</span></div>` : ''}
         <div class="mag-hero-tags">
           <span class="mag-verdict-badge mag-verdict-${vd.cls}">${vd.label}</span>
-          <span>${reportM1.keyword || summary.keyword || '本局总判'}</span>
+          <span>${orSkel(reportM1.keyword || summary.keyword, '本局总判', 1)}</span>
         </div>
-        <h1>${reportM1.title || summary.title || '本局断语'}</h1>
-        <p>${reportM1.conclusion || summary.conclusion}</p>
+        <h1>${orSkel(reportM1.title || summary.title, '本局断语', 1)}</h1>
+        <p>${orSkel(reportM1.conclusion || summary.conclusion, '', 3)}</p>
       </div>
     </section>
 
@@ -3794,7 +4171,7 @@ input::placeholder { color: var(--text-muted); }
 .add-bazi-profile-btn:hover { border-color: var(--gold-border); box-shadow: 0 0 0 3px var(--gold-dim); }
 
 /* ── SSE Loader ── */
-#loader { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 28px 0 20px; }
+#loader { display: flex; flex-direction: column; align-items: stretch; gap: 4px; padding: 22px 4px 20px; }
 .bagua-ring-wrap { position: relative; width: 96px; height: 96px; }
 .bagua-ring-wrap::before { content:''; position:absolute; inset:-8px; border-radius:50%; background:radial-gradient(circle, rgba(212,175,55,0.1) 0%, transparent 65%); animation: glow-pulse 4s ease-in-out infinite; pointer-events:none; }
 @keyframes glow-pulse { 0%,100% { opacity:.6; transform:scale(1); } 50% { opacity:1; transform:scale(1.18); } }
@@ -3859,6 +4236,121 @@ input::placeholder { color: var(--text-muted); }
 .sse-progress-track { flex:1; height:1.5px; background:var(--line); border-radius:2px; overflow:hidden; }
 .sse-progress-fill { height:100%; background:linear-gradient(90deg,var(--gold),var(--gold-light)); border-radius:2px; box-shadow:0 0 5px rgba(212,175,55,.32); transition:width .7s cubic-bezier(0.4,0,0.2,1); }
 .sse-progress-pct { font-family:var(--font-serif); font-size:10.5px; color:rgba(212,175,55,.52); letter-spacing:.04em; min-width:28px; text-align:right; }
+
+/* ── wenshi streaming area ── */
+.wenshi-engine-result { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); }
+.wenshi-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.wenshi-tag { font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid rgba(201,166,107,0.35); color: var(--gold-light); background: rgba(201,166,107,0.08); letter-spacing: .04em; transition: opacity 0.3s; }
+.wenshi-tag.score-pending { animation: wenShiScorePulse 1.6s ease-in-out infinite; }
+@keyframes wenShiScorePulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+.wenshi-tags-skeleton { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.wenshi-tags-skeleton i { display: block; height: 20px; border-radius: 999px; background: linear-gradient(90deg, rgba(201,166,107,0.10), rgba(201,166,107,0.24), rgba(201,166,107,0.10)); background-size: 220% 100%; animation: wenShiSkeletonPulse 1.4s ease-in-out infinite; }
+.wenshi-llm-skeleton { display: grid; gap: 7px; margin-top: 14px; }
+.wenshi-llm-skeleton i { display: block; height: 10px; border-radius: 999px; background: linear-gradient(90deg, rgba(201,166,107,0.12), rgba(201,166,107,0.28), rgba(201,166,107,0.12)); background-size: 220% 100%; animation: wenShiSkeletonPulse 1.4s ease-in-out infinite; }
+@keyframes wenShiSkeletonPulse { 0% { background-position: 0% 50%; } 100% { background-position: -220% 50%; } }
+.wenshi-stream-prose { margin-top: 12px; font-size: 13.5px; line-height: 1.9; color: var(--text); white-space: pre-wrap; }
+.wenshi-stream-prose.streaming { border-left: 2px solid rgba(201,166,107,0.38); padding-left: 10px; }
+
+/* ── 流式脚手架：骨架 + 流式槽位 + 进场动画（浅色卡片用灰色微光骨架）── */
+:deep(.wsk) { display: block; }
+:deep(.wsk i) { display: block; height: 13px; margin: 9px 0; border-radius: 8px;
+  background: linear-gradient(90deg, rgba(40,32,22,0.07), rgba(40,32,22,0.14), rgba(40,32,22,0.07));
+  background-size: 220% 100%; animation: wenShiSkeletonPulse 1.3s ease-in-out infinite; }
+:deep(.wsk i:nth-child(1)){ width: 92% } :deep(.wsk i:nth-child(2)){ width: 78% } :deep(.wsk i:nth-child(3)){ width: 60% }
+/* 大骨架块（如行动建议整块） */
+:deep(.wsk-block) { display: block; height: 96px; border-radius: 14px; margin: 4px 0 2px;
+  background: linear-gradient(90deg, rgba(40,32,22,0.06), rgba(40,32,22,0.13), rgba(40,32,22,0.06));
+  background-size: 220% 100%; animation: wenShiSkeletonPulse 1.3s ease-in-out infinite; }
+:deep(.wstream-slot) { display: block; }
+:deep(.wstream-slot.wstream-active::after) { content: "▍"; color: var(--theme-color, #b58d3b); margin-left: 1px; animation: wenShiCaret .9s steps(1) infinite; }
+@keyframes wenShiCaret { 50% { opacity: 0 } }
+:deep(.pan-skeleton .pan-grid .pan-cell) { display:flex; align-items:center; justify-content:center; }
+:deep(.pan-skeleton .wsk i) { width: 60%; height: 40%; margin: 0; }
+/* 进场：提交后切到结果页的卡片淡入上移 */
+.html-container :deep(.wenshi-streaming) { animation: wenShiCardIn .5s cubic-bezier(.22,.61,.36,1); }
+@keyframes wenShiCardIn { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+
+/* ── 流式态 → 终态 的交叉淡入过渡（避免硬切突兀）── */
+/* 终态覆盖层：在脚手架之上淡入，盖满后底层无声替换，全程底层不空 */
+.result-wrapper{ position: relative; }
+.result-overlay{ position: absolute; top: 0; left: 0; right: 0; z-index: 3; }
+.ov-fade-enter-active{ transition: opacity .6s ease; }
+.ov-fade-enter-from{ opacity: 0; }
+/* 离场瞬时移除（此时底层已是相同终态，无感知） */
+.ov-fade-leave-active{ transition: none; }
+.ov-fade-leave-to{ opacity: 1; }
+
+/* ── 持久能量球覆盖层（覆盖 hero 区，卡片切换不销毁）── */
+.html-container{ position:relative; z-index:2; }
+/* scaffold/终态卡片的 hero 背景透明，让下面的能量球层透出来 */
+:deep(.wenshi-streaming .mag-hero), :deep(.wenshi-orb-mode .mag-hero){ background:transparent !important; }
+:deep(.wenshi-orb-spacer){ background:transparent !important; }
+.wenshi-orb-fx{ position:absolute; top:0; left:0; right:0; height:min(44svh,430px); z-index:1;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; gap:22px;
+  overflow:hidden; background:#f6f3ec; }
+/* isolation 让 screen 混合只在球内生效，避免与页面混合造成闪烁 */
+:deep(.wenshi-orb){ position:relative; width:200px; height:200px; border-radius:50%; isolation:isolate; transform:translateZ(0); transition:transform 1.7s cubic-bezier(.25,.1,.25,1); }
+:deep(.wenshi-orb-layers){ position:absolute; inset:0; border-radius:50%;
+  -webkit-mask:radial-gradient(circle at 50% 50%, #000 30%, rgba(0,0,0,.82) 50%, rgba(0,0,0,.5) 66%, rgba(0,0,0,.2) 82%, transparent 100%);
+  mask:radial-gradient(circle at 50% 50%, #000 30%, rgba(0,0,0,.82) 50%, rgba(0,0,0,.5) 66%, rgba(0,0,0,.2) 82%, transparent 100%);
+  animation:woPulse 4s ease-in-out infinite; will-change:transform; transform:translateZ(0); backface-visibility:hidden; }
+:deep(.wo-satin){ position:absolute; inset:-18%; border-radius:50%;
+  background:conic-gradient(from 0deg,#bfe3f2,#8fcbe8,#e3f3fb,#a6d8ef,#cfe8f5,#9ed3ec,#bfe3f2);
+  filter:blur(16px) hue-rotate(0deg); animation:woHue 9s linear infinite, woBreathe 5s ease-in-out infinite;
+  will-change:transform,filter; transform:translateZ(0); backface-visibility:hidden; }
+:deep(.wo-ray){ position:absolute; inset:0; border-radius:50%; mix-blend-mode:screen; transform-origin:50% 50%; opacity:0; will-change:transform,opacity; backface-visibility:hidden;
+  -webkit-mask:radial-gradient(circle at 50% 50%, #000 0%, rgba(0,0,0,.7) 40%, transparent 82%);
+  mask:radial-gradient(circle at 50% 50%, #000 0%, rgba(0,0,0,.7) 40%, transparent 82%); }
+:deep(.wo-ray.r1){ background:conic-gradient(from 0deg,
+  transparent 0deg,#fff 5deg,transparent 12deg, transparent 34deg,rgba(255,255,255,.6) 41deg,transparent 50deg,
+  transparent 80deg,#fff 90deg,transparent 99deg, transparent 126deg,rgba(255,255,255,.5) 132deg,transparent 140deg,
+  transparent 168deg,#fff 180deg,transparent 191deg, transparent 222deg,rgba(255,255,255,.66) 230deg,transparent 240deg,
+  transparent 276deg,#fff 287deg,transparent 297deg, transparent 330deg,rgba(255,255,255,.55) 338deg,transparent 347deg,
+  transparent 360deg); filter:blur(1.4px); animation:woEmit 2.1s ease-out infinite; }
+:deep(.wo-ray.r2){ background:conic-gradient(from 33deg,
+  transparent 0deg,rgba(255,255,255,.85) 8deg,transparent 18deg, transparent 50deg,#fff 60deg,transparent 70deg,
+  transparent 104deg,rgba(255,255,255,.55) 112deg,transparent 120deg, transparent 152deg,rgba(255,255,255,.8) 164deg,transparent 176deg,
+  transparent 208deg,#fff 217deg,transparent 228deg, transparent 262deg,rgba(255,255,255,.6) 271deg,transparent 281deg,
+  transparent 316deg,rgba(255,255,255,.85) 326deg,transparent 337deg, transparent 360deg); filter:blur(3px); animation:woEmit 2.1s ease-out infinite .7s; }
+:deep(.wo-ray.r3){ background:conic-gradient(from 71deg,
+  transparent 0deg,#fff 7deg,transparent 16deg, transparent 60deg,rgba(255,255,255,.6) 70deg,transparent 80deg,
+  transparent 120deg,rgba(255,255,255,.85) 132deg,transparent 144deg, transparent 188deg,#fff 198deg,transparent 209deg,
+  transparent 250deg,rgba(255,255,255,.55) 259deg,transparent 269deg, transparent 305deg,#fff 316deg,transparent 327deg,
+  transparent 360deg); filter:blur(2px); animation:woEmit 2.1s ease-out infinite 1.4s; }
+:deep(.wo-wave){ position:absolute; inset:0; border-radius:50%; border:1.5px solid rgba(255,255,255,.7); opacity:0;
+  -webkit-mask:radial-gradient(circle,#000 60%,transparent 80%); mask:radial-gradient(circle,#000 60%,transparent 80%); }
+:deep(.wo-wave.w1){ animation:woEmit 2.1s ease-out infinite .35s; }
+:deep(.wo-wave.w2){ animation:woEmit 2.1s ease-out infinite 1.4s; }
+:deep(.wo-core){ position:absolute; width:46px; height:46px; left:77px; top:77px; border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,1) 0%,rgba(255,255,255,.85) 22%,rgba(255,255,255,.3) 48%,transparent 72%);
+  filter:blur(1.5px); animation:woCore 1.3s ease-in-out infinite; }
+:deep(.wo-shade){ position:absolute; inset:0; border-radius:50%; background:radial-gradient(circle at 40% 32%,rgba(255,255,255,.4),transparent 55%); }
+:deep(.wenshi-orb-status){ display:flex; align-items:center; gap:2px; font-size:14px; color:var(--muted, #8b8167); letter-spacing:.05em; }
+:deep(.wenshi-orb-status .dots){ width:14px; text-align:left; }
+:deep(.wenshi-orb-status .dots::after){ content:""; animation:woDots 1.4s steps(4,end) infinite; }
+@keyframes woDots{ 0%{content:""} 25%{content:"·"} 50%{content:"··"} 75%{content:"···"} 100%{content:""} }
+@keyframes woHue{ to{ filter:blur(16px) hue-rotate(360deg) } }
+@keyframes woBreathe{ 0%,100%{ transform:scale(.94) } 50%{ transform:scale(1.06) } }
+@keyframes woPulse{ 0%,100%{ transform:scale(.93) } 50%{ transform:scale(1.06) } }
+@keyframes woEmit{ 0%{ transform:scale(.18); opacity:0 } 15%{ opacity:1 } 100%{ transform:scale(1.25); opacity:0 } }
+@keyframes woCore{ 0%,100%{ transform:scale(.8); opacity:.85 } 50%{ transform:scale(1.2); opacity:1 } }
+/* 终态色球：中心镂空的“光环”，膨胀时中心透出 hero 底色，与 hero 渐变（中心淡、四周有光晕）无缝对接。
+   颜色取自 hero 主题色。默认透明，定格时淡入并随 wrapper 放大化开。 */
+:deep(.wo-final){ position:absolute; inset:0; border-radius:50%; opacity:0; filter:blur(14px);
+  -webkit-mask:radial-gradient(circle at 50% 50%, transparent 0%, transparent 14%, rgba(0,0,0,.55) 38%, #000 52%, rgba(0,0,0,.45) 70%, transparent 96%);
+  mask:radial-gradient(circle at 50% 50%, transparent 0%, transparent 14%, rgba(0,0,0,.55) 38%, #000 52%, rgba(0,0,0,.45) 70%, transparent 96%);
+  transition:opacity 1.4s ease, filter 1.6s ease; }
+/* 日间：hero 主题光晕色（gold/teal/red）→ 透明 */
+.wenshi-orb-fx.wo-tone-gold .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(212,175,55,.85), rgba(181,141,59,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-teal .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(13,148,136,.85), rgba(13,148,136,.45) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-warn .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(200,74,69,.85), rgba(150,30,30,.5) 60%, transparent 100%); }
+
+/* 定格过渡：球大幅放大到“球体不可见” + 模糊化开成 hero 渐变光晕（再由终态卡片自带渐变接管）*/
+.wenshi-orb-fx.settling .wenshi-orb{ transform:scale(4.4) translateZ(0); }
+.wenshi-orb-fx.settling .wenshi-orb-layers{ opacity:0; transition:opacity 1s ease; }
+/* 边缘溶解更深：更大模糊，化到接近 hero 渐变的柔散度 */
+.wenshi-orb-fx.settling .wo-final{ opacity:1; filter:blur(78px); }
+.wenshi-orb-fx.settling .wenshi-orb-status{ opacity:0; transition:opacity .4s ease; }
 
 .result-actions { display: grid; grid-template-columns: minmax(0,1fr) auto auto; gap: 10px; margin-top: 16px; align-items: center; }
 .reset-btn { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 50px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 14px; color: var(--text-muted); font-size: 13px; cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
@@ -5156,4 +5648,17 @@ input::placeholder { color: var(--text-muted); }
   background: linear-gradient(135deg, #8B6914 0%, #D4AF37 60%, #8B6914 100%);
   color: #1a1000;
 }
+/* ── 暗色：流式能量球 + 骨架 ── */
+[data-theme="dark"] .wenshi-orb-fx { background: #06060d; }
+[data-theme="dark"] .wenshi-orb-status { color: rgba(232,228,220,0.62); }
+[data-theme="dark"] .wsk i,
+[data-theme="dark"] .wsk-block {
+  background: linear-gradient(90deg, rgba(201,166,107,0.08), rgba(201,166,107,0.22), rgba(201,166,107,0.08));
+  background-size: 220% 100%;
+}
+/* 暗色：加载能量球用 hero 暖金主题色（替换偏蓝），并整体压暗，深底上不突兀 */
+[data-theme="dark"] .wenshi-orb-layers { filter: brightness(0.62) saturate(1.2); }
+[data-theme="dark"] .wo-satin { background: conic-gradient(from 0deg, #d4af37, #b58d3b, #8a6c2c, #c9a66b, #9c7d3a, #b58d3b, #d4af37); }
+[data-theme="dark"] .wo-shade { background: radial-gradient(circle at 38% 30%, rgba(255,255,255,0.26), transparent 50%); }
+/* 终态环：暗色沿用共享主题色（gold/teal/red 光晕，中心透出深底），无需单独配色 */
 </style>

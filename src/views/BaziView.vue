@@ -1351,9 +1351,7 @@ const renameProfileById = (id) => {
 }
 const deleteProfileById = async (id) => {
     swipedProfileId.value = null
-    selectedProfileId.value = id
-    setSelectedBaziProfileId(id)
-    await deleteProfile()
+    await deleteProfile(id)
 }
 const showGuestLoginGuide = ref(false)
 const isAnalyzing = ref(false)
@@ -3502,14 +3500,15 @@ const setDefaultProfile = async () => {
     }
 }
 
-const deleteProfile = async () => {
-    if (selectedProfileId.value && confirm("确认删除该档案？")) { 
-        const deletedId = selectedProfileId.value
-        await supabase.from('bazi_profiles').delete().eq('id', deletedId)
-        baziProfiles.value = baziProfiles.value.filter(profile => profile.id !== deletedId)
-        const nextProfileId = resolveSelectedBaziProfileId(baziProfiles.value)
+const deleteProfile = async (idOverride) => {
+    const deletedId = idOverride || selectedProfileId.value
+    if (deletedId && confirm("确认删除该档案？")) {
+        const nextList = baziProfiles.value.filter(profile => profile.id !== deletedId)
+        const nextProfileId = resolveSelectedBaziProfileId(nextList)
         selectedProfileId.value = nextProfileId
         setSelectedBaziProfileId(nextProfileId)
+        baziProfiles.value = nextList
+        await supabase.from('bazi_profiles').delete().eq('id', deletedId)
         clearBaziProfilesCache()
         await fetchProfiles()
     }
