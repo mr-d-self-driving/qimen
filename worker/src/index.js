@@ -1304,6 +1304,7 @@ async function handleBaziQuestion(request, env) {
     const outputWithSnapshot = {
       ...output,
       llmText: llmFullText,
+      favorable_element: _favEl,
       subject_snapshot,
       five_shens,
       ...(pipelineResult ? {

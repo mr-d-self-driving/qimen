@@ -1463,7 +1463,7 @@ const MOCK_BAZI = (() => {
     },
     rhythm:{ segments:[{ period:'壬戌运 2022-2031', dayun_shishen:'伤官', phenomenon:'枭神夺食、思路活跃但根基不稳', strategy:'固本培元、借印生身', key_liunians:[{ year:2026, gz:'丙午', shishen:'正财', note:'财运催动窗口' }] }] },
     action_guide:{ text:sections[5][1], items:['规避：身弱时勿重仓投资','借势：借印星贵人帮扶','节奏：丙午年小步试探，2033年后再扩张'] },
-    subject_snapshot, five_shens:null, question,
+    favorable_element:'水', subject_snapshot, five_shens:null, question,
   }
   return { engineOutput, sections, result }
 })()
@@ -2763,10 +2763,12 @@ const buildBaziQuestionCardHTML = (data) => {
   const question = data.question || ''
   const targetLabel = concreteTargetLabel(data)
 
-  const lvl = summary.level || 'unknown'
-  const heroTone = lvl === 'strong' ? 'auspicious' : lvl === 'weak' ? 'caution' : 'neutral'
-  const THEME    = heroTone === 'auspicious' ? '#0D9488' : heroTone === 'caution' ? '#C84A45' : '#B58D3B'
-  const THEME_DIM= heroTone === 'auspicious' ? 'rgba(13,148,136,0.15)' : heroTone === 'caution' ? 'rgba(200,74,69,0.16)' : 'rgba(181,141,59,0.17)'
+  // 八字无分数：hero 定格色 = 喜用神五行色（与加载态能量球同色，溶解交接无色差）
+  const _favEl = data.favorable_element || wenShiEngineResult.value?.favorable_element || ''
+  const _et = baziElementTone(_favEl)
+  const heroTone = _et.tone          // wood / fire / earth / metal / water
+  const THEME    = _et.THEME
+  const THEME_DIM= _et.DIM
 
   const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
@@ -5154,6 +5156,37 @@ input::placeholder { color: var(--text-muted); }
     radial-gradient(ellipse 55% 48% at 0% 104%, rgba(200,74,69,0.20), transparent),
     linear-gradient(175deg, rgba(255,228,226,0.96), rgba(247,244,238,1.0));
 }
+/* 八字喜用神五行 hero 定格色（与能量球终态同色，溶解交接无色差） */
+:deep(.tone-wood .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(47,157,110,0.40), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(47,157,110,0.20), transparent),
+    linear-gradient(175deg, rgba(214,244,231,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-fire .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(200,74,69,0.20), transparent),
+    linear-gradient(175deg, rgba(255,228,226,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-earth .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(181,141,59,0.45), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(181,141,59,0.22), transparent),
+    linear-gradient(175deg, rgba(255,244,210,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-metal .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(189,161,90,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(189,161,90,0.20), transparent),
+    linear-gradient(175deg, rgba(248,242,222,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-water .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(58,110,165,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(58,110,165,0.20), transparent),
+    linear-gradient(175deg, rgba(220,232,246,0.96), rgba(247,244,238,1.0));
+}
 :deep(.mag-hero-panel) {
   position: relative;
   display: flex;
@@ -5814,6 +5847,37 @@ input::placeholder { color: var(--text-muted); }
     radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.72), transparent),
     radial-gradient(ellipse 55% 48% at 0% 104%, rgba(150,30,30,0.38), transparent),
     linear-gradient(175deg, rgba(40,4,4,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+/* 八字喜用神五行 hero 定格色（暗色） */
+[data-theme="dark"] .tone-wood .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(47,157,110,0.62), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(47,157,110,0.28), transparent),
+    linear-gradient(175deg, rgba(2,24,16,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-fire .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.72), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(150,30,30,0.38), transparent),
+    linear-gradient(175deg, rgba(40,4,4,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-earth .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(212,175,55,0.62), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(181,141,59,0.28), transparent),
+    linear-gradient(175deg, rgba(24,18,2,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-metal .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(220,205,160,0.60), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(189,161,90,0.28), transparent),
+    linear-gradient(175deg, rgba(22,20,8,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-water .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(58,110,165,0.68), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(58,110,165,0.32), transparent),
+    linear-gradient(175deg, rgba(2,12,28,0.97) 0%, rgba(5,5,10,1.0) 100%);
 }
 [data-theme="dark"] .mag-tabs {
   background: var(--header-bg);
