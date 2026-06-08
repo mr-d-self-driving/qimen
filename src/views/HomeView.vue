@@ -1435,14 +1435,22 @@ if (typeof window !== 'undefined') window.__mockQimen = runQimenMock
 // ── 开发用：八字流式 mock（status 模式，生产形态数据，走真实代码路径，不调 API）──
 // ── 5 mode mock 样本（走真实代码路径；字段结构对齐 buildReadingsSchema / normalizeBaziQuestionOutput） ──
 const MOCK_BAZI_MODES = (() => {
-  const snap = () => ({ name:'测试命主', gender:'男', birth_date:'1998-07-26', strong_weak:'身弱', geju:'正财格', pillars:[['戊','寅'],['己','未'],['甲','戌'],['癸','酉']] })
+  // 命主四柱（对象形态，与真实 worker subject_snapshot.pillars 同构，供 BaziStaticPanel 渲染）
+  const PILLARS = [
+    { name:'年', gan:'戊', zhi:'寅', hidden_stems:['甲','丙','戊'], is_kong:false },
+    { name:'月', gan:'己', zhi:'未', hidden_stems:['己','丁','乙'], is_kong:false },
+    { name:'日', gan:'甲', zhi:'戌', hidden_stems:['戊','辛','丁'], is_kong:false },
+    { name:'时', gan:'癸', zhi:'酉', hidden_stems:['辛'],          is_kong:false },
+  ]
+  const snap = () => ({ name:'测试命主', gender:'男', birth_date:'1998-07-26', strong_weak:'身弱', geju:'正财格', profile_id:'mock', pillars:PILLARS })
   const mk = (mode, favEl, question, tags, sections, summary, readings, extra = {}) => {
     const subject_snapshot = snap()
     return {
       engineOutput: {
-        branch:'bazi', analysis_mode:mode, favorable_element:favEl, question,
-        tags, stateReport:null, dynamicReport:null, targetSpec:null, timingCandidates:[],
-        subject_snapshot, five_shens:null,
+        branch:'bazi', analysis_mode:mode, category:extra.category||'general', subcategory:extra.subcategory||'general',
+        favorable_element:favEl, question,
+        tags, stateReport:extra.stateReport??null, dynamicReport:extra.dynamicReport??null, targetSpec:extra.targetSpec??null, timingCandidates:extra.timingCandidates??[],
+        subject_snapshot, five_shens:extra.five_shens??null,
       },
       sections,
       result: {
@@ -1453,10 +1461,28 @@ const MOCK_BAZI_MODES = (() => {
         readings,
         rhythm:extra.rhythm||{ segments:[] },
         action_guide:extra.action_guide||{ text:'', items:[] },
-        favorable_element:favEl, subject_snapshot, five_shens:null, question,
+        state_report:extra.stateReport??null, target_spec:extra.targetSpec??null, dynamic_report:extra.dynamicReport??null, timing_candidates:extra.timingCandidates??[],
+        favorable_element:favEl, subject_snapshot, five_shens:extra.five_shens??null, question,
       },
     }
   }
+  // 复用的引擎产物（命局解读面板：BaziStaticPanel）——简化但结构合法
+  const STATUS_STATE_REPORT = {
+    shishen_assessments: [
+      { shishen:'财', pillar:'月', position:'hidden', gan:'己', zhi:'未', element:'土', twelve_phase:'墓', phase_score:1, vigor:0.35, is_kong:false, is_in_tomb:true, gaitou_jiejiao:'neutral', relationships:[], status_tags:['财库','当令'], verdict:'正财藏未库，当令有气但入墓，财真而难现' },
+      { shishen:'财', pillar:'日', position:'hidden', gan:'戊', zhi:'戌', element:'土', twelve_phase:'养', phase_score:2, vigor:0.42, is_kong:false, is_in_tomb:false, gaitou_jiejiao:'same', relationships:[], status_tags:['坐财','得地'], verdict:'日支戌藏戊土偏财，财坐妻宫，根基真实' },
+    ],
+    gongwei_assessments: [{ gongwei:'日支', pillar_name:'日', zhi:'戌', element:'土', twelve_phase_for_dayStem:'养', vigor:0.42, is_kong:false, seat_shishen:'财', seat_element:'土', is_correct_star:true, is_hostile_occupied:false, is_tomb_for_target:false, relationships:[], status_tags:['星宫得正'], verdict:'日支（戌）藏财得正，妻财居本位，唯日主身弱难全驭' }],
+    extra_checks: [],
+    overall_stability: 'stable',
+    stability_label: '相对稳固',
+    base_state: '正财藏未库当令、戌中偏财得地；日主甲木无强根偏弱',
+    favorable_wuxing: ['水','木'],
+    unfavorable_wuxing: ['火','土'],
+    geju: '正财格（月令未中己土正财当令）',
+    tiaohou: '未月土旺木弱，调候喜水润木，忌火土再燥',
+  }
+  const STATUS_TARGET_SPEC = { primary_shishen:['正财'], primary_gongwei:['日支'], analysis_mode:'status', anchor_kind:'shishen', analysis_question:'以正财为目标十神，评估财源真实度与命主驭财能力' }
 
   // ── status：财运（喜用神 水 → 蓝） ──
   const status = mk('status', '水', '近10年财运如何',
@@ -1478,6 +1504,7 @@ const MOCK_BAZI_MODES = (() => {
     },
     {
       category:'wealth', subcategory:'general_wealth', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      stateReport:STATUS_STATE_REPORT, targetSpec:STATUS_TARGET_SPEC,
       key_signals:[{ title:'正财透月干，财旺身弱', reading:'财气旺而日主辛弱，机会多但承接力不足，需先固本再图进取。' }],
       rhythm:{ segments:[{ period:'壬戌运 2022-2031', dayun_shishen:'伤官', phenomenon:'枭神夺食、思路活跃但根基不稳', strategy:'固本培元、借印生身', key_liunians:[{ year:2026, gz:'丙午', shishen:'正财', note:'财运催动窗口' }] }] },
       action_guide:{ text:'总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。', items:['规避：身弱时勿重仓投资','借势：借印星贵人帮扶','节奏：丙午年小步试探，2033年后再扩张'] },
@@ -1629,7 +1656,6 @@ async function runBaziMock(mode = 'status') {
     if (wenShiStreaming.value) await settleOrbToResult(data)
     wenShiStreaming.value = false
     activeResultRecord.value = null
-    activateBaziResultPanel(data)
     const finalCard = applyCardMdBold(buildCardHTML(data))
     finalOverlayHtml.value = finalCard
     await nextTick()
@@ -1638,6 +1664,8 @@ async function runBaziMock(mode = 'status') {
     await new Promise(r => setTimeout(r, 700))
     resultHtml.value = finalCard
     await nextTick()
+    // 终态卡片成为底层后再用完整数据重挂面板（teleport 重解析到终态锚点）
+    activateBaziResultPanel(data)
     document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
     initMagTabInk()
     finalOverlayHtml.value = ''
@@ -1740,6 +1768,9 @@ async function readSSEStream(response) {
             resultHtml.value = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
             viewState.value = 'result'
           }
+          // 引擎产物先行：LLM 流式之前先把命局解读面板挂到脚手架锚点
+          await nextTick()
+          activateBaziResultPanel(baziEngineToPanelData(eo))
         }
       } else if (event.type === 'active') {
         sseActiveIndex.value = event.index
@@ -2378,6 +2409,22 @@ function adaptBaziResultToV2(data) {
   }
 }
 
+// engine_complete 的 engineOutput（camelCase 引擎字段）→ activateBaziResultPanel 所需结构，
+// 让命局解读面板在 LLM 流式之前就先行挂载（引擎产物先上屏）。
+const baziEngineToPanelData = (eo = {}) => ({
+  branch: 'bazi',
+  meta: { analysis_mode: eo.analysis_mode || 'status', category: eo.category || '', subcategory: eo.subcategory || '' },
+  state_report: eo.stateReport ?? null,
+  target_spec: eo.targetSpec ?? null,
+  dynamic_report: eo.dynamicReport ?? null,
+  timing_candidates: eo.timingCandidates ?? [],
+  subject_snapshot: eo.subject_snapshot ?? null,
+  five_shens: eo.five_shens ?? null,
+  favorable_element: eo.favorable_element || '',
+  question: eo.question || '',
+  summary: {}, readings: {}, action_guide: {},
+})
+
 const activateBaziResultPanel = (data) => {
   showBaziBackingAnchor.value = false
   showBaziPanelAnchor.value = false
@@ -2500,7 +2547,6 @@ const startDivination = async () => {
       wenShiStreaming.value = false
       const savedRecord = await saveRecordToDatabase(input, data)
       activeResultRecord.value = savedRecord
-      activateBaziResultPanel(data)
       const finalCard = applyCardMdBold(buildCardHTML(data))
       finalOverlayHtml.value = finalCard
       await nextTick()
@@ -2509,6 +2555,8 @@ const startDivination = async () => {
       await new Promise(r => setTimeout(r, 700))
       resultHtml.value = finalCard
       await nextTick()
+      // 终态卡片成为底层后再用完整数据重挂面板（teleport 重解析到终态锚点）
+      activateBaziResultPanel(data)
       document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
       initMagTabInk()
       finalOverlayHtml.value = ''
@@ -3309,8 +3357,8 @@ const buildBaziStreamingScaffoldHTML = (engine = null, statusText = '') => {
     </section>
     <section class="mag-section" id="bazi-m2">
       <div class="module-heading"><h2>命局解读</h2></div>
+      <div id="bazi-panel-anchor" class="bazi-panel-anchor"></div>
       <div class="bazi-foundation-block"><p>${slot('base_foundation')}</p></div>
-      <div class="report-subtitle">命局现象</div>${sk(3)}
     </section>
     <section class="mag-section" id="bazi-m3">
       <div class="module-heading"><h2>深度推演</h2></div>

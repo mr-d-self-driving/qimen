@@ -1224,6 +1224,8 @@ async function handleBaziQuestion(request, env) {
       engineOutput: {
         branch: 'bazi',
         analysis_mode: semanticRoute.analysis_mode || 'status',
+        category: semanticRoute.category || '',
+        subcategory: semanticRoute.subcategory || '',
         favorable_element: _favEl,
         question,
         tags: [
