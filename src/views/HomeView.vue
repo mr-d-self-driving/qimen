@@ -1264,8 +1264,11 @@ function patchOrbStatus(text) {
 // 完成时：能量球缓慢膨胀填满 hero + 变分数色 + 定格（同一 DOM，不重建，丝滑无断档）
 function settleOrbToResult(data) {
   return new Promise(resolve => {
-    const score = data?.summary?.score ?? data?.qimen_report?.m1_conclusion?.score ?? 0
-    orbTone.value = 'wo-tone-' + (score < 55 ? 'warn' : score < 75 ? 'gold' : 'teal')
+    if (data?.branch !== 'bazi') {
+      // 奇门：按分数取色（八字 orbTone 已在 engine_complete 设为喜用神五行色，不覆盖）
+      const score = data?.summary?.score ?? data?.qimen_report?.m1_conclusion?.score ?? 0
+      orbTone.value = 'wo-tone-' + (score < 55 ? 'warn' : score < 75 ? 'gold' : 'teal')
+    }
     orbSettling.value = true
     setTimeout(resolve, 900) // 膨胀进行中即可切入卡片正文（hero 透明，球持续膨胀到定格）
   })
@@ -1491,20 +1494,33 @@ async function readSSEStream(response) {
       } else if (event.type === 'engine_complete') {
         wenShiEngineResult.value = event.engineOutput
         ssePct.value = event.pct
-        if (event.engineOutput?.branch === 'qimen') {
+        const eo = event.engineOutput
+        if (eo?.branch === 'qimen') {
           wenShiStreaming.value = true
           for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
-          patchOrbStatus(`初分 ${event.engineOutput.pre_score} · 深度推演`)
+          patchOrbStatus(`初分 ${eo.pre_score} · 深度推演`)
           const root = document.querySelector('.html-container .wenshi-streaming')
           if (root) {
             // 已在脚手架中：只就地补丁「奇门定基」(盘面/格局)，保留能量球 DOM，避免重建闪动
             const fresh = document.createElement('div')
-            fresh.innerHTML = buildStreamingScaffoldHTML(event.engineOutput, wenShiStatus.value)
+            fresh.innerHTML = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
             const a = fresh.querySelector('#mag-m2'), b = root.querySelector('#mag-m2')
             if (a && b) b.innerHTML = a.innerHTML
           } else {
             resultPhase.value = 'stream'
-            resultHtml.value = buildStreamingScaffoldHTML(event.engineOutput, wenShiStatus.value)
+            resultHtml.value = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
+            viewState.value = 'result'
+          }
+        } else if (eo?.branch === 'bazi') {
+          // 八字：无分数，能量球定格用喜用神五行色
+          wenShiStreaming.value = true
+          for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
+          orbTone.value = 'wo-tone-' + baziElementTone(eo.favorable_element).tone
+          patchOrbStatus('深度推演中')
+          // 兜底：若尚未是 bazi 脚手架，切过去
+          if (!document.querySelector('.html-container #bazi-hero')) {
+            resultPhase.value = 'stream'
+            resultHtml.value = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
             viewState.value = 'result'
           }
         }
@@ -2227,18 +2243,20 @@ const startDivination = async () => {
     ssePct.value = 10
 
     if (routeData.branch === 'bazi') {
-      // 八字分支暂仍用旧加载页（脚手架待后续接入）
-      wenShiStreaming.value = false
-      showOrbFx.value = false
-      viewState.value = 'loading'
       if (!baziProfiles.value.length) await fetchBaziProfiles()
       const profileId = selectedProfileId.value || baziProfiles.value.find(p => p.is_default)?.id || baziProfiles.value[0]?.id || ''
       if (!profileId) {
+        showOrbFx.value = false; wenShiStreaming.value = false; viewState.value = 'input'
         alert('这个问题需要八字档案才能分析，请先进入八字页建立命主资料。')
         router.push({ name: 'bazi', query: { question: input } })
         return
       }
       selectedProfileId.value = profileId
+      // 切到八字能量球脚手架（喜用神五行色在 engine_complete 设）
+      resultPhase.value = 'stream'
+      resultHtml.value = buildStreamingScaffoldHTML({ branch: 'bazi' }, wenShiStatus.value)
+      viewState.value = 'result'
+      await nextTick(); initMagTabInk()
 
       const response = await fetch(BAZI_QUESTION_API_URL, {
         method: 'POST',
@@ -2248,6 +2266,7 @@ const startDivination = async () => {
       if (!response.ok) {
         const errData = await response.json()
         if (errData.code === 'BAZI_PROFILE_INCOMPLETE') {
+          showOrbFx.value = false; wenShiStreaming.value = false; viewState.value = 'input'
           alert('该档案还没有完整排盘数据，请先进入八字页完成命盘推演。')
           router.push({ name: 'bazi', query: { profileId, question: input } })
           return
@@ -2257,16 +2276,25 @@ const startDivination = async () => {
         throw err
       }
       const data = await readSSEStream(response)
+      // 能量球收敛（五行色已设）→ 终态卡片作覆盖层无缝切换
+      if (wenShiStreaming.value) await settleOrbToResult(data)
+      wenShiStreaming.value = false
       const savedRecord = await saveRecordToDatabase(input, data)
       activeResultRecord.value = savedRecord
-      resultHtml.value = applyCardMdBold(buildCardHTML(data))
       activateBaziResultPanel(data)
+      const finalCard = applyCardMdBold(buildCardHTML(data))
+      finalOverlayHtml.value = finalCard
+      await nextTick()
+      initMagTabInk()
+      setTimeout(() => document.querySelectorAll('.result-overlay .reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 300)
+      await new Promise(r => setTimeout(r, 700))
+      resultHtml.value = finalCard
+      await nextTick()
+      document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+      initMagTabInk()
+      finalOverlayHtml.value = ''
+      showOrbFx.value = false
       viewState.value = 'result'
-      nextTick(() => {
-        initMagTabInk()
-        if (!(data.branch === 'bazi' && data.meta?.analysis_mode)) animateScore(data.summary?.score || 0)
-        setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
-      })
       return
     }
 
@@ -3027,7 +3055,56 @@ const QIMEN_STREAM_SLOTS = {
   subject_reading: { lines: 2 }, target_reading: { lines: 2 }, environment_reading: { lines: 2 },
   support_summary: { lines: 2 }, constraint_summary: { lines: 2 }, decision_reading: { lines: 2 },
 }
+// 喜用神五行 → 能量球/卡片色档（八字无分数，定格用五行色）
+const BAZI_ELEMENT_TONE = {
+  '木': { tone: 'wood',  THEME: '#2f9d6e', DIM: 'rgba(47,157,110,0.16)' },
+  '火': { tone: 'fire',  THEME: '#c84a45', DIM: 'rgba(200,74,69,0.16)' },
+  '土': { tone: 'earth', THEME: '#b58d3b', DIM: 'rgba(181,141,59,0.17)' },
+  '金': { tone: 'metal', THEME: '#bda15a', DIM: 'rgba(189,161,90,0.16)' },
+  '水': { tone: 'water', THEME: '#3a6ea5', DIM: 'rgba(58,110,165,0.16)' },
+}
+const baziElementTone = (el) => BAZI_ELEMENT_TONE[String(el || '').charAt(0)] || BAZI_ELEMENT_TONE['土']
+
+// 八字流式脚手架（透明 hero 露出能量球；散文段 data-wslot 对齐后端 section key）
+const buildBaziStreamingScaffoldHTML = (engine = null, statusText = '') => {
+  const sk = (lines = 2) => `<span class="wsk">${'<i></i>'.repeat(lines)}</span>`
+  const slot = (key) => `<span class="wstream-slot" data-wslot="${key}">${sk(2)}</span>`
+  const et = baziElementTone(engine?.favorable_element)
+  const question = engine?.question || ''
+  const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
+  return `<div class="mag-result tone-neutral wenshi-streaming" style="--theme-color:${et.THEME};--theme-color-dim:${et.DIM};">
+    <section class="mag-hero wenshi-orb-spacer" id="bazi-hero"></section>
+    <nav class="mag-tabs">
+      <button class="mag-tab mag-tab-active" onclick="${tabClick('bazi-m1')}">结论先行</button>
+      <button class="mag-tab" onclick="${tabClick('bazi-m2')}">命局解读</button>
+      <button class="mag-tab" onclick="${tabClick('bazi-m3')}">深度推演</button>
+      <button class="mag-tab" onclick="${tabClick('bazi-m5')}">行动建议</button>
+      <span class="mag-tab-ink"></span>
+    </nav>
+    <section class="mag-section" id="bazi-m1">
+      <div class="module-heading"><h2>结论先行</h2></div>
+      ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
+      <p class="bazi-basis-text">${slot('summary_basis')}</p>
+    </section>
+    <section class="mag-section" id="bazi-m2">
+      <div class="module-heading"><h2>命局解读</h2></div>
+      <div class="bazi-foundation-block"><p>${slot('base_foundation')}</p></div>
+      <div class="report-subtitle">命局现象</div>${sk(3)}
+    </section>
+    <section class="mag-section" id="bazi-m3">
+      <div class="module-heading"><h2>深度推演</h2></div>
+      <div class="bazi-foundation-block"><h3 class="bazi-bf-title">大运</h3><p>${slot('dayun_field')}</p></div>
+      <div class="bazi-foundation-block"><h3 class="bazi-bf-title">流年</h3><p>${slot('liunian_trigger')}</p></div>
+    </section>
+    <section class="mag-section" id="bazi-m5">
+      <div class="module-heading"><h2>行动建议</h2></div>
+      <p>${slot('action_guide')}</p>
+    </section>
+  </div>`
+}
+
 const buildStreamingScaffoldHTML = (engine = null, statusText = '') => {
+  if (engine?.branch === 'bazi') return buildBaziStreamingScaffoldHTML(engine, statusText)
   const sk = (lines = 2) => `<span class="wsk">${'<i></i>'.repeat(lines)}</span>`
   // 流式槽位：初始骨架，data-wslot 供 DOM 打补丁
   const slot = (key) => `<span class="wstream-slot" data-wslot="${key}">${sk(QIMEN_STREAM_SLOTS[key]?.lines || 2)}</span>`
@@ -4344,6 +4421,12 @@ input::placeholder { color: var(--text-muted); }
 .wenshi-orb-fx.wo-tone-gold .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(212,175,55,.85), rgba(181,141,59,.5) 60%, transparent 100%); }
 .wenshi-orb-fx.wo-tone-teal .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(13,148,136,.85), rgba(13,148,136,.45) 60%, transparent 100%); }
 .wenshi-orb-fx.wo-tone-warn .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(200,74,69,.85), rgba(150,30,30,.5) 60%, transparent 100%); }
+/* 八字喜用神五行色档 */
+.wenshi-orb-fx.wo-tone-wood .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(47,157,110,.85), rgba(47,157,110,.45) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-fire .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(200,74,69,.85), rgba(150,30,30,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-earth .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(212,175,55,.85), rgba(181,141,59,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-metal .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(220,205,160,.9), rgba(189,161,90,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-water .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(90,150,210,.85), rgba(58,110,165,.5) 60%, transparent 100%); }
 
 /* 定格过渡：球大幅放大到“球体不可见” + 模糊化开成 hero 渐变光晕（再由终态卡片自带渐变接管）*/
 .wenshi-orb-fx.settling .wenshi-orb{ transform:scale(4.4) translateZ(0); }
