@@ -1431,6 +1431,106 @@ async function runQimenMock() {
   }
 }
 if (typeof window !== 'undefined') window.__mockQimen = runQimenMock
+
+// ── 开发用：八字流式 mock（status 模式，生产形态数据，走真实代码路径，不调 API）──
+const MOCK_BAZI = (() => {
+  const question = '近10年财运如何'
+  const sections = [
+    ['summary_conclusion', '近十年财运**先抑后扬**。身弱财旺，2032年前求财较吃力、宜稳守借印；2033年起转印星大运，得水木帮身，财运迎来实质性好转。'],
+    ['summary_basis', '命局甲木日主坐财地、财星旺相而日主偏弱，喜印比帮身；后端锁定正财为目标十神，引动机制显示流年有催动但根基不稳，故方向为守中求进、固本为先。'],
+    ['base_foundation', '原局甲木生于未月，财星当令而日主无强根，属**财多身弱**之局。喜用神为水、木——水生身、木比助；忌火土泄耗。静态面板显示正财坐日支得地，财源真实，唯自身承接力不足。'],
+    ['dayun_field', '当前壬戌运，壬水印星透出本可帮身，然戌土耗身、伤官生财之象明显：思路活跃、财路扩张，但精力分散、根基不稳。心态上易急于求成，外部机会多而杂，须防贪多嚼不烂。'],
+    ['liunian_trigger', '流年丙午，午火助财耗身，子午冲动妻财宫——财事被强推上台面，机会与压力并至。冲动亦带波折：可借势小试，但不宜在身弱时重仓压注，先稳住现金流。'],
+    ['action_guide', '总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。'],
+  ]
+  const subject_snapshot = { name:'测试命主', gender:'男', birth_date:'1998-07-26', strong_weak:'身弱', geju:'正财格', pillars:[['戊','寅'],['己','未'],['甲','戌'],['癸','酉']] }
+  const engineOutput = {
+    branch:'bazi', analysis_mode:'status', favorable_element:'水', question,
+    tags:[{label:'财运分析'},{label:'日主甲'},{label:'喜水木'},{label:'状态推演'}],
+    stateReport:null, dynamicReport:null, targetSpec:null, timingCandidates:[],
+    subject_snapshot, five_shens:null,
+  }
+  const result = {
+    branch:'bazi',
+    meta:{ analysis_mode:'status', secondary_mode:null, branch:'bazi', category:'wealth', subcategory:'general_wealth', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null }, confidence:'high', limitations:[] },
+    summary:{ score:null, title:'财多身弱宜守印', keyword:'守中求进', conclusion:sections[0][1], basis:sections[1][1] },
+    key_signals:[{ title:'正财透月干，财旺身弱', reading:'财气旺而日主辛弱，机会多但承接力不足，需先固本再图进取。' }],
+    readings:{
+      base_foundation:{ text:sections[2][1], signals:[{ title:'财多身弱喜印生扶', detail:'财耗身，需印星通关泄财生身' }] },
+      target_state:[{ title:'正财坐日支·有根', text:'目标财源真实存在，但需自身够力才能驾驭' }],
+      dayun_field:{ text:sections[3][1] },
+      liunian_trigger:{ text:sections[4][1], phenomena:[{ tag:'子午冲妻宫·有效', explain:'财宫被冲动，财事被强推上台面' }] },
+    },
+    rhythm:{ segments:[{ period:'壬戌运 2022-2031', dayun_shishen:'伤官', phenomenon:'枭神夺食、思路活跃但根基不稳', strategy:'固本培元、借印生身', key_liunians:[{ year:2026, gz:'丙午', shishen:'正财', note:'财运催动窗口' }] }] },
+    action_guide:{ text:sections[5][1], items:['规避：身弱时勿重仓投资','借势：借印星贵人帮扶','节奏：丙午年小步试探，2033年后再扩张'] },
+    subject_snapshot, five_shens:null, question,
+  }
+  return { engineOutput, sections, result }
+})()
+
+function mockBaziResponse() {
+  const enc = new TextEncoder()
+  const send = (ctrl, obj) => ctrl.enqueue(enc.encode('data: ' + JSON.stringify(obj) + '\n\n'))
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  const body = new ReadableStream({
+    async start(ctrl) {
+      send(ctrl, { type:'step', index:0, pct:10, chip:{ main:'财运分析', sub:'八字命理' } }); await sleep(500)
+      send(ctrl, { type:'step', index:1, pct:22, chip:{ main:'日主甲', sub:'身弱' } }); await sleep(480)
+      send(ctrl, { type:'step', index:2, pct:36, chip:{ main:'状态推演', sub:'正财' } }); await sleep(460)
+      send(ctrl, { type:'step', index:3, pct:48, chip:{ main:'30日内', sub:'命局推演' } }); await sleep(440)
+      send(ctrl, { type:'step', index:4, pct:62, chip:{ main:'喜水木', sub:'忌神已标记' } }); await sleep(520)
+      send(ctrl, { type:'engine_complete', pct:70, engineOutput:MOCK_BAZI.engineOutput }); await sleep(700)
+      send(ctrl, { type:'active', index:5, pct:75 }); await sleep(450)
+      for (const [sec, text] of MOCK_BAZI.sections) {
+        for (let i = 0; i < text.length; i += 2) { send(ctrl, { type:'llm_delta', section:sec, text:text.slice(i, i+2) }); await sleep(22) }
+        await sleep(180)
+      }
+      send(ctrl, { type:'llm_done', pct:95, text:'' }); await sleep(250)
+      send(ctrl, { type:'complete', result:MOCK_BAZI.result })
+      ctrl.close()
+    }
+  })
+  return { ok:true, body }
+}
+
+async function runBaziMock() {
+  questionInput.value = MOCK_BAZI.result.question
+  isSubmitting.value = true
+  resetSseState()
+  sseBranch.value = 'bazi'
+  wenShiStreaming.value = true
+  resultPhase.value = 'stream'
+  wenShiStatus.value = '正在解析问题'
+  showOrbFx.value = true
+  orbSettling.value = false
+  orbTone.value = ''
+  resultHtml.value = buildStreamingScaffoldHTML({ branch: 'bazi' }, wenShiStatus.value)
+  viewState.value = 'result'
+  await nextTick(); initMagTabInk()
+  try {
+    const data = await readSSEStream(mockBaziResponse())
+    if (wenShiStreaming.value) await settleOrbToResult(data)
+    wenShiStreaming.value = false
+    activeResultRecord.value = null
+    activateBaziResultPanel(data)
+    const finalCard = applyCardMdBold(buildCardHTML(data))
+    finalOverlayHtml.value = finalCard
+    await nextTick()
+    initMagTabInk()
+    setTimeout(() => document.querySelectorAll('.result-overlay .reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 300)
+    await new Promise(r => setTimeout(r, 700))
+    resultHtml.value = finalCard
+    await nextTick()
+    document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+    initMagTabInk()
+    finalOverlayHtml.value = ''
+    showOrbFx.value = false
+    viewState.value = 'result'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+if (typeof window !== 'undefined') window.__mockBazi = runBaziMock
 // 把某段流式文本就地补丁进卡片对应槽位（带 ** 加粗 + 流式光标）
 function patchStreamSlot(section, fullText) {
   const root = document.querySelector('.html-container .wenshi-streaming')
@@ -1687,6 +1787,7 @@ onMounted(() => {
   syncAuthModeFromRoute()
   // 开发用：?mock=qimen 自动播放奇门流式生成（不调 API）
   if (route.query.mock === 'qimen') setTimeout(() => runQimenMock(), 600)
+  if (route.query.mock === 'bazi') setTimeout(() => runBaziMock(), 600)
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
   suggestionTimer = setInterval(() => {
