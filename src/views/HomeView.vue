@@ -1433,68 +1433,185 @@ async function runQimenMock() {
 if (typeof window !== 'undefined') window.__mockQimen = runQimenMock
 
 // ── 开发用：八字流式 mock（status 模式，生产形态数据，走真实代码路径，不调 API）──
-const MOCK_BAZI = (() => {
-  const question = '近10年财运如何'
-  const sections = [
-    ['summary_conclusion', '近十年财运**先抑后扬**。身弱财旺，2032年前求财较吃力、宜稳守借印；2033年起转印星大运，得水木帮身，财运迎来实质性好转。'],
-    ['summary_basis', '命局甲木日主坐财地、财星旺相而日主偏弱，喜印比帮身；后端锁定正财为目标十神，引动机制显示流年有催动但根基不稳，故方向为守中求进、固本为先。'],
-    ['base_foundation', '原局甲木生于未月，财星当令而日主无强根，属**财多身弱**之局。喜用神为水、木——水生身、木比助；忌火土泄耗。静态面板显示正财坐日支得地，财源真实，唯自身承接力不足。'],
-    ['dayun_field', '当前壬戌运，壬水印星透出本可帮身，然戌土耗身、伤官生财之象明显：思路活跃、财路扩张，但精力分散、根基不稳。心态上易急于求成，外部机会多而杂，须防贪多嚼不烂。'],
-    ['liunian_trigger', '流年丙午，午火助财耗身，子午冲动妻财宫——财事被强推上台面，机会与压力并至。冲动亦带波折：可借势小试，但不宜在身弱时重仓压注，先稳住现金流。'],
-    ['action_guide', '总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。'],
-  ]
-  const subject_snapshot = { name:'测试命主', gender:'男', birth_date:'1998-07-26', strong_weak:'身弱', geju:'正财格', pillars:[['戊','寅'],['己','未'],['甲','戌'],['癸','酉']] }
-  const engineOutput = {
-    branch:'bazi', analysis_mode:'status', favorable_element:'水', question,
-    tags:[{label:'财运分析'},{label:'日主甲'},{label:'喜水木'},{label:'状态推演'}],
-    stateReport:null, dynamicReport:null, targetSpec:null, timingCandidates:[],
-    subject_snapshot, five_shens:null,
+// ── 5 mode mock 样本（走真实代码路径；字段结构对齐 buildReadingsSchema / normalizeBaziQuestionOutput） ──
+const MOCK_BAZI_MODES = (() => {
+  const snap = () => ({ name:'测试命主', gender:'男', birth_date:'1998-07-26', strong_weak:'身弱', geju:'正财格', pillars:[['戊','寅'],['己','未'],['甲','戌'],['癸','酉']] })
+  const mk = (mode, favEl, question, tags, sections, summary, readings, extra = {}) => {
+    const subject_snapshot = snap()
+    return {
+      engineOutput: {
+        branch:'bazi', analysis_mode:mode, favorable_element:favEl, question,
+        tags, stateReport:null, dynamicReport:null, targetSpec:null, timingCandidates:[],
+        subject_snapshot, five_shens:null,
+      },
+      sections,
+      result: {
+        branch:'bazi',
+        meta:{ analysis_mode:mode, secondary_mode:extra.secondary_mode ?? null, branch:'bazi', category:extra.category||'general', subcategory:extra.subcategory||'general', target:extra.target||{ shishen:[], gongwei:[], fallback_level:'category', llm_derived_target:null }, confidence:extra.confidence||'high', limitations:[] },
+        summary,
+        key_signals:extra.key_signals||[],
+        readings,
+        rhythm:extra.rhythm||{ segments:[] },
+        action_guide:extra.action_guide||{ text:'', items:[] },
+        favorable_element:favEl, subject_snapshot, five_shens:null, question,
+      },
+    }
   }
-  const result = {
-    branch:'bazi',
-    meta:{ analysis_mode:'status', secondary_mode:null, branch:'bazi', category:'wealth', subcategory:'general_wealth', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null }, confidence:'high', limitations:[] },
-    summary:{ score:null, title:'财多身弱宜守印', keyword:'守中求进', conclusion:sections[0][1], basis:sections[1][1] },
-    key_signals:[{ title:'正财透月干，财旺身弱', reading:'财气旺而日主辛弱，机会多但承接力不足，需先固本再图进取。' }],
-    readings:{
-      base_foundation:{ text:sections[2][1], signals:[{ title:'财多身弱喜印生扶', detail:'财耗身，需印星通关泄财生身' }] },
-      target_state:[{ title:'正财坐日支·有根', text:'目标财源真实存在，但需自身够力才能驾驭' }],
-      dayun_field:{ text:sections[3][1] },
-      liunian_trigger:{ text:sections[4][1], phenomena:[{ tag:'子午冲妻宫·有效', explain:'财宫被冲动，财事被强推上台面' }] },
-    },
-    rhythm:{ segments:[{ period:'壬戌运 2022-2031', dayun_shishen:'伤官', phenomenon:'枭神夺食、思路活跃但根基不稳', strategy:'固本培元、借印生身', key_liunians:[{ year:2026, gz:'丙午', shishen:'正财', note:'财运催动窗口' }] }] },
-    action_guide:{ text:sections[5][1], items:['规避：身弱时勿重仓投资','借势：借印星贵人帮扶','节奏：丙午年小步试探，2033年后再扩张'] },
-    favorable_element:'水', subject_snapshot, five_shens:null, question,
-  }
-  return { engineOutput, sections, result }
-})()
 
-function mockBaziResponse() {
+  // ── status：财运（喜用神 水 → 蓝） ──
+  const status = mk('status', '水', '近10年财运如何',
+    [{label:'财运分析'},{label:'日主甲'},{label:'喜水木'},{label:'状态推演'}],
+    [
+      ['summary_conclusion', '近十年财运**先抑后扬**。身弱财旺，2032年前求财较吃力、宜稳守借印；2033年起转印星大运，得水木帮身，财运迎来实质性好转。'],
+      ['summary_basis', '命局甲木日主坐财地、财星旺相而日主偏弱，喜印比帮身；后端锁定正财为目标十神，引动机制显示流年有催动但根基不稳，故方向为守中求进、固本为先。'],
+      ['base_foundation', '原局甲木生于未月，财星当令而日主无强根，属**财多身弱**之局。喜用神为水、木——水生身、木比助；忌火土泄耗。静态面板显示正财坐日支得地，财源真实，唯自身承接力不足。'],
+      ['dayun_field', '当前壬戌运，壬水印星透出本可帮身，然戌土耗身、伤官生财之象明显：思路活跃、财路扩张，但精力分散、根基不稳。心态上易急于求成，外部机会多而杂，须防贪多嚼不烂。'],
+      ['liunian_trigger', '流年丙午，午火助财耗身，子午冲动妻财宫——财事被强推上台面，机会与压力并至。冲动亦带波折：可借势小试，但不宜在身弱时重仓压注，先稳住现金流。'],
+      ['action_guide', '总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。'],
+    ],
+    { score:null, title:'财多身弱宜守印', keyword:'守中求进', conclusion:'近十年财运**先抑后扬**。身弱财旺，2032年前求财较吃力、宜稳守借印；2033年起转印星大运，得水木帮身，财运迎来实质性好转。', basis:'命局甲木日主坐财地、财星旺相而日主偏弱，喜印比帮身；后端锁定正财为目标十神，引动机制显示流年有催动但根基不稳，故方向为守中求进、固本为先。' },
+    {
+      base_foundation:{ text:'原局甲木生于未月，财星当令而日主无强根，属**财多身弱**之局。喜用神为水、木——水生身、木比助；忌火土泄耗。静态面板显示正财坐日支得地，财源真实，唯自身承接力不足。', signals:[{ title:'财多身弱喜印生扶', detail:'财耗身，需印星通关泄财生身' }] },
+      target_state:[{ title:'正财坐日支·有根', text:'目标财源真实存在，但需自身够力才能驾驭' }],
+      dayun_field:{ text:'当前壬戌运，壬水印星透出本可帮身，然戌土耗身、伤官生财之象明显：思路活跃、财路扩张，但精力分散、根基不稳。心态上易急于求成，外部机会多而杂，须防贪多嚼不烂。' },
+      liunian_trigger:{ text:'流年丙午，午火助财耗身，子午冲动妻财宫——财事被强推上台面，机会与压力并至。冲动亦带波折：可借势小试，但不宜在身弱时重仓压注，先稳住现金流。', phenomena:[{ tag:'子午冲妻宫·有效', explain:'财宫被冲动，财事被强推上台面' }] },
+    },
+    {
+      category:'wealth', subcategory:'general_wealth', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      key_signals:[{ title:'正财透月干，财旺身弱', reading:'财气旺而日主辛弱，机会多但承接力不足，需先固本再图进取。' }],
+      rhythm:{ segments:[{ period:'壬戌运 2022-2031', dayun_shishen:'伤官', phenomenon:'枭神夺食、思路活跃但根基不稳', strategy:'固本培元、借印生身', key_liunians:[{ year:2026, gz:'丙午', shishen:'正财', note:'财运催动窗口' }] }] },
+      action_guide:{ text:'总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。', items:['规避：身弱时勿重仓投资','借势：借印星贵人帮扶','节奏：丙午年小步试探，2033年后再扩张'] },
+    })
+
+  // ── timing：婚恋应期（喜用神 木 → 绿） ──
+  const timing = mk('timing', '木', '哪一年比较适合结婚',
+    [{label:'婚恋应期'},{label:'日主甲'},{label:'喜水木'},{label:'应期推演'}],
+    [
+      ['summary_basis', '日主甲木身弱，正财为妻星藏于日支，喜印比帮身助其驭财。后端在 22–35 岁区间筛出三个引动妻宫的年份，逐年比对冲合透干强度后给出应期。'],
+      ['base_foundation', '原局妻宫（日支戌）藏正财，财星真实有根但日主偏弱。婚恋成败关键在自身够力——印比到位之年最易把握，财旺无制之年反易因压力错失。'],
+      ['action_guide', '把握 2028、2031 两个印比助身的窗口主动推进；2026 丙午冲宫之年虽热闹但波折多，宜稳不宜急。'],
+    ],
+    { score:null, title:'2028前后印星助婚', keyword:'稳中择时', conclusion:'婚恋应期集中在 2028、2031 两年——印比帮身、妻宫被吉合引动；2026 虽有冲动但根基不稳，宜作铺垫。' },
+    {
+      base_foundation:{ text:'原局妻宫（日支戌）藏正财，财星真实有根但日主偏弱。婚恋成败关键在自身够力——印比到位之年最易把握，财旺无制之年反易因压力错失。', signals:[{ title:'妻宫藏财·日主偏弱', detail:'财真有根，需印比助身方能驭财成婚' }] },
+      target_state:[{ title:'正财·妻星藏日支', text:'妻缘真实存在，应期取决于自身得帮扶之年' }],
+      trigger_windows:[
+        { year:2026, ganzhi:'丙午', dayun_ganzhi:'壬戌', strength:'中等', verdict:'丙午冲动妻宫，感情议题被强推上台面，但身弱逢财旺压力大，多为铺垫而非定局。', phenomena:[{ tag:'子午冲妻宫·机制强', explain:'婚宫被冲动，关系进展加速但波动大' }] },
+        { year:2028, ganzhi:'戊申', dayun_ganzhi:'壬戌', strength:'较强', verdict:'申子半合水局生身，印星得力，自身从容，最宜主动推进婚事。', phenomena:[{ tag:'申子合·印星助身', explain:'得贵人助力，关系水到渠成' }] },
+        { year:2031, ganzhi:'辛亥', dayun_ganzhi:'癸亥', strength:'较强', verdict:'亥水印星当令、比劫帮身，日主转旺，成婚根基最稳。', phenomena:[{ tag:'亥水生身·根基稳', explain:'自身条件成熟，婚姻稳定度高' }] },
+      ],
+      best_window:{ year:2028, reason:'申子合水生身、印星得力，自身从容主动' },
+      worst_window:{ year:2026, reason:'冲宫虽动但身弱财旺、压力过大，宜缓不宜定' },
+    },
+    {
+      category:'relationship', subcategory:'marriage_timing', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      action_guide:{ text:'把握 2028、2031 两个印比助身的窗口主动推进；2026 丙午冲宫之年虽热闹但波折多，宜稳不宜急。', items:['优先：2028 申子合身之年主动推进','次选：2031 亥水帮身、根基最稳','规避：2026 仅作铺垫，勿急于定局'] },
+    })
+
+  // ── pattern：事业格局（喜用神 火 → 红） ──
+  const pattern = mk('pattern', '火', '我适合走技术还是管理路线',
+    [{label:'事业格局'},{label:'日主甲'},{label:'喜火土'},{label:'格局推演'}],
+    [
+      ['summary_basis', '从原局先天结构容量看：食伤吐秀、利于专精钻研；官杀不透、统御调度的结构支撑偏弱。故格局更适配深耕技术专家路线，管理为辅。'],
+      ['base_foundation', '甲木日主食神格成，月时食伤吐秀而官星不显。先天结构利于「以技立身」——专注、深耕、靠作品说话；调度管人所需的官杀力量薄弱，强行转管理易内耗。'],
+      ['action_guide', '主线锚定技术专家路线，把食伤之秀做深做精；管理只在小团队、专业带队的范围内承接，不必追求纯行政管理岗。'],
+    ],
+    { score:null, title:'食伤吐秀宜技术专精', keyword:'以技立身', conclusion:'先天格局食伤吐秀、利专精；官杀不透、统御力弱。事业宜走**技术专家**主线，管理为辅。' },
+    {
+      base_foundation:{ text:'甲木日主食神格成，月时食伤吐秀而官星不显。先天结构利于「以技立身」——专注、深耕、靠作品说话；调度管人所需的官杀力量薄弱，强行转管理易内耗。', signals:[{ title:'食神吐秀·官星不透', detail:'利专精创造，弱于统御调度' }] },
+      target_state:[{ title:'食伤·才华输出位', text:'技术与创造是命主最稳的发力点' }],
+      structural_supports:['月干食神透出得地，专业深度与创造力强','日坐财库，技术可转化为实在收益','时柱伤官生财，作品化变现路径顺'],
+      structural_risks:['官杀不透，带团队的权威感与调度力天然偏弱','身弱食伤旺，易过度发散、精力难聚焦'],
+      structural_verdict:'先天容量偏「专家型」而非「管理型」：把食伤之秀做深、以技立身最顺；管理可作为专业带队的延伸，但不宜作为主路线强行攀爬。',
+      current_status_note:'当前壬戌运伤官生财，正是把技术沉淀为作品与收益的窗口，宜深耕不宜频繁转岗。',
+    },
+    {
+      secondary_mode:'status', category:'career', subcategory:'career_path', target:{ shishen:['食神','伤官'], gongwei:['月干'], fallback_level:'subcategory', llm_derived_target:null },
+      action_guide:{ text:'主线锚定技术专家路线，把食伤之秀做深做精；管理只在小团队、专业带队的范围内承接，不必追求纯行政管理岗。', items:['深耕：把专业做到不可替代','变现：借日坐财库将技术转化为收益','克制：管理只做专业带队，勿强攀行政岗'] },
+    })
+
+  // ── character：配偶画像（喜用神 金 → 淡金 metal） ──
+  const character = mk('character', '金', '我未来的另一半是什么样的人',
+    [{label:'配偶画像'},{label:'日主甲'},{label:'喜金水'},{label:'人物推演'}],
+    [
+      ['summary_basis', '以日支妻宫与正财星的五行、十神、宫位状态推演配偶倾向：正财藏戌库、得月令土气，呈现务实、顾家、善理财的人物侧写。以下为倾向推断，非现实定论。'],
+    ],
+    { score:null, title:'务实顾家的理财型伴侣', keyword:'稳重持家', conclusion:'妻星正财藏库得令，配偶倾向**务实、顾家、善打理生活**；相处以稳定踏实为底色。' },
+    {
+      portrait_subject:'spouse',
+      target_resolution:'backend_mapped',
+      llm_derived_target_note:'',
+      appearance_tendency:{ text:'中等偏稳的体态，气质温和不张扬，衣着偏实用得体，给人可靠踏实的第一印象。', confidence:'medium', evidence:['正财属土，主敦实','妻宫戌库藏丁，面相温润'] },
+      personality_tendency:{ text:'务实、节俭、重承诺，做事有计划、不爱冒险；情感表达内敛，靠行动而非言语示爱。', confidence:'high', evidence:['正财坐库主守成','土性沉稳少浮夸'] },
+      career_style:{ text:'倾向稳定务实的职业，擅长管理钱财与生活事务，财务上是家庭的稳定器。', confidence:'medium', evidence:['财星得令，理财力强'] },
+      relationship_dynamic:'相处以稳定踏实为底色，对方愿为家庭付出实际行动；命主需主动表达情感，避免把对方的内敛误读为冷淡。',
+      do_not_overclaim:'以上为十神五行和宫位状态呈现的人物倾向，不等于现实中对方一定如此。',
+    },
+    {
+      category:'relationship', subcategory:'partner_profile', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      action_guide:{ text:'重视对方以行动表达的关心，主动沟通情感需求，让稳定的关系不流于平淡。', items:['主动表达情感，避免误读对方的内敛','共同规划财务，发挥对方理财之长','在稳定中创造仪式感，维持新鲜度'] },
+    })
+
+  // ── profile_driven：泛运势/路径（喜用神 土 → 金土 earth） ──
+  const profile_driven = mk('profile_driven', '土', '我这辈子大概是什么样的命',
+    [{label:'整体运势'},{label:'日主甲'},{label:'喜火土'},{label:'路径推演'}],
+    [
+      ['summary_basis', '无具体靶子，以完整命盘自主提取最相关线索：日主身弱、食伤吐秀而财官皆需自身够力。整体是「靠才华谋生、中年后渐入佳境」的格局，下列按主业/副业两条路径对比。'],
+      ['base_foundation', '甲木身弱食伤旺，才华外显但根基需培。早年靠技艺起步、积累较慢；印比大运到位后日主转旺，承接力增强，财官方能落地，属厚积薄发之命。'],
+      ['dayun_field', '当前壬戌运伤官生财，思路活跃、机会多但精力分散，是打基础、试方向的阶段。心态上易急于求成，外部环境机会杂而需取舍。'],
+      ['liunian_trigger', '流年丙午助财耗身，财事被推上台面，可小步试探但忌重仓。冲动带来变化窗口，适合调整方向而非孤注一掷。'],
+      ['action_guide', '前期以技立身、稳扎稳打，借印比之运培根；中年后顺势把才华转化为实在事业，避免早年盲目铺摊子。'],
+    ],
+    { score:null, title:'厚积薄发以技立身', keyword:'先苦后甜', conclusion:'整体为**身弱食伤吐秀**之命：早年靠才华起步、积累较慢，印比运到位后渐入佳境，中年后财官落地，先苦后甜。' },
+    {
+      base_foundation:{ text:'甲木身弱食伤旺，才华外显但根基需培。早年靠技艺起步、积累较慢；印比大运到位后日主转旺，承接力增强，财官方能落地，属厚积薄发之命。', signals:[{ title:'身弱食伤旺·厚积薄发', detail:'才华先行，根基后成，中年转旺' }] },
+      target_state:[{ title:'食伤·才华主线', text:'以技立身是最稳的发力方向', confidence:'low' }],
+      dayun_field:{ text:'当前壬戌运伤官生财，思路活跃、机会多但精力分散，是打基础、试方向的阶段。心态上易急于求成，外部环境机会杂而需取舍。' },
+      liunian_trigger:{ text:'流年丙午助财耗身，财事被推上台面，可小步试探但忌重仓。冲动带来变化窗口，适合调整方向而非孤注一掷。', phenomena:[] },
+      path_readings:[
+        { path:'主业优先（技术深耕）', structural_fit:'对应食神格，原局食伤吐秀、最得力', likely_experience:'近1-3年在专业上持续精进、逐步建立口碑，收入稳步上行但尚无爆发，需耐住积累期的平淡。', satisfaction_prediction:'高——契合先天才华，越做越顺', peak_period:'2033 起印星大运，专业沉淀转化为实质回报', risk:'过度求稳错失变现窗口', confidence:'low' },
+        { path:'副业/创业优先（提前铺摊）', structural_fit:'依赖财官，但日主身弱、承接力当前不足', likely_experience:'近1-3年若提前重仓铺摊，易因精力分散、资金链紧张而疲于奔命，机会虽多却难收口。', satisfaction_prediction:'中——短期热闹但根基不稳', peak_period:'宜待 2033 身旺后再放大', risk:'身弱强行扩张致进退失据', confidence:'low' },
+      ],
+    },
+    {
+      category:'general', subcategory:'life_overview', target:{ shishen:[], gongwei:[], fallback_level:'category', llm_derived_target:null }, confidence:'low',
+      action_guide:{ text:'前期以技立身、稳扎稳打，借印比之运培根；中年后顺势把才华转化为实在事业，避免早年盲目铺摊子。', items:['主线：深耕专业，建立不可替代性','节奏：2033 身旺后再放大事业版图','规避：身弱期勿盲目重仓创业'] },
+    })
+
+  return { status, timing, pattern, character, profile_driven }
+})()
+const MOCK_BAZI = MOCK_BAZI_MODES.status
+
+function mockBaziResponse(mock = MOCK_BAZI) {
   const enc = new TextEncoder()
   const send = (ctrl, obj) => ctrl.enqueue(enc.encode('data: ' + JSON.stringify(obj) + '\n\n'))
   const sleep = ms => new Promise(r => setTimeout(r, ms))
+  const tg = mock.engineOutput.tags || []
+  const lbl = (i, fb) => tg[i]?.label || fb
   const body = new ReadableStream({
     async start(ctrl) {
-      send(ctrl, { type:'step', index:0, pct:10, chip:{ main:'财运分析', sub:'八字命理' } }); await sleep(500)
-      send(ctrl, { type:'step', index:1, pct:22, chip:{ main:'日主甲', sub:'身弱' } }); await sleep(480)
-      send(ctrl, { type:'step', index:2, pct:36, chip:{ main:'状态推演', sub:'正财' } }); await sleep(460)
-      send(ctrl, { type:'step', index:3, pct:48, chip:{ main:'30日内', sub:'命局推演' } }); await sleep(440)
-      send(ctrl, { type:'step', index:4, pct:62, chip:{ main:'喜水木', sub:'忌神已标记' } }); await sleep(520)
-      send(ctrl, { type:'engine_complete', pct:70, engineOutput:MOCK_BAZI.engineOutput }); await sleep(700)
-      send(ctrl, { type:'active', index:5, pct:75 }); await sleep(450)
-      for (const [sec, text] of MOCK_BAZI.sections) {
-        for (let i = 0; i < text.length; i += 2) { send(ctrl, { type:'llm_delta', section:sec, text:text.slice(i, i+2) }); await sleep(22) }
-        await sleep(180)
+      send(ctrl, { type:'step', index:0, pct:10, chip:{ main:lbl(0,'命理分析'), sub:'八字命理' } }); await sleep(380)
+      send(ctrl, { type:'step', index:1, pct:22, chip:{ main:lbl(1,'日主甲'), sub:'身弱' } }); await sleep(340)
+      send(ctrl, { type:'step', index:2, pct:36, chip:{ main:lbl(3,'命局推演'), sub:'目标已锁定' } }); await sleep(320)
+      send(ctrl, { type:'step', index:3, pct:48, chip:{ main:'起盘完成', sub:'引擎已就位' } }); await sleep(300)
+      send(ctrl, { type:'step', index:4, pct:62, chip:{ main:lbl(2,'喜用已定'), sub:'忌神已标记' } }); await sleep(360)
+      send(ctrl, { type:'engine_complete', pct:70, engineOutput:mock.engineOutput }); await sleep(600)
+      send(ctrl, { type:'active', index:5, pct:75 }); await sleep(380)
+      for (const [sec, text] of mock.sections) {
+        for (let i = 0; i < text.length; i += 3) { send(ctrl, { type:'llm_delta', section:sec, text:text.slice(i, i+3) }); await sleep(16) }
+        await sleep(140)
       }
-      send(ctrl, { type:'llm_done', pct:95, text:'' }); await sleep(250)
-      send(ctrl, { type:'complete', result:MOCK_BAZI.result })
+      send(ctrl, { type:'llm_done', pct:95, text:'' }); await sleep(220)
+      send(ctrl, { type:'complete', result:mock.result })
       ctrl.close()
     }
   })
   return { ok:true, body }
 }
 
-async function runBaziMock() {
-  questionInput.value = MOCK_BAZI.result.question
+async function runBaziMock(mode = 'status') {
+  const mock = MOCK_BAZI_MODES[mode] || MOCK_BAZI
+  questionInput.value = mock.result.question
   isSubmitting.value = true
   resetSseState()
   sseBranch.value = 'bazi'
@@ -1508,7 +1625,7 @@ async function runBaziMock() {
   viewState.value = 'result'
   await nextTick(); initMagTabInk()
   try {
-    const data = await readSSEStream(mockBaziResponse())
+    const data = await readSSEStream(mockBaziResponse(mock))
     if (wenShiStreaming.value) await settleOrbToResult(data)
     wenShiStreaming.value = false
     activeResultRecord.value = null
@@ -1787,7 +1904,8 @@ onMounted(() => {
   syncAuthModeFromRoute()
   // 开发用：?mock=qimen 自动播放奇门流式生成（不调 API）
   if (route.query.mock === 'qimen') setTimeout(() => runQimenMock(), 600)
-  if (route.query.mock === 'bazi') setTimeout(() => runBaziMock(), 600)
+  // ?mock=bazi 默认 status；?mock=bazi&mode=timing|pattern|character|profile_driven 切换 mode
+  if (route.query.mock === 'bazi') setTimeout(() => runBaziMock(String(route.query.mode || 'status')), 600)
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
   suggestionTimer = setInterval(() => {
