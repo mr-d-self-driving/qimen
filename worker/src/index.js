@@ -1250,7 +1250,7 @@ async function handleBaziQuestion(request, env) {
     const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.65)) {
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3-flash-preview', 0.65)) {
       llmFullText += chunk;
       baziParser.push(chunk);
     }
@@ -1287,7 +1287,7 @@ async function handleBaziQuestion(request, env) {
       llmOutputRaw: { text: llmFullText, mode: 'sentinel_stream', reconstructed: reconstructedBaziJson },
       llmOutputNormalized: output,
       pipelineResult,
-      modelName: 'gemini-3.1-pro-preview',
+      modelName: 'gemini-3-flash-preview',
       latencyMs: Date.now() - startedAt,
       fallbacks: semanticFallbacks,
       llmLimitations: [],
@@ -1862,7 +1862,7 @@ ${outputContractSection}
     const sentinelParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.7)) {
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3-flash-preview', 0.7)) {
       llmFullText += chunk;
       sentinelParser.push(chunk);
     }
@@ -2096,7 +2096,7 @@ ${outputContractSection}
             timingFinal: finalOutput.timing_analysis,
             postprocessAudit,
             finalOutput,
-            modelName: 'gemini-3.1-pro-preview',
+            modelName: 'gemini-3-flash-preview',
             latencyMs: Date.now() - startedAt,
             fallbacks: []
         });
