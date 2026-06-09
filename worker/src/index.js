@@ -1308,11 +1308,13 @@ async function handleBaziQuestion(request, env) {
 
     const _baziMode = semanticRoute.analysis_mode || 'status';
     const textPrompt = convertPromptToTextMode(prompt, _baziMode);
+    // 问事模型：preview 环境由 QUESTION_MODEL 覆盖为 flash，production 默认 pro
+    const questionModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
     let llmFullText = '';
     const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.65)) {
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.65)) {
       llmFullText += chunk;
       baziParser.push(chunk);
     }
@@ -1323,7 +1325,7 @@ async function handleBaziQuestion(request, env) {
       // 通知前端清空已显示的半截内容，重置回骨架
       emit({ type: 'llm_retry', message: 'AI 重新推演中…' });
       try {
-        llmFullText = await requestLLMText(textPrompt, env, 'gemini-3.1-pro-preview', 0.65);
+        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.65);
       } catch (retryErr) {
         console.error('[bazi-question] retry also failed:', retryErr.message);
         emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
@@ -1372,7 +1374,7 @@ async function handleBaziQuestion(request, env) {
       llmOutputRaw: { text: llmFullText, mode: 'sentinel_stream', reconstructed: reconstructedBaziJson },
       llmOutputNormalized: output,
       pipelineResult,
-      modelName: 'gemini-3.1-pro-preview',
+      modelName: questionModel,
       latencyMs: Date.now() - startedAt,
       fallbacks: semanticFallbacks,
       llmLimitations: [],
@@ -1939,6 +1941,8 @@ ${outputContractSection}
     emit({ type: 'active', index: 5, pct: 78 });
 
     const textPrompt = convertQimenPromptToTextMode(finalPrompt);
+    // 问事模型：preview 环境由 QUESTION_MODEL 覆盖为 flash，production 默认 pro
+    const questionModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
     // 7 个面向用户的散文段流式可见；data_json 段静默累积。
     const QIMEN_VISIBLE_SECTIONS = new Set([
       'conclusion', 'subject_reading', 'target_reading', 'environment_reading',
@@ -1948,7 +1952,7 @@ ${outputContractSection}
     const sentinelParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3.1-pro-preview', 0.7)) {
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.7)) {
       llmFullText += chunk;
       sentinelParser.push(chunk);
     }
@@ -1959,7 +1963,7 @@ ${outputContractSection}
       // 通知前端清空已显示的半截内容，重置回骨架
       emit({ type: 'llm_retry', message: 'AI 重新推演中…' });
       try {
-        llmFullText = await requestLLMText(textPrompt, env, 'gemini-3.1-pro-preview', 0.7);
+        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.7);
       } catch (retryErr) {
         console.error('[qimen-api] retry also failed:', retryErr.message);
         emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
@@ -2208,7 +2212,7 @@ ${outputContractSection}
             timingFinal: finalOutput.timing_analysis,
             postprocessAudit,
             finalOutput,
-            modelName: 'gemini-3.1-pro-preview',
+            modelName: questionModel,
             latencyMs: Date.now() - startedAt,
             fallbacks: []
         });
