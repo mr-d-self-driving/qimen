@@ -1777,6 +1777,18 @@ async function readSSEStream(response) {
         ssePct.value = event.pct
         if (wenShiStreaming.value) patchOrbStatus(sseCurrentSteps.value[event.index]?.name || 'AI 推演解盘')
         else wenShiLlm.value = { status: 'pending', text: '' }
+      } else if (event.type === 'llm_retry') {
+        // 后端结构校验未过，正在非流式重试：清空已显示的半截内容，重置回骨架
+        for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
+        const root = document.querySelector('.html-container .wenshi-streaming')
+        if (root) {
+          root.querySelectorAll('[data-wslot]').forEach(el => {
+            el.classList.remove('wstream-active')
+            el.innerHTML = '<span class="wsk"><i></i><i></i></span>'
+          })
+        }
+        if (wenShiStreaming.value) patchOrbStatus(event.message || 'AI 重新推演中…')
+        else { wenShiLlm.value = { status: 'pending', text: '' } }
       } else if (event.type === 'llm_delta') {
         if (wenShiStreaming.value && event.section) {
           // 奇门：累加并就地补丁到对应卡片槽位
