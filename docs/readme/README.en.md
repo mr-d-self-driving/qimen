@@ -33,7 +33,28 @@ This is not a template generator. It is a **rules-first metaphysics reasoning sy
 
 ## Core Features
 
-### Recent Feature Updates
+### Recent Updates (2026-06-10)
+
+This round moves the question engine from "emit one big JSON at the end" toward "stream as it computes, self-heal on failure, switch models per environment, and never fabricate or leak internal metrics."
+
+- **Streaming Qimen / Bazi readings**: question results no longer wait for the model to return one complete JSON before rendering. A sentinel-segment protocol (`<<<SEC:...>>>`) streams each user-facing prose section independently, patched into its card slot in step with a frontend energy-orb loading and settle animation. Rule-engine output renders first; AI prose fills in section by section.
+- **Structure-validation retry**: the backend runs a hard structural check on the stream — empty stream, missing core sections, or unparseable `data_json` triggers an `llm_retry` event that tells the frontend to clear the half-rendered content and reset to the skeleton, then retries once non-streaming. Only a second failure degrades to an error. Individual optional fields missing fall back silently and do not trigger a retry.
+- **Title as its own prose section**: both Qimen and Bazi split the title (`summary.title` / `m1_conclusion.title`) into a standalone streamed section that names the question type and core verdict, instead of duplicating it inside the structured JSON.
+- **Per-environment question model**: a new `QUESTION_MODEL` env var lets the question model be configured per environment (the code default falls back to `gemini-3.1-pro-preview`). Both production and preview are currently set to `gemini-3-flash-preview` to compare flash against pro on stability and quality.
+- **Anti-fabrication and transformation-pattern guards**: prompts now hard-constrain the AI to reference only chart / Four-Pillars fields actually returned by the backend. It must not invent gates, stars, spirits, palaces, or generation-control / clash-combination relations that aren't in the chart, nor a branch self-punishment or triple-combination from a branch the natal chart doesn't contain. When transformation (化气) shows "suspected / false / damaged" or a self-preserving seal, it reads under the normal strengthen-restrain pattern and never flips the favorable / unfavorable direction.
+- **No leaking of internal metrics**: no user-facing copy may surface internal quantitative values such as "strength 74.4," "energy 80," or "confidence 0.8." These are expressed qualitatively in metaphysics language (e.g. "strong enough to carry wealth," "activated with force," "energy runs weak").
+
+### Previous Update (2026-06-06)
+
+This round moved Bazi questions from "does the model sound right" toward "can the rules be evaluated, is the page sourced from the same engine, and can history be safely replayed."
+
+- **Useful-god / target ten-god evaluation**: added [`../eval/yongshen-eval-2026-06.md`](../eval/yongshen-eval-2026-06.md) and [`../../scripts/eval-yongshen.mjs`](../../scripts/eval-yongshen.mjs), comparing the local rule engine against cases from Lu Zhiji's Bazi textbook, labeling each case as match, partial, or deviation, and recording fixes (cong'er pattern, seasonal-adjustment priority, seal rescuing the self, abandoning officer for seal).
+- **Dual-axis semantic routing**: Bazi questions no longer use the old single-axis `status/timing/pattern/character` classification. It splits into `framework` (current-state, timing scan, natal structure, character profile, or open strategy) and `target_source` (backend ten gods, natal useful gods, or low-confidence model inference).
+- **Bazi dynamic panel picking**: the dynamic panel picks target ten gods, palaces, and luck-cycle activation from `state_report`, `dynamic_report`, and `timing_candidates`, so the page does not merely restate the model's prose. High-confidence paths require the frontend to be sourced from the rule engine; low-confidence paths degrade explicitly.
+- **History compatibility**: the old `analysis_mode` migrates to the new dual-axis semantics, so stored questions still replay; new records use a more stable field contract.
+- **About page update**: the in-app About page documents this round and prior rounds, explaining why classic-case evaluation, dynamic panels, and dual-axis routing exist.
+
+### Earlier Feature Updates
 
 - The fortune page now covers daily, weekly, monthly, and yearly views, so users can read today's rhythm alongside the broader week, month, and year
 - Weekly fortune adds a seven-day curve, favorable day, cautious day, weekly label, and career, wealth, and relationship reminders
@@ -267,7 +288,7 @@ The scoring framework is distilled from the author's private NotebookLM study no
 Frontend       Vue 3, Composition API, Pinia, Vue Router, vue-i18n
 Backend        Cloudflare Workers
 Database       Supabase Auth, Postgres, row-level security
-AI             Gemini-compatible API
+AI             Gemini-compatible API (question model set per environment via QUESTION_MODEL, currently flash), SSE streaming
 Calendar       lunar-javascript
 Build Tool     Vite
 Tests          Node.js Test Runner
@@ -278,6 +299,9 @@ Production     Cloudflare Pages + Cloudflare Workers
 
 - **Deterministic scoring**: daily, weekly, monthly, and yearly scores are produced by local rule engines; the model cannot overwrite them
 - **Structured reasoning paths**: questions are first routed to Qimen, Bazi, or a combined reading; the Bazi branch then chooses current-state, timing-window, pattern-fit, or character-profile paths
+- **Streaming questions with self-healing retry**: questions stream via a sentinel-segment SSE protocol, rendering rule output first and filling AI prose section by section; a failed structure check (empty stream / missing core sections / unparseable data_json) auto-clears the half-rendered content and retries once non-streaming
+- **Switchable question model**: the `QUESTION_MODEL` env var configures the question model per environment (code default falls back to pro); both environments currently run flash to compare stability and quality
+- **Anti-fabrication guardrails**: prompts strictly constrain the AI to reference only the backend's actual chart / Four-Pillars fields, forbid inventing symbols or generation-control relations that don't exist, and forbid leaking internal quantitative metrics into user-facing copy
 - **Layered caching**: daily, weekly, monthly, yearly, and monthly detailed readings are stored in the database and cached on the frontend
 - **Warmup flow**: signed-in users can preload the next seven daily readings
 - **Fallback behavior**: Bazi readings fall back to local rules when model generation fails; fortune pages can still show scores before prose is ready
