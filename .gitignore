@@ -85,3 +85,6 @@ compatibility/
 
 # Deprecated / archived code (Vercel era)
 archive/
+
+# Eval suite & results (local model-accuracy benchmarking, not for repo)
+eval/
