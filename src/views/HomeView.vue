@@ -1264,8 +1264,11 @@ function patchOrbStatus(text) {
 // 完成时：能量球缓慢膨胀填满 hero + 变分数色 + 定格（同一 DOM，不重建，丝滑无断档）
 function settleOrbToResult(data) {
   return new Promise(resolve => {
-    const score = data?.summary?.score ?? data?.qimen_report?.m1_conclusion?.score ?? 0
-    orbTone.value = 'wo-tone-' + (score < 55 ? 'warn' : score < 75 ? 'gold' : 'teal')
+    if (data?.branch !== 'bazi') {
+      // 奇门：按分数取色（八字 orbTone 已在 engine_complete 设为喜用神五行色，不覆盖）
+      const score = data?.summary?.score ?? data?.qimen_report?.m1_conclusion?.score ?? 0
+      orbTone.value = 'wo-tone-' + (score < 55 ? 'warn' : score < 75 ? 'gold' : 'teal')
+    }
     orbSettling.value = true
     setTimeout(resolve, 900) // 膨胀进行中即可切入卡片正文（hero 透明，球持续膨胀到定格）
   })
@@ -1428,6 +1431,251 @@ async function runQimenMock() {
   }
 }
 if (typeof window !== 'undefined') window.__mockQimen = runQimenMock
+
+// ── 开发用：八字流式 mock（status 模式，生产形态数据，走真实代码路径，不调 API）──
+// ── 5 mode mock 样本（走真实代码路径；字段结构对齐 buildReadingsSchema / normalizeBaziQuestionOutput） ──
+const MOCK_BAZI_MODES = (() => {
+  // 命主四柱（对象形态，与真实 worker subject_snapshot.pillars 同构，供 BaziStaticPanel 渲染）
+  const PILLARS = [
+    { name:'年', gan:'戊', zhi:'寅', hidden_stems:['甲','丙','戊'], is_kong:false },
+    { name:'月', gan:'己', zhi:'未', hidden_stems:['己','丁','乙'], is_kong:false },
+    { name:'日', gan:'甲', zhi:'戌', hidden_stems:['戊','辛','丁'], is_kong:false },
+    { name:'时', gan:'癸', zhi:'酉', hidden_stems:['辛'],          is_kong:false },
+  ]
+  const snap = () => ({ name:'测试命主', gender:'男', birth_date:'1998-07-26', strong_weak:'身弱', geju:'正财格', profile_id:'mock', pillars:PILLARS })
+  const mk = (mode, favEl, question, tags, sections, summary, readings, extra = {}) => {
+    const subject_snapshot = snap()
+    return {
+      engineOutput: {
+        branch:'bazi', analysis_mode:mode, category:extra.category||'general', subcategory:extra.subcategory||'general',
+        favorable_element:favEl, question,
+        tags, stateReport:extra.stateReport??null, dynamicReport:extra.dynamicReport??null, targetSpec:extra.targetSpec??null, timingCandidates:extra.timingCandidates??[],
+        subject_snapshot, five_shens:extra.five_shens??null,
+      },
+      sections,
+      result: {
+        branch:'bazi',
+        meta:{ analysis_mode:mode, secondary_mode:extra.secondary_mode ?? null, branch:'bazi', category:extra.category||'general', subcategory:extra.subcategory||'general', target:extra.target||{ shishen:[], gongwei:[], fallback_level:'category', llm_derived_target:null }, confidence:extra.confidence||'high', limitations:[] },
+        summary,
+        key_signals:extra.key_signals||[],
+        readings,
+        rhythm:extra.rhythm||{ segments:[] },
+        action_guide:extra.action_guide||{ text:'', items:[] },
+        state_report:extra.stateReport??null, target_spec:extra.targetSpec??null, dynamic_report:extra.dynamicReport??null, timing_candidates:extra.timingCandidates??[],
+        favorable_element:favEl, subject_snapshot, five_shens:extra.five_shens??null, question,
+      },
+    }
+  }
+  // 复用的引擎产物（命局解读面板：BaziStaticPanel）——简化但结构合法
+  const STATUS_STATE_REPORT = {
+    shishen_assessments: [
+      { shishen:'财', pillar:'月', position:'hidden', gan:'己', zhi:'未', element:'土', twelve_phase:'墓', phase_score:1, vigor:0.35, is_kong:false, is_in_tomb:true, gaitou_jiejiao:'neutral', relationships:[], status_tags:['财库','当令'], verdict:'正财藏未库，当令有气但入墓，财真而难现' },
+      { shishen:'财', pillar:'日', position:'hidden', gan:'戊', zhi:'戌', element:'土', twelve_phase:'养', phase_score:2, vigor:0.42, is_kong:false, is_in_tomb:false, gaitou_jiejiao:'same', relationships:[], status_tags:['坐财','得地'], verdict:'日支戌藏戊土偏财，财坐妻宫，根基真实' },
+    ],
+    gongwei_assessments: [{ gongwei:'日支', pillar_name:'日', zhi:'戌', element:'土', twelve_phase_for_dayStem:'养', vigor:0.42, is_kong:false, seat_shishen:'财', seat_element:'土', is_correct_star:true, is_hostile_occupied:false, is_tomb_for_target:false, relationships:[], status_tags:['星宫得正'], verdict:'日支（戌）藏财得正，妻财居本位，唯日主身弱难全驭' }],
+    extra_checks: [],
+    overall_stability: 'stable',
+    stability_label: '相对稳固',
+    base_state: '正财藏未库当令、戌中偏财得地；日主甲木无强根偏弱',
+    favorable_wuxing: ['水','木'],
+    unfavorable_wuxing: ['火','土'],
+    geju: '正财格（月令未中己土正财当令）',
+    tiaohou: '未月土旺木弱，调候喜水润木，忌火土再燥',
+  }
+  const STATUS_TARGET_SPEC = { primary_shishen:['正财'], primary_gongwei:['日支'], analysis_mode:'status', anchor_kind:'shishen', analysis_question:'以正财为目标十神，评估财源真实度与命主驭财能力' }
+
+  // ── status：财运（喜用神 水 → 蓝） ──
+  const status = mk('status', '水', '近10年财运如何',
+    [{label:'财运分析'},{label:'日主甲'},{label:'喜水木'},{label:'状态推演'}],
+    [
+      ['summary_conclusion', '近十年财运**先抑后扬**。身弱财旺，2032年前求财较吃力、宜稳守借印；2033年起转印星大运，得水木帮身，财运迎来实质性好转。'],
+      ['summary_basis', '命局甲木日主坐财地、财星旺相而日主偏弱，喜印比帮身；后端锁定正财为目标十神，引动机制显示流年有催动但根基不稳，故方向为守中求进、固本为先。'],
+      ['base_foundation', '原局甲木生于未月，财星当令而日主无强根，属**财多身弱**之局。喜用神为水、木——水生身、木比助；忌火土泄耗。静态面板显示正财坐日支得地，财源真实，唯自身承接力不足。'],
+      ['dayun_field', '当前壬戌运，壬水印星透出本可帮身，然戌土耗身、伤官生财之象明显：思路活跃、财路扩张，但精力分散、根基不稳。心态上易急于求成，外部机会多而杂，须防贪多嚼不烂。'],
+      ['liunian_trigger', '流年丙午，午火助财耗身，子午冲动妻财宫——财事被强推上台面，机会与压力并至。冲动亦带波折：可借势小试，但不宜在身弱时重仓压注，先稳住现金流。'],
+      ['action_guide', '总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。'],
+    ],
+    { score:null, title:'财多身弱宜守印', keyword:'守中求进', conclusion:'近十年财运**先抑后扬**。身弱财旺，2032年前求财较吃力、宜稳守借印；2033年起转印星大运，得水木帮身，财运迎来实质性好转。', basis:'命局甲木日主坐财地、财星旺相而日主偏弱，喜印比帮身；后端锁定正财为目标十神，引动机制显示流年有催动但根基不稳，故方向为守中求进、固本为先。' },
+    {
+      base_foundation:{ text:'原局甲木生于未月，财星当令而日主无强根，属**财多身弱**之局。喜用神为水、木——水生身、木比助；忌火土泄耗。静态面板显示正财坐日支得地，财源真实，唯自身承接力不足。', signals:[{ title:'财多身弱喜印生扶', detail:'财耗身，需印星通关泄财生身' }] },
+      target_state:[{ title:'正财坐日支·有根', text:'目标财源真实存在，但需自身够力才能驾驭' }],
+      dayun_field:{ text:'当前壬戌运，壬水印星透出本可帮身，然戌土耗身、伤官生财之象明显：思路活跃、财路扩张，但精力分散、根基不稳。心态上易急于求成，外部机会多而杂，须防贪多嚼不烂。' },
+      liunian_trigger:{ text:'流年丙午，午火助财耗身，子午冲动妻财宫——财事被强推上台面，机会与压力并至。冲动亦带波折：可借势小试，但不宜在身弱时重仓压注，先稳住现金流。', phenomena:[{ tag:'子午冲妻宫·有效', explain:'财宫被冲动，财事被强推上台面' }] },
+    },
+    {
+      category:'wealth', subcategory:'general_wealth', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      stateReport:STATUS_STATE_REPORT, targetSpec:STATUS_TARGET_SPEC,
+      key_signals:[{ title:'正财透月干，财旺身弱', reading:'财气旺而日主辛弱，机会多但承接力不足，需先固本再图进取。' }],
+      rhythm:{ segments:[{ period:'壬戌运 2022-2031', dayun_shishen:'伤官', phenomenon:'枭神夺食、思路活跃但根基不稳', strategy:'固本培元、借印生身', key_liunians:[{ year:2026, gz:'丙午', shishen:'正财', note:'财运催动窗口' }] }] },
+      action_guide:{ text:'总体宜守不宜攻：先固本、借印星贵人帮扶，再借流年财气小步进取。切忌一次性重仓投资；2033年印运到位后再图实质性扩张。', items:['规避：身弱时勿重仓投资','借势：借印星贵人帮扶','节奏：丙午年小步试探，2033年后再扩张'] },
+    })
+
+  // ── timing：婚恋应期（喜用神 木 → 绿） ──
+  const timing = mk('timing', '木', '哪一年比较适合结婚',
+    [{label:'婚恋应期'},{label:'日主甲'},{label:'喜水木'},{label:'应期推演'}],
+    [
+      ['summary_basis', '日主甲木身弱，正财为妻星藏于日支，喜印比帮身助其驭财。后端在 22–35 岁区间筛出三个引动妻宫的年份，逐年比对冲合透干强度后给出应期。'],
+      ['base_foundation', '原局妻宫（日支戌）藏正财，财星真实有根但日主偏弱。婚恋成败关键在自身够力——印比到位之年最易把握，财旺无制之年反易因压力错失。'],
+      ['action_guide', '把握 2028、2031 两个印比助身的窗口主动推进；2026 丙午冲宫之年虽热闹但波折多，宜稳不宜急。'],
+    ],
+    { score:null, title:'2028前后印星助婚', keyword:'稳中择时', conclusion:'婚恋应期集中在 2028、2031 两年——印比帮身、妻宫被吉合引动；2026 虽有冲动但根基不稳，宜作铺垫。' },
+    {
+      base_foundation:{ text:'原局妻宫（日支戌）藏正财，财星真实有根但日主偏弱。婚恋成败关键在自身够力——印比到位之年最易把握，财旺无制之年反易因压力错失。', signals:[{ title:'妻宫藏财·日主偏弱', detail:'财真有根，需印比助身方能驭财成婚' }] },
+      target_state:[{ title:'正财·妻星藏日支', text:'妻缘真实存在，应期取决于自身得帮扶之年' }],
+      trigger_windows:[
+        { year:2026, ganzhi:'丙午', dayun_ganzhi:'壬戌', strength:'中等', verdict:'丙午冲动妻宫，感情议题被强推上台面，但身弱逢财旺压力大，多为铺垫而非定局。', phenomena:[{ tag:'子午冲妻宫·机制强', explain:'婚宫被冲动，关系进展加速但波动大' }] },
+        { year:2028, ganzhi:'戊申', dayun_ganzhi:'壬戌', strength:'较强', verdict:'申子半合水局生身，印星得力，自身从容，最宜主动推进婚事。', phenomena:[{ tag:'申子合·印星助身', explain:'得贵人助力，关系水到渠成' }] },
+        { year:2031, ganzhi:'辛亥', dayun_ganzhi:'癸亥', strength:'较强', verdict:'亥水印星当令、比劫帮身，日主转旺，成婚根基最稳。', phenomena:[{ tag:'亥水生身·根基稳', explain:'自身条件成熟，婚姻稳定度高' }] },
+      ],
+      best_window:{ year:2028, reason:'申子合水生身、印星得力，自身从容主动' },
+      worst_window:{ year:2026, reason:'冲宫虽动但身弱财旺、压力过大，宜缓不宜定' },
+    },
+    {
+      category:'relationship', subcategory:'marriage_timing', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      action_guide:{ text:'把握 2028、2031 两个印比助身的窗口主动推进；2026 丙午冲宫之年虽热闹但波折多，宜稳不宜急。', items:['优先：2028 申子合身之年主动推进','次选：2031 亥水帮身、根基最稳','规避：2026 仅作铺垫，勿急于定局'] },
+    })
+
+  // ── pattern：事业格局（喜用神 火 → 红） ──
+  const pattern = mk('pattern', '火', '我适合走技术还是管理路线',
+    [{label:'事业格局'},{label:'日主甲'},{label:'喜火土'},{label:'格局推演'}],
+    [
+      ['summary_basis', '从原局先天结构容量看：食伤吐秀、利于专精钻研；官杀不透、统御调度的结构支撑偏弱。故格局更适配深耕技术专家路线，管理为辅。'],
+      ['base_foundation', '甲木日主食神格成，月时食伤吐秀而官星不显。先天结构利于「以技立身」——专注、深耕、靠作品说话；调度管人所需的官杀力量薄弱，强行转管理易内耗。'],
+      ['action_guide', '主线锚定技术专家路线，把食伤之秀做深做精；管理只在小团队、专业带队的范围内承接，不必追求纯行政管理岗。'],
+    ],
+    { score:null, title:'食伤吐秀宜技术专精', keyword:'以技立身', conclusion:'先天格局食伤吐秀、利专精；官杀不透、统御力弱。事业宜走**技术专家**主线，管理为辅。' },
+    {
+      base_foundation:{ text:'甲木日主食神格成，月时食伤吐秀而官星不显。先天结构利于「以技立身」——专注、深耕、靠作品说话；调度管人所需的官杀力量薄弱，强行转管理易内耗。', signals:[{ title:'食神吐秀·官星不透', detail:'利专精创造，弱于统御调度' }] },
+      target_state:[{ title:'食伤·才华输出位', text:'技术与创造是命主最稳的发力点' }],
+      structural_supports:['月干食神透出得地，专业深度与创造力强','日坐财库，技术可转化为实在收益','时柱伤官生财，作品化变现路径顺'],
+      structural_risks:['官杀不透，带团队的权威感与调度力天然偏弱','身弱食伤旺，易过度发散、精力难聚焦'],
+      structural_verdict:'先天容量偏「专家型」而非「管理型」：把食伤之秀做深、以技立身最顺；管理可作为专业带队的延伸，但不宜作为主路线强行攀爬。',
+      current_status_note:'当前壬戌运伤官生财，正是把技术沉淀为作品与收益的窗口，宜深耕不宜频繁转岗。',
+    },
+    {
+      secondary_mode:'status', category:'career', subcategory:'career_path', target:{ shishen:['食神','伤官'], gongwei:['月干'], fallback_level:'subcategory', llm_derived_target:null },
+      action_guide:{ text:'主线锚定技术专家路线，把食伤之秀做深做精；管理只在小团队、专业带队的范围内承接，不必追求纯行政管理岗。', items:['深耕：把专业做到不可替代','变现：借日坐财库将技术转化为收益','克制：管理只做专业带队，勿强攀行政岗'] },
+    })
+
+  // ── character：配偶画像（喜用神 金 → 淡金 metal） ──
+  const character = mk('character', '金', '我未来的另一半是什么样的人',
+    [{label:'配偶画像'},{label:'日主甲'},{label:'喜金水'},{label:'人物推演'}],
+    [
+      ['summary_basis', '以日支妻宫与正财星的五行、十神、宫位状态推演配偶倾向：正财藏戌库、得月令土气，呈现务实、顾家、善理财的人物侧写。以下为倾向推断，非现实定论。'],
+    ],
+    { score:null, title:'务实顾家的理财型伴侣', keyword:'稳重持家', conclusion:'妻星正财藏库得令，配偶倾向**务实、顾家、善打理生活**；相处以稳定踏实为底色。' },
+    {
+      portrait_subject:'spouse',
+      target_resolution:'backend_mapped',
+      llm_derived_target_note:'',
+      appearance_tendency:{ text:'中等偏稳的体态，气质温和不张扬，衣着偏实用得体，给人可靠踏实的第一印象。', confidence:'medium', evidence:['正财属土，主敦实','妻宫戌库藏丁，面相温润'] },
+      personality_tendency:{ text:'务实、节俭、重承诺，做事有计划、不爱冒险；情感表达内敛，靠行动而非言语示爱。', confidence:'high', evidence:['正财坐库主守成','土性沉稳少浮夸'] },
+      career_style:{ text:'倾向稳定务实的职业，擅长管理钱财与生活事务，财务上是家庭的稳定器。', confidence:'medium', evidence:['财星得令，理财力强'] },
+      relationship_dynamic:'相处以稳定踏实为底色，对方愿为家庭付出实际行动；命主需主动表达情感，避免把对方的内敛误读为冷淡。',
+      do_not_overclaim:'以上为十神五行和宫位状态呈现的人物倾向，不等于现实中对方一定如此。',
+    },
+    {
+      category:'relationship', subcategory:'partner_profile', target:{ shishen:['正财'], gongwei:['日支'], fallback_level:'subcategory', llm_derived_target:null },
+      action_guide:{ text:'重视对方以行动表达的关心，主动沟通情感需求，让稳定的关系不流于平淡。', items:['主动表达情感，避免误读对方的内敛','共同规划财务，发挥对方理财之长','在稳定中创造仪式感，维持新鲜度'] },
+    })
+
+  // ── profile_driven：泛运势/路径（喜用神 土 → 金土 earth） ──
+  const profile_driven = mk('profile_driven', '土', '我这辈子大概是什么样的命',
+    [{label:'整体运势'},{label:'日主甲'},{label:'喜火土'},{label:'路径推演'}],
+    [
+      ['summary_basis', '无具体靶子，以完整命盘自主提取最相关线索：日主身弱、食伤吐秀而财官皆需自身够力。整体是「靠才华谋生、中年后渐入佳境」的格局，下列按主业/副业两条路径对比。'],
+      ['base_foundation', '甲木身弱食伤旺，才华外显但根基需培。早年靠技艺起步、积累较慢；印比大运到位后日主转旺，承接力增强，财官方能落地，属厚积薄发之命。'],
+      ['dayun_field', '当前壬戌运伤官生财，思路活跃、机会多但精力分散，是打基础、试方向的阶段。心态上易急于求成，外部环境机会杂而需取舍。'],
+      ['liunian_trigger', '流年丙午助财耗身，财事被推上台面，可小步试探但忌重仓。冲动带来变化窗口，适合调整方向而非孤注一掷。'],
+      ['action_guide', '前期以技立身、稳扎稳打，借印比之运培根；中年后顺势把才华转化为实在事业，避免早年盲目铺摊子。'],
+    ],
+    { score:null, title:'厚积薄发以技立身', keyword:'先苦后甜', conclusion:'整体为**身弱食伤吐秀**之命：早年靠才华起步、积累较慢，印比运到位后渐入佳境，中年后财官落地，先苦后甜。' },
+    {
+      base_foundation:{ text:'甲木身弱食伤旺，才华外显但根基需培。早年靠技艺起步、积累较慢；印比大运到位后日主转旺，承接力增强，财官方能落地，属厚积薄发之命。', signals:[{ title:'身弱食伤旺·厚积薄发', detail:'才华先行，根基后成，中年转旺' }] },
+      target_state:[{ title:'食伤·才华主线', text:'以技立身是最稳的发力方向', confidence:'low' }],
+      dayun_field:{ text:'当前壬戌运伤官生财，思路活跃、机会多但精力分散，是打基础、试方向的阶段。心态上易急于求成，外部环境机会杂而需取舍。' },
+      liunian_trigger:{ text:'流年丙午助财耗身，财事被推上台面，可小步试探但忌重仓。冲动带来变化窗口，适合调整方向而非孤注一掷。', phenomena:[] },
+      path_readings:[
+        { path:'主业优先（技术深耕）', structural_fit:'对应食神格，原局食伤吐秀、最得力', likely_experience:'近1-3年在专业上持续精进、逐步建立口碑，收入稳步上行但尚无爆发，需耐住积累期的平淡。', satisfaction_prediction:'高——契合先天才华，越做越顺', peak_period:'2033 起印星大运，专业沉淀转化为实质回报', risk:'过度求稳错失变现窗口', confidence:'low' },
+        { path:'副业/创业优先（提前铺摊）', structural_fit:'依赖财官，但日主身弱、承接力当前不足', likely_experience:'近1-3年若提前重仓铺摊，易因精力分散、资金链紧张而疲于奔命，机会虽多却难收口。', satisfaction_prediction:'中——短期热闹但根基不稳', peak_period:'宜待 2033 身旺后再放大', risk:'身弱强行扩张致进退失据', confidence:'low' },
+      ],
+    },
+    {
+      category:'general', subcategory:'life_overview', target:{ shishen:[], gongwei:[], fallback_level:'category', llm_derived_target:null }, confidence:'low',
+      action_guide:{ text:'前期以技立身、稳扎稳打，借印比之运培根；中年后顺势把才华转化为实在事业，避免早年盲目铺摊子。', items:['主线：深耕专业，建立不可替代性','节奏：2033 身旺后再放大事业版图','规避：身弱期勿盲目重仓创业'] },
+    })
+
+  return { status, timing, pattern, character, profile_driven }
+})()
+const MOCK_BAZI = MOCK_BAZI_MODES.status
+
+function mockBaziResponse(mock = MOCK_BAZI) {
+  const enc = new TextEncoder()
+  const send = (ctrl, obj) => ctrl.enqueue(enc.encode('data: ' + JSON.stringify(obj) + '\n\n'))
+  const sleep = ms => new Promise(r => setTimeout(r, ms))
+  const tg = mock.engineOutput.tags || []
+  const lbl = (i, fb) => tg[i]?.label || fb
+  const body = new ReadableStream({
+    async start(ctrl) {
+      send(ctrl, { type:'step', index:0, pct:10, chip:{ main:lbl(0,'命理分析'), sub:'八字命理' } }); await sleep(380)
+      send(ctrl, { type:'step', index:1, pct:22, chip:{ main:lbl(1,'日主甲'), sub:'身弱' } }); await sleep(340)
+      send(ctrl, { type:'step', index:2, pct:36, chip:{ main:lbl(3,'命局推演'), sub:'目标已锁定' } }); await sleep(320)
+      send(ctrl, { type:'step', index:3, pct:48, chip:{ main:'起盘完成', sub:'引擎已就位' } }); await sleep(300)
+      send(ctrl, { type:'step', index:4, pct:62, chip:{ main:lbl(2,'喜用已定'), sub:'忌神已标记' } }); await sleep(360)
+      send(ctrl, { type:'engine_complete', pct:70, engineOutput:mock.engineOutput }); await sleep(600)
+      send(ctrl, { type:'active', index:5, pct:75 }); await sleep(380)
+      for (const [sec, text] of mock.sections) {
+        for (let i = 0; i < text.length; i += 3) { send(ctrl, { type:'llm_delta', section:sec, text:text.slice(i, i+3) }); await sleep(16) }
+        await sleep(140)
+      }
+      send(ctrl, { type:'llm_done', pct:95, text:'' }); await sleep(220)
+      send(ctrl, { type:'complete', result:mock.result })
+      ctrl.close()
+    }
+  })
+  return { ok:true, body }
+}
+
+async function runBaziMock(mode = 'status') {
+  const mock = MOCK_BAZI_MODES[mode] || MOCK_BAZI
+  questionInput.value = mock.result.question
+  isSubmitting.value = true
+  resetSseState()
+  sseBranch.value = 'bazi'
+  wenShiStreaming.value = true
+  resultPhase.value = 'stream'
+  wenShiStatus.value = '正在解析问题'
+  showOrbFx.value = true
+  orbSettling.value = false
+  orbTone.value = ''
+  resultHtml.value = buildStreamingScaffoldHTML({ branch: 'bazi' }, wenShiStatus.value)
+  viewState.value = 'result'
+  await nextTick(); initMagTabInk()
+  try {
+    const data = await readSSEStream(mockBaziResponse(mock))
+    if (wenShiStreaming.value) await settleOrbToResult(data)
+    wenShiStreaming.value = false
+    activeResultRecord.value = null
+    const finalCard = applyCardMdBold(buildCardHTML(data))
+    finalOverlayHtml.value = finalCard
+    await nextTick()
+    initMagTabInk()
+    setTimeout(() => document.querySelectorAll('.result-overlay .reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 300)
+    await new Promise(r => setTimeout(r, 700))
+    resultHtml.value = finalCard
+    await nextTick()
+    // 终态卡片成为底层后再用完整数据重挂面板（teleport 重解析到终态锚点）
+    activateBaziResultPanel(data)
+    document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+    initMagTabInk()
+    finalOverlayHtml.value = ''
+    showOrbFx.value = false
+    viewState.value = 'result'
+  } finally {
+    isSubmitting.value = false
+  }
+}
+if (typeof window !== 'undefined') window.__mockBazi = runBaziMock
 // 把某段流式文本就地补丁进卡片对应槽位（带 ** 加粗 + 流式光标）
 function patchStreamSlot(section, fullText) {
   const root = document.querySelector('.html-container .wenshi-streaming')
@@ -1491,28 +1739,56 @@ async function readSSEStream(response) {
       } else if (event.type === 'engine_complete') {
         wenShiEngineResult.value = event.engineOutput
         ssePct.value = event.pct
-        if (event.engineOutput?.branch === 'qimen') {
+        const eo = event.engineOutput
+        if (eo?.branch === 'qimen') {
           wenShiStreaming.value = true
           for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
-          patchOrbStatus(`初分 ${event.engineOutput.pre_score} · 深度推演`)
+          patchOrbStatus(`初分 ${eo.pre_score} · 深度推演`)
           const root = document.querySelector('.html-container .wenshi-streaming')
           if (root) {
             // 已在脚手架中：只就地补丁「奇门定基」(盘面/格局)，保留能量球 DOM，避免重建闪动
             const fresh = document.createElement('div')
-            fresh.innerHTML = buildStreamingScaffoldHTML(event.engineOutput, wenShiStatus.value)
+            fresh.innerHTML = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
             const a = fresh.querySelector('#mag-m2'), b = root.querySelector('#mag-m2')
             if (a && b) b.innerHTML = a.innerHTML
           } else {
             resultPhase.value = 'stream'
-            resultHtml.value = buildStreamingScaffoldHTML(event.engineOutput, wenShiStatus.value)
+            resultHtml.value = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
             viewState.value = 'result'
           }
+        } else if (eo?.branch === 'bazi') {
+          // 八字：无分数，能量球定格用喜用神五行色
+          wenShiStreaming.value = true
+          for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
+          orbTone.value = 'wo-tone-' + baziElementTone(eo.favorable_element).tone
+          patchOrbStatus('深度推演中')
+          // 兜底：若尚未是 bazi 脚手架，切过去
+          if (!document.querySelector('.html-container #bazi-hero')) {
+            resultPhase.value = 'stream'
+            resultHtml.value = buildStreamingScaffoldHTML(eo, wenShiStatus.value)
+            viewState.value = 'result'
+          }
+          // 引擎产物先行：LLM 流式之前先把命局解读面板挂到脚手架锚点
+          await nextTick()
+          activateBaziResultPanel(baziEngineToPanelData(eo))
         }
       } else if (event.type === 'active') {
         sseActiveIndex.value = event.index
         ssePct.value = event.pct
         if (wenShiStreaming.value) patchOrbStatus(sseCurrentSteps.value[event.index]?.name || 'AI 推演解盘')
         else wenShiLlm.value = { status: 'pending', text: '' }
+      } else if (event.type === 'llm_retry') {
+        // 后端结构校验未过，正在非流式重试：清空已显示的半截内容，重置回骨架
+        for (const k in wenShiStreamSections) delete wenShiStreamSections[k]
+        const root = document.querySelector('.html-container .wenshi-streaming')
+        if (root) {
+          root.querySelectorAll('[data-wslot]').forEach(el => {
+            el.classList.remove('wstream-active')
+            el.innerHTML = '<span class="wsk"><i></i><i></i></span>'
+          })
+        }
+        if (wenShiStreaming.value) patchOrbStatus(event.message || 'AI 重新推演中…')
+        else { wenShiLlm.value = { status: 'pending', text: '' } }
       } else if (event.type === 'llm_delta') {
         if (wenShiStreaming.value && event.section) {
           // 奇门：累加并就地补丁到对应卡片槽位
@@ -1671,6 +1947,8 @@ onMounted(() => {
   syncAuthModeFromRoute()
   // 开发用：?mock=qimen 自动播放奇门流式生成（不调 API）
   if (route.query.mock === 'qimen') setTimeout(() => runQimenMock(), 600)
+  // ?mock=bazi 默认 status；?mock=bazi&mode=timing|pattern|character|profile_driven 切换 mode
+  if (route.query.mock === 'bazi') setTimeout(() => runBaziMock(String(route.query.mode || 'status')), 600)
   updateClock()
   clockInterval = setInterval(updateClock, 30000)
   suggestionTimer = setInterval(() => {
@@ -2143,6 +2421,22 @@ function adaptBaziResultToV2(data) {
   }
 }
 
+// engine_complete 的 engineOutput（camelCase 引擎字段）→ activateBaziResultPanel 所需结构，
+// 让命局解读面板在 LLM 流式之前就先行挂载（引擎产物先上屏）。
+const baziEngineToPanelData = (eo = {}) => ({
+  branch: 'bazi',
+  meta: { analysis_mode: eo.analysis_mode || 'status', category: eo.category || '', subcategory: eo.subcategory || '' },
+  state_report: eo.stateReport ?? null,
+  target_spec: eo.targetSpec ?? null,
+  dynamic_report: eo.dynamicReport ?? null,
+  timing_candidates: eo.timingCandidates ?? [],
+  subject_snapshot: eo.subject_snapshot ?? null,
+  five_shens: eo.five_shens ?? null,
+  favorable_element: eo.favorable_element || '',
+  question: eo.question || '',
+  summary: {}, readings: {}, action_guide: {},
+})
+
 const activateBaziResultPanel = (data) => {
   showBaziBackingAnchor.value = false
   showBaziPanelAnchor.value = false
@@ -2227,18 +2521,20 @@ const startDivination = async () => {
     ssePct.value = 10
 
     if (routeData.branch === 'bazi') {
-      // 八字分支暂仍用旧加载页（脚手架待后续接入）
-      wenShiStreaming.value = false
-      showOrbFx.value = false
-      viewState.value = 'loading'
       if (!baziProfiles.value.length) await fetchBaziProfiles()
       const profileId = selectedProfileId.value || baziProfiles.value.find(p => p.is_default)?.id || baziProfiles.value[0]?.id || ''
       if (!profileId) {
+        showOrbFx.value = false; wenShiStreaming.value = false; viewState.value = 'input'
         alert('这个问题需要八字档案才能分析，请先进入八字页建立命主资料。')
         router.push({ name: 'bazi', query: { question: input } })
         return
       }
       selectedProfileId.value = profileId
+      // 切到八字能量球脚手架（喜用神五行色在 engine_complete 设）
+      resultPhase.value = 'stream'
+      resultHtml.value = buildStreamingScaffoldHTML({ branch: 'bazi' }, wenShiStatus.value)
+      viewState.value = 'result'
+      await nextTick(); initMagTabInk()
 
       const response = await fetch(BAZI_QUESTION_API_URL, {
         method: 'POST',
@@ -2248,6 +2544,7 @@ const startDivination = async () => {
       if (!response.ok) {
         const errData = await response.json()
         if (errData.code === 'BAZI_PROFILE_INCOMPLETE') {
+          showOrbFx.value = false; wenShiStreaming.value = false; viewState.value = 'input'
           alert('该档案还没有完整排盘数据，请先进入八字页完成命盘推演。')
           router.push({ name: 'bazi', query: { profileId, question: input } })
           return
@@ -2257,16 +2554,26 @@ const startDivination = async () => {
         throw err
       }
       const data = await readSSEStream(response)
+      // 能量球收敛（五行色已设）→ 终态卡片作覆盖层无缝切换
+      if (wenShiStreaming.value) await settleOrbToResult(data)
+      wenShiStreaming.value = false
       const savedRecord = await saveRecordToDatabase(input, data)
       activeResultRecord.value = savedRecord
-      resultHtml.value = applyCardMdBold(buildCardHTML(data))
+      const finalCard = applyCardMdBold(buildCardHTML(data))
+      finalOverlayHtml.value = finalCard
+      await nextTick()
+      initMagTabInk()
+      setTimeout(() => document.querySelectorAll('.result-overlay .reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 300)
+      await new Promise(r => setTimeout(r, 700))
+      resultHtml.value = finalCard
+      await nextTick()
+      // 终态卡片成为底层后再用完整数据重挂面板（teleport 重解析到终态锚点）
       activateBaziResultPanel(data)
+      document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+      initMagTabInk()
+      finalOverlayHtml.value = ''
+      showOrbFx.value = false
       viewState.value = 'result'
-      nextTick(() => {
-        initMagTabInk()
-        if (!(data.branch === 'bazi' && data.meta?.analysis_mode)) animateScore(data.summary?.score || 0)
-        setTimeout(() => document.querySelectorAll('.reveal').forEach((el, i) => setTimeout(() => el.classList.add('visible'), i * 80)), 450)
-      })
       return
     }
 
@@ -2634,10 +2941,12 @@ const buildBaziQuestionCardHTML = (data) => {
   const question = data.question || ''
   const targetLabel = concreteTargetLabel(data)
 
-  const lvl = summary.level || 'unknown'
-  const heroTone = lvl === 'strong' ? 'auspicious' : lvl === 'weak' ? 'caution' : 'neutral'
-  const THEME    = heroTone === 'auspicious' ? '#0D9488' : heroTone === 'caution' ? '#C84A45' : '#B58D3B'
-  const THEME_DIM= heroTone === 'auspicious' ? 'rgba(13,148,136,0.15)' : heroTone === 'caution' ? 'rgba(200,74,69,0.16)' : 'rgba(181,141,59,0.17)'
+  // 八字无分数：hero 定格色 = 喜用神五行色（与加载态能量球同色，溶解交接无色差）
+  const _favEl = data.favorable_element || wenShiEngineResult.value?.favorable_element || ''
+  const _et = baziElementTone(_favEl)
+  const heroTone = _et.tone          // wood / fire / earth / metal / water
+  const THEME    = _et.THEME
+  const THEME_DIM= _et.DIM
 
   const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
 
@@ -3027,7 +3336,56 @@ const QIMEN_STREAM_SLOTS = {
   subject_reading: { lines: 2 }, target_reading: { lines: 2 }, environment_reading: { lines: 2 },
   support_summary: { lines: 2 }, constraint_summary: { lines: 2 }, decision_reading: { lines: 2 },
 }
+// 喜用神五行 → 能量球/卡片色档（八字无分数，定格用五行色）
+const BAZI_ELEMENT_TONE = {
+  '木': { tone: 'wood',  THEME: '#2f9d6e', DIM: 'rgba(47,157,110,0.16)' },
+  '火': { tone: 'fire',  THEME: '#c84a45', DIM: 'rgba(200,74,69,0.16)' },
+  '土': { tone: 'earth', THEME: '#b58d3b', DIM: 'rgba(181,141,59,0.17)' },
+  '金': { tone: 'metal', THEME: '#bda15a', DIM: 'rgba(189,161,90,0.16)' },
+  '水': { tone: 'water', THEME: '#3a6ea5', DIM: 'rgba(58,110,165,0.16)' },
+}
+const baziElementTone = (el) => BAZI_ELEMENT_TONE[String(el || '').charAt(0)] || BAZI_ELEMENT_TONE['土']
+
+// 八字流式脚手架（透明 hero 露出能量球；散文段 data-wslot 对齐后端 section key）
+const buildBaziStreamingScaffoldHTML = (engine = null, statusText = '') => {
+  const sk = (lines = 2) => `<span class="wsk">${'<i></i>'.repeat(lines)}</span>`
+  const slot = (key) => `<span class="wstream-slot" data-wslot="${key}">${sk(2)}</span>`
+  const et = baziElementTone(engine?.favorable_element)
+  const question = engine?.question || ''
+  const tabClick = (id) => `var nav=this.closest('.mag-tabs');var tabs=nav.querySelectorAll('.mag-tab');tabs.forEach(function(t){t.classList.remove('mag-tab-active')});this.classList.add('mag-tab-active');var ink=nav.querySelector('.mag-tab-ink');if(ink){ink.style.transform='translateX('+this.offsetLeft+'px)';ink.style.width=this.offsetWidth+'px';}document.getElementById('${id}').scrollIntoView({behavior:'smooth',block:'start'})`
+  return `<div class="mag-result tone-neutral wenshi-streaming" style="--theme-color:${et.THEME};--theme-color-dim:${et.DIM};">
+    <section class="mag-hero wenshi-orb-spacer" id="bazi-hero"></section>
+    <nav class="mag-tabs">
+      <button class="mag-tab mag-tab-active" onclick="${tabClick('bazi-m1')}">结论先行</button>
+      <button class="mag-tab" onclick="${tabClick('bazi-m2')}">命局解读</button>
+      <button class="mag-tab" onclick="${tabClick('bazi-m3')}">深度推演</button>
+      <button class="mag-tab" onclick="${tabClick('bazi-m5')}">行动建议</button>
+      <span class="mag-tab-ink"></span>
+    </nav>
+    <section class="mag-section" id="bazi-m1">
+      <div class="module-heading"><h2>结论先行</h2></div>
+      ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
+      <p class="bazi-basis-text">${slot('summary_basis')}</p>
+    </section>
+    <section class="mag-section" id="bazi-m2">
+      <div class="module-heading"><h2>命局解读</h2></div>
+      <div id="bazi-panel-anchor" class="bazi-panel-anchor"></div>
+      <div class="bazi-foundation-block"><p>${slot('base_foundation')}</p></div>
+    </section>
+    <section class="mag-section" id="bazi-m3">
+      <div class="module-heading"><h2>深度推演</h2></div>
+      <div class="bazi-foundation-block"><h3 class="bazi-bf-title">大运</h3><p>${slot('dayun_field')}</p></div>
+      <div class="bazi-foundation-block"><h3 class="bazi-bf-title">流年</h3><p>${slot('liunian_trigger')}</p></div>
+    </section>
+    <section class="mag-section" id="bazi-m5">
+      <div class="module-heading"><h2>行动建议</h2></div>
+      <p>${slot('action_guide')}</p>
+    </section>
+  </div>`
+}
+
 const buildStreamingScaffoldHTML = (engine = null, statusText = '') => {
+  if (engine?.branch === 'bazi') return buildBaziStreamingScaffoldHTML(engine, statusText)
   const sk = (lines = 2) => `<span class="wsk">${'<i></i>'.repeat(lines)}</span>`
   // 流式槽位：初始骨架，data-wslot 供 DOM 打补丁
   const slot = (key) => `<span class="wstream-slot" data-wslot="${key}">${sk(QIMEN_STREAM_SLOTS[key]?.lines || 2)}</span>`
@@ -4344,6 +4702,12 @@ input::placeholder { color: var(--text-muted); }
 .wenshi-orb-fx.wo-tone-gold .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(212,175,55,.85), rgba(181,141,59,.5) 60%, transparent 100%); }
 .wenshi-orb-fx.wo-tone-teal .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(13,148,136,.85), rgba(13,148,136,.45) 60%, transparent 100%); }
 .wenshi-orb-fx.wo-tone-warn .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(200,74,69,.85), rgba(150,30,30,.5) 60%, transparent 100%); }
+/* 八字喜用神五行色档 */
+.wenshi-orb-fx.wo-tone-wood .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(47,157,110,.85), rgba(47,157,110,.45) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-fire .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(200,74,69,.85), rgba(150,30,30,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-earth .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(212,175,55,.85), rgba(181,141,59,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-metal .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(220,205,160,.9), rgba(189,161,90,.5) 60%, transparent 100%); }
+.wenshi-orb-fx.wo-tone-water .wo-final{ background:radial-gradient(circle at 50% 50%, rgba(90,150,210,.85), rgba(58,110,165,.5) 60%, transparent 100%); }
 
 /* 定格过渡：球大幅放大到“球体不可见” + 模糊化开成 hero 渐变光晕（再由终态卡片自带渐变接管）*/
 .wenshi-orb-fx.settling .wenshi-orb{ transform:scale(4.4) translateZ(0); }
@@ -4969,6 +5333,37 @@ input::placeholder { color: var(--text-muted); }
     radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.42), transparent),
     radial-gradient(ellipse 55% 48% at 0% 104%, rgba(200,74,69,0.20), transparent),
     linear-gradient(175deg, rgba(255,228,226,0.96), rgba(247,244,238,1.0));
+}
+/* 八字喜用神五行 hero 定格色（与能量球终态同色，溶解交接无色差） */
+:deep(.tone-wood .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(47,157,110,0.40), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(47,157,110,0.20), transparent),
+    linear-gradient(175deg, rgba(214,244,231,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-fire .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(200,74,69,0.20), transparent),
+    linear-gradient(175deg, rgba(255,228,226,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-earth .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(181,141,59,0.45), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(181,141,59,0.22), transparent),
+    linear-gradient(175deg, rgba(255,244,210,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-metal .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(189,161,90,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(189,161,90,0.20), transparent),
+    linear-gradient(175deg, rgba(248,242,222,0.96), rgba(247,244,238,1.0));
+}
+:deep(.tone-water .mag-hero) {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(58,110,165,0.42), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(58,110,165,0.20), transparent),
+    linear-gradient(175deg, rgba(220,232,246,0.96), rgba(247,244,238,1.0));
 }
 :deep(.mag-hero-panel) {
   position: relative;
@@ -5630,6 +6025,37 @@ input::placeholder { color: var(--text-muted); }
     radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.72), transparent),
     radial-gradient(ellipse 55% 48% at 0% 104%, rgba(150,30,30,0.38), transparent),
     linear-gradient(175deg, rgba(40,4,4,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+/* 八字喜用神五行 hero 定格色（暗色） */
+[data-theme="dark"] .tone-wood .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(47,157,110,0.62), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(47,157,110,0.28), transparent),
+    linear-gradient(175deg, rgba(2,24,16,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-fire .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(200,74,69,0.72), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(150,30,30,0.38), transparent),
+    linear-gradient(175deg, rgba(40,4,4,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-earth .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(212,175,55,0.62), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(181,141,59,0.28), transparent),
+    linear-gradient(175deg, rgba(24,18,2,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-metal .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(220,205,160,0.60), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(189,161,90,0.28), transparent),
+    linear-gradient(175deg, rgba(22,20,8,0.97) 0%, rgba(5,5,10,1.0) 100%);
+}
+[data-theme="dark"] .tone-water .mag-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 96% 0%, rgba(58,110,165,0.68), transparent),
+    radial-gradient(ellipse 55% 48% at 0% 104%, rgba(58,110,165,0.32), transparent),
+    linear-gradient(175deg, rgba(2,12,28,0.97) 0%, rgba(5,5,10,1.0) 100%);
 }
 [data-theme="dark"] .mag-tabs {
   background: var(--header-bg);

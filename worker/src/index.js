@@ -544,6 +544,35 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
   return JSON.parse(cleaned);
 }
 
+// Non-streaming plain-text fallback — used for empty-stream retry.
+// Returns the full response text (no JSON format constraint, stream: false).
+async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
+  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const response = await fetch(LLM_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature,
+      stream: false,
+    }),
+  });
+  if (!response.ok) {
+    const errText = await response.text();
+    const err = new Error('上游大模型接口故障（重试）');
+    err.status = 502;
+    err.details = `HTTP ${response.status}: ${errText.substring(0, 120)}`;
+    throw err;
+  }
+  const data = await response.json();
+  if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+  return data.choices?.[0]?.message?.content || '';
+}
+
 // Streams plain text chunks from the LLM (no JSON format constraint).
 // Yields raw text deltas for SSE forwarding.
 async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
@@ -616,24 +645,28 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
 // ── 八字哨兵（模块化，对齐奇门）：每个文本字段一个散文模块(流式) + 一个 data_json 模块(结构字段)。
 //    保留 main 的 JSON Schema 原文作为字段定义（零回推）；末尾仅追加“拆分输出”指令。
 const BAZI_TEXT_FIELDS = {
-  status:         [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["dayun_field","readings.dayun_field.text"],["liunian_trigger","readings.liunian_trigger.text"],["action_guide","action_guide.text"]],
-  timing:         [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["action_guide","action_guide.text"]],
-  pattern:        [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["structural_verdict","readings.structural_verdict"],["action_guide","action_guide.text"]],
-  character:      [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["appearance_tendency","readings.appearance_tendency.text"],["personality_tendency","readings.personality_tendency.text"],["career_style","readings.career_style.text"],["relationship_dynamic","readings.relationship_dynamic"],["action_guide","action_guide.text"]],
-  profile_driven: [["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["dayun_field","readings.dayun_field.text"],["liunian_trigger","readings.liunian_trigger.text"],["action_guide","action_guide.text"]],
+  status:         [["title","summary.title"],["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["dayun_field","readings.dayun_field.text"],["liunian_trigger","readings.liunian_trigger.text"],["action_guide","action_guide.text"]],
+  timing:         [["title","summary.title"],["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["action_guide","action_guide.text"]],
+  pattern:        [["title","summary.title"],["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["structural_verdict","readings.structural_verdict"],["action_guide","action_guide.text"]],
+  character:      [["title","summary.title"],["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["appearance_tendency","readings.appearance_tendency.text"],["personality_tendency","readings.personality_tendency.text"],["career_style","readings.career_style.text"],["relationship_dynamic","readings.relationship_dynamic"],["action_guide","action_guide.text"]],
+  profile_driven: [["title","summary.title"],["summary_conclusion","summary.conclusion"],["summary_basis","summary.basis"],["base_foundation","readings.base_foundation.text"],["dayun_field","readings.dayun_field.text"],["liunian_trigger","readings.liunian_trigger.text"],["action_guide","action_guide.text"]],
 };
 const baziTextFields = (mode) => BAZI_TEXT_FIELDS[mode] || BAZI_TEXT_FIELDS.status;
 const baziVisibleSections = (mode) => new Set(baziTextFields(mode).map(([k]) => k));
 
 function convertPromptToTextMode(prompt, mode = "status") {
   const fields = baziTextFields(mode);
-  const proseBlocks = fields.map(([k, path]) =>
-    "<<<SEC:" + k + ">>>\n（取自上面 Schema 的 " + path + "：严格遵守该字段的字数与语义；面向用户，可 **加粗**，不写字段名、不写 JSON）\n<<<END:" + k + ">>>").join("\n\n");
+  const proseBlocks = fields.map(([k, path]) => {
+    const desc = k === 'title'
+      ? `（取自上面 Schema 的 ${path}：6-14字标题，点明问题类型与核心结论；不加标点结尾，不写字段名）`
+      : `（取自上面 Schema 的 ${path}：严格遵守该字段的字数与语义；面向用户，可 **加粗**，不写字段名、不写 JSON）`;
+    return "<<<SEC:" + k + ">>>\n" + desc + "\n<<<END:" + k + ">>>";
+  }).join("\n\n");
   const WRAP = "\n\n**【最终输出格式（覆盖前文“严格返回统一 envelope / 直接输出 JSON”的方式要求；字段名、字数、语义仍严格遵守上面的“输出 JSON Schema”）】**\n" +
     "不要直接输出完整 JSON。改为按下列哨兵分段输出，每段标记逐字书写（含尖括号与冒号），标记之外不写任何文字。\n" +
     "以下散文段直接面向用户、逐字流式显示，内容取自上面 Schema 对应字段：\n\n" +
     proseBlocks + "\n\n" +
-    "最后输出一个 data_json 段，放入上面 Schema 中【除上述散文段之外的所有字段】（meta、summary.title、key_signals、readings 的结构/数组字段如 signals/target_state/phenomena/trigger_windows/structural_supports/path_readings 等、rhythm、action_guide.items），只输出一个合法 JSON，不要 markdown 代码块，字段名与上面 Schema 完全一致：\n" +
+    "最后输出一个 data_json 段，放入上面 Schema 中【除上述散文段之外的所有字段】（meta、key_signals、readings 的结构/数组字段如 signals/target_state/phenomena/trigger_windows/structural_supports/path_readings 等、rhythm、action_guide.items）；summary 的 title/conclusion/basis 已在散文段输出，不要在 data_json 里重复。只输出一个合法 JSON，不要 markdown 代码块，字段名与上面 Schema 完全一致：\n" +
     "<<<SEC:data_json>>>\n{ ...上面 Schema 中除散文段外的全部字段... }\n<<<END:data_json>>>\n\n" +
     "严格要求：只输出上述各段，散文段不得为空。";
   return prompt + WRAP;
@@ -674,7 +707,7 @@ function convertQimenPromptToTextMode(prompt) {
   // 字段含义、字数、语义约束仍严格遵守前文 qimen_report 各模块说明，本段只改变承载格式。
   const SENTINEL_INSTRUCTION = `**【最终输出格式（本段覆盖前文所有关于 JSON / 输出字段契约的“格式”要求；字段含义、字数与语义约束仍严格遵守前文 qimen_report 各模块说明）】**
 
-请严格按以下顺序输出 8 个段落，每段用哨兵标记原样包裹（标记必须逐字书写，含尖括号与冒号）。前 7 个散文段直接面向用户，可在重点处使用 **加粗**，但不要使用其它 markdown、不要写标题符号、不要写字段名。
+请严格按以下顺序输出 9 个段落，每段用哨兵标记原样包裹（标记必须逐字书写，含尖括号与冒号）。前 8 个散文段直接面向用户，可在重点处使用 **加粗**，但不要使用其它 markdown、不要写标题符号、不要写字段名。
 
 <<<SEC:conclusion>>>
 （m1_conclusion.conclusion：35-80字总判，开门见山回答用户问题）
@@ -697,17 +730,21 @@ function convertQimenPromptToTextMode(prompt) {
 <<<END:support_summary>>>
 
 <<<SEC:constraint_summary>>>
-（m3_inference.constraint_factors.summary：45-90字，不利因素综述，不恐吓、不写“必败”）
+（m3_inference.constraint_factors.summary：45-90字，不利因素综述，不恐吓、不写”必败”）
 <<<END:constraint_summary>>>
 
 <<<SEC:decision_reading>>>
 （m3_inference.interaction_decision.reading：80-140字，引用主客 subject↔target 生克，给方向性判断与现实动作边界）
 <<<END:decision_reading>>>
 
+<<<SEC:title>>>
+（m1_conclusion.title：8-14字，点明问题类型与核心判断；不写字段名，不加标点结尾）
+<<<END:title>>>
+
 <<<SEC:data_json>>>
 本段用 JSON 承载结构化字段，便于后端解析；它不会作为流式散文逐字显示，但其中所有文本字段（verdict、evidence、impact、do、avoid、reason、actions 等）都会渲染进用户最终看到的卡片，必须按前文字数与文案质量要求认真书写，不得敷衍或留空占位。只输出一个合法 JSON，不要额外文字、不要 markdown 代码块。必须包含以下结构（字段约束同前文）：
 {
-  "m1_conclusion": { "title": "8-14字，点明问题类型", "keyword": "4-12字核心判断词", "actions": ["3条，45-95字，动词开头，可落地，至少1条融合后端应期/时间检索；若无明确窗口说明先观察哪些触发条件", "第2条", "第3条"] },
+  "m1_conclusion": { "keyword": "4-12字核心判断词", "actions": ["3条，45-95字，动词开头，可落地，至少1条融合后端应期/时间检索；若无明确窗口说明先观察哪些触发条件", "第2条", "第3条"] },
   "m2_basis": { "yongshen_cards": [ { "key": "subject|target|environment 或后端 axis key", "label": "卡片标题", "symbol": "如 日干 戊", "tone": "positive|mixed|warning", "verdict": "一句话状态", "evidence": "引用实际落宫/门/星/神/空亡/马星/有名格" } ] },
   "m3_inference": {
     "subject_state": { "symbol": "如 日干 辛", "palace": "如 震3宫", "tone": "positive|mixed|warning" },
@@ -728,7 +765,7 @@ function convertQimenPromptToTextMode(prompt) {
 其中 score_review.audit_delta 必须是 -20 到 +20 的整数；如无需修正写 0。
 <<<END:data_json>>>
 
-严格要求：只输出上述 8 段，不要在哨兵标记之外写任何文字。`;
+严格要求：只输出上述 9 段，不要在哨兵标记之外写任何文字。`;
 
   // 替换 JSON 输出契约段，但保留契约段之后的“问题：…”尾部（原实现会误删它）。
   const contractAnchor = '**【输出字段契约】**';
@@ -807,6 +844,29 @@ function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } 
   };
 }
 
+
+// 结构性硬失败判定：核心段缺失 / 大面积段缺失 / data_json 不可解析 → 触发一次非流式重试。
+// 个别可选字段缺失不算硬失败（走静默兜底），避免 LLM 合理省略某段时误触发重试。
+function qimenSectionsAreBad(sec) {
+  const proseKeys = ['conclusion', 'subject_reading', 'target_reading', 'environment_reading',
+    'support_summary', 'constraint_summary', 'decision_reading'];
+  if (!sec || !sec.conclusion || !sec.conclusion.trim()) return true;
+  const missing = proseKeys.filter(k => !sec[k] || !sec[k].trim()).length;
+  if (missing >= 3) return true;
+  if (!sec.data_json || !sec.data_json.trim()) return true;
+  try { JSON.parse(sec.data_json); } catch { return true; }
+  return false;
+}
+
+function baziSectionsAreBad(sec, mode) {
+  const keys = baziTextFields(mode).map(([k]) => k);
+  if (!sec || !sec.summary_conclusion || !sec.summary_conclusion.trim()) return true;
+  const missing = keys.filter(k => !sec[k] || !sec[k].trim()).length;
+  if (missing >= 3) return true;
+  if (!sec.data_json || !sec.data_json.trim()) return true;
+  try { JSON.parse(sec.data_json); } catch { return true; }
+  return false;
+}
 
 async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
@@ -1224,6 +1284,8 @@ async function handleBaziQuestion(request, env) {
       engineOutput: {
         branch: 'bazi',
         analysis_mode: semanticRoute.analysis_mode || 'status',
+        category: semanticRoute.category || '',
+        subcategory: semanticRoute.subcategory || '',
         favorable_element: _favEl,
         question,
         tags: [
@@ -1246,15 +1308,40 @@ async function handleBaziQuestion(request, env) {
 
     const _baziMode = semanticRoute.analysis_mode || 'status';
     const textPrompt = convertPromptToTextMode(prompt, _baziMode);
+    // 问事模型：preview 环境由 QUESTION_MODEL 覆盖为 flash，production 默认 pro
+    const questionModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
     let llmFullText = '';
     const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3-flash-preview', 0.65)) {
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.65)) {
       llmFullText += chunk;
       baziParser.push(chunk);
     }
-    const baziSec = baziParser.finish();
+    // 结构校验：空流 / 核心段缺失 / data_json 不可解析 → 打回让 LLM 重试一次（非流式）
+    let baziSec = baziParser.finish();
+    if (baziSectionsAreBad(baziSec, _baziMode)) {
+      console.warn('[bazi-question] bad structure, retrying non-streaming...', { mode: _baziMode, len: llmFullText.length });
+      // 通知前端清空已显示的半截内容，重置回骨架
+      emit({ type: 'llm_retry', message: 'AI 重新推演中…' });
+      try {
+        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.65);
+      } catch (retryErr) {
+        console.error('[bazi-question] retry also failed:', retryErr.message);
+        emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
+        return;
+      }
+      const retryBaziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {});
+      retryBaziParser.push(llmFullText);
+      baziSec = retryBaziParser.finish();
+      if (baziSectionsAreBad(baziSec, _baziMode)) {
+        emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
+        return;
+      }
+      for (const [k] of baziTextFields(_baziMode)) {
+        if (baziSec[k]) emit({ type: 'llm_delta', section: k, text: baziSec[k] });
+      }
+    }
     let _djOk = false;
     try { _djOk = !!Object.keys(JSON.parse(baziSec.data_json || '{}')).length; } catch (e) { _djOk = false; }
     const _secLens = Object.fromEntries(Object.keys(baziSec).map(k => [k, (baziSec[k] || '').length]));
@@ -1287,7 +1374,7 @@ async function handleBaziQuestion(request, env) {
       llmOutputRaw: { text: llmFullText, mode: 'sentinel_stream', reconstructed: reconstructedBaziJson },
       llmOutputNormalized: output,
       pipelineResult,
-      modelName: 'gemini-3-flash-preview',
+      modelName: questionModel,
       latencyMs: Date.now() - startedAt,
       fallbacks: semanticFallbacks,
       llmLimitations: [],
@@ -1304,6 +1391,7 @@ async function handleBaziQuestion(request, env) {
     const outputWithSnapshot = {
       ...output,
       llmText: llmFullText,
+      favorable_element: _favEl,
       subject_snapshot,
       five_shens,
       ...(pipelineResult ? {
@@ -1853,20 +1941,48 @@ ${outputContractSection}
     emit({ type: 'active', index: 5, pct: 78 });
 
     const textPrompt = convertQimenPromptToTextMode(finalPrompt);
+    // 问事模型：preview 环境由 QUESTION_MODEL 覆盖为 flash，production 默认 pro
+    const questionModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
     // 7 个面向用户的散文段流式可见；data_json 段静默累积。
     const QIMEN_VISIBLE_SECTIONS = new Set([
       'conclusion', 'subject_reading', 'target_reading', 'environment_reading',
-      'support_summary', 'constraint_summary', 'decision_reading'
+      'support_summary', 'constraint_summary', 'decision_reading', 'title'
     ]);
     let llmFullText = '';
     const sentinelParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, 'gemini-3-flash-preview', 0.7)) {
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.7)) {
       llmFullText += chunk;
       sentinelParser.push(chunk);
     }
-    const sec = sentinelParser.finish();
+    // 结构校验：空流 / 核心段缺失 / data_json 不可解析 → 打回让 LLM 重试一次（非流式）
+    let sec = sentinelParser.finish();
+    if (qimenSectionsAreBad(sec)) {
+      console.warn('[qimen-api] bad structure, retrying non-streaming...', { len: llmFullText.length });
+      // 通知前端清空已显示的半截内容，重置回骨架
+      emit({ type: 'llm_retry', message: 'AI 重新推演中…' });
+      try {
+        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.7);
+      } catch (retryErr) {
+        console.error('[qimen-api] retry also failed:', retryErr.message);
+        emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
+        return;
+      }
+      const retryParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {});
+      retryParser.push(llmFullText);
+      sec = retryParser.finish();
+      if (qimenSectionsAreBad(sec)) {
+        emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
+        return;
+      }
+      // 用重试内容重新 emit 可见段（含 title）
+      const VISIBLE_ORDER = ['conclusion', 'subject_reading', 'target_reading',
+        'environment_reading', 'support_summary', 'constraint_summary', 'decision_reading', 'title'];
+      for (const section of VISIBLE_ORDER) {
+        if (sec[section]) emit({ type: 'llm_delta', section, text: sec[section] });
+      }
+    }
     // 拼出已展示的可读文字（兜底用完整可见段顺序拼接）
     const visibleProse = ['conclusion', 'subject_reading', 'target_reading', 'environment_reading',
       'support_summary', 'constraint_summary', 'decision_reading']
@@ -1883,7 +1999,7 @@ ${outputContractSection}
       score_review: _dj.score_review || {},
       timing_review: _dj.timing_review || null,
       qimen_report: {
-        m1_conclusion: { ...(_dj.m1_conclusion || {}), conclusion: sec.conclusion || _dj.m1_conclusion?.conclusion || '' },
+        m1_conclusion: { ...(_dj.m1_conclusion || {}), title: sec.title || _dj.m1_conclusion?.title || '', conclusion: sec.conclusion || _dj.m1_conclusion?.conclusion || '' },
         m2_basis: { ...(_dj.m2_basis || {}) },
         m3_inference: {
           subject_state:        { ...(_djM3.subject_state || {}),        reading: sec.subject_reading || '' },
@@ -2096,7 +2212,7 @@ ${outputContractSection}
             timingFinal: finalOutput.timing_analysis,
             postprocessAudit,
             finalOutput,
-            modelName: 'gemini-3-flash-preview',
+            modelName: questionModel,
             latencyMs: Date.now() - startedAt,
             fallbacks: []
         });
