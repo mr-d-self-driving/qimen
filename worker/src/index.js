@@ -675,7 +675,7 @@ function convertPromptToTextMode(prompt, mode = "status") {
 // 散文段 + data_json 重组成完整 envelope（字段定义来自 main Schema）→ normalizeBaziQuestionOutput。
 function reconstructBaziLlmJson(sections, mode = "status") {
   let dj = {};
-  try { dj = JSON.parse(sections.data_json || "{}"); } catch (e) { dj = {}; }
+  try { dj = parseSentinelDataJson(sections.data_json); } catch (e) { dj = {}; }
   const out = (dj && typeof dj === "object") ? dj : {};
   if (!out.meta) out.meta = { analysis_mode: mode, branch: "bazi" };
   if (!out.summary) out.summary = {};
@@ -784,49 +784,48 @@ function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } 
   let current = null; // current section key
   const sections = {};
 
-  const longestSuffixThatIsPrefixOf = (text, marker) => {
-    const max = Math.min(text.length, marker.length - 1);
-    for (let len = max; len > 0; len--) {
-      if (marker.startsWith(text.slice(-len))) return len;
-    }
-    return 0;
-  };
-
   const emit = (key, text) => {
     if (!text) return;
     sections[key] = (sections[key] || '') + text;
     if (visibleKeys.has(key)) onVisibleDelta?.(key, text);
   };
 
+  const MARKER_RE = /<<<(SEC|END):([a-z_]+)>>>/;
+
+  // t 是否可能是“尚未到齐的标记”的前缀：要么是 <<<SEC:/<<<END: 这截引导词的前缀
+  // （含 <、<<、<<<、<<<S…），要么引导词已全、只差 key 或收尾 >>>（最多 >>）。
+  const isMarkerPrefix = (t) =>
+    '<<<SEC:'.startsWith(t) || '<<<END:'.startsWith(t) ||
+    /^<<<(SEC|END):[a-z_]*>{0,2}$/.test(t);
+
+  // 末尾若是半截标记必须留在 buffer 等下一个 chunk 补全，否则标记会被拆成碎片当正文
+  // emit（如 …<、<<END、:supp、>> 跨 chunk 分片）。返回应保留的尾部长度。
+  const holdBackTail = () => {
+    for (let i = buffer.indexOf('<'); i !== -1; i = buffer.indexOf('<', i + 1)) {
+      if (isMarkerPrefix(buffer.slice(i))) return buffer.length - i;
+    }
+    return 0;
+  };
+
+  // 对标记边界鲁棒：任何 <<<END:*>>> 都闭合当前段（不要求 label 同名），任何
+  // <<<SEC:key>>> 都隐式闭合上一段并开新段。这样模型错配 label
+  // （如 <<<SEC:target_reading>>>…<<<END:subject_reading>>>）或漏写 END 都能自愈，
+  // 且任何标记本身绝不会被当作正文 emit 出去（避免标记泄漏到前端卡片）。
   const processBuffer = () => {
     while (buffer) {
-      if (!current) {
-        const m = buffer.match(/<<<SEC:([a-z_]+)>>>/);
-        if (!m) {
-          // keep only a possible partial start marker tail
-          const tail = longestSuffixThatIsPrefixOf(buffer, '<<<SEC:');
-          buffer = tail ? buffer.slice(-tail) : '';
-          return;
-        }
-        current = m[1];
-        buffer = buffer.slice(m.index + m[0].length);
+      const m = buffer.match(MARKER_RE);
+      if (!m) {
+        const keep = holdBackTail();
+        const cut = buffer.length - keep;
+        if (current && cut > 0) emit(current, buffer.slice(0, cut));
+        buffer = buffer.slice(cut);
+        return;
       }
-      const endToken = `<<<END:${current}>>>`;
-      const endIdx = buffer.indexOf(endToken);
-      if (endIdx !== -1) {
-        emit(current, buffer.slice(0, endIdx));
-        buffer = buffer.slice(endIdx + endToken.length);
-        current = null;
-        continue;
-      }
-      // emit everything except a possible partial end-marker tail
-      const keep = longestSuffixThatIsPrefixOf(buffer, endToken);
-      const safe = Math.max(0, buffer.length - keep);
-      if (safe > 0) {
-        emit(current, buffer.slice(0, safe));
-        buffer = buffer.slice(safe);
-      }
-      return;
+      // 标记之前的内容归属当前打开的段；段间空白（current 为空时）直接丢弃。
+      const before = buffer.slice(0, m.index);
+      if (current && before) emit(current, before);
+      buffer = buffer.slice(m.index + m[0].length);
+      current = m[1] === 'SEC' ? m[2] : null;
     }
   };
 
@@ -845,6 +844,25 @@ function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } 
 }
 
 
+// 宽松解析哨兵 data_json 段：Gemini 常无视"不要 markdown 代码块"把 JSON 包进 ```json 围栏，
+// 或在 JSON 前后掺杂零碎说明文字。先剥围栏，再退而抽取最外层 {...}，最后才 JSON.parse。
+// 解析失败抛错（交给调用方按 bad structure 处理）；调用方需要兜底时自行 try/catch。
+function parseSentinelDataJson(raw) {
+  if (!raw || !String(raw).trim()) throw new Error('empty data_json');
+  let s = String(raw).replace(/```json/gi, '').replace(/```/g, '').trim();
+  try {
+    return JSON.parse(s);
+  } catch (_) {
+    // 抽取最外层大括号区间，容忍前后多余文字
+    const start = s.indexOf('{');
+    const end = s.lastIndexOf('}');
+    if (start !== -1 && end > start) {
+      return JSON.parse(s.slice(start, end + 1));
+    }
+    throw _;
+  }
+}
+
 // 结构性硬失败判定：核心段缺失 / 大面积段缺失 / data_json 不可解析 → 触发一次非流式重试。
 // 个别可选字段缺失不算硬失败（走静默兜底），避免 LLM 合理省略某段时误触发重试。
 function qimenSectionsAreBad(sec) {
@@ -854,7 +872,7 @@ function qimenSectionsAreBad(sec) {
   const missing = proseKeys.filter(k => !sec[k] || !sec[k].trim()).length;
   if (missing >= 3) return true;
   if (!sec.data_json || !sec.data_json.trim()) return true;
-  try { JSON.parse(sec.data_json); } catch { return true; }
+  try { parseSentinelDataJson(sec.data_json); } catch { return true; }
   return false;
 }
 
@@ -864,7 +882,7 @@ function baziSectionsAreBad(sec, mode) {
   const missing = keys.filter(k => !sec[k] || !sec[k].trim()).length;
   if (missing >= 3) return true;
   if (!sec.data_json || !sec.data_json.trim()) return true;
-  try { JSON.parse(sec.data_json); } catch { return true; }
+  try { parseSentinelDataJson(sec.data_json); } catch { return true; }
   return false;
 }
 
@@ -1343,7 +1361,7 @@ async function handleBaziQuestion(request, env) {
       }
     }
     let _djOk = false;
-    try { _djOk = !!Object.keys(JSON.parse(baziSec.data_json || '{}')).length; } catch (e) { _djOk = false; }
+    try { _djOk = !!Object.keys(parseSentinelDataJson(baziSec.data_json)).length; } catch (e) { _djOk = false; }
     const _secLens = Object.fromEntries(Object.keys(baziSec).map(k => [k, (baziSec[k] || '').length]));
     console.log(`[bazi-sse] mode=${_baziMode} dataJsonOk=${_djOk} secLens=${JSON.stringify(_secLens)}`);
     // 流式可读文本 = 各散文段顺序拼接
@@ -1991,7 +2009,7 @@ ${outputContractSection}
 
     // 把哨兵段（7 散文 + 1 JSON）重组成与原 JSON 输出同形的 LLM 产物，再走原后处理。
     let dataJson = {};
-    try { dataJson = JSON.parse(sec.data_json || '{}'); } catch (e) { dataJson = {}; }
+    try { dataJson = parseSentinelDataJson(sec.data_json); } catch (e) { dataJson = {}; }
     const _dj = dataJson || {};
     const _djM3 = _dj.m3_inference || {};
     const rawQimenLlmOutput = {
