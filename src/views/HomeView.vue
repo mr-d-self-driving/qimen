@@ -985,27 +985,15 @@ const followupTextarea = ref(null)
 const autoGrowFollowup = () => {
   const el = followupTextarea.value
   if (!el) return
-  // 先缩到 0 让 scrollHeight 反映真实内容高度（'auto' 会恢复 rows 内部高度）
-  el.style.height = '0'
-  const next = Math.min(el.scrollHeight, 120)
-  el.style.height = next + 'px'
-  // overflow 控制：内容超过 max 才出现滚动条
+  // border-box: scrollHeight 包含 padding，el.style.height 也包含 padding，直接赋值即可
+  el.style.height = '40px'               // 先缩到 1 行基线
+  const target = Math.min(el.scrollHeight, 120)
+  if (target > 40) el.style.height = target + 'px'   // 只在超过 1 行时增长
   el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden'
 }
 const canFollowup = computed(() =>
   viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
   && sseBranch.value === 'qimen' && !!currentResultData.value)
-
-// 追问条首次出现时，JS 强制把 textarea 高度钉到单行
-watch(canFollowup, (show) => {
-  if (!show) return
-  nextTick(() => {
-    const el = followupTextarea.value
-    if (!el) return
-    el.style.height = '0'
-    el.style.height = el.scrollHeight + 'px'
-  })
-})
 const categories = [
   { label: '全部', value: 'all' },
   { label: '事业', value: 'career_business' },
@@ -5652,10 +5640,9 @@ input::placeholder { color: var(--text-muted); }
   flex: 1; min-width: 0; border: none; background: transparent; outline: none;
   resize: none; overflow: hidden; padding: 9px 0;
   font-size: 15px; line-height: 1.45; color: var(--ink); font-family: inherit;
-  /* 现代浏览器：按实际内容定高（空内容 = 1行） */
-  field-sizing: content;
+  box-sizing: border-box;
+  height: 40px;          /* 1行 = 15px × 1.45 line-height ≈ 22px + 9px×2 padding = 40px */
   max-height: 120px;
-  /* 高度变化动画：展开/收起均带缓动 */
   transition: height .22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .followup-input::placeholder { color: var(--ink-dim, #777b80); }
