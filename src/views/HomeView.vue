@@ -381,6 +381,29 @@
                   style="margin-top:16px;"
                 />
               </Teleport>
+              <!-- 追问：同一局深挖（锚定式增补，不覆盖原报告）-->
+              <div v-if="canFollowup" class="wenshi-followup">
+                <div v-if="followupNewMatter" class="followup-newmatter">
+                  <span class="fn-text">这看起来是一个新问题，原局答不了。要为它重新起一局吗？</span>
+                  <div class="fn-actions">
+                    <button class="fn-confirm" @click="confirmRecastFromFollowup">重新起局</button>
+                    <button class="fn-cancel" @click="followupNewMatter = null">取消</button>
+                  </div>
+                </div>
+                <div v-else class="followup-bar">
+                  <input
+                    v-model="followupInput"
+                    class="followup-input"
+                    type="text"
+                    :placeholder="followupSubmitting ? '正在追问解读…' : '就这一局继续追问（如：具体哪个方向有利？）'"
+                    :disabled="followupSubmitting"
+                    @keyup.enter="submitFollowup"
+                  />
+                  <button class="followup-send" :disabled="followupSubmitting || !followupInput.trim()" @click="submitFollowup">
+                    {{ followupSubmitting ? '推演中' : '追问' }}
+                  </button>
+                </div>
+              </div>
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -640,6 +663,7 @@ const getApiBase = () => {
 const API_BASE = getApiBase()
 const apiPath = (path) => `${API_BASE}${path}`
 const API_URL = apiPath("/api/qimen")
+const FOLLOWUP_API_URL = apiPath("/api/qimen-followup")
 const ROUTE_API_URL = apiPath("/api/divination-route")
 const BAZI_QUESTION_API_URL = apiPath("/api/bazi-question")
 const router = useRouter()
@@ -936,6 +960,15 @@ const canUseApp = computed(() => Boolean(currentUser.value || (isGuest.value && 
 const historyRecords = ref([])
 const activeCategory = ref('all')
 const activeResultRecord = ref(null)
+
+// ── 追问（同一局深挖，锚定式增补）──
+const currentResultData = ref(null)       // 当前终态卡片 data，供追问回传 + 烘焙重渲染
+const followupInput = ref('')
+const followupSubmitting = ref(false)
+const followupNewMatter = ref(null)       // 非空={reason}：判定为新事，展示"重新起局?"
+const canFollowup = computed(() =>
+  viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
+  && sseBranch.value === 'qimen' && !!currentResultData.value)
 const categories = [
   { label: '全部', value: 'all' },
   { label: '事业', value: 'career_business' },
@@ -2217,6 +2250,9 @@ const resetToInput = () => {
   baziCardSelectedYear.value = null
   showBaziBackingAnchor.value = false
   showBaziPanelAnchor.value = false
+  currentResultData.value = null
+  followupInput.value = ''
+  followupNewMatter.value = null
 }
 
 const startNewSession = () => {
@@ -2465,6 +2501,154 @@ const activateBaziResultPanel = (data) => {
   if (!data.five_shens) fetchMissingFiveShens()
 }
 
+// ── 追问：从终态 data 抽取 flat 段（对齐后端 sentinel 段名）──
+const extractQimenSections = (data) => {
+  const r = data.qimen_report || {}
+  const m3 = r.m3_inference || {}
+  const raw = {
+    conclusion: r.m1_conclusion?.conclusion || data.summary?.conclusion || '',
+    subject_reading: m3.subject_state?.reading || '',
+    target_reading: m3.target_state?.reading || '',
+    environment_reading: m3.environment_state?.reading || '',
+    support_summary: m3.support_factors?.summary || '',
+    constraint_summary: m3.constraint_factors?.summary || '',
+    decision_reading: m3.interaction_decision?.reading || '',
+  }
+  return Object.fromEntries(Object.entries(raw).filter(([, v]) => v && String(v).trim()))
+}
+
+const buildFollowupOrigin = (data) => {
+  const r = data.qimen_report || {}
+  return {
+    question: data.question || '',
+    route: data.route || data.meta || { branch: 'qimen', category: data.category, subcategory: data.subcategory },
+    evidence: {
+      qimen_data: data.qimen_data || null,
+      m2_basis: r.m2_basis || null,
+      m3_inference: r.m3_inference || null,
+      timing: data.timing || data.timing_final || null,
+    },
+    sections: extractQimenSections(data),
+    score: data.summary?.score ?? null,
+    seed: data.cast_seed || null,   // Phase 2 真重算用
+  }
+}
+
+// 流式增补：在目标段对应卡片模块下确保有一个 live 增补块，返回其 body 元素
+const ensureLiveFollowupSlot = (section, q, nature) => {
+  const moduleKey = FOLLOWUP_SECTION_MODULE[section]
+  if (!moduleKey) return null
+  const root = document.querySelector('.html-container .mag-result') || document.querySelector('.html-container')
+  const sectionEl = root?.querySelector(`#mag-${moduleKey}`)
+  if (!sectionEl) return null
+  let list = sectionEl.querySelector('.mag-followup-list.is-live')
+  if (!list) {
+    list = document.createElement('div')
+    list.className = 'mag-followup-list is-live'
+    sectionEl.appendChild(list)
+  }
+  let block = list.querySelector(`[data-fblock="${section}"]`)
+  if (!block) {
+    block = document.createElement('div')
+    block.setAttribute('data-fblock', section)
+    block.innerHTML = renderFollowupBlockHTML({ q, section, nature, streaming: true })
+    list.appendChild(block)
+  }
+  return block.querySelector(`[data-fslot="${section}"]`)
+}
+
+const readFollowupSSE = async (response, q) => {
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  const accum = {}
+  const supplements = {}
+  let nature = 'deepen'
+  let scope = 'same_casting'
+  let reason = ''
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const parts = buffer.split('\n\n')
+    buffer = parts.pop() ?? ''
+    for (const part of parts) {
+      const line = part.trim()
+      if (!line.startsWith('data: ')) continue
+      let ev
+      try { ev = JSON.parse(line.slice(6)) } catch { continue }
+      if (ev.type === 'followup_route' && ev.scope === 'new_matter') {
+        scope = 'new_matter'; reason = ev.reason || ''
+      } else if (ev.type === 'followup_step' && ev.stage === 'patch') {
+        nature = ev.nature || nature
+      } else if (ev.type === 'patch_delta') {
+        accum[ev.section] = (accum[ev.section] || '') + ev.text
+        const el = ensureLiveFollowupSlot(ev.section, q, nature)
+        if (el) { el.classList.add('wstream-active'); el.innerHTML = renderStreamProse(accum[ev.section]) }
+      } else if (ev.type === 'patch_complete') {
+        Object.assign(supplements, ev.supplements || {})
+        nature = ev.nature || nature
+      } else if (ev.type === 'error') {
+        throw new Error(ev.message || '追问失败')
+      }
+    }
+  }
+  if (!Object.keys(supplements).length) Object.assign(supplements, accum)
+  return { scope, reason, nature, supplements }
+}
+
+const submitFollowup = async () => {
+  const q = followupInput.value.trim()
+  if (!q || followupSubmitting.value || !currentResultData.value) return
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session) return alert('请先登录')
+  const headers = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` }
+
+  followupSubmitting.value = true
+  followupNewMatter.value = null
+  try {
+    const origin = buildFollowupOrigin(currentResultData.value)
+    const response = await fetch(FOLLOWUP_API_URL, {
+      method: 'POST', headers,
+      body: JSON.stringify({ followup: q, branch: 'qimen', origin }),
+    })
+    if (!response.ok) {
+      const e = await response.json().catch(() => ({}))
+      throw new Error(e.details || e.error || '追问失败')
+    }
+    const outcome = await readFollowupSSE(response, q)
+    if (outcome.scope === 'new_matter') {
+      followupNewMatter.value = { reason: outcome.reason || '', question: q }
+      return
+    }
+    if (outcome.supplements && Object.keys(outcome.supplements).length) {
+      const d = currentResultData.value
+      if (!Array.isArray(d.followups)) d.followups = []
+      d.followups.push({ q, nature: outcome.nature || 'deepen', supplements: outcome.supplements, ts: Date.now() })
+      resultHtml.value = applyCardMdBold(buildCardHTML(d))
+      await nextTick()
+      initMagTabInk()
+      document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
+      followupInput.value = ''
+    } else {
+      showToast('追问没有返回内容，请换个问法重试')
+    }
+  } catch (err) {
+    showToast(err.message || '追问失败，请稍后重试')
+  } finally {
+    followupSubmitting.value = false
+  }
+}
+
+const confirmRecastFromFollowup = () => {
+  const q = followupNewMatter.value?.question || followupInput.value.trim()
+  followupNewMatter.value = null
+  followupInput.value = ''
+  if (!q) return
+  questionInput.value = q
+  startDivination()
+}
+
 const startDivination = async () => {
   const input = questionInput.value.trim()
   if (!input) return alert("问题不能为空！")
@@ -2603,6 +2787,7 @@ const startDivination = async () => {
     wenShiStreaming.value = false
     const savedRecord = await saveRecordToDatabase(input, data)
     activeResultRecord.value = savedRecord
+    currentResultData.value = data   // 供追问回传 + 增补烘焙重渲染
     activateBaziResultPanel(data)
     // 终态卡片用自带渐变 hero（球已放大化开成渐变，由卡片渐变无缝接管）
     const finalCard = applyCardMdBold(buildCardHTML(data))
@@ -2719,6 +2904,7 @@ const loadRecord = async (item) => {
     const { data } = await supabase.from('qimen_records').select('qimen_data').eq('id', item.id).single()
     if (data?.qimen_data) item.qimen_data = data.qimen_data
   }
+  currentResultData.value = null   // MVP：历史记录暂不开放追问
   activeResultRecord.value = item
   resultHtml.value = applyCardMdBold(buildCardHTML(item.qimen_data))
   activateBaziResultPanel(item.qimen_data)
@@ -3488,6 +3674,37 @@ const buildStreamingScaffoldHTML = (engine = null, statusText = '') => {
   </div>`
 }
 
+// ── 追问增补：section → 卡片模块锚点映射（终态烘焙 + 流式 DOM 共用）──
+const FOLLOWUP_SECTION_MODULE = {
+  conclusion: 'm1',
+  subject_reading: 'm2', target_reading: 'm2', environment_reading: 'm2',
+  support_summary: 'm3', constraint_summary: 'm3',
+  decision_reading: 'm4',
+}
+// 单个增补块 HTML（流式 DOM 占位与终态烘焙复用，保证样式一致）
+const renderFollowupBlockHTML = ({ q = '', section = '', text = '', nature = 'deepen', streaming = false } = {}) => {
+  const badge = nature === 'revise' ? '因新情况修正' : '追问深挖'
+  const body = streaming ? '<span class="wsk"><i></i><i></i></span>' : mdBold(escapeHtmlText(text))
+  return `<div class="mag-followup${nature === 'revise' ? ' is-revise' : ''}">`
+    + `<div class="mag-followup-q"><span class="mag-followup-badge">${badge}</span>${escapeHtmlText(q)}</div>`
+    + `<div class="mag-followup-body"${streaming ? ` data-fslot="${section}"` : ''}>${body}</div>`
+    + `</div>`
+}
+// 某模块下所有追问增补（按 followups 顺序铺开）
+const renderFollowupsForModule = (moduleKey, followups) => {
+  if (!Array.isArray(followups) || !followups.length) return ''
+  const blocks = []
+  for (const f of followups) {
+    const sup = f && f.supplements ? f.supplements : {}
+    for (const [section, text] of Object.entries(sup)) {
+      if (FOLLOWUP_SECTION_MODULE[section] !== moduleKey) continue
+      if (!text || !String(text).trim()) continue
+      blocks.push(renderFollowupBlockHTML({ q: f.q, section, text, nature: f.nature }))
+    }
+  }
+  return blocks.length ? `<div class="mag-followup-list">${blocks.join('')}</div>` : ''
+}
+
 const buildCardHTML = (data, opts = {}) => {
   // 八字分支：v1 存量记录在进渲染前统一适配到 v2（幂等）
   if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(adaptBaziResultToV2(data))
@@ -3499,6 +3716,7 @@ const buildCardHTML = (data, opts = {}) => {
   const orSkel = (val, fb = '', lines = 2) => streaming ? (val ? val : skel(lines)) : (val || fb)
 
   data = normalizeQimenCardData(data)
+  const followups = Array.isArray(data.followups) ? data.followups : []
   const report = data.qimen_report || {}
   const hasQimenReport = Boolean(report && Object.keys(report).length)
   const reportM1 = report.m1_conclusion || {}
@@ -3862,6 +4080,7 @@ const buildCardHTML = (data, opts = {}) => {
       ${question ? `<blockquote class="mag-question">"${question}"</blockquote>` : ''}
       <div class="report-subtitle">行动建议</div>
       <div class="mag-action-list">${magActionListHTML}</div>
+      ${renderFollowupsForModule('m1', followups)}
     </section>
 
     <section class="mag-section" id="mag-m2">
@@ -3871,16 +4090,19 @@ const buildCardHTML = (data, opts = {}) => {
       ${formationTagsHTML}
       <div class="report-subtitle">用神选取</div>
       ${yongshenCardsHTML}
+      ${renderFollowupsForModule('m2', followups)}
     </section>
 
     <section class="mag-section" id="mag-m3">
       <div class="module-heading"><h2>局象推演</h2></div>
       ${inferenceHTML}
+      ${renderFollowupsForModule('m3', followups)}
     </section>
 
     <section class="mag-section" id="mag-m4">
       <div class="module-heading"><h2>开运指南</h2></div>
       ${guidanceHTML}
+      ${renderFollowupsForModule('m4', followups)}
     </section>
   </div>`
 }
@@ -5304,6 +5526,58 @@ input::placeholder { color: var(--text-muted); }
   font-family: var(--font-body);
   color: var(--ink);
 }
+
+/* ── 追问增补块（烘焙进卡片，锚定在对应模块下）── */
+:deep(.mag-followup-list) { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+:deep(.mag-followup) {
+  border-left: 2px solid var(--theme-color, #b58d3b);
+  background: var(--theme-color-dim, rgba(181,141,59,0.10));
+  border-radius: 0 10px 10px 0;
+  padding: 10px 12px;
+}
+:deep(.mag-followup.is-revise) { border-left-style: dashed; }
+:deep(.mag-followup-q) {
+  font-size: 13px; font-weight: 600; color: var(--ink);
+  margin-bottom: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+}
+:deep(.mag-followup-badge) {
+  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px;
+  color: var(--theme-color, #b58d3b); background: rgba(255,255,255,0.5);
+  border: 1px solid var(--theme-color, #b58d3b);
+}
+:deep(.mag-followup-body) {
+  font-size: 13.5px; line-height: 1.75; color: var(--ink-soft, #4a4a4a);
+  white-space: pre-wrap;
+}
+
+/* ── 追问输入条（Vue 模板，普通 scoped）── */
+.wenshi-followup { width: 100%; max-width: 820px; margin: 16px auto 0; }
+.followup-bar { display: flex; gap: 8px; align-items: center; }
+.followup-input {
+  flex: 1; min-width: 0; padding: 11px 14px; font-size: 14px;
+  border: 1px solid var(--line, rgba(0,0,0,0.12)); border-radius: 12px;
+  background: var(--card-bg, rgba(255,255,255,0.7)); color: var(--ink);
+  outline: none; transition: border-color .2s;
+}
+.followup-input:focus { border-color: var(--theme-color, #b58d3b); }
+.followup-input:disabled { opacity: .6; }
+.followup-send {
+  flex-shrink: 0; padding: 11px 18px; font-size: 14px; font-weight: 600;
+  border: none; border-radius: 12px; cursor: pointer; color: #fff;
+  background: var(--theme-color, #b58d3b);
+}
+.followup-send:disabled { opacity: .5; cursor: not-allowed; }
+.followup-newmatter {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 14px; border-radius: 12px;
+  background: var(--card-bg, rgba(255,255,255,0.7));
+  border: 1px dashed var(--theme-color, #b58d3b);
+}
+.followup-newmatter .fn-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
+.followup-newmatter .fn-actions { display: flex; gap: 8px; }
+.fn-confirm, .fn-cancel { padding: 9px 16px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer; }
+.fn-confirm { border: none; color: #fff; background: var(--theme-color, #b58d3b); }
+.fn-cancel { border: 1px solid var(--line, rgba(0,0,0,0.15)); background: transparent; color: var(--ink-soft, #666); }
 
 :deep(.mag-hero) {
   position: relative;
