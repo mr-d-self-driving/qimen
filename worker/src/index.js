@@ -663,10 +663,17 @@ function convertPromptToTextMode(prompt, mode = "status") {
     return "<<<SEC:" + k + ">>>\n" + desc + "\n<<<END:" + k + ">>>";
   }).join("\n\n");
   const WRAP = "\n\n**【最终输出格式（覆盖前文“严格返回统一 envelope / 直接输出 JSON”的方式要求；字段名、字数、语义仍严格遵守上面的“输出 JSON Schema”）】**\n" +
-    "不要直接输出完整 JSON。改为按下列哨兵分段输出，每段标记逐字书写（含尖括号与冒号），标记之外不写任何文字。\n" +
-    "以下散文段直接面向用户、逐字流式显示，内容取自上面 Schema 对应字段：\n\n" +
+    "不要直接输出完整 JSON。改为按下列哨兵分段输出。\n\n" +
+    "【标记纪律（必须严格遵守，否则前端无法解析）】\n" +
+    "- 标记逐字书写，含尖括号与冒号，形如 <<<SEC:summary_conclusion>>> 与 <<<END:summary_conclusion>>>。\n" +
+    "- 每段开始标记 <<<SEC:key>>> 与结束标记 <<<END:key>>> 的 key 必须完全相同，绝不能开一个 key 用另一个 key 收尾。\n" +
+    "- 标记独占一行、内部不加空格或变体；标记之外、各段之间不写任何多余文字。\n\n" +
+    "【散文段样式纪律（直接面向用户、逐字流式显示，内容取自上面 Schema 对应字段）】\n" +
+    "- 只允许 **加粗** 这一种 markdown：成对、不嵌套、不跨行，加粗内不含 *；每段最多加粗 1-2 处关键词，不要满屏加粗。\n" +
+    "- 禁止其它任何 markdown 或符号：不写 #、- 、* 、1. 等列表/标题符号，不写 > 引用、` 反引号、[]() 链接、表格、字段名、JSON。\n\n" +
     proseBlocks + "\n\n" +
-    "最后输出一个 data_json 段，放入上面 Schema 中【除上述散文段之外的所有字段】（meta、key_signals、readings 的结构/数组字段如 signals/target_state/phenomena/trigger_windows/structural_supports/path_readings 等、rhythm、action_guide.items）；summary 的 title/conclusion/basis 已在散文段输出，不要在 data_json 里重复。只输出一个合法 JSON，不要 markdown 代码块，字段名与上面 Schema 完全一致：\n" +
+    "最后输出一个 data_json 段，放入上面 Schema 中【除上述散文段之外的所有字段】（meta、key_signals、readings 的结构/数组字段如 signals/target_state/phenomena/trigger_windows/structural_supports/path_readings 等、rhythm、action_guide.items）；summary 的 title/conclusion/basis 已在散文段输出，不要在 data_json 里重复。字段名与上面 Schema 完全一致。\n" +
+    "**格式硬约束**：标记之间只放一个合法 JSON 对象——第一个非空字符必须是 {，最后一个非空字符必须是 }；禁止用 ``` 代码围栏包裹，禁止写 json 前缀，禁止在 JSON 前后写任何说明文字。\n" +
     "<<<SEC:data_json>>>\n{ ...上面 Schema 中除散文段外的全部字段... }\n<<<END:data_json>>>\n\n" +
     "严格要求：只输出上述各段，散文段不得为空。";
   return prompt + WRAP;
@@ -707,7 +714,17 @@ function convertQimenPromptToTextMode(prompt) {
   // 字段含义、字数、语义约束仍严格遵守前文 qimen_report 各模块说明，本段只改变承载格式。
   const SENTINEL_INSTRUCTION = `**【最终输出格式（本段覆盖前文所有关于 JSON / 输出字段契约的“格式”要求；字段含义、字数与语义约束仍严格遵守前文 qimen_report 各模块说明）】**
 
-请严格按以下顺序输出 9 个段落，每段用哨兵标记原样包裹（标记必须逐字书写，含尖括号与冒号）。前 8 个散文段直接面向用户，可在重点处使用 **加粗**，但不要使用其它 markdown、不要写标题符号、不要写字段名。
+请严格按以下顺序输出 9 个段落，每段用哨兵标记原样包裹。
+
+**【标记纪律（必须严格遵守，否则前端无法解析）】**
+- 标记逐字书写，含尖括号与冒号，形如 <<<SEC:conclusion>>> 与 <<<END:conclusion>>>。
+- 每段的开始标记 <<<SEC:key>>> 与结束标记 <<<END:key>>> 的 key 必须完全相同；绝不能开一个 key 而用另一个 key 收尾（如开 <<<SEC:target_reading>>> 却写 <<<END:subject_reading>>>）。
+- 标记本身独占一行，标记内不要加空格、换行或任何变体；标记之外、各段之间不要写任何多余文字。
+
+**【散文段样式纪律（前 8 段，直接面向用户）】**
+- 只允许 **加粗** 这一种 markdown：必须成对、不嵌套、不跨行，加粗内不含 *；每段最多加粗 1-2 处关键词，不要满屏加粗。
+- 禁止使用其它任何 markdown 或符号：不要写 #、- 、* 、1. 等列表/标题符号，不要写 > 引用、\` 反引号、[]() 链接、表格、字段名。
+- 用自然成段的中文叙述，需要分行时直接换行即可，不要用符号模拟排版。
 
 <<<SEC:conclusion>>>
 （m1_conclusion.conclusion：35-80字总判，开门见山回答用户问题）
@@ -742,7 +759,8 @@ function convertQimenPromptToTextMode(prompt) {
 <<<END:title>>>
 
 <<<SEC:data_json>>>
-本段用 JSON 承载结构化字段，便于后端解析；它不会作为流式散文逐字显示，但其中所有文本字段（verdict、evidence、impact、do、avoid、reason、actions 等）都会渲染进用户最终看到的卡片，必须按前文字数与文案质量要求认真书写，不得敷衍或留空占位。只输出一个合法 JSON，不要额外文字、不要 markdown 代码块。必须包含以下结构（字段约束同前文）：
+本段用 JSON 承载结构化字段，便于后端解析；它不会作为流式散文逐字显示，但其中所有文本字段（verdict、evidence、impact、do、avoid、reason、actions 等）都会渲染进用户最终看到的卡片，必须按前文字数与文案质量要求认真书写，不得敷衍或留空占位。
+**格式硬约束**：标记之间只放一个合法 JSON 对象——第一个非空字符必须是 {，最后一个非空字符必须是 }；禁止用 \`\`\` 代码围栏包裹，禁止写 json 前缀，禁止在 JSON 前后写任何说明文字。必须包含以下结构（字段约束同前文）：
 {
   "m1_conclusion": { "keyword": "4-12字核心判断词", "actions": ["3条，45-95字，动词开头，可落地，至少1条融合后端应期/时间检索；若无明确窗口说明先观察哪些触发条件", "第2条", "第3条"] },
   "m2_basis": { "yongshen_cards": [ { "key": "subject|target|environment 或后端 axis key", "label": "卡片标题", "symbol": "如 日干 戊", "tone": "positive|mixed|warning", "verdict": "一句话状态", "evidence": "引用实际落宫/门/星/神/空亡/马星/有名格" } ] },
