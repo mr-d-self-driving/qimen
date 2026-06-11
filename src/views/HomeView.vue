@@ -2519,13 +2519,20 @@ const extractQimenSections = (data) => {
 
 const buildFollowupOrigin = (data) => {
   const r = data.qimen_report || {}
+  // 证据走自然语言叙述化（后端 buildQimenEvidenceNarrative）：盘面用 qimen_data.palaces、
+  // 用神/格局用 m2_basis；m3 各 reading 已由 sections 承载，不再回传；m2_basis 里重复的
+  // chart_summary.palaces 也剥掉，避免无用 payload。
+  const m2 = r.m2_basis ? { ...r.m2_basis } : null
+  if (m2 && m2.chart_summary) {
+    const { palaces, ...restSummary } = m2.chart_summary
+    m2.chart_summary = restSummary
+  }
   return {
     question: data.question || '',
     route: data.route || data.meta || { branch: 'qimen', category: data.category, subcategory: data.subcategory },
     evidence: {
       qimen_data: data.qimen_data || null,
-      m2_basis: r.m2_basis || null,
-      m3_inference: r.m3_inference || null,
+      m2_basis: m2,
       timing: data.timing || data.timing_final || null,
     },
     sections: extractQimenSections(data),
