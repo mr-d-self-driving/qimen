@@ -985,8 +985,8 @@ const followupTextarea = ref(null)
 const autoGrowFollowup = () => {
   const el = followupTextarea.value
   if (!el) return
-  // 先重置为 auto 计算真实 scrollHeight，再钳位到 max
-  el.style.height = 'auto'
+  // 先缩到 0 让 scrollHeight 反映真实内容高度（'auto' 会恢复 rows 内部高度）
+  el.style.height = '0'
   const next = Math.min(el.scrollHeight, 120)
   el.style.height = next + 'px'
   // overflow 控制：内容超过 max 才出现滚动条
@@ -995,6 +995,17 @@ const autoGrowFollowup = () => {
 const canFollowup = computed(() =>
   viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
   && sseBranch.value === 'qimen' && !!currentResultData.value)
+
+// 追问条首次出现时，JS 强制把 textarea 高度钉到单行
+watch(canFollowup, (show) => {
+  if (!show) return
+  nextTick(() => {
+    const el = followupTextarea.value
+    if (!el) return
+    el.style.height = '0'
+    el.style.height = el.scrollHeight + 'px'
+  })
+})
 const categories = [
   { label: '全部', value: 'all' },
   { label: '事业', value: 'career_business' },
@@ -5641,10 +5652,8 @@ input::placeholder { color: var(--text-muted); }
   flex: 1; min-width: 0; border: none; background: transparent; outline: none;
   resize: none; overflow: hidden; padding: 9px 0;
   font-size: 15px; line-height: 1.45; color: var(--ink); font-family: inherit;
-  /* border-box 让 padding 计入 height；
-     calc(1.45em + 18px) = 1行 line-height + 9px×2 padding = 恰好单行 */
-  box-sizing: border-box;
-  height: calc(1.45em + 18px);
+  /* 现代浏览器：按实际内容定高（空内容 = 1行） */
+  field-sizing: content;
   max-height: 120px;
   /* 高度变化动画：展开/收起均带缓动 */
   transition: height .22s cubic-bezier(0.22, 1, 0.36, 1);
