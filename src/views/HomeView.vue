@@ -2954,7 +2954,13 @@ const loadRecord = async (item) => {
     const { data } = await supabase.from('qimen_records').select('qimen_data').eq('id', item.id).single()
     if (data?.qimen_data) item.qimen_data = data.qimen_data
   }
-  currentResultData.value = null   // MVP：历史记录暂不开放追问
+  // 历史奇门记录也开放续问（八字记录暂不支持，followup 为奇门专用）。
+  // 续问会落库 + audit 到这条历史行（activeResultRecord.id / origin.record_id 即本行）。
+  followupInput.value = ''
+  followupNewMatter.value = null
+  const isQimenRecord = item.qimen_data && item.qimen_data.branch !== 'bazi'
+  currentResultData.value = isQimenRecord ? item.qimen_data : null
+  if (isQimenRecord) sseBranch.value = 'qimen'
   activeResultRecord.value = item
   resultHtml.value = applyCardMdBold(buildCardHTML(item.qimen_data))
   activateBaziResultPanel(item.qimen_data)
