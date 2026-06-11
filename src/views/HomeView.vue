@@ -381,29 +381,6 @@
                   style="margin-top:16px;"
                 />
               </Teleport>
-              <!-- 追问：同一局深挖（锚定式增补，不覆盖原报告）-->
-              <div v-if="canFollowup" class="wenshi-followup">
-                <div v-if="followupNewMatter" class="followup-newmatter">
-                  <span class="fn-text">这看起来是一个新问题，原局答不了。要为它重新起一局吗？</span>
-                  <div class="fn-actions">
-                    <button class="fn-confirm" @click="confirmRecastFromFollowup">重新起局</button>
-                    <button class="fn-cancel" @click="followupNewMatter = null">取消</button>
-                  </div>
-                </div>
-                <div v-else class="followup-bar">
-                  <input
-                    v-model="followupInput"
-                    class="followup-input"
-                    type="text"
-                    :placeholder="followupSubmitting ? '正在追问解读…' : '就这一局继续追问（如：具体哪个方向有利？）'"
-                    :disabled="followupSubmitting"
-                    @keyup.enter="submitFollowup"
-                  />
-                  <button class="followup-send" :disabled="followupSubmitting || !followupInput.trim()" @click="submitFollowup">
-                    {{ followupSubmitting ? '推演中' : '追问' }}
-                  </button>
-                </div>
-              </div>
               <div class="result-actions">
                 <button class="reset-btn" @click="resetToInput">
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 7a5 5 0 1 0 1.4-3.5L2 2v3h3" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -433,6 +410,44 @@
                 >
                   {{ activeResultRecord.hasFeedback ? '已反馈' : '反馈' }}
                 </button>
+              </div>
+
+              <!-- 追问 dock 占位：撑出固定栏的高度，避免遮住上方内容 -->
+              <div v-if="canFollowup" class="followup-dock-spacer"></div>
+
+              <!-- 追问 dock：固定屏幕下方（导航之上），液态玻璃 -->
+              <div v-if="canFollowup" class="wenshi-followup-dock">
+                <Transition name="dock-pop" mode="out-in">
+                  <div v-if="followupNewMatter" key="newmatter" class="followup-newmatter">
+                    <span class="fn-text">这看起来是一个新问题，原局答不了。要为它重新起一局吗？</span>
+                    <div class="fn-actions">
+                      <button class="fn-confirm" @click="confirmRecastFromFollowup">重新起局</button>
+                      <button class="fn-cancel" @click="followupNewMatter = null">取消</button>
+                    </div>
+                  </div>
+                  <div v-else key="bar" class="followup-bar">
+                    <textarea
+                      ref="followupTextarea"
+                      v-model="followupInput"
+                      class="followup-input"
+                      rows="1"
+                      :placeholder="followupSubmitting ? '正在追问解读…' : '就这一局继续追问…'"
+                      :disabled="followupSubmitting"
+                      @input="autoGrowFollowup"
+                      @keydown.enter.exact.prevent="submitFollowup"
+                    ></textarea>
+                    <button
+                      class="followup-send"
+                      :class="{ loading: followupSubmitting }"
+                      :disabled="followupSubmitting || !followupInput.trim()"
+                      @click="submitFollowup"
+                      aria-label="发送追问"
+                    >
+                      <svg v-if="!followupSubmitting" viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M12 19V5M5 12l7-7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                      <svg v-else class="dock-spin" viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2.4" stroke-dasharray="16 12" stroke-linecap="round"/></svg>
+                    </button>
+                  </div>
+                </Transition>
               </div>
             </div>
           </transition>
@@ -966,6 +981,13 @@ const currentResultData = ref(null)       // 当前终态卡片 data，供追问
 const followupInput = ref('')
 const followupSubmitting = ref(false)
 const followupNewMatter = ref(null)       // 非空={reason}：判定为新事，展示"重新起局?"
+const followupTextarea = ref(null)
+const autoGrowFollowup = () => {
+  const el = followupTextarea.value
+  if (!el) return
+  el.style.height = 'auto'
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+}
 const canFollowup = computed(() =>
   viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
   && sseBranch.value === 'qimen' && !!currentResultData.value)
@@ -2560,6 +2582,9 @@ const ensureLiveFollowupSlot = (section, q, nature) => {
     block.setAttribute('data-fblock', section)
     block.innerHTML = renderFollowupBlockHTML({ q, section, nature, streaming: true })
     list.appendChild(block)
+    // 弹出块首次出现时滚动到视野中央
+    const card = block.querySelector('.mag-followup')
+    requestAnimationFrame(() => (card || block).scrollIntoView({ behavior: 'smooth', block: 'center' }))
   }
   return block.querySelector(`[data-fslot="${section}"]`)
 }
@@ -3692,7 +3717,7 @@ const FOLLOWUP_SECTION_MODULE = {
 const renderFollowupBlockHTML = ({ q = '', section = '', text = '', nature = 'deepen', streaming = false } = {}) => {
   const badge = nature === 'revise' ? '因新情况修正' : '追问深挖'
   const body = streaming ? '<span class="wsk"><i></i><i></i></span>' : mdBold(escapeHtmlText(text))
-  return `<div class="mag-followup${nature === 'revise' ? ' is-revise' : ''}">`
+  return `<div class="mag-followup${streaming ? ' mag-followup-pop' : ''}${nature === 'revise' ? ' is-revise' : ''}">`
     + `<div class="mag-followup-q"><span class="mag-followup-badge">${badge}</span>${escapeHtmlText(q)}</div>`
     + `<div class="mag-followup-body"${streaming ? ` data-fslot="${section}"` : ''}>${body}</div>`
     + `</div>`
@@ -5534,57 +5559,95 @@ input::placeholder { color: var(--text-muted); }
   color: var(--ink);
 }
 
-/* ── 追问增补块（烘焙进卡片，锚定在对应模块下）── */
-:deep(.mag-followup-list) { margin-top: 14px; display: flex; flex-direction: column; gap: 10px; }
+/* ── 追问增补块：圆角矩形玻璃卡片（对齐 BaziPanel），带弹出动画 ── */
+:deep(.mag-followup-list) { margin-top: 14px; display: flex; flex-direction: column; gap: 12px; }
 :deep(.mag-followup) {
-  border-left: 2px solid var(--theme-color, #b58d3b);
-  background: var(--theme-color-dim, rgba(181,141,59,0.10));
-  border-radius: 0 10px 10px 0;
-  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--gold-border, rgba(181,141,59,0.22));
+  border-radius: var(--radius-card, 16px);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.10);
+  padding: 14px 16px;
 }
-:deep(.mag-followup.is-revise) { border-left-style: dashed; }
+:deep(.mag-followup.is-revise) { border-style: dashed; }
+:deep(.mag-followup-pop) { animation: followupPop 0.42s cubic-bezier(0.22,1,0.36,1) both; }
 :deep(.mag-followup-q) {
-  font-size: 13px; font-weight: 600; color: var(--ink);
-  margin-bottom: 6px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 13.5px; font-weight: 600; color: var(--ink);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
 }
 :deep(.mag-followup-badge) {
-  font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px;
-  color: var(--theme-color, #b58d3b); background: rgba(255,255,255,0.5);
-  border: 1px solid var(--theme-color, #b58d3b);
+  font-size: 11px; font-weight: 700; letter-spacing: .5px; padding: 2px 9px; border-radius: 999px;
+  color: var(--gold); background: var(--gold-dim, rgba(181,141,59,0.12));
+  border: 1px solid var(--gold-border, rgba(181,141,59,0.22));
 }
 :deep(.mag-followup-body) {
-  font-size: 13.5px; line-height: 1.75; color: var(--ink-soft, #4a4a4a);
+  font-size: 14px; line-height: 1.8; color: var(--ink-muted, #55595d);
   white-space: pre-wrap;
 }
+@keyframes followupPop {
+  from { opacity: 0; transform: translateY(14px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
 
-/* ── 追问输入条（Vue 模板，普通 scoped）── */
-.wenshi-followup { width: 100%; max-width: 820px; margin: 16px auto 0; }
-.followup-bar { display: flex; gap: 8px; align-items: center; }
+/* ── 追问 dock：固定屏幕下方（导航之上），液态玻璃 ── */
+.followup-dock-spacer { height: 84px; }
+.wenshi-followup-dock {
+  position: fixed; left: 0; right: 0; z-index: 9000;
+  bottom: calc(65px + env(safe-area-inset-bottom));
+  display: flex; justify-content: center;
+  padding: 0 16px;
+  pointer-events: none;
+}
+.wenshi-followup-dock > * { pointer-events: auto; width: 100%; max-width: 760px; }
+
+.followup-bar {
+  display: flex; align-items: flex-end; gap: 8px;
+  padding: 7px 7px 7px 16px;
+  border-radius: 24px;
+  background: rgba(var(--paper-rgb, 247,244,238), 0.62);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px solid var(--glass-border, rgba(11,11,11,0.12));
+  box-shadow: 0 10px 36px rgba(0,0,0,0.16), inset 0 1px 0 rgba(255,255,255,0.35);
+}
 .followup-input {
-  flex: 1; min-width: 0; padding: 11px 14px; font-size: 14px;
-  border: 1px solid var(--line, rgba(0,0,0,0.12)); border-radius: 12px;
-  background: var(--card-bg, rgba(255,255,255,0.7)); color: var(--ink);
-  outline: none; transition: border-color .2s;
+  flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+  resize: none; max-height: 120px; padding: 9px 0;
+  font-size: 15px; line-height: 1.45; color: var(--ink); font-family: inherit;
 }
-.followup-input:focus { border-color: var(--theme-color, #b58d3b); }
-.followup-input:disabled { opacity: .6; }
+.followup-input::placeholder { color: var(--ink-dim, #777b80); }
+.followup-input:disabled { opacity: .65; }
 .followup-send {
-  flex-shrink: 0; padding: 11px 18px; font-size: 14px; font-weight: 600;
-  border: none; border-radius: 12px; cursor: pointer; color: #fff;
-  background: var(--theme-color, #b58d3b);
+  flex-shrink: 0; width: 38px; height: 38px; border-radius: 50%;
+  border: none; cursor: pointer; display: grid; place-items: center; color: #fff;
+  background: linear-gradient(135deg, var(--gold), var(--gold-light));
+  transition: transform .15s ease, opacity .2s ease;
 }
-.followup-send:disabled { opacity: .5; cursor: not-allowed; }
+.followup-send:not(:disabled):active { transform: scale(0.9); }
+.followup-send:disabled { opacity: .4; cursor: not-allowed; }
+.followup-send.loading { opacity: .85; }
+.dock-spin { animation: dockSpin .8s linear infinite; }
+@keyframes dockSpin { to { transform: rotate(360deg); } }
+
 .followup-newmatter {
-  display: flex; flex-direction: column; gap: 10px;
-  padding: 14px; border-radius: 12px;
-  background: var(--card-bg, rgba(255,255,255,0.7));
-  border: 1px dashed var(--theme-color, #b58d3b);
+  display: flex; flex-direction: column; gap: 10px; padding: 14px 16px;
+  border-radius: var(--radius-card, 16px);
+  background: rgba(var(--paper-rgb, 247,244,238), 0.72);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  border: 1px dashed var(--gold-border, rgba(181,141,59,0.4));
+  box-shadow: 0 10px 36px rgba(0,0,0,0.16);
 }
 .followup-newmatter .fn-text { font-size: 13.5px; line-height: 1.6; color: var(--ink); }
 .followup-newmatter .fn-actions { display: flex; gap: 8px; }
 .fn-confirm, .fn-cancel { padding: 9px 16px; font-size: 13px; font-weight: 600; border-radius: 10px; cursor: pointer; }
-.fn-confirm { border: none; color: #fff; background: var(--theme-color, #b58d3b); }
-.fn-cancel { border: 1px solid var(--line, rgba(0,0,0,0.15)); background: transparent; color: var(--ink-soft, #666); }
+.fn-confirm { border: none; color: #fff; background: linear-gradient(135deg, var(--gold), var(--gold-light)); }
+.fn-cancel { border: 1px solid var(--glass-border, rgba(11,11,11,0.15)); background: transparent; color: var(--ink-muted, #666); }
+
+/* dock 弹出过渡（输入条 ↔ 新事确认切换）*/
+.dock-pop-enter-active { transition: transform .3s cubic-bezier(0.22,1,0.36,1), opacity .3s ease; }
+.dock-pop-leave-active { transition: transform .2s ease, opacity .2s ease; position: absolute; }
+.dock-pop-enter-from { opacity: 0; transform: translateY(16px) scale(0.96); }
+.dock-pop-leave-to { opacity: 0; transform: translateY(8px); }
 
 :deep(.mag-hero) {
   position: relative;
