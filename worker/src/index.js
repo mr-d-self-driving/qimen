@@ -1702,6 +1702,7 @@ async function handleQimenFollowup(request, env) {
       originQuestion: origin.question || '',
       originConclusion: sections.conclusion || sections.summary_conclusion || '',
     });
+    if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][prompt:classifier]\n' + classifierPrompt);
     let routeRaw;
     try {
       routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1);
@@ -1710,6 +1711,7 @@ async function handleQimenFollowup(request, env) {
       routeRaw = { scope: 'same_casting' };
     }
     const fr = normalizeFollowupRoute(routeRaw, { branch });
+    if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][route]', JSON.stringify(fr));
 
     // 新事 → 不花大模型，让前端弹"重新起局?"
     if (fr.scope === 'new_matter') {
@@ -1736,6 +1738,7 @@ async function handleQimenFollowup(request, env) {
       targetSections: fr.target_sections,
       nature: fr.nature,
     });
+    if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][prompt:patch]\n' + patchPrompt);
 
     const visible = new Set(fr.target_sections);
     const parser = createSentinelStreamParser(visible, {
