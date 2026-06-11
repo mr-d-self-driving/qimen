@@ -54,11 +54,7 @@ export const normalizeQimenCardData = (data = {}) => {
     summary.verdict,
     conclusionForScore(score)
   )
-  const keyword = firstText(
-    summary.keyword,
-    signalSentence(positiveSignals, ''),
-    signalSentence(negativeSignals, '')
-  )
+  const keyword = firstText(summary.keyword)
 
   const advice = data.advice || {}
   const existingStrategy = asArray(advice.strategy).map(compactText).filter(Boolean)
