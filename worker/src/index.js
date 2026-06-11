@@ -34,7 +34,7 @@ const { buildAnnualRangePayload } = fortuneAnnualCore;
 const { buildFortunePeriodKey: buildWeeklyPeriodKey, buildWeeklyFortunePayload, getSecondsUntilWeeklyExpiry, getWeekRange, getWeeklyExpiry } = fortuneWeeklyCore;
 const { buildFortunePeriodKey: buildMonthlyPeriodKey, buildMonthlyFortunePayload, getFlowMonthInfo } = fortuneMonthlyCore;
 const { getBeijingDayInfo, buildFortunePeriodKey: buildDailyPeriodKey, buildFortuneContext, buildBaseFortunePayload, buildInterpretationPrompt, parseModelJson, pickInterpretationFields, mergeInterpretation, hasReadyInterpretation } = fortuneDailyCore;
-const { buildBaziQuestionPrompt, buildBaziAuditSnapshot, normalizeBaziQuestionOutput, normalizeBaziSemanticRoute, computePanelData } = baziQuestionCore;
+const { buildBaziQuestionPrompt, buildBaziAuditSnapshot, normalizeBaziQuestionOutput, normalizeBaziSemanticRoute, computePanelData, parseCalendarYearScope } = baziQuestionCore;
 const { createEmptyMonthlyContext, createEmptyProfileContext, normalizeMonthlyContextPayload, normalizeProfileContextPayload, buildContextVersionSeed } = contextNotesCore;
 const { buildMonthlyInterpretationPeriodKey, buildMonthlyInterpretationPrompt, hasReadyMonthlyInterpretation, mergeMonthlyInterpretation, normalizeDimension, pickMonthlyInterpretationFields } = monthlyInterpretationCore;
 
@@ -1275,6 +1275,19 @@ async function handleBaziQuestion(request, env) {
       semanticFallbacks.push(`bazi_semantic_route_fallback:${routeError.message}`);
     }
     const semanticRoute = normalizeBaziSemanticRoute({ ...baseRoute, ...semanticRouteRaw }, routeHint);
+
+    // 日历年区间兜底：语义路由 LLM 常把"22-28年"识别为 specified_range 却漏抽 start/end_year，
+    // 这里按问题文本确定性回填，避免下游塌缩成"未来十年"丢掉历史年份（审计快照与 SSE chip 同步受益）。
+    const _calYearScope = parseCalendarYearScope(question);
+    if (_calYearScope) {
+      const _ts = semanticRoute.time_scope || {};
+      const _hasYears = Number.isFinite(Number(_ts.start_year)) && Number.isFinite(Number(_ts.end_year));
+      if (!_hasYears) {
+        semanticRoute.time_scope = { ..._ts, ..._calYearScope };
+        semanticRoute.analysis_mode = 'timing';
+        semanticRoute.needs_time_scan = true;
+      }
+    }
 
     // ── SSE Step 2: 语义路由完成 ──
     const _BAZI_MODE_CN = { timing: '时间推演', pattern: '格局分析', character: '性格命理', status: '当下状态' };
