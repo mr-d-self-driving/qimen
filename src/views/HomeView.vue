@@ -2629,6 +2629,21 @@ const readFollowupSSE = async (response, q) => {
   return { scope, reason, nature, supplements }
 }
 
+// 追问落库：把更新过的 qimen_data（含 followups）回写该记录行。
+// 追问挂在 qimen_data 内，历史读回时 buildCardHTML 自然渲染；访客/无 id 不落库。
+const persistFollowupsToDb = async () => {
+  const rec = activeResultRecord.value
+  const data = currentResultData.value
+  if (!data || !rec || !currentUser.value) return
+  if (!rec.id || rec.id === 'guest_qimen_record') return
+  try {
+    const { error } = await supabase.from('qimen_records').update({ qimen_data: data }).eq('id', rec.id)
+    if (error) console.warn('[followup] persist failed:', error.message)
+  } catch (e) {
+    console.warn('[followup] persist failed:', e?.message)
+  }
+}
+
 const submitFollowup = async () => {
   const q = followupInput.value.trim()
   if (!q || followupSubmitting.value || !currentResultData.value) return
@@ -2662,6 +2677,8 @@ const submitFollowup = async () => {
       initMagTabInk()
       document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
       followupInput.value = ''
+      nextTick(autoGrowFollowup)   // 清空后收回输入框高度
+      persistFollowupsToDb()       // 落库（追问随 qimen_data 持久化，刷新可见）
     } else {
       showToast('追问没有返回内容，请换个问法重试')
     }
