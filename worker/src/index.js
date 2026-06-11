@@ -13,6 +13,7 @@ import C from '../../lib/QimenConstants.js';
 import U from '../../lib/QimenUtils.js';
 import Calc from '../../lib/QimenCalculations.js';
 import { buildFrontendCopyProtocolSection, buildQimenInferenceRulesSection, buildQimenOutputContractSection, buildReportSchemaPromptSection, buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../lib/qimenPromptSections.js';
+import { buildFollowupClassifierPrompt, buildFollowupPatchPrompt, normalizeFollowupRoute } from '../../lib/wenshiFollowup.js';
 import { buildDomainViewPromptSection, buildYongshenPromptSection, getYongshenRule } from '../../lib/qimenYongshenRules.js';
 import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTimingRules.js';
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
@@ -1636,6 +1637,154 @@ async function handleFortuneMonthlyInterpretation(request, env) {
 let qimenMemoryCache = {};
 let baziMemoryCache = {};
 
+// ── 追问按需补算：注册表 dispatch（确定性、无 LLM）──
+// 返回 { capability: 结果 } 或 null。MVP 骨架：先从回传 evidence 取已有数据；
+// 需复现原盘的全量重算（如奇门 yingqi 重新起局、八字流年扫描）在 Phase 2 接入。
+async function runFollowupCapability(capability, params, { branch, origin }) {
+  if (branch === 'qimen') {
+    if (capability === 'yingqi') {
+      // TODO(Phase 2): 用 origin.seed 复现原局后跑 qimenScoringEngine.timingCandidates。
+      // MVP：若原局已带应期/timing 证据，直接复用（多数问事已扫过应期）。
+      const ev = origin.evidence || {};
+      return ev.timing || ev.timing_candidates || ev.timing_final || ev.timing_analysis_backend || null;
+    }
+  }
+  // 八字能力（liunian_scan 等）Phase 2 接入对应 lib 计算函数。
+  return null;
+}
+
+async function runFollowupCapabilities(needs, ctx) {
+  const out = {};
+  for (const { capability, params } of needs) {
+    try {
+      const r = await runFollowupCapability(capability, params, ctx);
+      if (r != null) out[capability] = r;
+    } catch (e) {
+      console.warn(`[followup] capability ${capability} failed:`, e.message);
+    }
+  }
+  return Object.keys(out).length ? out : null;
+}
+
+// POST /api/qimen-followup —— 同一局追问，锚定式增补（不覆盖原报告）。
+async function handleQimenFollowup(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+
+  // 鉴权：与 handleQimen 一致，允许访客。
+  const authHeader = request.headers.get('Authorization');
+  const guestId = request.headers.get('x-guest-id');
+  let user = null;
+  const isGuestRequest = !authHeader && typeof guestId === 'string' && guestId.startsWith('guest_');
+  try {
+    if (authHeader) user = await getAuthedUser(request, env);
+    else if (!isGuestRequest) return json({ error: '未登录，请先登录' }, { status: 401 }, request, env);
+  } catch (authErr) {
+    return json({ error: '认证失败', details: authErr.message }, { status: authErr.status || 401 }, request, env);
+  }
+
+  const body = await readJson(request);
+  const followup = String(body.followup || '').trim();
+  const branch = body.branch === 'bazi' ? 'bazi' : 'qimen';
+  const origin = body.origin && typeof body.origin === 'object' ? body.origin : {};
+  if (!followup) return json({ error: '追问不能为空' }, { status: 400 }, request, env);
+  if (!origin.evidence) return json({ error: '缺少原局上下文（evidence）' }, { status: 400 }, request, env);
+
+  const { emit, close, response: sseResponse } = createSSEResponse(request, env);
+
+  (async () => {
+  try {
+    // ── Step A: 判断器（cheap 模型，严格 JSON）──
+    emit({ type: 'followup_step', stage: 'classify' });
+    const sections = origin.sections || {};
+    const classifierPrompt = buildFollowupClassifierPrompt({
+      branch,
+      followup,
+      originQuestion: origin.question || '',
+      originConclusion: sections.conclusion || sections.summary_conclusion || '',
+    });
+    let routeRaw;
+    try {
+      routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1);
+    } catch (e) {
+      console.warn('[followup] classifier failed, defaulting to same_casting:', e.message);
+      routeRaw = { scope: 'same_casting' };
+    }
+    const fr = normalizeFollowupRoute(routeRaw, { branch });
+
+    // 新事 → 不花大模型，让前端弹"重新起局?"
+    if (fr.scope === 'new_matter') {
+      emit({ type: 'followup_route', scope: 'new_matter', reason: fr.reason });
+      return;
+    }
+
+    // ── Step A2: 按需补算（注册表 dispatch，确定性无 LLM）──
+    let extraEvidence = null;
+    if (fr.needs_data.length) {
+      emit({ type: 'followup_step', stage: 'compute', capabilities: fr.needs_data.map((n) => n.capability) });
+      extraEvidence = await runFollowupCapabilities(fr.needs_data, { branch, origin, env });
+    }
+
+    // ── Step B: 增补 patch（与问事同档模型，哨兵分段流式）──
+    emit({ type: 'followup_step', stage: 'patch', target_sections: fr.target_sections, nature: fr.nature });
+    const patchModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
+    const patchPrompt = buildFollowupPatchPrompt({
+      branch,
+      followup,
+      evidence: origin.evidence,
+      extraEvidence,
+      sections,
+      targetSections: fr.target_sections,
+      nature: fr.nature,
+    });
+
+    const visible = new Set(fr.target_sections);
+    const parser = createSentinelStreamParser(visible, {
+      onVisibleDelta: (section, text) => emit({ type: 'patch_delta', section, text }),
+    });
+    let full = '';
+    for await (const chunk of requestLLMSimpleStream(patchPrompt, env, patchModel, 0.6)) {
+      full += chunk;
+      parser.push(chunk);
+    }
+    let sec = parser.finish();
+
+    // 兜底：目标段全空 → 非流式重试一次
+    const hasAny = fr.target_sections.some((k) => sec[k] && sec[k].trim());
+    if (!hasAny) {
+      console.warn('[followup] empty patch, retrying non-streaming...');
+      emit({ type: 'patch_retry' });
+      try {
+        full = await requestLLMText(patchPrompt, env, patchModel, 0.6);
+        const retry = createSentinelStreamParser(visible, {});
+        retry.push(full);
+        sec = retry.finish();
+        for (const k of fr.target_sections) if (sec[k]) emit({ type: 'patch_delta', section: k, text: sec[k] });
+      } catch (e) {
+        emit({ type: 'error', message: '追问生成暂时不可用，请稍后重试' });
+        return;
+      }
+    }
+
+    const supplements = {};
+    for (const k of fr.target_sections) if (sec[k] && sec[k].trim()) supplements[k] = sec[k].trim();
+
+    emit({
+      type: 'patch_complete',
+      supplements,
+      nature: fr.nature,
+      needs_data: fr.needs_data.map((n) => n.capability),
+    });
+  } catch (error) {
+    console.error('[qimen-api] followup error:', error);
+    emit({ type: 'error', message: error.message || '追问生成失败' });
+  } finally {
+    close();
+  }
+  })();
+
+  return sseResponse;
+}
+
 async function handleQimen(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   const startedAt = Date.now();
@@ -2706,6 +2855,7 @@ async function routeRequest(request, env) {
   if (url.pathname === '/api/fortune-daily-interpretation') return handleFortuneDailyInterpretation(request, env);
   if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
   if (url.pathname === '/api/qimen') return handleQimen(request, env);
+  if (url.pathname === '/api/qimen-followup') return handleQimenFollowup(request, env);
   if (url.pathname === '/api/bazi') return handleBazi(request, env);
   if (url.pathname === '/api/compatibility/init') return handleCompatibilityInit(request, env);
 
