@@ -985,8 +985,12 @@ const followupTextarea = ref(null)
 const autoGrowFollowup = () => {
   const el = followupTextarea.value
   if (!el) return
+  // 先重置为 auto 计算真实 scrollHeight，再钳位到 max
   el.style.height = 'auto'
-  el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  const next = Math.min(el.scrollHeight, 120)
+  el.style.height = next + 'px'
+  // overflow 控制：内容超过 max 才出现滚动条
+  el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden'
 }
 const canFollowup = computed(() =>
   viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
@@ -5635,8 +5639,10 @@ input::placeholder { color: var(--text-muted); }
 }
 .followup-input {
   flex: 1; min-width: 0; border: none; background: transparent; outline: none;
-  resize: none; max-height: 120px; padding: 9px 0;
+  resize: none; max-height: 120px; overflow: hidden; padding: 9px 0;
   font-size: 15px; line-height: 1.45; color: var(--ink); font-family: inherit;
+  /* 高度变化动画：展开/收起均带缓动 */
+  transition: height .22s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .followup-input::placeholder { color: var(--ink-dim, #777b80); }
 .followup-input:disabled { opacity: .65; }
