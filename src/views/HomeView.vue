@@ -5639,8 +5639,13 @@ input::placeholder { color: var(--text-muted); }
 }
 .followup-input {
   flex: 1; min-width: 0; border: none; background: transparent; outline: none;
-  resize: none; max-height: 120px; overflow: hidden; padding: 9px 0;
+  resize: none; overflow: hidden; padding: 9px 0;
   font-size: 15px; line-height: 1.45; color: var(--ink); font-family: inherit;
+  /* border-box 让 padding 计入 height；
+     calc(1.45em + 18px) = 1行 line-height + 9px×2 padding = 恰好单行 */
+  box-sizing: border-box;
+  height: calc(1.45em + 18px);
+  max-height: 120px;
   /* 高度变化动画：展开/收起均带缓动 */
   transition: height .22s cubic-bezier(0.22, 1, 0.36, 1);
 }
