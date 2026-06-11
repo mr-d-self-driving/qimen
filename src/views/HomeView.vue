@@ -2551,6 +2551,7 @@ const buildFollowupOrigin = (data) => {
   }
   return {
     question: data.question || '',
+    record_id: activeResultRecord.value?.id || null,   // 关联 audit / 记录行
     route: data.route || data.meta || { branch: 'qimen', category: data.category, subcategory: data.subcategory },
     evidence: {
       qimen_data: data.qimen_data || null,

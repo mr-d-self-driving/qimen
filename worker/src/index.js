@@ -1653,6 +1653,17 @@ async function runFollowupCapability(capability, params, { branch, origin }) {
   return null;
 }
 
+// 追问 audit：service-role 写入 qimen_followup_audit（非致命，失败仅告警）。
+async function writeFollowupAudit(env, snapshot) {
+  try {
+    const supabase = createSupabaseClient(env);
+    const { error } = await supabase.from('qimen_followup_audit').insert(snapshot);
+    if (error) console.warn('[followup] audit insert failed:', error.message || error);
+  } catch (e) {
+    console.warn('[followup] audit insert failed:', e.message || e);
+  }
+}
+
 async function runFollowupCapabilities(needs, ctx) {
   const out = {};
   for (const { capability, params } of needs) {
@@ -1689,6 +1700,13 @@ async function handleQimenFollowup(request, env) {
   if (!followup) return json({ error: '追问不能为空' }, { status: 400 }, request, env);
   if (!origin.evidence) return json({ error: '缺少原局上下文（evidence）' }, { status: 400 }, request, env);
 
+  // audit 公共字段
+  const startedAt = Date.now();
+  const requestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const userId = user?.id || null;
+  const rawRecordId = origin.record_id || origin.recordId || null;
+  const recordId = (rawRecordId && rawRecordId !== 'guest_qimen_record') ? rawRecordId : null;
+
   const { emit, close, response: sseResponse } = createSSEResponse(request, env);
 
   (async () => {
@@ -1716,6 +1734,15 @@ async function handleQimenFollowup(request, env) {
     // 新事 → 不花大模型，让前端弹"重新起局?"
     if (fr.scope === 'new_matter') {
       emit({ type: 'followup_route', scope: 'new_matter', reason: fr.reason });
+      await writeFollowupAudit(env, {
+        request_id: requestId, record_id: recordId, user_id: userId, branch,
+        origin_question: origin.question || '', followup,
+        classifier_model: 'gemini-3-flash-preview', classifier_prompt: classifierPrompt,
+        route_raw: routeRaw, route_normalized: fr, scope: fr.scope,
+        needs_data: fr.needs_data, nature: fr.nature, target_sections: fr.target_sections,
+        evidence_snapshot: origin.evidence || null, origin_sections: sections,
+        latency_ms: Date.now() - startedAt,
+      });
       return;
     }
 
@@ -1776,6 +1803,18 @@ async function handleQimenFollowup(request, env) {
       supplements,
       nature: fr.nature,
       needs_data: fr.needs_data.map((n) => n.capability),
+    });
+
+    await writeFollowupAudit(env, {
+      request_id: requestId, record_id: recordId, user_id: userId, branch,
+      origin_question: origin.question || '', followup,
+      classifier_model: 'gemini-3-flash-preview', classifier_prompt: classifierPrompt,
+      route_raw: routeRaw, route_normalized: fr, scope: fr.scope,
+      needs_data: fr.needs_data, extra_evidence: extraEvidence,
+      patch_model: patchModel, patch_prompt: patchPrompt, patch_output_raw: full,
+      supplements, nature: fr.nature, target_sections: fr.target_sections,
+      evidence_snapshot: origin.evidence || null, origin_sections: sections,
+      latency_ms: Date.now() - startedAt,
     });
   } catch (error) {
     console.error('[qimen-api] followup error:', error);
