@@ -253,11 +253,12 @@
                   </Transition>
                 </div>
                 <div class="time-row">
-                  <div class="time-display">
-                    <span class="time-dot"></span>
+                  <div class="time-display" :class="{ 'is-custom': panTime }" role="button" tabindex="0" @click="showTimePicker = true" @keyup.enter="showTimePicker = true">
+                    <span class="time-dot" :class="{ 'is-custom': panTime }"></span>
                     <span>{{ clockText }}</span>
+                    <span class="time-edit-ic" aria-hidden="true">✎</span>
                   </div>
-                  <div class="time-note">以当下时辰起局</div>
+                  <div class="time-note" :class="{ 'is-reset': panTime }" @click="onTimeNoteClick">{{ panTime ? '重置为现在' : '以当下时辰起局' }}</div>
                 </div>
               </div>
 
@@ -606,6 +607,25 @@
       </div>
     </Teleport>
 
+    <!-- 固定起局时间选择器 -->
+    <Teleport to="body">
+      <TimePickerSheet :open="showTimePicker" :initial="panTime" @confirm="onTimePickerConfirm" @cancel="showTimePicker = false" />
+    </Teleport>
+
+    <!-- 重置为现在 · 二次确认 -->
+    <Teleport to="body">
+      <div class="reset-time-overlay" :class="{ show: showResetTimeConfirm }" @click="showResetTimeConfirm = false">
+        <div class="reset-time-box" @click.stop>
+          <p>重置为现在的时辰？</p>
+          <small v-if="panTime">将放弃已选 {{ panTime.month }}月{{ panTime.day }}日 {{ String(panTime.hour).padStart(2, '0') }}:{{ String(panTime.minute).padStart(2, '0') }}</small>
+          <div class="reset-time-actions">
+            <button type="button" class="rt-ghost" @click="showResetTimeConfirm = false">取消</button>
+            <button type="button" class="rt-solid" @click="confirmResetTime">重置</button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- 长图预览弹窗 -->
     <div class="share-img-overlay" :class="{ show: shareImgUrl }" @click="closeShareModal">
       <div class="share-img-modal" @click.stop>
@@ -649,6 +669,7 @@ import BaziBackingPanel from '../components/BaziBackingPanel.vue'
 import BaziStaticPanel from '../components/BaziStaticPanel.vue'
 import BaziDynamicPanel from '../components/BaziDynamicPanel.vue'
 import OpenSourceLinks from '../components/OpenSourceLinks.vue'
+import TimePickerSheet from '../components/TimePickerSheet.vue'
 import { buildGoogleOAuthSignInArgs } from '../auth/googleOAuth.mjs'
 import { buildPasswordResetEmailArgs } from '../auth/passwordReset.mjs'
 import { normalizeQimenCardData } from '../utils/qimenCardFallbacks.mjs'
@@ -757,6 +778,10 @@ const handleGuestLoginRedirect = () => {
   authView.value = 'login'
 }
 const clockText = ref('载入时辰中…')
+// 固定起局时刻：null = 用当前时刻；否则为 { year, month, day, hour, minute }（北京民用时）
+const panTime = ref(null)
+const showTimePicker = ref(false)
+const showResetTimeConfirm = ref(false)
 const showRouteInfoModal = ref(false)
 const dailyQimenUsed = ref(null)  // null = loading, number = fetched count
 
@@ -2169,14 +2194,43 @@ const handleGuestEntry = async () => {
 }
 
 const updateClock = () => {
+  // 自定义固定时刻：用 lunar 精确干支展示（带日期前缀），并停止跟随系统时钟
+  if (panTime.value) {
+    const p = panTime.value
+    try {
+      const l = Solar.fromYmdHms(p.year, p.month, p.day, p.hour, p.minute, 0).getLunar()
+      clockText.value = `${p.month}月${p.day}日 ${String(p.hour).padStart(2, '0')}:${String(p.minute).padStart(2, '0')} ${l.getDayInGanZhi()}日 ${l.getTimeZhi()}时`
+    } catch {
+      clockText.value = `${p.year}-${p.month}-${p.day} ${p.hour}:${String(p.minute).padStart(2, '0')}`
+    }
+    return
+  }
   const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("")
   const DI_ZHI = "子丑寅卯辰巳午未申酉戌亥".split("")
   const now = new Date()
   const h = String(now.getHours()).padStart(2, '0')
   const m = String(now.getMinutes()).padStart(2, '0')
-  const shichenIdx = Math.floor((now.getHours() + 1) / 2) % 12
-  const stemIdx = Math.floor(now.getTime() / 86400000) % 10
+  // 用 lunar 精确日干与时支（替代旧的粗略近似，避免与排盘/选择器不一致）
+  const _l = Solar.fromYmdHms(now.getFullYear(), now.getMonth() + 1, now.getDate(), now.getHours(), now.getMinutes(), 0).getLunar()
+  const stemIdx = Math.max(0, TIAN_GAN.indexOf(_l.getDayGan()))
+  const shichenIdx = Math.max(0, DI_ZHI.indexOf(_l.getTimeZhi()))
   clockText.value = `${h}:${m}\u2002${TIAN_GAN[stemIdx]}日 ${DI_ZHI[shichenIdx]}时`
+}
+
+// 时间选择器：确认 / 重置
+const onTimePickerConfirm = (parts) => {
+  panTime.value = parts
+  showTimePicker.value = false
+  updateClock()
+}
+const onTimeNoteClick = () => {
+  if (!panTime.value) return // 「以当下时辰起局」态不可点
+  showResetTimeConfirm.value = true
+}
+const confirmResetTime = () => {
+  panTime.value = null
+  showResetTimeConfirm.value = false
+  updateClock()
 }
 
 const formatSolarDate = (value) => {
@@ -2768,7 +2822,8 @@ const startDivination = async () => {
       headers,
       body: JSON.stringify({
         question: input,
-        hasBaziProfile: Boolean(selectedProfileId.value || baziProfiles.value.length)
+        hasBaziProfile: Boolean(selectedProfileId.value || baziProfiles.value.length),
+        hasPanTime: Boolean(panTime.value)
       })
     })
     routeData = await routeResponse.json()
@@ -2857,7 +2912,8 @@ const startDivination = async () => {
       body: JSON.stringify({
         question: input,
         route: routeData,
-        baziInfo: (routeData.branch === 'qimen') ? null : (currentBaziString.value || null)
+        baziInfo: (routeData.branch === 'qimen') ? null : (currentBaziString.value || null),
+        panTime: panTime.value || null
       })
     })
     if (!response.ok) {
@@ -3674,6 +3730,20 @@ const deriveScoreBasisFromM3 = (m3, formations) => {
 }
 
 // ── 流式脚手架：复用真实卡片的 CSS class，保证与最终 buildCardHTML 视觉一致。 ──
+// 排盘表头：暴露完整起局校验字段（局名/节气元/旬首/值符值使及落宫/空亡·马星地支）供核对。
+const buildQimenPanInfo = (ju = {}, ts = {}, aux = {}) => {
+  const yuanText = [ju.jieqi, ju.yuan].filter(Boolean).join(' ')
+  const xunText = ju.xun_shou ? `　旬首：<b>${ju.xun_shou}</b>` : ''
+  const zhiFuPalace = ju.zhi_fu_palace ? `（${ju.zhi_fu_palace}）` : ''
+  const zhiShiPalace = ju.zhi_shi_palace ? `（${ju.zhi_shi_palace}）` : ''
+  const kong = aux.kong_wang || {}
+  const ma = aux.ma_xing || {}
+  const kongMaText = (kong.day || kong.hour || ma.day || ma.hour)
+    ? `<br>空亡：<b>日 ${kong.day || '-'} / 时 ${kong.hour || '-'}</b>　马星：<b>日 ${ma.day || '-'} / 时 ${ma.hour || '-'}</b>`
+    : ''
+  return `<div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${yuanText}${xunText}<br>值符：<b>${ju.zhi_fu || '-'}</b>${zhiFuPalace}&emsp;值使：<b>${ju.zhi_shi || '-'}</b>${zhiShiPalace}${kongMaText}</div>`
+}
+
 // engine 为 engine_complete 的 engineOutput（可为 null，表示尚未起盘）。
 // 7 个流式散文段以 <span data-wslot="KEY"> 占位，初始为骨架，由 SSE delta 就地打补丁。
 const QIMEN_STREAM_SLOTS = {
@@ -3738,6 +3808,7 @@ const buildStreamingScaffoldHTML = (engine = null, statusText = '') => {
   const palaces = chart?.palaces || []
   const ju = chart?.ju_info || {}
   const ts = chart?.timestamp || {}
+  const aux = chart?.auxiliary || {}
   const pillars = chart?.pillars || {}
   const preScore = engine?.pre_score
   const vd = (preScore !== undefined && preScore !== null) ? getVerdictInfo(preScore) : null
@@ -3758,7 +3829,7 @@ const buildStreamingScaffoldHTML = (engine = null, statusText = '') => {
       if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`
       return `<div class="pan-cell"><div class="pan-god">${p.god || ''}</div><div class="pan-stem stem-sky">${p.sky || ''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${isZhiFu(p.star) ? 'highlight-text' : ''}">${p.star || ''}</div><div class="pan-door ${isZhiShi(p.door) ? 'highlight-text' : ''}">${p.door || ''}</div><div class="pan-stem stem-earth">${p.earth || ''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`
     }).join('')
-    panInnerHTML = `<div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
+    panInnerHTML = `<div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div>${buildQimenPanInfo(ju, ts, aux)}</div><div class="pan-grid">${cells}</div></div>`
   } else {
     panInnerHTML = `<div class="pan-skeleton">${sk(1)}<div class="pan-grid">${'<div class="pan-cell"><span class="wsk"><i></i></span></div>'.repeat(9)}</div></div>`
   }
@@ -3892,6 +3963,7 @@ const buildCardHTML = (data, opts = {}) => {
   const pillars = chartData.pillars || {}
   const ju = chartData.ju_info || {}
   const ts = chartData.timestamp || {}
+  const aux = chartData.auxiliary || {}
   const hasChart = palaces.length > 0
 
   const score = reportM1.score ?? summary.score ?? 0
@@ -3979,7 +4051,7 @@ const buildCardHTML = (data, opts = {}) => {
       if (p.kong_wang?.is_kong) marks += `<span class="pan-mark mark-kong">空</span>`
       return `<div class="pan-cell"><div class="pan-god">${p.god || ''}</div><div class="pan-stem stem-sky">${p.sky || ''}</div>${p.ji_sky ? `<div class="pan-stem ji-sky">${p.ji_sky}</div>` : ''}<div class="pan-star ${starCls}">${p.star || ''}</div><div class="pan-door ${doorCls}">${p.door || ''}</div><div class="pan-stem stem-earth">${p.earth || ''}</div>${p.ji_earth ? `<div class="pan-stem ji-earth">${p.ji_earth}</div>` : ''}<div class="pan-marks">${marks}</div></div>`
     }).join('')
-    panInnerHTML = `<div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div><div class="pan-info">${ts.solar || ''} | ${ju.name || ''} · ${ju.jieqi || ''}<br>值符：<b>${ju.zhi_fu || '-'}</b>&emsp;值使：<b>${ju.zhi_shi || '-'}</b></div></div><div class="pan-grid">${cells}</div></div>`
+    panInnerHTML = `<div class="pan-wrapper"><div class="pan-header"><div class="pan-pillars">${[pillars.year, pillars.month, pillars.day, pillars.hour].filter(Boolean).join('　')}</div>${buildQimenPanInfo(ju, ts, aux)}</div><div class="pan-grid">${cells}</div></div>`
   }
 
   // ── 格局吉凶
@@ -4631,9 +4703,28 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 .input-card textarea { min-height: 120px; background: transparent; border: none; border-radius: 0; padding: 2px 2px 0; transition: none; }
 .input-card textarea:focus { border: none; box-shadow: none; }
 .time-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
-.time-display { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
+.time-display { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 8px; margin: -4px -8px; border-radius: 8px; transition: background .2s, color .2s; }
+.time-display:hover { background: rgba(127, 127, 127, .08); color: var(--text-primary); }
+.time-display.is-custom { color: var(--gold-light); }
+.time-edit-ic { font-size: 12px; line-height: 1; color: var(--gold); margin-left: 2px; transition: opacity .2s; }
+.time-display:hover .time-edit-ic { opacity: .75; }
 .time-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse-dot 2s infinite; }
-.time-note { font-size: 11px; color: var(--text-muted); font-family: 'Noto Serif SC', serif; }
+.time-dot.is-custom { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: none; }
+.time-note { font-size: 12px; color: var(--text-muted); font-family: 'Noto Serif SC', serif; }
+.time-note.is-reset { color: var(--gold); cursor: pointer; }
+.time-note.is-reset:hover { text-decoration: underline; }
+
+/* 重置为现在 · 二次确认 */
+.reset-time-overlay { position: fixed; inset: 0; z-index: 1300; background: rgba(0, 0, 0, .55); display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.reset-time-overlay.show { opacity: 1; pointer-events: auto; }
+.reset-time-box { width: 84%; max-width: 320px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 20px 14px; text-align: center; transform: scale(.94); transition: transform .2s; }
+.reset-time-overlay.show .reset-time-box { transform: scale(1); }
+.reset-time-box p { font-size: 14px; color: var(--text-primary); margin: 0 0 4px; }
+.reset-time-box small { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+.reset-time-actions { display: flex; gap: 10px; }
+.reset-time-actions button { flex: 1; border-radius: 10px; padding: 10px; font-size: 14px; cursor: pointer; border: 1px solid var(--line); }
+.rt-ghost { background: transparent; color: var(--text-muted); }
+.rt-solid { background: var(--gold); border-color: var(--gold); color: #1a1000; font-weight: 600; }
 
 .cta-wrap { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-bottom: 16px; }
 .cta-btn { width: 100%; height: 60px; border: none; outline: none; cursor: pointer; border-radius: 18px; position: relative; overflow: hidden; background: linear-gradient(135deg, #8B6914 0%, #D4AF37 35%, #E8CC80 55%, #D4AF37 75%, #8B6914 100%); background-size: 200% 100%; animation: shimmer 3s ease-in-out infinite; box-shadow: 0 4px 20px rgba(212,175,55,0.3); transition: transform .2s; }
@@ -5556,10 +5647,10 @@ input::placeholder { color: var(--text-muted); }
 :deep(.pan-cell:nth-child(n+7)) { border-bottom:none; }
 :deep(.pan-cell:hover) { background:var(--paper-soft); }
 :deep(.pan-center-earth) { font-size:30px; font-weight:900; color:rgba(11,11,11,0.1); font-family:'Noto Serif SC',serif; }
-:deep(.pan-god) { position:absolute; top:5px; font-size:11px; color:var(--text-muted); font-family:'Noto Serif SC',serif; }
-:deep(.pan-star) { font-size:13px; color:var(--ink-muted); margin-bottom:1px; z-index:2; font-family:'Noto Serif SC',serif; }
-:deep(.pan-door) { font-size:16px; font-weight:700; color:var(--ink); z-index:2; font-family:'Noto Serif SC',serif; }
-:deep(.pan-stem) { position:absolute; font-size:12px; font-weight:600; font-family:'Noto Serif SC',serif; }
+:deep(.pan-god) { position:absolute; top:5px; font-size:13px; color:var(--text-muted); font-family:'Noto Serif SC',serif; }
+:deep(.pan-star) { font-size:15px; color:var(--ink-muted); margin-bottom:1px; z-index:2; font-family:'Noto Serif SC',serif; }
+:deep(.pan-door) { font-size:19px; font-weight:700; color:var(--ink); z-index:2; font-family:'Noto Serif SC',serif; }
+:deep(.pan-stem) { position:absolute; font-size:14px; font-weight:600; font-family:'Noto Serif SC',serif; }
 :deep(.stem-sky) { top:5px; left:6px; color:var(--ink); }
 :deep(.stem-earth) { bottom:5px; right:6px; color:var(--ink-muted); }
 :deep(.ji-sky) { top:18px; left:6px; font-size:8px; color:var(--text-muted); }

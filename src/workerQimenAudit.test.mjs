@@ -38,3 +38,25 @@ test('qimen worker writes backend supplements back into qimen_report', () => {
   assert.match(source, /relation:\s*backendScoreAudit\.relations\?\.\[0\] \|\| null/)
   assert.match(source, /qimen_report:\s*enrichedQimenReport/)
 })
+
+test('固定时间起局：worker 走 buildQimenChart + parsePanTime，并支持 engineOnly 短路', () => {
+  // 起盘单一源（与 lib/qimenChart.test.js 同源）
+  assert.match(source, /import \{ buildQimenChart \} from '\.\.\/\.\.\/lib\/qimenChart\.js'/)
+  assert.match(source, /import \{ parsePanTime \} from '\.\.\/\.\.\/lib\/panTime\.js'/)
+  assert.match(source, /const panTimeParts = parsePanTime\(body\.panTime\)/)
+  assert.match(source, /const chart = buildQimenChart\(\{ year, month, day, hour, minute \}\)/)
+  // 固定时刻不做时区二次偏移
+  assert.match(source, /\(\{ year, month, day, hour, minute \} = panTimeParts\)/)
+  // engineOnly：跳过 LLM，零 API 花费
+  assert.match(source, /if \(body\.engineOnly === true\)/)
+  // 起盘抽离后不得残留已删除的 qimenPalaces 引用（曾在完整 LLM 报告路径漏改导致 ReferenceError）
+  assert.doesNotMatch(source, /\bqimenPalaces\b/)
+  assert.match(source, /palaces: qimenData\.palaces/)
+})
+
+test('CP2 路由钳制：含 panTime 时 bazi 钳 hybrid、clarify 钳 qimen', () => {
+  assert.match(source, /if \(body\.hasPanTime\)/)
+  assert.match(source, /route\.branch === 'bazi'[\s\S]{0,120}route\.branch = 'hybrid'/)
+  assert.match(source, /route\.branch === 'clarify'[\s\S]{0,160}route\.branch = 'qimen'/)
+  assert.match(source, /clampedByPanTime = true/)
+})
