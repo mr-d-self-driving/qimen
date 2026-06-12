@@ -985,14 +985,21 @@ const followupTextarea = ref(null)
 const autoGrowFollowup = () => {
   const el = followupTextarea.value
   if (!el) return
-  // border-box: scrollHeight 含 padding，与 el.style.height 同口径，可直接赋值。
-  // 关键：用 'auto' 量内容高度，而不是先设 '40px'。否则上一次 .22s 过渡未结束时，
-  // clientHeight 还停在旧高度，scrollHeight=max(内容高,clientHeight) 被污染 → 删字缩不回。
-  // 'auto' 会让本次同步布局把 clientHeight 刷成纯内容高度，测量准确；同一 tick 不绘制中间态，无闪烁。
+  // 平滑增高/回缩的关键三步：
+  // 1) 记下当前真实渲染高度作为动画起点（动画进行中也准）；
+  // 2) 关过渡 → 用 'auto' 量纯内容高度（不被未结束过渡污染）→ 钉回起点并强制提交；
+  // 3) 恢复过渡 → 设目标高度，浏览器在帧末从"起点 → target"播 .22s 动画。
+  // 若直接 'auto' 后读 scrollHeight，会把 auto 当场提交成内容高，target 与之相等 → 没起点可动 → 瞬移。
+  const startH = el.offsetHeight
+  el.style.transition = 'none'
   el.style.height = 'auto'
   const target = Math.min(Math.max(el.scrollHeight, 40), 120)
-  el.style.height = target + 'px'        // 增高/回缩都走这里，过渡平滑
-  el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden'
+  const overflow = el.scrollHeight > 120 ? 'auto' : 'hidden'
+  el.style.height = startH + 'px'        // 钉回起点
+  void el.offsetHeight                   // 强制重排，提交起点（此刻过渡仍为 none）
+  el.style.transition = ''               // 恢复样式表里的 .22s 过渡
+  el.style.height = target + 'px'        // 帧末从 startH 平滑动到 target
+  el.style.overflowY = overflow
 }
 const canFollowup = computed(() =>
   viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
