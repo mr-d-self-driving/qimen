@@ -49,10 +49,14 @@ test('固定时间起局：worker 走 buildQimenChart + parsePanTime，并支持
   assert.match(source, /\(\{ year, month, day, hour, minute \} = panTimeParts\)/)
   // engineOnly：跳过 LLM，零 API 花费
   assert.match(source, /if \(body\.engineOnly === true\)/)
+  // 起盘抽离后不得残留已删除的 qimenPalaces 引用（曾在完整 LLM 报告路径漏改导致 ReferenceError）
+  assert.doesNotMatch(source, /\bqimenPalaces\b/)
+  assert.match(source, /palaces: qimenData\.palaces/)
 })
 
-test('CP2 路由钳制：/api/divination-route 在含 panTime 时把 bazi 钳为 hybrid', () => {
-  assert.match(source, /if \(body\.hasPanTime && route\.branch === 'bazi'\)/)
-  assert.match(source, /route\.branch = 'hybrid'/)
+test('CP2 路由钳制：含 panTime 时 bazi 钳 hybrid、clarify 钳 qimen', () => {
+  assert.match(source, /if \(body\.hasPanTime\)/)
+  assert.match(source, /route\.branch === 'bazi'[\s\S]{0,120}route\.branch = 'hybrid'/)
+  assert.match(source, /route\.branch === 'clarify'[\s\S]{0,160}route\.branch = 'qimen'/)
   assert.match(source, /clampedByPanTime = true/)
 })

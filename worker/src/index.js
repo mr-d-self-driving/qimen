@@ -385,14 +385,24 @@ async function handleDivinationRoute(request, env) {
     llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env),
   });
 
-  // CP2：用户显式指定了起局时刻 → 不落纯 bazi。
-  // 命局类问句也钳为 hybrid：在所选时刻起奇门盘 + 保留命局背景，避免时间被静默丢弃。
-  if (body.hasPanTime && route.branch === 'bazi') {
-    route.branch = 'hybrid';
-    route.needsBaziProfile = true;
-    route.canFallbackToQimenOnly = true;
-    route.clampedByPanTime = true;
-    route.reason = `${route.reason || ''}（含指定起局时刻，钳为综合推演，在所选时刻起盘）`;
+  // CP2：用户显式指定了起局时刻 → 视为「为此刻起一卦」的具体事件意图，不落 bazi/clarify。
+  if (body.hasPanTime) {
+    if (route.branch === 'bazi') {
+      // 命局类问句钳为 hybrid：在所选时刻起奇门盘 + 保留命局背景，避免时间被静默丢弃。
+      route.branch = 'hybrid';
+      route.needsBaziProfile = true;
+      route.canFallbackToQimenOnly = true;
+      route.clampedByPanTime = true;
+      route.reason = `${route.reason || ''}（含指定起局时刻，钳为综合推演，在所选时刻起盘）`;
+    } else if (route.branch === 'clarify') {
+      // 既已指定具体时刻，宽泛问句也按具体事件直接起盘，不再追问长期/具体。
+      route.branch = 'qimen';
+      route.needsBaziProfile = false;
+      route.canFallbackToQimenOnly = false;
+      route.followupQuestion = '';
+      route.clampedByPanTime = true;
+      route.reason = `${route.reason || ''}（含指定起局时刻，按具体事件直接起盘，跳过追问）`;
+    }
   }
 
   return json(route, { status: 200 }, request, env);
@@ -2363,7 +2373,7 @@ ${outputContractSection}
                 zhi_fu: zhiFuStar,
                 zhi_shi: zhiShiDoor
             },
-            palaces: qimenPalaces,
+            palaces: qimenData.palaces,
             formation_tags: (qimenReport.m2_basis?.formation_tags?.length)
                 ? qimenReport.m2_basis.formation_tags
                 : backendFormationTags
