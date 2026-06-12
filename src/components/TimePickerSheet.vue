@@ -16,7 +16,7 @@ const KEY = { year: 'year', month: 'month', day: 'day', hour: 'hour', minute: 'm
 
 const draft = reactive(nowParts())
 const numInput = ref('')
-const numHint = ref('12 位数字：年(4) 月 日 时 分')
+const numHint = ref('')
 const numErr = ref(false)
 const wheelRefs = ref({})
 
@@ -55,7 +55,7 @@ watch(() => props.open, async (isOpen) => {
   const src = props.initial || nowParts()
   Object.assign(draft, src)
   numInput.value = ''
-  numHint.value = '12 位数字：年(4) 月 日 时 分'
+  numHint.value = ''
   numErr.value = false
   await nextTick()
   UNITS.forEach(positionWheel)
@@ -125,7 +125,7 @@ function cancel() { emit('cancel') }
           <input v-model="numInput" inputmode="numeric" placeholder="格式 202606121416 或滚动选择" @keyup.enter="applyNumInput" />
           <button type="button" @click="applyNumInput">识别</button>
         </div>
-        <p class="num-hint" :class="{ err: numErr }">{{ numHint }}</p>
+        <p v-if="numHint" class="num-hint" :class="{ err: numErr }">{{ numHint }}</p>
 
         <div class="wheels">
           <div class="wheel-center"></div>
