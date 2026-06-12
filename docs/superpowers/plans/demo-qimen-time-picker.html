@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>奇门起局时间选择 · 交互 Demo</title>
+<style>
+  /* —— 取自 src/styles/global.css 暗色主题 —— */
+  :root {
+    --gold:        #D4AF37;
+    --gold-light:  #E8CC80;
+    --gold-dim:    rgba(212,175,55,0.15);
+    --gold-border: rgba(212,175,55,0.22);
+    --bg-deep:     #05050A;
+    --bg-card:     #12121e;
+    --line:        rgba(255,255,255,0.08);
+    --text-main:   #ECECF1;
+    --text-muted:  #8E8E93;
+    --teal:        #4ECDC4;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg-deep); color: var(--text-main);
+    font-family: -apple-system, "PingFang SC", "Noto Sans SC", sans-serif;
+    min-height: 100vh; display: flex; justify-content: center; padding: 40px 16px;
+  }
+  .stage { width: 100%; max-width: 440px; }
+  .demo-hint { font-size: 12px; color: var(--text-muted); text-align: center; margin: 0 0 18px; line-height: 1.7; }
+  .demo-hint b { color: var(--gold-light); font-weight: 500; }
+
+  /* —— 输入卡片（简化自 HomeView 的 .input-card） —— */
+  .input-card { background: var(--bg-card); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+  .input-label { font-family: 'Noto Serif SC', serif; font-size: 14px; color: var(--gold); letter-spacing: 2px; text-align: center; margin-bottom: 12px; }
+  .fake-textarea { min-height: 92px; color: var(--text-muted); font-size: 14px; line-height: 1.7; }
+
+  /* —— 时间行（对应 HomeView .time-row / .time-display / .time-note） —— */
+  .time-row { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; }
+  .time-display {
+    font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px;
+    cursor: pointer; padding: 4px 8px; margin: -4px -8px; border-radius: 8px; transition: background .2s, color .2s;
+  }
+  .time-display:hover { background: rgba(255,255,255,.04); color: var(--text-main); }
+  .time-display.is-custom { color: var(--gold-light); }
+  .time-display .edit-ic { opacity: .5; font-size: 11px; }
+  .time-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse-dot 2s infinite; }
+  @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:.35} }
+  .time-note { font-size: 11px; color: var(--text-muted); font-family: 'Noto Serif SC', serif; }
+  .time-note.is-reset { color: var(--gold); cursor: pointer; }
+  .time-note.is-reset:hover { text-decoration: underline; }
+
+  .cta-btn {
+    margin-top: 18px; width: 100%; border: none; border-radius: 14px; padding: 15px;
+    background: linear-gradient(180deg, var(--gold-light), var(--gold)); color: #1a1000;
+    font-size: 16px; font-weight: 600; letter-spacing: 4px; cursor: pointer;
+  }
+
+  /* —— 弹层遮罩 —— */
+  .sheet-mask { position: fixed; inset: 0; background: rgba(0,0,0,.55); backdrop-filter: blur(2px); display: flex; align-items: flex-end; justify-content: center; z-index: 100; opacity: 0; pointer-events: none; transition: opacity .25s; }
+  .sheet-mask.open { opacity: 1; pointer-events: auto; }
+  .sheet { width: 100%; max-width: 440px; background: var(--bg-card); border: 1px solid var(--line); border-bottom: none; border-radius: 20px 20px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform .28s cubic-bezier(.22,1,.36,1); }
+  .sheet-mask.open .sheet { transform: translateY(0); }
+
+  .sheet-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+  .sheet-head button { background: none; border: none; font-size: 14px; cursor: pointer; padding: 6px 4px; }
+  .sheet-cancel { color: var(--text-muted); }
+  .sheet-confirm { color: var(--gold); font-weight: 600; }
+  .sheet-title { font-size: 14px; color: var(--text-main); font-family: 'Noto Serif SC', serif; letter-spacing: 1px; }
+
+  .sel-preview { text-align: center; font-size: 13px; color: var(--gold-light); margin: 6px 0 10px; font-variant-numeric: tabular-nums; }
+
+  /* 数字直接输入 */
+  .num-input-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+  .num-input-row input {
+    flex: 1; background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 10px;
+    color: var(--text-main); font-size: 14px; padding: 10px 12px; outline: none; font-variant-numeric: tabular-nums; letter-spacing: 1px;
+  }
+  .num-input-row input:focus { border-color: var(--gold-border); }
+  .num-input-row button { background: var(--gold-dim); border: 1px solid var(--gold-border); color: var(--gold); border-radius: 10px; padding: 10px 14px; font-size: 13px; cursor: pointer; white-space: nowrap; }
+  .num-hint { font-size: 11px; color: var(--text-muted); margin: 0 0 12px; }
+  .num-hint.err { color: #e07a7a; }
+
+  /* —— 滚轮 —— */
+  .wheels { display: flex; gap: 2px; position: relative; height: 220px; }
+  .wheels::before, .wheels::after { content: ''; position: absolute; left: 0; right: 0; height: 88px; pointer-events: none; z-index: 3; }
+  .wheels::before { top: 0; background: linear-gradient(var(--bg-card), rgba(18,18,30,0)); }
+  .wheels::after { bottom: 0; background: linear-gradient(rgba(18,18,30,0), var(--bg-card)); }
+  .wheel-center { position: absolute; left: 0; right: 0; top: 88px; height: 44px; border-top: 1px solid var(--gold-border); border-bottom: 1px solid var(--gold-border); z-index: 1; pointer-events: none; }
+  .wheel { flex: 1; overflow-y: scroll; scroll-snap-type: y mandatory; scrollbar-width: none; -ms-overflow-style: none; position: relative; z-index: 2; }
+  .wheel::-webkit-scrollbar { display: none; }
+  .wheel-pad { height: 88px; }
+  .wheel-item { height: 44px; line-height: 44px; text-align: center; font-size: 16px; color: var(--text-muted); scroll-snap-align: center; transition: color .15s; font-variant-numeric: tabular-nums; }
+  .wheel-item.active { color: var(--gold-light); font-size: 18px; font-weight: 600; }
+
+  /* —— 二次确认小弹窗 —— */
+  .confirm-mask { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; z-index: 120; opacity: 0; pointer-events: none; transition: opacity .2s; }
+  .confirm-mask.open { opacity: 1; pointer-events: auto; }
+  .confirm-box { width: 84%; max-width: 320px; background: var(--bg-card); border: 1px solid var(--line); border-radius: 16px; padding: 22px 20px 14px; text-align: center; transform: scale(.94); transition: transform .2s; }
+  .confirm-mask.open .confirm-box { transform: scale(1); }
+  .confirm-box p { font-size: 14px; color: var(--text-main); margin: 0 0 4px; }
+  .confirm-box small { font-size: 12px; color: var(--text-muted); display: block; margin-bottom: 16px; font-variant-numeric: tabular-nums; }
+  .confirm-actions { display: flex; gap: 10px; }
+  .confirm-actions button { flex: 1; border-radius: 10px; padding: 10px; font-size: 14px; cursor: pointer; border: 1px solid var(--line); }
+  .btn-ghost { background: transparent; color: var(--text-muted); }
+  .btn-solid { background: var(--gold); border-color: var(--gold); color: #1a1000; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="stage">
+  <p class="demo-hint">
+    交互 Demo · 本期仅公历<br />
+    点击 <b>时间</b> 打开选择器（滚轮 + 数字输入）→ 确认后更新<br />
+    自定义后右侧变 <b>重置为现在</b>，点击需二次确认
+  </p>
+
+  <div class="input-card">
+    <div class="input-label">叩问天机</div>
+    <div class="fake-textarea">在心中默念所求之事，写下您的羁绊与心中所惑……</div>
+
+    <div class="time-row">
+      <div class="time-display" id="timeDisplay" onclick="openSheet()">
+        <span class="time-dot" id="timeDot"></span>
+        <span id="timeText">14:29　庚日 未时</span>
+        <span class="edit-ic">✎</span>
+      </div>
+      <div class="time-note" id="timeNote" onclick="onNoteClick()">以当下时辰起局</div>
+    </div>
+
+    <button class="cta-btn">☯ 洞察天机</button>
+  </div>
+</div>
+
+<!-- 时间选择 bottom sheet -->
+<div class="sheet-mask" id="sheetMask" onclick="if(event.target===this)closeSheet()">
+  <div class="sheet">
+    <div class="sheet-head">
+      <button class="sheet-cancel" onclick="closeSheet()">取消</button>
+      <span class="sheet-title">选择起局时间 · 公历</span>
+      <button class="sheet-confirm" onclick="confirmSheet()">确认</button>
+    </div>
+
+    <div class="sel-preview" id="selPreview">—</div>
+
+    <div class="num-input-row">
+      <input id="numInput" inputmode="numeric" placeholder="格式 202606121416 或滚动选择" />
+      <button onclick="applyNumInput()">识别</button>
+    </div>
+    <p class="num-hint" id="numHint">12 位数字：年(4) 月 日 时 分</p>
+
+    <div class="wheels" id="wheels">
+      <div class="wheel-center"></div>
+      <div class="wheel" data-unit="year"></div>
+      <div class="wheel" data-unit="month"></div>
+      <div class="wheel" data-unit="day"></div>
+      <div class="wheel" data-unit="hour"></div>
+      <div class="wheel" data-unit="minute"></div>
+    </div>
+  </div>
+</div>
+
+<!-- 二次确认 -->
+<div class="confirm-mask" id="confirmMask" onclick="if(event.target===this)closeConfirm()">
+  <div class="confirm-box">
+    <p>重置为现在的时辰？</p>
+    <small id="confirmSub">将放弃已选时间</small>
+    <div class="confirm-actions">
+      <button class="btn-ghost" onclick="closeConfirm()">取消</button>
+      <button class="btn-solid" onclick="doReset()">重置</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const TIAN_GAN = "甲乙丙丁戊己庚辛壬癸".split("");
+const DI_ZHI  = "子丑寅卯辰巳午未申酉戌亥".split("");
+const ITEM_H = 44;
+
+// 当前生效的时间状态：null = 用「现在」；否则为自定义 {y,mo,d,h,mi}
+let activeCustom = null;
+// sheet 内临时选择
+let draft = nowParts();
+
+function nowParts() {
+  const n = new Date();
+  return { y: n.getFullYear(), mo: n.getMonth() + 1, d: n.getDate(), h: n.getHours(), mi: n.getMinutes() };
+}
+function pad(n) { return String(n).padStart(2, '0'); }
+function ganzhiLabel(p) {
+  // Demo 用近似算法（与 HomeView.updateClock 一致），真实接入用 lunar 库
+  const dt = new Date(p.y, p.mo - 1, p.d, p.h, p.mi);
+  const shichen = Math.floor((p.h + 1) / 2) % 12;
+  const stem = ((Math.floor(dt.getTime() / 86400000) % 10) + 10) % 10;
+  return `${TIAN_GAN[stem]}日 ${DI_ZHI[shichen]}时`;
+}
+function daysInMonth(y, mo) { return new Date(y, mo, 0).getDate(); }
+
+// —— 渲染顶部时间行 ——
+function renderTimeRow() {
+  const p = activeCustom || nowParts();
+  const txt = `${pad(p.h)}:${pad(p.mi)} ${ganzhiLabel(p)}`;
+  document.getElementById('timeText').textContent =
+    activeCustom ? `${p.mo}月${p.d}日 ${txt}` : txt;
+  const disp = document.getElementById('timeDisplay');
+  const note = document.getElementById('timeNote');
+  const dot  = document.getElementById('timeDot');
+  if (activeCustom) {
+    disp.classList.add('is-custom');
+    note.classList.add('is-reset');
+    note.textContent = '重置为现在';
+    dot.style.background = 'var(--gold)';
+    dot.style.boxShadow = '0 0 6px var(--gold)';
+    dot.style.animation = 'none';
+  } else {
+    disp.classList.remove('is-custom');
+    note.classList.remove('is-reset');
+    note.textContent = '以当下时辰起局';
+    dot.style.background = 'var(--teal)';
+    dot.style.boxShadow = '0 0 6px var(--teal)';
+    dot.style.animation = 'pulse-dot 2s infinite';
+  }
+}
+
+// —— 构建滚轮 ——
+const WHEEL_RANGES = {
+  year:   () => range(nowParts().y - 80, nowParts().y + 20),
+  month:  () => range(1, 12),
+  day:    () => range(1, daysInMonth(draft.y, draft.mo)),
+  hour:   () => range(0, 23),
+  minute: () => range(0, 59),
+};
+const UNIT_KEY = { year: 'y', month: 'mo', day: 'd', hour: 'h', minute: 'mi' };
+const UNIT_SUFFIX = { year: '年', month: '月', day: '日', hour: '时', minute: '分' };
+function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; }
+
+function buildWheels() {
+  document.querySelectorAll('.wheel').forEach(buildWheel);
+}
+function buildWheel(wheel) {
+  const unit = wheel.dataset.unit;
+  const vals = WHEEL_RANGES[unit]();
+  wheel.innerHTML = '<div class="wheel-pad"></div>' +
+    vals.map(v => `<div class="wheel-item" data-val="${v}">${unit==='year'?v:pad(v)}${UNIT_SUFFIX[unit]}</div>`).join('') +
+    '<div class="wheel-pad"></div>';
+  // 定位到当前 draft 值
+  const idx = vals.indexOf(draft[UNIT_KEY[unit]]);
+  wheel.scrollTop = Math.max(0, idx) * ITEM_H;
+  updateActiveItem(wheel);
+  wheel.onscroll = () => onWheelScroll(wheel);
+}
+let scrollTimers = {};
+function onWheelScroll(wheel) {
+  updateActiveItem(wheel);
+  const unit = wheel.dataset.unit;
+  clearTimeout(scrollTimers[unit]);
+  scrollTimers[unit] = setTimeout(() => {
+    const idx = Math.round(wheel.scrollTop / ITEM_H);
+    wheel.scrollTo({ top: idx * ITEM_H, behavior: 'smooth' });
+    commitWheel(wheel, idx);
+  }, 90);
+}
+function updateActiveItem(wheel) {
+  const idx = Math.round(wheel.scrollTop / ITEM_H);
+  wheel.querySelectorAll('.wheel-item').forEach((el, i) => el.classList.toggle('active', i === idx));
+}
+function commitWheel(wheel, idx) {
+  const unit = wheel.dataset.unit;
+  const item = wheel.querySelectorAll('.wheel-item')[idx];
+  if (!item) return;
+  draft[UNIT_KEY[unit]] = parseInt(item.dataset.val, 10);
+  if (unit === 'year' || unit === 'month') {
+    // 天数随年月变化，重建 day 轮并夹紧
+    const maxD = daysInMonth(draft.y, draft.mo);
+    if (draft.d > maxD) draft.d = maxD;
+    buildWheel(document.querySelector('.wheel[data-unit="day"]'));
+  }
+  renderPreview();
+}
+function renderPreview() {
+  document.getElementById('selPreview').textContent =
+    `${draft.y}年${pad(draft.mo)}月${pad(draft.d)}日 ${pad(draft.h)}:${pad(draft.mi)}　${ganzhiLabel(draft)}`;
+}
+
+// —— 数字直接输入 ——
+function applyNumInput() {
+  const raw = document.getElementById('numInput').value.replace(/\D/g, '');
+  const hint = document.getElementById('numHint');
+  if (raw.length !== 12) { hint.textContent = '需 12 位数字：年(4) 月 日 时 分'; hint.classList.add('err'); return; }
+  const y = +raw.slice(0,4), mo = +raw.slice(4,6), d = +raw.slice(6,8), h = +raw.slice(8,10), mi = +raw.slice(10,12);
+  if (mo<1||mo>12||d<1||d>daysInMonth(y,mo)||h>23||mi>59) { hint.textContent = '日期/时间超出范围'; hint.classList.add('err'); return; }
+  hint.textContent = '已识别'; hint.classList.remove('err');
+  draft = { y, mo, d, h, mi };
+  buildWheels(); renderPreview();
+}
+
+// —— sheet 开关 ——
+function openSheet() {
+  draft = activeCustom ? { ...activeCustom } : nowParts();
+  document.getElementById('numInput').value = '';
+  document.getElementById('numHint').textContent = '12 位数字：年(4) 月 日 时 分';
+  document.getElementById('numHint').classList.remove('err');
+  buildWheels(); renderPreview();
+  document.getElementById('sheetMask').classList.add('open');
+}
+function closeSheet() { document.getElementById('sheetMask').classList.remove('open'); }
+function confirmSheet() {
+  activeCustom = { ...draft };
+  renderTimeRow();
+  closeSheet();
+}
+
+// —— 右侧小字点击 ——
+function onNoteClick() {
+  if (!activeCustom) return; // “以当下时辰起局” 不可点
+  const p = activeCustom;
+  document.getElementById('confirmSub').textContent =
+    `当前选定 ${p.mo}月${p.d}日 ${pad(p.h)}:${pad(p.mi)}，将放弃`;
+  document.getElementById('confirmMask').classList.add('open');
+}
+function closeConfirm() { document.getElementById('confirmMask').classList.remove('open'); }
+function doReset() {
+  activeCustom = null;
+  renderTimeRow();
+  closeConfirm();
+}
+
+// init
+renderTimeRow();
+</script>
+</body>
+</html>

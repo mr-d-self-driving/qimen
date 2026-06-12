@@ -38,3 +38,21 @@ test('qimen worker writes backend supplements back into qimen_report', () => {
   assert.match(source, /relation:\s*backendScoreAudit\.relations\?\.\[0\] \|\| null/)
   assert.match(source, /qimen_report:\s*enrichedQimenReport/)
 })
+
+test('固定时间起局：worker 走 buildQimenChart + parsePanTime，并支持 engineOnly 短路', () => {
+  // 起盘单一源（与 lib/qimenChart.test.js 同源）
+  assert.match(source, /import \{ buildQimenChart \} from '\.\.\/\.\.\/lib\/qimenChart\.js'/)
+  assert.match(source, /import \{ parsePanTime \} from '\.\.\/\.\.\/lib\/panTime\.js'/)
+  assert.match(source, /const panTimeParts = parsePanTime\(body\.panTime\)/)
+  assert.match(source, /const chart = buildQimenChart\(\{ year, month, day, hour, minute \}\)/)
+  // 固定时刻不做时区二次偏移
+  assert.match(source, /\(\{ year, month, day, hour, minute \} = panTimeParts\)/)
+  // engineOnly：跳过 LLM，零 API 花费
+  assert.match(source, /if \(body\.engineOnly === true\)/)
+})
+
+test('CP2 路由钳制：/api/divination-route 在含 panTime 时把 bazi 钳为 hybrid', () => {
+  assert.match(source, /if \(body\.hasPanTime && route\.branch === 'bazi'\)/)
+  assert.match(source, /route\.branch = 'hybrid'/)
+  assert.match(source, /clampedByPanTime = true/)
+})

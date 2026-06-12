@@ -19,6 +19,8 @@ import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTi
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
 import { calculateQimenScore } from '../../lib/qimenScoringEngine.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
+import { buildQimenChart } from '../../lib/qimenChart.js';
+import { parsePanTime } from '../../lib/panTime.js';
 import baziCore from '../../lib/baziCore.js';
 import qimenLlmOutput from '../../lib/qimenLlmOutput.js';
 import accountQuota from '../../lib/accountQuota.js';
@@ -382,6 +384,16 @@ async function handleDivinationRoute(request, env) {
     llmFallback: true,
     llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env),
   });
+
+  // CP2：用户显式指定了起局时刻 → 不落纯 bazi。
+  // 命局类问句也钳为 hybrid：在所选时刻起奇门盘 + 保留命局背景，避免时间被静默丢弃。
+  if (body.hasPanTime && route.branch === 'bazi') {
+    route.branch = 'hybrid';
+    route.needsBaziProfile = true;
+    route.canFallbackToQimenOnly = true;
+    route.clampedByPanTime = true;
+    route.reason = `${route.reason || ''}（含指定起局时刻，钳为综合推演，在所选时刻起盘）`;
+  }
 
   return json(route, { status: 200 }, request, env);
 }
@@ -1892,15 +1904,25 @@ async function handleQimen(request, env) {
   try {
 
     const userQuestion = body.question || "当前局势吉凶如何？";
-    const now = new Date();
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    const bjTime = new Date(utc + (3600000 * 8));
 
-    const year = bjTime.getFullYear();
-    const month = bjTime.getMonth() + 1; 
-    const day = bjTime.getDate();
-    const hour = bjTime.getHours();
-    const minute = bjTime.getMinutes();
+    // 起局时刻：优先用用户指定的固定时刻（北京民用时，不做时区偏移）；
+    // 缺省/非法则回退到当前北京时刻，与历史行为逐字一致。
+    const panTimeParts = parsePanTime(body.panTime);
+    let year, month, day, hour, minute, bjTime;
+    if (panTimeParts) {
+      ({ year, month, day, hour, minute } = panTimeParts);
+      // bjTime 作为「起局时刻」基准（应期扫描等下游引用），用所选时刻构造
+      bjTime = new Date(year, month - 1, day, hour, minute, 0);
+    } else {
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      bjTime = new Date(utc + (3600000 * 8));
+      year = bjTime.getFullYear();
+      month = bjTime.getMonth() + 1;
+      day = bjTime.getDate();
+      hour = bjTime.getHours();
+      minute = bjTime.getMinutes();
+    }
 
     const solar = Solar.fromYmdHms(year, month, day, hour, minute, 0);
     const lunar = solar.getLunar();
@@ -1926,31 +1948,20 @@ async function handleQimen(request, env) {
       return;
     }
 
-    const juResult = Calc.calculateJuByChaiBu(solar, C.JIEQI_JUSHU, C.YUAN_NAMES);
-    const xunHead = U.getXunHead(ganzhiHour);
-    const fuShou = U.getFuShou(xunHead);
-    const flyStep = U.calculateFlyStep(xunHead, ganzhiHour);
-    const rawTianGan = U.extractTianGan(ganzhiHour);
-    const tianGan = U.resolveJiaHiding(rawTianGan, fuShou);
+    // 起盘：统一走 lib/qimenChart.buildQimenChart（与 golden-master 单测同源）。
+    const chart = buildQimenChart({ year, month, day, hour, minute });
+    const {
+        juResult, xunHead, fuShou, flyStep, tianGan,
+        diPan, zhiFuStar, nineStars, zhiShiDoor, eightDoors, eightGods, tianPanGan,
+        dayZhi, hourZhi, dayMa, hourMa, dayKongObj, hourKongObj, dayKongIndices, hourKongIndices,
+        tianRuiIndex, centerEarthStem,
+        timestamp_solar, timestamp_lunar, qimen_structure, dayStem, hourStem,
+        qimenData
+    } = chart;
 
-    const diPan = Calc.getDiPan(juResult.isYang, juResult.gameNumber);
-    const zhiFuStar = Calc.getZhiFuStar(fuShou, diPan);
-    const nineStars = Calc.calculateNineStars(zhiFuStar, tianGan, diPan);
-    const zhiShiDoor = Calc.getZhiShiDoor(fuShou, diPan);
-    const eightDoors = Calc.calculateEightDoors(juResult.isYang, zhiShiDoor, flyStep, fuShou, diPan);
-    const eightGods = Calc.calculateEightGods(juResult.isYang, tianGan, diPan);
-    const tianPanGan = Calc.calculateTianPan(juResult.isYang, tianGan, fuShou, diPan);
-
-    const dayZhi = U.extractDiZhi(ganzhiDay);
-    const hourZhi = U.extractDiZhi(ganzhiHour);
-    const dayMa = getMaXing(dayZhi);
-    const hourMa = getMaXing(hourZhi);
-    const dayKongObj = lunar.getDayXunKong(); 
-    const hourKongObj = lunar.getTimeXunKong();
-    const dayKongIndices = getKongIndices(dayKongObj);
-    const hourKongIndices = getKongIndices(hourKongObj);
-    const tianRuiIndex = nineStars.indexOf("天芮");
-    const centerEarthStem = diPan[4]; 
+    // CP5：标注起局时刻来源，随 qimenData 流向 engine_complete / 历史记录 / 缓存。
+    qimenData.pan_time_source = panTimeParts ? 'custom' : 'now';
+    if (panTimeParts) qimenData.pan_time = { ...panTimeParts };
 
     const palaceNames = ["巽", "离", "坤", "震", "中", "兑", "艮", "坎", "乾"];
     const palaceNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
@@ -1972,12 +1983,6 @@ async function handleQimen(request, env) {
 
         palacesText += `${pName}信息开始：九星：${nineStars[i]}；八神：${eightGods[i]}；八门：${eightDoors[i]}；天盘天干：${tianPanGan[i]}；地盘天干：${diPan[i]}${jiText}；${extra}${pName}信息结束。\n`;
     }
-
-    const timestamp_solar = `${year}年${month}月${day}日 ${hour}:${minute}`;
-    const timestamp_lunar = `${lunar.getMonthInChinese()}月${lunar.getDayInChinese()}`;
-    const qimen_structure = `${juResult.yinYang}遁${juResult.gameNumber}局`;
-    const dayStem = U.extractTianGan(ganzhiDay);
-    const hourStem = U.extractTianGan(ganzhiHour);
 
     // ── SSE Step 1: 起盘计算完成 ──
     emit({ type: 'step', index: 1, pct: 25, chip: { main: qimen_structure, sub: ganzhiHour } });
@@ -2064,21 +2069,7 @@ async function handleQimen(request, env) {
     // ── SSE Step 4: 后端评分完成 ──
     emit({ type: 'step', index: 4, pct: 72, chip: { main: `初分 ${backendScoreAudit.final_score}`, sub: QIMEN_SCORE_LABEL(backendScoreAudit.final_score) } });
 
-    // ── 盘面/格局/起盘信息：引擎产物，先于 LLM 构建，供前端立即渲染奇门定基 ──
-    let qimenPalaces = [];
-    for (let i = 0; i < 9; i++) {
-        if (i === 4) {
-            qimenPalaces.push({ name: `${palaceNames[i]}${palaceNumbers[i]}宫`, is_center: true, earth: diPan[i], index: i });
-        } else {
-            qimenPalaces.push({
-                star: nineStars[i], sky: tianPanGan[i], ji_sky: (i === tianRuiIndex) ? centerEarthStem : "",
-                door: eightDoors[i], god: eightGods[i], earth: diPan[i], ji_earth: (i === 2) ? centerEarthStem : "",
-                kong_wang: { day: dayKongIndices.includes(i), is_kong: dayKongIndices.includes(i) || hourKongIndices.includes(i), hour: hourKongIndices.includes(i) },
-                ma_xing: { day: i === maXingMap[dayMa], has_ma: i === maXingMap[dayMa] || i === maXingMap[hourMa], hour: i === maXingMap[hourMa] },
-                name: `${palaceNames[i]}${palaceNumbers[i]}宫`, index: i
-            });
-        }
-    }
+    // ── 盘面/格局/起盘信息：引擎产物（qimenData 来自 buildQimenChart），先于 LLM 构建 ──
     const backendFormationTags = (backendScoreAudit.adjustments || [])
         .filter(item => item.layer === 'named_formation')
         .map(item => ({
@@ -2088,14 +2079,6 @@ async function handleQimen(request, env) {
             reason: item.reason || '',
             text: item.reason || ''
         }));
-    const qimenData = {
-        status: "success",
-        pillars: { hour: ganzhiHour, month: lunar.getMonthInGanZhi(), day: ganzhiDay, year: lunar.getYearInGanZhi() },
-        timestamp: { solar: timestamp_solar, lunar: timestamp_lunar },
-        ju_info: { zhi_fu: zhiFuStar, zhi_fu_palace: `落${palaceNames[nineStars.indexOf(zhiFuStar)]}${palaceNumbers[nineStars.indexOf(zhiFuStar)]}宫`, zhi_shi_palace: `落${palaceNames[eightDoors.indexOf(zhiShiDoor)]}${palaceNumbers[eightDoors.indexOf(zhiShiDoor)]}宫`, jieqi: juResult.jieQiName, yuan: juResult.yuanName, zhi_shi: zhiShiDoor, name: qimen_structure, xun_shou: xunHead },
-        auxiliary: { ma_xing: { day: dayMa, hour: hourMa }, kong_wang: { day: dayKongObj, hour: hourKongObj } },
-        palaces: qimenPalaces
-    };
 
     // ── Engine complete: emit pre-LLM data for immediate frontend display ──
     emit({
@@ -2119,6 +2102,20 @@ async function handleQimen(request, env) {
         ],
       }
     });
+
+    // 排盘校验模式：只出引擎盘面，跳过 LLM（零 API 花费）。供 CP1 固定时间起局核对。
+    if (body.engineOnly === true) {
+      const _chartLog = {
+        panTime: panTimeParts ? `${year}-${month}-${day} ${hour}:${minute}` : `now(${year}-${month}-${day} ${hour}:${minute})`,
+        pillars: qimenData.pillars,
+        ju_info: qimenData.ju_info,
+        auxiliary: qimenData.auxiliary,
+        timing_window_count: _windows.length
+      };
+      console.log('🔍 [engineOnly 排盘校验]', JSON.stringify(_chartLog));
+      emit({ type: 'complete', result: { status: 'engine_only', branch: 'qimen', question: userQuestion, pre_score: backendScoreAudit.final_score, qimen_data: qimenData, timing_window_count: _windows.length } });
+      return;
+    }
 
     const yongshenPromptSection = buildYongshenPromptSection({
         intent: detectedIntent,
