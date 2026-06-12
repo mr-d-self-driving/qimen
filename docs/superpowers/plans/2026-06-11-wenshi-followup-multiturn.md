@@ -229,6 +229,21 @@ Prompt 契约（新建 `buildFollowupPatchPrompt`，可放 `lib/qimenPromptSecti
 
 **默认（已定）**：① seed = `profileId` + 后端 fetch 命盘（八字本就强制登录，RLS 无碍，payload 小）；② 先八字单独做这套，奇门维持旧两节点。
 
+### 9.3.1 step 1 落地校准（对照生产 `bazi_question_audit.llm_prompt_text` 后确定）
+
+- **证据块 = 首轮逐字同款（方向 A）**：证据由 `extractBaziQuestionContext(profile)` → `formatBasicProfileBlock` + `formatUpstreamAnalysisBlock` + `formatTargetSpec/State/DynamicReportForPrompt` 产出（含命主基础信息/格局/调候/取用链路/目标十神状态/候选年份断语包）。这是首轮的单一真相，**不再手搓子集**。
+  - 落地：worker 用 `profileId` fetch 命盘 → 按首轮 route 跑同一 `run*Pipeline` → 用上述 format 函数拼出 `evidenceText` → 传给 `buildBaziFollowupPrompt({ evidenceText })`。
+  - `wenshiFollowup.buildBaziEvidenceNarrative` 仅作缺省兜底（无 profile 时的降级），主路径走 `evidenceText`。
+  - 这一组合应抽到 `baziQuestionCore` 的导出函数（如 `buildBaziEvidenceBlock`），首轮 mode builders 与追问共用。
+- **route_delta 用双轴**（FRAMEWORK ⟂ TARGET_SOURCE，与 `baziQuestionCore` 原生消费一致）：
+  - framework 轴：`static_structure | dynamic_current | dynamic_scan | portrait | open_strategy`
+  - target_source 轴：`backend_shishen | yongshen | llm_derived`（换领域/换靶 = 动此轴 + 新 `category`，即 §9.4 用神取用轴）
+  - 时间粒度归 `time_scope`（方向 1）：逐年 `dynamic_scan`+`{start_year,end_year}`；**流月** `{type:"month_scan", year}`（补算调 `fortuneMonthlyCore.buildMonthlyFortunePayload`），framework 轴不增值。
+- **first-hop prompt 内容**：evidenceText + 原各段 + 历轮增补（截最近 2–3 轮）+ **首轮原问题** + 本次追问 + 决策协议。原问题必带（否则追问脱离上下文）。
+- **token 控量**：证据只用 format* 紧凑断语，**不塞** `sizhu_matrix`/原始 JSON；历轮增补截断；体量与首轮 prompt 同量级（~8K）。
+- **第二跳不重跑 base**：一次请求内 `evidenceText` 只拼一次、内存复用；recompute 只跑**窄补算**（`assessDynamicTriggers`/`calculateAnnualScore`/`buildMonthlyFortunePayload`），不重算 base pipeline。
+- **决策归一化**：`normalizeBaziFollowupDecision`（未知 action→answer；new_matter 短路；recompute 空 delta→降级 answer）+ `normalizeRouteDelta`（双轴白名单，`time_scope` 原样透传）。
+
 ## 9.4 奇门要不要也用这套？—— 取决于「用神取用是否确定」
 
 **结论：架构（单主-LLM + 全量上下文 + 封顶一跳决策）共用。奇门的盘出即冻结，但它仍有一个不可让 LLM 临场发挥的确定性环节——按领域取用神（`qimenYongshenRules`），等同八字的 TARGET_SOURCE 轴。所以奇门的 recompute 分支不是「空」，而是「应期 + 重取用神」两个确定性后端。**
