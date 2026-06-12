@@ -6,6 +6,7 @@ import router from './router'
 import i18n from './i18n/index.mjs'
 import { supabase } from './lib/supabase.mjs'
 import { installSessionSync, restoreSession } from './auth/cookieSession.mjs'
+import { setCurrentUser } from './store.js'
 
 // 引入全局 CSS（稍后创建）
 import './styles/global.css'
@@ -48,11 +49,15 @@ app.use(i18n)
 // jar), restore it from the cookie before mounting so the user stays logged in.
 installSessionSync()
 ;(async () => {
+  let user = null
   try {
     const { data: { session } } = await supabase.auth.getSession()
-    if (!session) await restoreSession()
+    user = session?.user || (await restoreSession())
   } catch {
     /* fail-soft: never block app boot on session restore */
   }
+  // Seed auth state before the first paint so a logged-in user (incl. one restored
+  // from the cookie) doesn't flash the login screen while the async check resolves.
+  setCurrentUser(user)
   app.mount('#app')
 })()

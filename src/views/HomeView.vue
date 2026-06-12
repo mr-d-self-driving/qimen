@@ -84,7 +84,7 @@
           </div>
         </section>
 
-        <div v-if="!canUseApp" class="auth-landing-wrap mobile-auth-first">
+        <div v-if="!canUseApp && globalState.authReady" class="auth-landing-wrap mobile-auth-first">
           <template v-if="authView === 'landing'">
             <div class="auth-hero">
               <div class="hero-scatter" aria-hidden="true">
@@ -684,7 +684,7 @@ const BAZI_QUESTION_API_URL = apiPath("/api/bazi-question")
 const router = useRouter()
 const route = useRoute()
 
-const currentUser = ref(null)
+const currentUser = ref(globalState.currentUser)
 const authView = ref('landing')
 const isLoginMode = computed(() => authView.value === 'login')
 const authLoading = ref(false)
