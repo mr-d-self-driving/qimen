@@ -985,10 +985,13 @@ const followupTextarea = ref(null)
 const autoGrowFollowup = () => {
   const el = followupTextarea.value
   if (!el) return
-  // border-box: scrollHeight 包含 padding，el.style.height 也包含 padding，直接赋值即可
-  el.style.height = '40px'               // 先缩到 1 行基线
-  const target = Math.min(el.scrollHeight, 120)
-  if (target > 40) el.style.height = target + 'px'   // 只在超过 1 行时增长
+  // border-box: scrollHeight 含 padding，与 el.style.height 同口径，可直接赋值。
+  // 关键：用 'auto' 量内容高度，而不是先设 '40px'。否则上一次 .22s 过渡未结束时，
+  // clientHeight 还停在旧高度，scrollHeight=max(内容高,clientHeight) 被污染 → 删字缩不回。
+  // 'auto' 会让本次同步布局把 clientHeight 刷成纯内容高度，测量准确；同一 tick 不绘制中间态，无闪烁。
+  el.style.height = 'auto'
+  const target = Math.min(Math.max(el.scrollHeight, 40), 120)
+  el.style.height = target + 'px'        // 增高/回缩都走这里，过渡平滑
   el.style.overflowY = el.scrollHeight > 120 ? 'auto' : 'hidden'
 }
 const canFollowup = computed(() =>
