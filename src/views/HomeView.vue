@@ -5646,10 +5646,10 @@ input::placeholder { color: var(--text-muted); }
 :deep(.pan-cell:nth-child(n+7)) { border-bottom:none; }
 :deep(.pan-cell:hover) { background:var(--paper-soft); }
 :deep(.pan-center-earth) { font-size:30px; font-weight:900; color:rgba(11,11,11,0.1); font-family:'Noto Serif SC',serif; }
-:deep(.pan-god) { position:absolute; top:5px; font-size:11px; color:var(--text-muted); font-family:'Noto Serif SC',serif; }
-:deep(.pan-star) { font-size:13px; color:var(--ink-muted); margin-bottom:1px; z-index:2; font-family:'Noto Serif SC',serif; }
-:deep(.pan-door) { font-size:16px; font-weight:700; color:var(--ink); z-index:2; font-family:'Noto Serif SC',serif; }
-:deep(.pan-stem) { position:absolute; font-size:12px; font-weight:600; font-family:'Noto Serif SC',serif; }
+:deep(.pan-god) { position:absolute; top:5px; font-size:13px; color:var(--text-muted); font-family:'Noto Serif SC',serif; }
+:deep(.pan-star) { font-size:15px; color:var(--ink-muted); margin-bottom:1px; z-index:2; font-family:'Noto Serif SC',serif; }
+:deep(.pan-door) { font-size:19px; font-weight:700; color:var(--ink); z-index:2; font-family:'Noto Serif SC',serif; }
+:deep(.pan-stem) { position:absolute; font-size:14px; font-weight:600; font-family:'Noto Serif SC',serif; }
 :deep(.stem-sky) { top:5px; left:6px; color:var(--ink); }
 :deep(.stem-earth) { bottom:5px; right:6px; color:var(--ink-muted); }
 :deep(.ji-sky) { top:18px; left:6px; font-size:8px; color:var(--text-muted); }
