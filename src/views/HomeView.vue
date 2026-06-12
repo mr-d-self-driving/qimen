@@ -4706,7 +4706,9 @@ textarea:focus { border-color: var(--gold-border); box-shadow: 0 0 0 2px var(--g
 .time-display { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; cursor: pointer; padding: 4px 8px; margin: -4px -8px; border-radius: 8px; transition: background .2s, color .2s; }
 .time-display:hover { background: rgba(127, 127, 127, .08); color: var(--text-primary); }
 .time-display.is-custom { color: var(--gold-light); }
-.time-edit-ic { opacity: .5; font-size: 11px; }
+.time-edit-ic { font-size: 12px; line-height: 1; color: var(--gold); background: var(--gold-dim); border: 1px solid var(--gold-border); border-radius: 7px; padding: 3px 6px; margin-left: 4px; transition: background .2s, transform .1s; }
+.time-display:hover .time-edit-ic { background: var(--gold-border); }
+.time-display:active .time-edit-ic { transform: scale(0.92); }
 .time-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--teal); box-shadow: 0 0 6px var(--teal); animation: pulse-dot 2s infinite; }
 .time-dot.is-custom { background: var(--gold); box-shadow: 0 0 6px var(--gold); animation: none; }
 .time-note { font-size: 11px; color: var(--text-muted); font-family: 'Noto Serif SC', serif; }
