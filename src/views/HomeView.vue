@@ -5642,6 +5642,7 @@ input::placeholder { color: var(--text-muted); }
   font-size: 15px; line-height: 1.45; color: var(--ink); font-family: inherit;
   box-sizing: border-box;
   height: 40px;          /* 1行 = 15px × 1.45 line-height ≈ 22px + 9px×2 padding = 40px */
+  min-height: 40px;      /* 必须覆盖全局 textarea{min-height:130px}，否则被强行撑高 */
   max-height: 120px;
   transition: height .22s cubic-bezier(0.22, 1, 0.36, 1);
 }
