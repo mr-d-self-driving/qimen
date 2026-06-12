@@ -101,6 +101,27 @@ test('前端八字引擎期望版本同步到 1.8.0', () => {
   assert.match(source, /const BAZI_ENGINE_VERSION = '1\.8\.0'/)
 })
 
+test('八字专业页首屏只拉摘要列表并按选中档案懒加载重字段', () => {
+  assert.match(source, /import \{[\s\S]*BAZI_PROFILE_FULL_SELECT[\s\S]*BAZI_PROFILE_LIST_SELECT/)
+  assert.match(source, /supabase\.from\('bazi_profiles'\)\.select\(BAZI_PROFILE_LIST_SELECT\)/)
+  assert.doesNotMatch(source, /supabase\.from\('bazi_profiles'\)\.select\('\*'\)/)
+  assert.match(source, /supabase\.from\('bazi_profiles'\)\.select\(BAZI_PROFILE_FULL_SELECT\)\.eq\('id', profileId\)\.single\(\)/)
+  assert.match(source, /const activeProfile = computed\(\(\) => \{\s*const base = baziProfiles\.value\.find/)
+  assert.match(source, /return \{ \.\.\.base, \.\.\.\(detail || \{\}\) \}/)
+})
+
+test('断事笔记上下文只在 events 标签页加载', () => {
+  const activeProfileWatcher = source.slice(
+    source.indexOf('watch(\n    () => activeProfile.value?.id'),
+    source.indexOf('watch(\n    () => globalState.selectedBaziProfileId')
+  )
+  assert.ok(activeProfileWatcher.length > 0)
+  assert.match(activeProfileWatcher, /await loadProfileDetail\(profileId\)/)
+  assert.doesNotMatch(activeProfileWatcher, /fetchProfileContextDraft\(/)
+  assert.match(source, /if \(tab === 'events'\) await ensureEventsContextLoaded\(\)/)
+  assert.match(source, /const ensureEventsContextLoaded = async \(\) =>/)
+})
+
 test('访客添加档案后生成排盘按钮可点击并触发登录引导', () => {
   assert.match(source, /:disabled="isAnalyzing"/)
   assert.match(source, /showGuestLoginGuide\.value = true/)

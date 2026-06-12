@@ -45,6 +45,24 @@ test('历史抽屉顶部提供再起一局入口返回首页', () => {
   assert.match(source, /const startNewSession = \(\) => \{[\s\S]{0,120}resetToInput\(\)[\s\S]{0,120}globalState\.isDrawerOpen = false/)
 })
 
+test('历史抽屉延迟加载轻量分页列表并在滚动到底时续拉', () => {
+  assert.match(source, /const HISTORY_PAGE_SIZE = 20/)
+  assert.match(source, /@scroll\.passive="handleHistoryScroll"/)
+  assert.match(source, /if \(globalState\.isDrawerOpen\) ensureHistoryLoaded\(\)/)
+  assert.doesNotMatch(source, /handleSessionUpdate[\s\S]{0,260}loadHistory\(\)/)
+
+  const loadStart = source.indexOf('const loadHistoryPage = async')
+  const loadEnd = source.indexOf('const loadHistory = async', loadStart)
+  const loadSource = source.slice(loadStart, loadEnd)
+
+  assert.ok(loadStart > -1)
+  assert.ok(loadEnd > loadStart)
+  assert.match(loadSource, /\.select\(QIMEN_HISTORY_LIST_SELECT\)/)
+  assert.match(loadSource, /\.range\(from, to\)/)
+  assert.doesNotMatch(loadSource, /qimen_data[^-\n>]/)
+  assert.doesNotMatch(loadSource, /select\('\*'\)/)
+})
+
 test('奇门定基和局象推演包含用神、四段推演和开运样式', () => {
   assert.match(source, /yongshen-card-grid/)
   assert.match(source, /reportM2\.yongshen_cards/)
@@ -189,9 +207,23 @@ test('八字命局解读先展示分析 panel，并在四柱缺失时补全 pane
   assert.ok(m2End > m2Start)
   assert.ok(m2Source.indexOf('id="bazi-panel-anchor"') < m2Source.indexOf('${foundationPhenomenaHTML}'))
   assert.match(source, /if \(!data\.state_report\) fetchMissingPanelData\(data\)/)
-  assert.match(source, /if \(!baziPanelMatrix\.value\) fetchMissingPanelMatrix\(\)/)
+  assert.match(source, /else if \(!baziPanelMatrix\.value\) fetchMissingPanelMatrix\(\)/)
   assert.match(source, /const fetchMissingPanelMatrix = async \(\) =>/)
   assert.match(source, /:deep\(\.bazi-panel-anchor\)[\s\S]{0,120}margin-bottom:\s*28px/)
+})
+
+test('八字 panel 补数据不在前端重复查询完整 bazi_detail', () => {
+  const start = source.indexOf('const fetchMissingPanelMatrix = async')
+  const end = source.indexOf('const readFollowupSSE', start)
+  const block = source.slice(start, end)
+
+  assert.ok(start > -1)
+  assert.ok(end > start)
+  assert.match(block, /fetch\(apiPath\('\/api\/bazi-panel'\)/)
+  assert.match(block, /else if \(!baziPanelMatrix\.value\) fetchMissingPanelMatrix\(\)/)
+  assert.doesNotMatch(block, /from\('bazi_profiles'\)/)
+  assert.doesNotMatch(block, /select\('bazi_detail/)
+  assert.doesNotMatch(block, /profileData:/)
 })
 
 test('八字动态 panel 的长断语正常换行，不压缩状态变化文本', () => {

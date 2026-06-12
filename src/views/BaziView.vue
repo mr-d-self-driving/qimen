@@ -1182,6 +1182,7 @@ import OpenSourceLinks from '../components/OpenSourceLinks.vue'
 import AccountMenu from '../components/AccountMenu.vue'
 import BaziBackingPanel from '../components/BaziBackingPanel.vue'
 import BaziPillarTable from '../components/BaziPillarTable.vue'
+import { BAZI_PROFILE_FULL_SELECT, BAZI_PROFILE_LIST_SELECT } from '../baziProfileFields.mjs'
 import {
     buildBaziProfileInsertPayload,
     buildPillarsProfilePayload,
@@ -1470,6 +1471,7 @@ const profileContextBaseline = ref(createEmptyProfileContextDraft())
 const monthlyContextBaseline = ref(createEmptyMonthlyContextDraft())
 const recentMonthlyContextRecords = ref([])
 const notesMonthKey = ref('')
+const eventsContextLoadedKey = ref('')
 const showCenteredToast = ref(false)
 const toastMessage = ref('')
 const toastKind = ref('success')
@@ -1621,7 +1623,10 @@ const pillarPreviewError = computed(() => {
 
 // 计算属性 (Vue 魔法：数据变化自动更新 UI)
 const activeProfile = computed(() => {
-    return baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
+    const base = baziProfiles.value.find(p => p.id === selectedProfileId.value) || null
+    if (!base) return null
+    const detail = profileDetailCache.value[base.id]
+    return { ...base, ...(detail || {}) }
 })
 const currentMonthKey = computed(() => {
     const now = new Date()
@@ -1971,10 +1976,14 @@ watch(
             profileContextDraft.value = createEmptyProfileContextDraft()
             monthlyContextDraft.value = createEmptyMonthlyContextDraft(notesMonthKey.value || currentMonthKey.value)
             recentMonthlyContextRecords.value = []
+            eventsContextLoadedKey.value = ''
             return
         }
-        await fetchProfileContextDraft()
-        await fetchMonthlyContextDraft()
+        const profileId = activeProfile.value.id
+        await loadProfileDetail(profileId)
+        if (profileId !== activeProfile.value?.id) return
+        eventsContextLoadedKey.value = ''
+        if (currentTab.value === 'events') await ensureEventsContextLoaded()
 
         // 引擎版本检查：若档案的 bazi_detail.engine_version 不是最新，
         // 静默触发引擎刷新（force=false 保留 LLM，只更新运算数据）
@@ -2011,8 +2020,9 @@ watch(
 watch(notesMonthKey, async (next) => {
     if (!next) return
     monthlyContextDraft.value = createEmptyMonthlyContextDraft(next)
-    if (activeProfile.value && !isGuest.value) {
-        await fetchMonthlyContextDraft()
+    eventsContextLoadedKey.value = ''
+    if (activeProfile.value && !isGuest.value && currentTab.value === 'events') {
+        await ensureEventsContextLoaded()
     }
 })
 
@@ -2947,6 +2957,7 @@ watch(currentTab, async (tab) => {
         await nextTick()
         baziBackingRef.value?.centerActiveItems()
     }
+    if (tab === 'events') await ensureEventsContextLoaded()
 })
 watch(() => activeProfile.value, () => nextTick(syncInk))
 
@@ -3020,10 +3031,10 @@ const fetchProfiles = async () => {
         selectedProfileId.value = resolvedProfileId
         setSelectedBaziProfileId(resolvedProfileId)
     }
-    const cached = getCachedBaziProfiles('full')
+    const cached = getCachedBaziProfiles('bazi')
     if (cached?.length) applyProfiles(cached)
-    const { data } = await supabase.from('bazi_profiles').select('*').order('created_at', {ascending: false})
-    if (data) setCachedBaziProfiles('full', data)
+    const { data } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_LIST_SELECT).order('created_at', {ascending: false})
+    if (data) setCachedBaziProfiles('bazi', data)
     applyProfiles(data || [])
 }
 
@@ -3032,7 +3043,7 @@ const loadProfileDetail = async (profileId) => {
     if (profileDetailCache.value[profileId]) return  // 已有缓存，跳过
     isLoadingProfileDetail.value = true
     try {
-        const { data } = await supabase.from('bazi_profiles').select('bazi_detail').eq('id', profileId).single()
+        const { data } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_FULL_SELECT).eq('id', profileId).single()
         if (data) profileDetailCache.value = { ...profileDetailCache.value, [profileId]: data }
     } finally {
         isLoadingProfileDetail.value = false
@@ -3098,6 +3109,15 @@ const fetchMonthlyContextDraft = async () => {
         recentMonthlyContextRecords.value = []
         showToast(error.message, 'error')
     }
+}
+
+const ensureEventsContextLoaded = async () => {
+    if (!activeProfile.value || isGuest.value) return
+    const key = `${activeProfile.value.id}:${notesMonthKey.value || currentMonthKey.value}`
+    if (eventsContextLoadedKey.value === key) return
+    await fetchProfileContextDraft()
+    await fetchMonthlyContextDraft()
+    eventsContextLoadedKey.value = key
 }
 
 const saveProfileContextDraft = async () => {

@@ -35,8 +35,8 @@
             <span class="filter-select-arrow" aria-hidden="true">⌄</span>
           </div>
         </div>
-        <div class="drawer-body" id="drawerBody">
-          <div v-if="filteredHistory.length === 0" class="drawer-empty">
+        <div class="drawer-body" id="drawerBody" @scroll.passive="handleHistoryScroll">
+          <div v-if="filteredHistory.length === 0 && !historyLoading" class="drawer-empty">
             <svg width="64" height="64" viewBox="0 0 64 64" fill="none" opacity="0.3">
               <circle cx="32" cy="32" r="28" stroke="rgba(212,175,55,0.5)" stroke-width="1"/>
               <circle cx="32" cy="32" r="18" stroke="rgba(212,175,55,0.3)" stroke-width="1" stroke-dasharray="3 3"/>
@@ -56,6 +56,10 @@
             </div>
             <span v-if="!isBaziRecord(item)" class="d-hist-badge" :class="'verdict-' + getVerdictInfo(item.score).cls">{{ getVerdictInfo(item.score).label }}</span>
           </div>
+          <div v-if="historyLoading" class="drawer-loading">加载中…</div>
+          <button v-else-if="historyHasMore && filteredHistory.length" class="drawer-load-more" type="button" @click="loadHistoryPage()">
+            加载更多
+          </button>
         </div>
       </div>
     </Teleport>
@@ -658,6 +662,8 @@ import {
 import { BAZI_PROFILE_QIMEN_SELECT } from '../baziProfileFields.mjs'
 
 const DAILY_QIMEN_LIMIT = 2
+const HISTORY_PAGE_SIZE = 20
+const QIMEN_HISTORY_LIST_SELECT = 'id, created_at, user_id, question, category, score:qimen_data->summary->>score, branch:qimen_data->>branch, conclusion:qimen_data->summary->>conclusion'
 
 const buildBeijingDayRange = (now = new Date()) => {
   const OFFSET = 8 * 60 * 60 * 1000
@@ -973,6 +979,10 @@ const isAuthLanding = computed(() => ['login', 'register'].includes(route.query.
 const canUseApp = computed(() => Boolean(currentUser.value || (isGuest.value && globalState.guestAccessUnlocked && !isAuthLanding.value)))
 
 const historyRecords = ref([])
+const historyLoading = ref(false)
+const historyLoaded = ref(false)
+const historyHasMore = ref(true)
+const historyPage = ref(0)
 const activeCategory = ref('all')
 const activeResultRecord = ref(null)
 
@@ -2037,6 +2047,17 @@ onMounted(() => {
 
 watch(() => route.query.auth, syncAuthModeFromRoute)
 
+watch(activeCategory, () => {
+  if (!globalState.isDrawerOpen) {
+    historyLoaded.value = false
+    historyHasMore.value = true
+    historyPage.value = 0
+    historyRecords.value = []
+    return
+  }
+  loadHistoryPage({ reset: true })
+})
+
 onUnmounted(() => {
   document.removeEventListener('click', handleDocumentClick)
   document.removeEventListener('click', handleGeTagClick)
@@ -2055,6 +2076,7 @@ onUnmounted(() => {
 
 const toggleDrawer = () => {
   globalState.isDrawerOpen = !globalState.isDrawerOpen
+  if (globalState.isDrawerOpen) ensureHistoryLoaded()
 }
 
 const handleSessionUpdate = (session) => {
@@ -2064,7 +2086,7 @@ const handleSessionUpdate = (session) => {
   setCurrentUser(session?.user || null)
   if (session) {
     currentUser.value = session.user
-    loadHistory()
+    resetHistoryState()
     fetchBaziProfiles()
     warmFortuneCacheFromSupabase({
       supabase,
@@ -2075,7 +2097,7 @@ const handleSessionUpdate = (session) => {
     lastHandledSessionKey = ''
     currentUser.value = null
     if (!isGuest.value) {
-      historyRecords.value = []
+      resetHistoryState()
       resetToInput()
     }
   }
@@ -2131,7 +2153,7 @@ const handleResetPasswordEmail = async () => {
 const handleSignOut = async () => {
   if (isGuest.value && !currentUser.value) {
     leaveGuestMode()
-    historyRecords.value = []
+    resetHistoryState()
     resetToInput()
   } else {
     await supabase.auth.signOut()
@@ -2141,7 +2163,7 @@ const handleSignOut = async () => {
 const handleGuestEntry = async () => {
   enterGuestMode()
   currentUser.value = null
-  historyRecords.value = []
+  resetHistoryState()
   await fetchBaziProfiles()
   await trackGuestEvent(supabase, 'guest_started', 'auth')
 }
@@ -2328,13 +2350,25 @@ const fetchMissingPanelMatrix = async () => {
   if (!subjectMatchesActiveProfile()) return
   const profileId = activeBaziProfile.value?.id
   if (!profileId) return
+  const data = activeBaziResultData.value || {}
+  const mode = data.meta?.analysis_mode
+  if (!mode || mode === 'profile_driven') return
   try {
-    const { data } = await supabase
-      .from('bazi_profiles')
-      .select('bazi_detail')
-      .eq('id', profileId)
-      .single()
-    const pillars = normalizeBaziPanelPillars(data?.bazi_detail?.matrix?.pillars || [])
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return
+    const res = await fetch(apiPath('/api/bazi-panel'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+      body: JSON.stringify({
+        profileId,
+        category: data.meta?.category,
+        subcategory: data.meta?.subcategory,
+        analysis_mode: mode
+      })
+    })
+    if (!res.ok) return
+    const panelData = await res.json()
+    const pillars = normalizeBaziPanelPillars(panelData._panel_matrix?.pillars || [])
     if (!pillars.length) return
     activeBaziResultData.value = {
       ...activeBaziResultData.value,
@@ -2356,22 +2390,11 @@ const fetchMissingPanelData = async (data) => {
   try {
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return
-    // activeBaziProfile 不含 bazi_detail（被 BAZI_PROFILE_QIMEN_SELECT 排除），先补全
-    let profile = activeBaziProfile.value
-    if (!profile?.bazi_detail?.matrix?.pillars?.length) {
-      const { data: full } = await supabase
-        .from('bazi_profiles')
-        .select('bazi_detail, favorable_elements, unfavorable_elements')
-        .eq('id', profileId)
-        .single()
-      if (full) profile = { ...profile, ...full }
-    }
     const res = await fetch(apiPath('/api/bazi-panel'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
       body: JSON.stringify({
         profileId,
-        profileData: profile,
         category: data.meta?.category,
         subcategory: data.meta?.subcategory,
         analysis_mode: mode
@@ -2382,7 +2405,7 @@ const fetchMissingPanelData = async (data) => {
     if (!panelData.state_report) return
     // 把 profile 的 matrix pillars 一并存入（BaziStaticPanel 渲染四柱需要）
     // 将 hidden_stems 中的 object 格式正规化为 string 数组
-    const normalizedPillars = normalizeBaziPanelPillars(profile.bazi_detail?.matrix?.pillars || [])
+    const normalizedPillars = normalizeBaziPanelPillars(panelData._panel_matrix?.pillars || [])
     // 合并引擎数据，重建 HTML（anchor 才会出现在 DOM 里），再触发 Teleport
     const mergedData = {
       ...activeBaziResultData.value,
@@ -2529,9 +2552,9 @@ const activateBaziResultPanel = (data) => {
   }
   syncBaziBackingAnchor()
   syncBaziPanelAnchor()
-  // 存量记录无 state_report → 按需补算；所有 mode 缺四柱矩阵时单独补全
+  // 存量记录无 state_report → 按需补算并顺带补四柱；已有 state_report 但缺矩阵时再单独补全
   if (!data.state_report) fetchMissingPanelData(data)
-  if (!baziPanelMatrix.value) fetchMissingPanelMatrix()
+  else if (!baziPanelMatrix.value) fetchMissingPanelMatrix()
   // 存量记录无 five_shens → 补查 profile bazi_detail
   if (!data.five_shens) fetchMissingFiveShens()
 }
@@ -2893,38 +2916,94 @@ const animateScore = (targetScore, fromScore = 0) => {
   }, 16)
 }
 
-const loadHistory = async () => {
-  // 列表只需 score / branch / conclusion 三个标量，用 JSON 路径直接提取，
-  // 不再整列拉 qimen_data 大 JSON；完整盘在 loadRecord 时按 id 懒加载。
-  const { data } = await supabase
-    .from('qimen_records')
-    .select('id, created_at, user_id, question, category, score:qimen_data->summary->>score, branch:qimen_data->>branch, conclusion:qimen_data->summary->>conclusion')
-    .order('created_at', { ascending: false })
-  const records = (data || []).map(r => ({
+const normalizeHistoryRows = (rows = []) => rows.map(r => ({
     ...r,
     dateStr: new Date(r.created_at).toLocaleDateString(),
     score: Number(r.score) || 0,
     catLabel: categories.find(c => c.value === r.category)?.label || '杂事'
   }))
 
-  if (!currentUser.value) {
-    historyRecords.value = mergeQimenFeedbackIntoRecords(records, [], currentUser.value)
+const resetHistoryState = () => {
+  historyRecords.value = []
+  historyLoading.value = false
+  historyLoaded.value = false
+  historyHasMore.value = true
+  historyPage.value = 0
+}
+
+const loadHistoryPage = async ({ reset = false } = {}) => {
+  if (historyLoading.value) return
+  if (isGuest.value && !currentUser.value) {
+    historyLoaded.value = true
+    historyHasMore.value = false
     return
   }
+  if (!reset && (!historyHasMore.value || (!currentUser.value && !isGuest.value))) return
+  historyLoading.value = true
+  try {
+    if (reset) {
+      historyRecords.value = []
+      historyPage.value = 0
+      historyHasMore.value = true
+      historyLoaded.value = false
+    }
 
-  const { data: feedbackRows, error } = await supabase
-    .from('qimen_feedback')
-    .select('record_id, accuracy_status, actual_direction, note, updated_at')
-    .eq('user_id', currentUser.value.id)
+    const from = historyPage.value * HISTORY_PAGE_SIZE
+    const to = from + HISTORY_PAGE_SIZE - 1
+    let query = supabase
+      .from('qimen_records')
+      .select(QIMEN_HISTORY_LIST_SELECT)
+      .order('created_at', { ascending: false })
+      .range(from, to)
+    if (activeCategory.value !== 'all') query = query.eq('category', activeCategory.value)
 
-  if (error && error.code !== '42P01') {
-    console.warn('加载奇门反馈失败:', error.message)
+    const { data } = await query
+    const records = normalizeHistoryRows(data || [])
+
+    let feedbackRows = []
+    if (currentUser.value && records.length) {
+      const { data: feedbackData, error } = await supabase
+        .from('qimen_feedback')
+        .select('record_id, accuracy_status, actual_direction, note, updated_at')
+        .eq('user_id', currentUser.value.id)
+        .in('record_id', records.map(record => record.id))
+
+      if (error && error.code !== '42P01') {
+        console.warn('加载奇门反馈失败:', error.message)
+      }
+      feedbackRows = error ? [] : (feedbackData || [])
+    }
+
+    const merged = mergeQimenFeedbackIntoRecords(records, feedbackRows, currentUser.value)
+    historyRecords.value = reset ? merged : [...historyRecords.value, ...merged]
+    historyPage.value += 1
+    historyHasMore.value = records.length === HISTORY_PAGE_SIZE
+    historyLoaded.value = true
+    if (activeResultRecord.value?.id) {
+      activeResultRecord.value = historyRecords.value.find(record => record.id === activeResultRecord.value.id) || activeResultRecord.value
+    }
+  } finally {
+    historyLoading.value = false
   }
+}
 
-  historyRecords.value = mergeQimenFeedbackIntoRecords(records, error ? [] : (feedbackRows || []), currentUser.value)
-  if (activeResultRecord.value?.id) {
-    activeResultRecord.value = historyRecords.value.find(record => record.id === activeResultRecord.value.id) || activeResultRecord.value
+const ensureHistoryLoaded = () => {
+  if (!historyLoaded.value) loadHistoryPage({ reset: true })
+}
+
+const loadHistory = async () => {
+  if (!currentUser.value) {
+    historyRecords.value = []
+    historyLoaded.value = true
+    return
   }
+  await loadHistoryPage({ reset: true })
+}
+
+const handleHistoryScroll = (event) => {
+  const el = event?.target
+  if (!el || historyLoading.value || !historyHasMore.value) return
+  if (el.scrollTop + el.clientHeight >= el.scrollHeight - 96) loadHistoryPage()
 }
 
 const saveRecordToDatabase = async (question, data) => {
@@ -2947,14 +3026,25 @@ const saveRecordToDatabase = async (question, data) => {
   const { data: insertedRows, error } = await supabase
     .from('qimen_records')
     .insert([{ user_id: currentUser.value.id, question, qimen_data: data, category: data.category || 'general' }])
-    .select('*')
+    .select('id, created_at, user_id, question, category')
 
   if (error) throw error
-  await loadHistory()
-  const insertedRecordId = insertedRows?.[0]?.id
-  const savedRecord = historyRecords.value.find(record => record.id === insertedRecordId) || null
-  // 完整盘已在内存，直接挂上，省去重开时的懒加载请求。
-  if (savedRecord && !savedRecord.qimen_data) savedRecord.qimen_data = data
+  const inserted = insertedRows?.[0]
+  const savedRecord = inserted ? {
+    ...inserted,
+    qimen_data: data,
+    dateStr: new Date(inserted.created_at).toLocaleDateString(),
+    score: data.summary?.score || 0,
+    branch: data.branch || 'qimen',
+    conclusion: data.summary?.conclusion || '',
+    catLabel: categories.find(c => c.value === (data.category || 'general'))?.label || '杂事',
+    canFeedback: Boolean(currentUser.value?.id),
+    hasFeedback: false,
+    feedback: null
+  } : null
+  if (savedRecord && historyLoaded.value && (activeCategory.value === 'all' || activeCategory.value === savedRecord.category)) {
+    historyRecords.value = [savedRecord, ...historyRecords.value]
+  }
   return savedRecord
 }
 
@@ -4305,6 +4395,8 @@ const buildCardHTML = (data, opts = {}) => {
 }
 .drawer-body { flex: 1; overflow-y: auto; padding: 8px 0; }
 .drawer-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px 20px; gap: 14px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.drawer-loading { padding: 14px 20px; text-align: center; color: var(--text-muted); font-size: 12px; }
+.drawer-load-more { width: calc(100% - 40px); margin: 12px 20px; padding: 10px 12px; border: 1px solid var(--line); background: var(--paper-soft); color: var(--text-muted); cursor: pointer; font-size: 12px; }
 .d-hist-item { padding: 13px 20px; display: flex; align-items: center; gap: 10px; cursor: pointer; border-bottom: 1px solid var(--line); transition: background .2s; }
 .d-hist-item:hover { background: var(--paper-soft); }
 .d-hist-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }

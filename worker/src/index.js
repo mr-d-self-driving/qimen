@@ -40,6 +40,18 @@ const { createEmptyMonthlyContext, createEmptyProfileContext, normalizeMonthlyCo
 const { buildMonthlyInterpretationPeriodKey, buildMonthlyInterpretationPrompt, hasReadyMonthlyInterpretation, mergeMonthlyInterpretation, normalizeDimension, pickMonthlyInterpretationFields } = monthlyInterpretationCore;
 
 const LLM_API_URL = 'https://yinli.one/v1/chat/completions';
+const BAZI_PROFILE_BASE_FIELDS = 'id, user_id, name, gender, birth_date, bazi_str, bazi_detail, strong_weak, geju, favorable_elements, unfavorable_elements';
+const BAZI_PROFILE_QUESTION_SELECT = BAZI_PROFILE_BASE_FIELDS;
+const BAZI_PROFILE_PANEL_SELECT = BAZI_PROFILE_BASE_FIELDS;
+const BAZI_PROFILE_GENERATE_SELECT = [
+  'id',
+  'user_id',
+  'bazi_summary',
+  'bazi_detail',
+  'llm_yuanju_core',
+  'llm_current_dayun',
+  'llm_current_liunian'
+].join(', ');
 const DEFAULT_ALLOWED_ORIGINS = [
   'https://qimendao.com',
   'https://www.qimendao.com',
@@ -1222,7 +1234,7 @@ async function handleBaziQuestion(request, env) {
 
   // Profile fetch (pre-stream so we can return JSON errors for missing/invalid profiles)
   const supabase = createSupabaseClient(env, userToken);
-  const { data: profile, error: profileErr } = await supabase.from('bazi_profiles').select('*').eq('id', profileId).single();
+  const { data: profile, error: profileErr } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_QUESTION_SELECT).eq('id', profileId).single();
   if (profileErr || !profile) return json({ error: '档案不存在' }, { status: 404 }, request, env);
   if (profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
   if (!profile.bazi_detail || !profile.bazi_str) return json({ error: '该档案缺少完整八字排盘数据，请先在八字页完成命盘推演', code: 'BAZI_PROFILE_INCOMPLETE' }, { status: 400 }, request, env);
@@ -1474,7 +1486,7 @@ async function handleBaziPanel(request, env) {
     const supabase = createSupabaseClient(env, userToken);
     const { data: profile, error } = await supabase
       .from('bazi_profiles')
-      .select('*')
+      .select(BAZI_PROFILE_PANEL_SELECT)
       .eq('id', profileId)
       .eq('user_id', user.id)
       .single();
@@ -1486,7 +1498,10 @@ async function handleBaziPanel(request, env) {
     const result = computePanelData(profile, { category, subcategory, analysis_mode });
     if (!result) return json({ error: '该模式不支持 panel 计算' }, { status: 422 }, request, env);
 
-    return json(result, { status: 200 }, request, env);
+    return json({
+      ...result,
+      _panel_matrix: { pillars: profile.bazi_detail.matrix.pillars }
+    }, { status: 200 }, request, env);
   } catch (err) {
     if (err.status === 401) return json({ error: 'Unauthorized' }, { status: 401 }, request, env);
     console.error('[bazi-panel]', err);
@@ -2490,7 +2505,7 @@ async function handleBazi(request, env) {
     const isVIP = isWhitelistedEmail(user.email || '', env.WHITELIST_EMAILS || '');
 
     const supabase = createSupabaseClient(env);
-    const { data: existingProfile, error: profileError } = await supabase.from('bazi_profiles').select('*').eq('id', promptData.profileId).single();
+    const { data: existingProfile, error: profileError } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_GENERATE_SELECT).eq('id', promptData.profileId).single();
     if (profileError || !existingProfile) return json({ error: "档案不存在" }, { status: 404 }, request, env);
     if (existingProfile.user_id !== user.id) return json({ error: "无权操作该档案" }, { status: 403 }, request, env);
 
