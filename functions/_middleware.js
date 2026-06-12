@@ -148,8 +148,8 @@ export async function onRequest({ request, next }) {
   const url = new URL(request.url)
   const pathname = url.pathname
 
-  // API and static asset paths: never intercept.
-  if (pathname.startsWith('/api/') || pathname.includes('.')) return next()
+  // API, auth, and static asset paths: never intercept.
+  if (pathname.startsWith('/api/') || pathname.startsWith('/auth/') || pathname.includes('.')) return next()
 
   const meta = ROUTE_META[pathname] ?? ROUTE_META['/']
   const lang = detectLang(request)
