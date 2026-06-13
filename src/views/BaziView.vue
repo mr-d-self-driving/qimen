@@ -649,10 +649,6 @@
                     @shensha-click="showShensha"
                 />
 
-                <div v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'" class="matrix-fallback-note">
-                    基础四柱已生成，可先查看本地排盘；点击右上角 <strong style="color:var(--gold);">「生成排盘」</strong> 后可补全格局、喜忌、断语与岁运细解。
-                </div>
-
                 <div v-show="currentTab === 'pro' && dayunList.length" class="timeline-section">
                     <BaziBackingPanel
                         ref="baziBackingRef"
