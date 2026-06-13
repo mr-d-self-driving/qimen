@@ -223,7 +223,7 @@ Prompt 契约（新建 `buildFollowupPatchPrompt`，可放 `lib/qimenPromptSecti
 | 2 | `handleBaziFollowup` 的 answer/new_matter 路径（不含补算） | `worker/src/index.js` `/api/bazi-followup` | 重读/深挖类端到端 |
 | 3 | 前端 bazi 适配：解锁 `canFollowup`、`buildBaziOrigin`、`extractBaziSections`、增补烘焙进 `buildBaziQuestionCardHTML`、SSE 分支、落库/历史 | `src/views/HomeView.vue` | UI 锚定增补 + 刷新可见 |
 | 4 | recompute 一跳：`route_delta`→`run*Pipeline`→`formatDynamicReportForPrompt` | `worker/src/index.js` | 流年/大运/换靶类跑通 |
-| 5 | 审计（复用 `qimen_followup_audit`，字段语义重映射：classifier_*→决策跳、patch_*→回答跳，加记 route_delta + dynamicReport）+ 单测补全 | — | 留痕完整 |
+| 5 | 审计（复用 `followup_audit`，原名 `qimen_followup_audit`；字段语义重映射：classifier_*→决策跳、patch_*→回答跳，加记 route_delta + dynamicReport）+ 单测补全 | — | 留痕完整 |
 
 第 1–3 步 = 八字「深挖类」可上线（覆盖多数）；第 4 步补「时间/换靶类」。
 

@@ -1,8 +1,10 @@
 -- 问事追问 audit：记录每次追问的判断器 prompt/分流、补算、增补 prompt/输出。
+-- 跨 branch（qimen + bazi 共用此表，以 branch 列区分）。
 -- service-role 写入、admin 读，RLS 与 qimen_question_audit 对齐。
--- 已通过 Supabase MCP apply_migration 应用（migration: qimen_followup_audit_table）。
+-- 历史：原名 qimen_followup_audit，2026-06 经 migration
+--   rename_qimen_followup_audit_to_followup_audit 改为 followup_audit（名实相符）。
 
-create table if not exists public.qimen_followup_audit (
+create table if not exists public.followup_audit (
   id uuid primary key default gen_random_uuid(),
   request_id text,
   record_id uuid references public.qimen_records(id) on delete set null,
@@ -40,20 +42,20 @@ create table if not exists public.qimen_followup_audit (
   created_at timestamptz not null default now()
 );
 
-create index if not exists qimen_followup_audit_user_created_idx
-  on public.qimen_followup_audit (user_id, created_at desc);
-create index if not exists qimen_followup_audit_record_idx
-  on public.qimen_followup_audit (record_id);
-create index if not exists qimen_followup_audit_scope_idx
-  on public.qimen_followup_audit (scope, created_at desc);
+create index if not exists followup_audit_user_created_idx
+  on public.followup_audit (user_id, created_at desc);
+create index if not exists followup_audit_record_idx
+  on public.followup_audit (record_id);
+create index if not exists followup_audit_scope_idx
+  on public.followup_audit (scope, created_at desc);
 
-alter table public.qimen_followup_audit enable row level security;
+alter table public.followup_audit enable row level security;
 
-create policy "admin read all qimen followup audit" on public.qimen_followup_audit
+create policy "admin read all followup audit" on public.followup_audit
   for select
   using ((((auth.jwt() -> 'app_metadata') ->> 'role') = 'admin'));
 
-create policy "service role can manage qimen followup audit" on public.qimen_followup_audit
+create policy "service role can manage followup audit" on public.followup_audit
   for all
   using (auth.role() = 'service_role')
   with check (auth.role() = 'service_role');

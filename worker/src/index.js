@@ -1690,11 +1690,11 @@ async function runFollowupCapability(capability, params, { branch, origin }) {
   return null;
 }
 
-// 追问 audit：service-role 写入 qimen_followup_audit（非致命，失败仅告警）。
+// 追问 audit：service-role 写入 followup_audit（跨 branch，非致命，失败仅告警）。
 async function writeFollowupAudit(env, snapshot) {
   try {
     const supabase = createSupabaseClient(env);
-    const { error } = await supabase.from('qimen_followup_audit').insert(snapshot);
+    const { error } = await supabase.from('followup_audit').insert(snapshot);
     if (error) console.warn('[followup] audit insert failed:', error.message || error);
   } catch (e) {
     console.warn('[followup] audit insert failed:', e.message || e);
