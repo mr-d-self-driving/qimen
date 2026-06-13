@@ -812,6 +812,13 @@
                                             <p class="insight-prose-main">{{ gejuPanelContent.climateAdjustment.title }}</p>
                                             <p class="insight-prose-text">{{ gejuPanelContent.climateAdjustment.text }}</p>
                                         </div>
+                                        <div v-if="gejuPanelContent.sourceMeta" class="insight-prose-item">
+                                            <div class="insight-prose-head">
+                                                <span class="insight-prose-label">材料依据</span>
+                                                <span v-if="gejuPanelContent.sourceMeta.title" class="insight-source-inline">{{ gejuPanelContent.sourceMeta.title }}</span>
+                                            </div>
+                                            <p v-if="gejuPanelContent.sourceMeta.excerpt" class="insight-quote-line">「{{ gejuPanelContent.sourceMeta.excerpt }}」</p>
+                                        </div>
                                         <div v-if="gejuPanelContent.personality.length" class="insight-prose-item">
                                             <div class="insight-prose-head"><span class="insight-prose-label">格局气质</span></div>
                                             <div class="insight-step-list">
@@ -1226,7 +1233,7 @@ const getFortuneStorage = () => (typeof window === 'undefined' ? null : window.l
 
 // 与后端 lib/baziCore.js 的 BAZI_ENGINE_VERSION 保持同步
 // 升级时同步修改两处，前端会自动检测版本旧档案并触发引擎刷新
-const BAZI_ENGINE_VERSION = '1.8.1'
+const BAZI_ENGINE_VERSION = '1.8.2'
 
 // 兼容 Cloudflare Pages preview 域名，相对路径在 Pages 上会 404
 const _apiBase = (() => {
@@ -1258,7 +1265,7 @@ const GEJU_DESCRIPTIONS = {
 };
 
 const getGejuDesc = (geju) => {
-    return GEJU_DESCRIPTIONS[geju] || '此格局具有独特的五行气势，需结合大运流年综合分析。';
+    return GEJU_DESCRIPTIONS[geju] || '';
 };
 
 const GEJU_BASIS_LABELS = {
@@ -2438,6 +2445,7 @@ const gejuPanelContent = computed(() => {
     const affection = evaluation?.affection_and_power || null
     const diseaseMedicine = evaluation?.disease_medicine || null
     const climate = evaluation?.climate_adjustment || null
+    const sourceLimited = pattern?.traits?.source_limited === true
     const climateAdjustment = climate && climate.status !== 'NOT_NEEDED'
         ? {
             title: TIAOHOU_STATUS_LABELS[climate.status] || climate.status,
@@ -2474,10 +2482,20 @@ const gejuPanelContent = computed(() => {
         yongShen,
         xianShen,
         verdict: detail.favorable_verdict || '需结合全盘喜忌继续细断。',
-        personality: normalizeTraitItems(pattern?.traits?.personality, info.personality),
-        goodFor: normalizeTraitItems(pattern?.traits?.career_wealth, info.goodFor),
+        sourceLimited,
+        sourceMeta: pattern?.traits?.source_backed
+            ? {
+                title: pattern.traits.source_title || pattern.traits.statement_source || '',
+                excerpt: pattern.traits.source_excerpt || '',
+                ref: pattern.traits.source_ref || '',
+                coveredFields: pattern.traits.covered_fields || [],
+                unsupportedFields: pattern.traits.unsupported_fields || []
+            }
+            : null,
+        personality: normalizeTraitItems(pattern?.traits?.personality, sourceLimited ? [] : info.personality),
+        goodFor: normalizeTraitItems(pattern?.traits?.career_wealth, sourceLimited ? [] : info.goodFor),
         relationshipHealth: normalizeTraitItems(pattern?.traits?.relationship_health),
-        watchOut: normalizeTraitItems(pattern?.traits?.failure_warning, info.watchOut)
+        watchOut: normalizeTraitItems(pattern?.traits?.failure_warning, sourceLimited ? [] : info.watchOut)
     }
 })
 

@@ -2855,6 +2855,8 @@ async function handleBazi(request, env) {
           strongWeak: baziDetail.strong_weak,
           favorableGods: baziDetail.favorable_gods || [],
           unfavorableGods: baziDetail.unfavorable_gods || [],
+          patternAnalysis: baziDetail.pattern_analysis,
+          imageAnalysis: baziDetail.image_analysis,
           currentDaYunText,
           currentLiuNianText
         });

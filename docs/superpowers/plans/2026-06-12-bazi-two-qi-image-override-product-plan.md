@@ -30,6 +30,43 @@ L0 特殊气势
 
 > 2026-06-12 已通过 NotebookLM 复核当前资料库中的《滴天髓》、陆致极《八字命理动态分析教程》《命运的求索》等资料；并用本地 `oceanjustinlin/xuanxue` 书库原文二次校验。NotebookLM 归纳与本地原文方向一致：两气成象不是简单 top2 占比，而是“成象、清浊、均敌/重心、旺弱处置、是否可破”的综合判断。
 
+### 断语来源门禁
+
+2026-06-12 追加硬约束：所有面向用户展示的“断语”必须取自材料。允许把古籍或教材原意做白话转译，但不得凭模型或产品经验自行扩写。
+
+适用字段包括：
+
+- `格局气质`
+- `适合方向`
+- `关系与身心节奏`
+- `注意事项`
+- `岁运推演`
+- `LLM 原局核心 / 当前大运 / 当前流年`
+- 任何类似“此格局如何为人、适合什么行业、关系健康如何”的解释性文案
+
+实现要求：
+
+1. 每条断语必须带 `source_title`、`source_excerpt` 或 `source_summary`、`paraphrase`、`applicable_when`、`covered_fields`。
+2. `source_summary` 可以是高度贴近原文的摘要，但必须能回查到书名、章节或 NotebookLM/source path。
+3. 如果材料只支持格局名、用神或喜忌，不支持性格/职业/关系/健康，则这些字段必须为空或显示“资料不足，暂不展开断语”。
+4. 前端不得使用无来源兜底文案，例如“此格局具有独特的五行气势，需结合大运流年综合分析”这类泛化句。
+5. LLM prompt 必须接收上游特殊格局、覆盖范围和来源摘要；同时明确禁止 LLM 按普通格局自行补断语。
+6. 已存在的 `GEJU_DESCRIPTIONS`、`baziPatternStatements` 和 LLM section prompt 均需按此门禁复核；未完成来源绑定前，只能作为内部候选，不可直接展示为最终断语。
+
+NotebookLM 复核返回的字段边界如下。由于本次 CLI 返回的 `references` 为空，落地实现时仍需优先用本地原文或 source fulltext 做二次锚定；在锚定完成前，这些内容只能作为 PRD 依据，不能直接生成上线断语库。
+
+| 特殊形象 | 材料短句/摘要 | 资料名 | 可覆盖字段 | 资料不足字段 |
+| --- | --- | --- | --- | --- |
+| 两气成象 | “两气合而成象，象不可破也”；“相克务须均敌，切忌偏重偏轻”；一路澄清则贵，中途混乱则倾。 | 《滴天髓》 | 格局名、喜忌边界、岁运推演、防破局提醒 | 旺衰语义、固定用神、格局气质、适合方向、关系身心 |
+| 金白水清 | 金清水白、秀丽文章、更无火土刑制，声誉文章显。 | 《三命通会》《穷通宝鉴》 | 格局名、文章/翰苑类方向、忌火土刑制、清象提醒 | 旺衰语义、固定用神、关系身心、完整岁运推演 |
+| 火土成势 | 火土伤官成极大强势，不按普通身弱扶抑，顺势取伤官为用。 | 陆致极《八字命理动态分析教程》 | 格局名、旺衰语义、用神、喜忌 | 格局气质、适合方向、关系身心、注意事项、岁运推演 |
+| 强众敌寡 | “强众而敌寡者，势在去其寡”；岁运宜扶众抑寡。 | 《滴天髓》 | 格局名、旺衰语义、喜忌、用神、岁运方向 | 格局气质、适合方向、关系身心、泛化注意事项 |
+| 从财格 | 日干无气满盘财；运旺财官皆富贵，如逢根助反为灾；必要食伤吐秀。 | 《三命通会》《滴天髓》 | 格局名、旺衰语义、喜忌、岁运推演、食伤吐秀/逢根助灾提醒 | 固定用神、格局气质、适合方向、关系身心 |
+| 从官杀格 | 弃命从煞，须四柱无比肩印绶；煞重身柔；运扶身旺，与煞为敌则祸。 | 《三命通会》《滴天髓》 | 格局名、旺衰语义、喜忌、岁运推演、从杀不专提醒 | 固定用神、格局气质、适合方向、关系身心 |
+| 从儿格 | 从儿不管身强弱，只要吾儿又得儿；食伤生财，秀气流行；忌印运，次忌官运。 | 《滴天髓》 | 格局名、旺衰语义、喜忌、岁运推演、无财转化起争战提醒 | 固定用神、格局气质、适合方向、关系身心 |
+| 从势格 | 日主无根，财官食伤并旺，不分强弱；须行财运以和之；行比劫印绶凶。 | 《滴天髓》 | 格局名、旺衰语义、喜忌、岁运推演 | 固定用神、格局气质、适合方向、关系身心、注意事项 |
+| 专旺格 | 四柱皆比劫、无官杀制、有印绶生，旺之极者从其旺神；独象虽美，只怕运途破局。 | 《滴天髓》《三命通会》 | 格局名、旺衰语义、喜忌、岁运推演、破局提醒；个别子类可有原文气质/身心句 | 固定用神、泛化适合方向 |
+
 两气成象不应被理解成“top2 五行占比高就顺势”。更接近教材的通用框架是：
 
 ```text
@@ -702,6 +739,8 @@ TWO_QI_IMAGE / 金白水清
 
 ### 前端展示规范
 
+所有展示规范均服从“断语来源门禁”：状态 chip、算法链路、覆盖范围可以由规则引擎生成；涉及气质、职业、关系、身心、注意事项、岁运吉凶的解释，必须来自 source-backed statement library。没有来源时，显示结构判断，不显示现代断语。
+
 #### 状态 1：已覆盖喜忌/用神
 
 适用：`override_scope` 为 `xiji_yongshen` 或 `full`。
@@ -783,6 +822,9 @@ TWO_QI_IMAGE / 金白水清
 | --- | --- | --- |
 | `src/components/BaziStaticPanel.vue` | 形象行只看 `override_normal_pattern` 显示“已覆盖/未覆盖”。 | 改读 `override_scope`、`treatment`、`override_veto_reason`，展示状态 chip 与影响范围。 |
 | `src/views/BaziView.vue` | “形象校验”文案仍以匹配度/覆盖为中心。 | 展示“成象状态、取用策略、覆盖范围、veto 原因”。 |
+| `src/views/BaziView.vue` | `GEJU_DESCRIPTIONS/getGejuDesc` 有无来源普通断语和泛化兜底，特殊形象会显示错误解释。 | 改为只读后端 source-backed statement；无来源时不展示气质/方向/关系/注意事项。 |
+| `lib/baziPatternStatements.js` | 当前断语多为综合白话，无逐条 `source_excerpt/source_title/covered_fields`，不满足材料门禁。 | 改造成 source-backed statement library；未绑定来源的条目默认不可展示。 |
+| `worker/src/index.js` / `lib/baziLlmSections.js` | LLM 只收到后端格局、旺衰、喜忌，未收到特殊格局/形象和来源边界，容易按普通格局自行发挥。 | 传入 `pattern_analysis`、`image_analysis`、`statement_sources`，并要求 LLM 只能基于上游来源转译。 |
 | `lib/baziStateAssessor.js` | prompt 文案只有“已覆盖常规喜忌/暂不覆盖”。 | 改为结构化一句话：候选、策略、覆盖范围、veto 原因。 |
 | `lib/baziQuestionCore.js` | LLM prompt 透传 image_analysis，但缺少决策解释字段。 | 继续透传 `image_analysis`，并在 state report 中加入新的决策摘要。 |
 | `lib/baziDynamicAssessor.js` | 岁运形象诊断默认假设“原局特殊形象需要追踪”。 | 只有 `override_scope !== none/display_only` 或 `formation_level === FORMED` 时，才作为强形象追踪；veto case 只追踪被保护真神。 |
@@ -816,11 +858,17 @@ TWO_QI_IMAGE / 金白水清
 
 #### Phase 3：问答与报告文案
 
-1. `baziStateAssessor.js` 改写形象报告行。
-2. `baziQuestionCore.js` prompt 中保留完整 `image_analysis`，并增加人类可读的 `image_decision_summary`。
-3. LLM prompt 明确：
+1. 新增 source-backed statement library：
+   - 每条语料记录 `source_title`、`source_excerpt/source_summary`、`paraphrase`、`covered_fields`、`applicable_when`。
+   - 未绑定来源的条目 `displayable: false`。
+   - 字段级判断：材料不支持的字段不返回，不用通用文案填充。
+2. `baziStateAssessor.js` 改写形象报告行。
+3. `baziQuestionCore.js` prompt 中保留完整 `image_analysis`，并增加人类可读的 `image_decision_summary`。
+4. `worker/src/index.js` 生成档案 LLM 时传入 `pattern_analysis`、`image_analysis`、`source_backed_statements`。
+5. `lib/baziLlmSections.js` prompt 明确：
    - 如果 `override_veto_reason` 存在，不得按该形象重取喜忌；
    - 如果 `override_scope` 是 `display_only`，形象只能作为背景描述。
+   - 如果某字段无材料来源，不得生成性格、职业、关系、健康或岁运断语，只能写“材料未提供可展开断语”或省略。
 
 #### Phase 4：验证
 
@@ -846,6 +894,8 @@ TWO_QI_IMAGE / 金白水清
 | CP4 古籍格法 | 张时佥事这类 classical_pattern 是否完全排除 TWO_QI_IMAGE 覆盖？ | 建议默认排除，只展示 TWO_QI_IMAGE 候选，不主导取用。 |
 | CP5 动态岁运追踪 | veto case 的岁运是否追踪形象，还是追踪被保护真神？ | 建议追踪被保护真神，如任铁樵追踪壬水/金水，不追踪火土成势。 |
 | CP6 文案强度 | 前端是否使用“veto/否决”这类工程词？ | 建议用户侧用“候选被挡下”或“未主导取用”，工程字段保留 `veto`。 |
+| CP7 断语来源门禁 | 无材料出处的格局气质/适合方向/关系身心/注意事项是否可以用产品白话补齐？ | 建议不允许。无出处字段留空或显示“资料不足”，算法说明与断语分开。 |
+| CP8 LLM 自由发挥 | LLM 是否可以基于上游特殊格局生成现代建议？ | 建议不允许。LLM 只做材料转译与结构串联，不新增材料外断语。 |
 
 ## 验收标准
 
@@ -856,6 +906,8 @@ TWO_QI_IMAGE / 金白水清
 3. 康熙不再由强众敌寡 L0 覆盖喜忌，土不再进入喜方。
 4. `classical_pattern` case 不因 TWO_QI_IMAGE 被误归因成通用特殊形象。
 5. 普通 `${元素}${元素}成象` 仍只展示，不覆盖。
+6. 火土成势、强众敌寡等资料不足字段不再展示无来源的“格局气质/适合方向/关系身心/注意事项”。
+7. LLM 生成档案时能收到特殊格局/形象的上游判断与来源边界，不再只按普通格局发挥。
 
 ### 测试验收
 
@@ -875,6 +927,14 @@ TWO_QI_IMAGE / 金白水清
 - `eval/baziprofile-accuracy/run.mjs`
   - 通用引擎 critical count 应下降。
   - `TWO_QI_IMAGE` 相关 bad case 的 root cause 应从 `xiji` 降级为展示/格局命名问题。
+
+- `lib/baziLlmSections.test.js`
+  - prompt 包含 `pattern_analysis` / `image_analysis` 摘要、`covered_fields` 与来源边界。
+  - 无来源字段时 prompt 明确禁止 LLM 生成现代断语。
+
+- `src/views/BaziView.layout.test.mjs`
+  - 特殊形象无来源字段时，不出现 `GEJU_DESCRIPTIONS` 兜底断语。
+  - source-backed statement 存在时才展示气质/方向/关系/注意事项。
 
 ## 非目标
 
