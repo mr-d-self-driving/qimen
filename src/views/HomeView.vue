@@ -706,6 +706,7 @@ const API_BASE = getApiBase()
 const apiPath = (path) => `${API_BASE}${path}`
 const API_URL = apiPath("/api/qimen")
 const FOLLOWUP_API_URL = apiPath("/api/qimen-followup")
+const BAZI_FOLLOWUP_API_URL = apiPath("/api/bazi-followup")
 const ROUTE_API_URL = apiPath("/api/divination-route")
 const BAZI_QUESTION_API_URL = apiPath("/api/bazi-question")
 const router = useRouter()
@@ -1038,7 +1039,9 @@ const autoGrowFollowup = () => {
 }
 const canFollowup = computed(() =>
   viewState.value === 'result' && !wenShiStreaming.value && !isSubmitting.value
-  && sseBranch.value === 'qimen' && !!currentResultData.value)
+  && (sseBranch.value === 'qimen' || sseBranch.value === 'bazi') && !!currentResultData.value)
+// 当前追问分支（八字结果的 currentResultData.branch==='bazi'）
+const followupBranch = computed(() => (currentResultData.value?.branch === 'bazi' ? 'bazi' : 'qimen'))
 const categories = [
   { label: '全部', value: 'all' },
   { label: '事业', value: 'career_business' },
@@ -2597,6 +2600,7 @@ const activateBaziResultPanel = (data) => {
   // 存量 v1 记录在进渲染前统一映射到 v2 结构（幂等）
   data = adaptBaziResultToV2(data)
   activeBaziResultData.value = data
+  currentResultData.value = data   // 供八字追问回传 + 增补烘焙重渲染
   if (data.meta.analysis_mode === 'timing') {
     const windows = data.readings?.trigger_windows || data.mode_analysis?.trigger_windows || []
     const best = windows.find(window => window.quality === 'strong') || windows[0]
@@ -2654,12 +2658,44 @@ const buildFollowupOrigin = (data) => {
   }
 }
 
+// 八字原各段（按 BAZI_TEXT_FIELDS 的散文字段抽取，对齐后端 buildBaziFollowupPrompt 的 section key）
+const extractBaziSections = (data) => {
+  const r = data.readings || data.mode_analysis || {}
+  const raw = {
+    summary_conclusion: data.summary?.conclusion || data.verdict || '',
+    summary_basis: typeof data.summary?.basis === 'string' ? data.summary.basis : (data.summary?.basis?.logic || ''),
+    base_foundation: r.base_foundation?.text || '',
+    dayun_field: r.dayun_field?.text || r.dayun_reading || '',
+    liunian_trigger: r.liunian_trigger?.text || r.liunian_reading || '',
+    structural_verdict: r.structural_verdict || r.pattern_verdict || '',
+    appearance_tendency: r.appearance_tendency?.text || '',
+    personality_tendency: r.personality_tendency?.text || '',
+    career_style: r.career_style?.text || '',
+    relationship_dynamic: typeof r.relationship_dynamic === 'string' ? r.relationship_dynamic : (r.relationship_dynamic?.text || ''),
+    action_guide: data.action_guide?.text || '',
+  }
+  return Object.fromEntries(Object.entries(raw).filter(([, v]) => v && String(v).trim()))
+}
+
+// 八字追问 origin（seed=profileId；证据由后端用首轮同一函数复现，前端只回传 route/sections）
+const buildBaziOrigin = (data) => {
+  const profileId = data.subject_snapshot?.profile_id || activeBaziProfile.value?.id || ''
+  return {
+    question: data.question || '',
+    record_id: activeResultRecord.value?.id || null,
+    profileId,
+    route: data.route || data.meta || { branch: 'bazi', analysis_mode: data.meta?.analysis_mode || 'status', category: data.meta?.category, subcategory: data.meta?.subcategory, time_scope: data.meta?.time_scope },
+    sections: extractBaziSections(data),
+    followups: Array.isArray(data.followups) ? data.followups : [],
+  }
+}
+
 // 流式增补：在目标段对应卡片模块下确保有一个 live 增补块，返回其 body 元素
-const ensureLiveFollowupSlot = (section, q, nature) => {
-  const moduleKey = FOLLOWUP_SECTION_MODULE[section]
+const ensureLiveFollowupSlot = (section, q, nature, branch = 'qimen') => {
+  const moduleKey = followupModuleMap(branch)[section]
   if (!moduleKey) return null
   const root = document.querySelector('.html-container .mag-result') || document.querySelector('.html-container')
-  const sectionEl = root?.querySelector(`#mag-${moduleKey}`)
+  const sectionEl = root?.querySelector(followupModuleAnchorSelector(branch, moduleKey))
   if (!sectionEl) return null
   let list = sectionEl.querySelector('.mag-followup-list.is-live')
   if (!list) {
@@ -2680,7 +2716,7 @@ const ensureLiveFollowupSlot = (section, q, nature) => {
   return block.querySelector(`[data-fslot="${section}"]`)
 }
 
-const readFollowupSSE = async (response, q) => {
+const readFollowupSSE = async (response, q, branch = 'qimen') => {
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
@@ -2702,11 +2738,14 @@ const readFollowupSSE = async (response, q) => {
       try { ev = JSON.parse(line.slice(6)) } catch { continue }
       if (ev.type === 'followup_route' && ev.scope === 'new_matter') {
         scope = 'new_matter'; reason = ev.reason || ''
-      } else if (ev.type === 'followup_step' && ev.stage === 'patch') {
+      } else if (ev.type === 'followup_recompute_pending') {
+        // 八字 step2：需逐年/换靶补算，step4 才接入；先温和提示
+        scope = 'recompute_pending'; reason = ev.reason || ''
+      } else if (ev.type === 'followup_step' && (ev.stage === 'patch' || ev.stage === 'decide')) {
         nature = ev.nature || nature
       } else if (ev.type === 'patch_delta') {
         accum[ev.section] = (accum[ev.section] || '') + ev.text
-        const el = ensureLiveFollowupSlot(ev.section, q, nature)
+        const el = ensureLiveFollowupSlot(ev.section, q, nature, branch)
         if (el) { el.classList.add('wstream-active'); el.innerHTML = renderStreamProse(accum[ev.section]) }
       } else if (ev.type === 'patch_complete') {
         Object.assign(supplements, ev.supplements || {})
@@ -2745,18 +2784,24 @@ const submitFollowup = async () => {
   followupSubmitting.value = true
   followupNewMatter.value = null
   try {
-    const origin = buildFollowupOrigin(currentResultData.value)
-    const response = await fetch(FOLLOWUP_API_URL, {
+    const branch = followupBranch.value
+    const isBazi = branch === 'bazi'
+    const origin = isBazi ? buildBaziOrigin(currentResultData.value) : buildFollowupOrigin(currentResultData.value)
+    const response = await fetch(isBazi ? BAZI_FOLLOWUP_API_URL : FOLLOWUP_API_URL, {
       method: 'POST', headers,
-      body: JSON.stringify({ followup: q, branch: 'qimen', origin }),
+      body: JSON.stringify({ followup: q, branch, origin }),
     })
     if (!response.ok) {
       const e = await response.json().catch(() => ({}))
       throw new Error(e.details || e.error || '追问失败')
     }
-    const outcome = await readFollowupSSE(response, q)
+    const outcome = await readFollowupSSE(response, q, branch)
     if (outcome.scope === 'new_matter') {
       followupNewMatter.value = { reason: outcome.reason || '', question: q }
+      return
+    }
+    if (outcome.scope === 'recompute_pending') {
+      showToast('这个追问需要逐年／换靶补算，该能力即将上线')
       return
     }
     if (outcome.supplements && Object.keys(outcome.supplements).length) {
@@ -2766,6 +2811,14 @@ const submitFollowup = async () => {
       resultHtml.value = applyCardMdBold(buildCardHTML(d))
       await nextTick()
       initMagTabInk()
+      // 八字卡重建后，Teleport 锚点（命局四柱 panel / backing）会指向被销毁的旧节点 → 强制 remount
+      if (branch === 'bazi') {
+        showBaziPanelAnchor.value = false
+        showBaziBackingAnchor.value = false
+        await nextTick()
+        syncBaziBackingAnchor()
+        syncBaziPanelAnchor()
+      }
       document.querySelectorAll('.html-container .reveal').forEach(el => el.classList.add('visible'))
       followupInput.value = ''
       nextTick(autoGrowFollowup)   // 清空后收回输入框高度
@@ -3113,13 +3166,13 @@ const loadRecord = async (item) => {
     const { data } = await supabase.from('qimen_records').select('qimen_data').eq('id', item.id).single()
     if (data?.qimen_data) item.qimen_data = data.qimen_data
   }
-  // 历史奇门记录也开放续问（八字记录暂不支持，followup 为奇门专用）。
-  // 续问会落库 + audit 到这条历史行（activeResultRecord.id / origin.record_id 即本行）。
+  // 历史记录开放续问：奇门与八字均支持（续问落库 + audit 到这条历史行）。
   followupInput.value = ''
   followupNewMatter.value = null
-  const isQimenRecord = item.qimen_data && item.qimen_data.branch !== 'bazi'
-  currentResultData.value = isQimenRecord ? item.qimen_data : null
-  if (isQimenRecord) sseBranch.value = 'qimen'
+  const isBaziRec = item.qimen_data && item.qimen_data.branch === 'bazi'
+  sseBranch.value = isBaziRec ? 'bazi' : 'qimen'
+  // 奇门：currentResultData 即 qimen_data；八字：由 activateBaziResultPanel 设（adaptV2 后）
+  currentResultData.value = isBaziRec ? null : (item.qimen_data || null)
   activeResultRecord.value = item
   resultHtml.value = applyCardMdBold(buildCardHTML(item.qimen_data))
   activateBaziResultPanel(item.qimen_data)
@@ -3911,6 +3964,18 @@ const FOLLOWUP_SECTION_MODULE = {
   support_summary: 'm3', constraint_summary: 'm3',
   decision_reading: 'm4',
 }
+// 八字 section → 卡片模块 id（buildBaziQuestionCardHTML 的 section id 即 DOM 锚点）
+const FOLLOWUP_SECTION_MODULE_BAZI = {
+  summary_conclusion: 'bazi-m1', summary_basis: 'bazi-m1',
+  base_foundation: 'bazi-m2',
+  dayun_field: 'bazi-m3', liunian_trigger: 'bazi-m3', structural_verdict: 'bazi-m3',
+  appearance_tendency: 'bazi-m3', personality_tendency: 'bazi-m3',
+  career_style: 'bazi-m3', relationship_dynamic: 'bazi-m3',
+  action_guide: 'bazi-m5',
+}
+const followupModuleMap = (branch) => (branch === 'bazi' ? FOLLOWUP_SECTION_MODULE_BAZI : FOLLOWUP_SECTION_MODULE)
+// 流式 DOM 锚点：奇门模块 id 形如 mag-m1，八字直接是 bazi-m1
+const followupModuleAnchorSelector = (branch, moduleKey) => (branch === 'bazi' ? `#${moduleKey}` : `#mag-${moduleKey}`)
 // 单个增补块 HTML（流式 DOM 占位与终态烘焙复用，保证样式一致）
 const renderFollowupBlockHTML = ({ q = '', section = '', text = '', nature = 'deepen', streaming = false } = {}) => {
   const badge = nature === 'revise' ? '因新情况修正' : '追问深挖'
@@ -3920,24 +3985,43 @@ const renderFollowupBlockHTML = ({ q = '', section = '', text = '', nature = 'de
     + `<div class="mag-followup-body"${streaming ? ` data-fslot="${section}"` : ''}>${body}</div>`
     + `</div>`
 }
-// 某模块下所有追问增补（按 followups 顺序铺开）
-const renderFollowupsForModule = (moduleKey, followups) => {
+// 某模块下所有追问增补（按 followups 顺序铺开）。map 默认奇门，八字传 FOLLOWUP_SECTION_MODULE_BAZI。
+const renderFollowupsForModule = (moduleKey, followups, map = FOLLOWUP_SECTION_MODULE) => {
   if (!Array.isArray(followups) || !followups.length) return ''
   const blocks = []
   for (const f of followups) {
     const sup = f && f.supplements ? f.supplements : {}
     for (const [section, text] of Object.entries(sup)) {
-      if (FOLLOWUP_SECTION_MODULE[section] !== moduleKey) continue
+      if (map[section] !== moduleKey) continue
       if (!text || !String(text).trim()) continue
       blocks.push(renderFollowupBlockHTML({ q: f.q, section, text, nature: f.nature }))
     }
   }
   return blocks.length ? `<div class="mag-followup-list">${blocks.join('')}</div>` : ''
 }
+// 把追问增补烘焙进八字卡：在各目标模块 section 的 </section> 前插入（mag-section 不嵌套，定位可靠）
+const bakeBaziFollowups = (html, followups) => {
+  if (!Array.isArray(followups) || !followups.length) return html
+  for (const moduleId of ['bazi-m1', 'bazi-m2', 'bazi-m3', 'bazi-m4', 'bazi-m5']) {
+    const blocks = renderFollowupsForModule(moduleId, followups, FOLLOWUP_SECTION_MODULE_BAZI)
+    if (!blocks) continue
+    const idIdx = html.indexOf(`id="${moduleId}"`)
+    if (idIdx < 0) continue
+    const closeIdx = html.indexOf('</section>', idIdx)
+    if (closeIdx < 0) continue
+    html = html.slice(0, closeIdx) + blocks + html.slice(closeIdx)
+  }
+  return html
+}
 
 const buildCardHTML = (data, opts = {}) => {
-  // 八字分支：v1 存量记录在进渲染前统一适配到 v2（幂等）
-  if (data.branch === 'bazi' && data.meta?.analysis_mode) return buildBaziQuestionCardHTML(adaptBaziResultToV2(data))
+  // 八字分支：v1 存量记录在进渲染前统一适配到 v2（幂等）；追问增补烘焙进卡片
+  if (data.branch === 'bazi' && data.meta?.analysis_mode) {
+    return bakeBaziFollowups(
+      buildBaziQuestionCardHTML(adaptBaziResultToV2(data)),
+      Array.isArray(data.followups) ? data.followups : [],
+    )
+  }
 
   // 流式脚手架模式：未到的 LLM 字段渲染成骨架，而不是 fallback 占位文案
   const streaming = !!opts.streaming
