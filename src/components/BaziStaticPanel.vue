@@ -77,7 +77,15 @@
               {{ stateReport.image_context.match_label }}
               <em>{{ Math.round(stateReport.image_context.match_score) }}%</em>
             </span>
-            <span v-if="stateReport.image_context.override_normal_pattern" class="image-override-chip">覆盖常规喜忌</span>
+            <span class="image-override-chip" :class="imageDecision.statusClass">{{ imageDecision.statusText }}</span>
+          </div>
+          <div v-if="imageDecision.detailText" class="image-secondary">
+            <span class="image-sec-label">决策</span>
+            <span class="image-sec-text">{{ imageDecision.detailText }}</span>
+          </div>
+          <div v-if="imageDecision.reasonText" class="image-secondary">
+            <span class="image-sec-label">{{ imageDecision.reasonLabel }}</span>
+            <span class="image-sec-text">{{ imageDecision.reasonText }}</span>
           </div>
           <!-- 次级候选（有 override 时显示原始候选） -->
           <div v-if="stateReport.image_display_context && stateReport.image_display_context.subtype !== stateReport.image_context.subtype" class="image-secondary">
@@ -402,6 +410,59 @@ function imageLevelClass(level) {
     'img-level-suspected': level === 'SUSPECTED',
   }
 }
+
+const IMAGE_TREATMENT_LABEL = {
+  LEAK_EXCESS: '泄秀',
+  RESTRAIN_BALANCED_EXCESS: '制衡',
+  SUPPORT_ROOTED_WEAK: '扶弱',
+  REMOVE_ROOTLESS_WEAK: '去寡',
+  FOLLOW_CLEAR_BODY: '顺势',
+  DESCRIPTIVE_ONLY: '仅展示',
+  FOLLOW_FORCE: '顺势',
+  TRANSFORM_FORCE: '化气',
+}
+
+const IMAGE_DIMENSION_LABEL = {
+  geju: '格局',
+  yongshen: '用神',
+  xiji: '喜忌',
+  strength_semantic: '旺衰语义',
+}
+
+function buildImageDecision(candidate) {
+  if (!candidate) {
+    return { statusText: '', statusClass: '', detailText: '', reasonText: '', reasonLabel: '依据' }
+  }
+
+  const hasVeto = !!candidate.override_veto_reason
+  const scope = candidate.override_scope
+  const isOverride = ['full', 'xiji_yongshen', 'yongshen_only'].includes(scope)
+    || (scope == null && candidate.override_normal_pattern)
+  const isDisplayOnly = scope === 'display_only' || scope === 'none'
+  const statusText = hasVeto
+    ? '候选被挡下'
+    : (isOverride ? '已主导取用' : (isDisplayOnly ? '仅展示' : '未主导取用'))
+  const statusClass = hasVeto
+    ? 'image-chip-veto'
+    : (isOverride ? 'image-chip-override' : 'image-chip-display')
+  const strategy = IMAGE_TREATMENT_LABEL[candidate.treatment] || candidate.treatment || ''
+  const affected = (candidate.affected_dimensions || [])
+    .map(item => IMAGE_DIMENSION_LABEL[item] || item)
+    .join('、')
+  const parts = []
+  if (strategy) parts.push(`取用策略：${strategy}`)
+  if (affected) parts.push(`影响：${affected}`)
+
+  return {
+    statusText,
+    statusClass,
+    detailText: parts.join('；'),
+    reasonText: candidate.override_veto_reason || candidate.override_reason || '',
+    reasonLabel: candidate.override_veto_reason ? '未主导原因' : '主导依据',
+  }
+}
+
+const imageDecision = computed(() => buildImageDecision(props.stateReport.image_context))
 
 const stabilityConclusion = computed(() => {
   const s = props.stateReport

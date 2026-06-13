@@ -179,3 +179,116 @@ Prompt 契约（新建 `buildFollowupPatchPrompt`，可放 `lib/qimenPromptSecti
 ## 8. 验证
 - 单测：判断器对「同一局深挖 vs 新事」样例的分类；patch 解析器对只含部分段的输出。
 - 端到端：起一卦 → 追问深挖（断言**原段文字不变**、目标段下新增增补块、分数不变）→ 追问新事（断言走 new_matter 提示）。
+
+---
+
+# 9. Phase 2 架构修订：统一单主-LLM（取代 Phase 1 的两节点）
+
+> 状态：Phase 1（奇门）已上线，沿用「flash 判断器 + pro 增补」两节点。Phase 2 起八字改用本节的**统一单主-LLM**架构；奇门暂维持已上线版本，待八字验证顺畅后再回收（见 §9.4）。
+
+## 9.1 为什么改：两节点设计的两个问题
+
+1. **判断者上下文太薄**：Phase 1 的 flash 判断器只看到「原问题 + 一行结论摘要 + 追问」，却要同时判分流、又要从一行摘要里抽参数（如流年区间）填进 `needs_data.params`，脆弱。
+2. **能力注册表 = 双轴的二次封装**：`FOLLOWUP_CAPABILITIES.bazi`（`liunian_scan`/`dayun_window`/`retarget`/`tiaohou`…）背后调的就是首轮双轴 pipeline 的同一批函数（`assessDynamicTriggers` / `calculateAnnualScore` / `resolveTarget` / `calculateTiaohouRatio`，由 `runStatusPipeline`/`runStaticPipeline`/`runTimingPipeline` 调度）。把它另起一套 capability/tier/params 分类法登记，等于**双份维护**：首轮改了轴定义/函数签名，注册表要单独同步。
+
+## 9.2 统一架构（单主-LLM · 全量上下文 · 封顶一跳）
+
+```
+追问回合
+  │
+  ▼
+主 LLM（pro，全量上下文：原盘自然语言叙述 + 各段全文 + 历轮增补 + 本次追问）
+  │  输出决策三选一（哨兵 <<<SEC:decision>>>）：
+  ├─ answer     → 同一次响应里直接流式增补（哨兵分段）           ──► 完
+  ├─ new_matter → 提示重新起局                                  ──► 完
+  └─ recompute  → 输出 route_delta（首轮路由词汇：analysis_mode/time_scope/target_source，**不是 capability 名**）
+        → 代码：mergedRoute = normalizeBaziSemanticRoute({...originRoute, ...route_delta})
+        → 用 seed 复现命盘 → 跑首轮同一 run*Pipeline → 得 dynamicReport
+        → formatDynamicReportForPrompt(dynamicReport)  ← 复用首轮的自然语言格式化器
+        → 主 LLM 第二跳：拿补算结果写最终增补                    ──► 完（本回合封顶一跳）
+```
+
+**循环语义采 (a)**：每个追问回合一次判断、最多补算一跳、然后答；下个回合再来一次。**不在单回合内反复**（那是 function calling，留待真链式多步推演时再升级）。理由仍是最初反 function calling 的那条：需求基本可从追问预判、SSE 单次流式管线、控制流要可测可封顶。
+
+**相对 Phase 1 的变化：**
+- 删 flash 判断器 → 判断与回答合并为一个**有全量上下文**的主 LLM 节点（修问题 1）。
+- 删 `FOLLOWUP_CAPABILITIES.bazi` 独立分类法 → 补算 = 带 `route_delta` 重进首轮 `run*Pipeline`，双轴只有首轮一处真相（修问题 2）。
+- 「数字全由代码算、模型只读结果」不变；`formatDynamicReportForPrompt` 复用 → 补算结果自然语言化零新增。
+
+## 9.3 八字落地步骤（不动已上线奇门）
+
+| 步 | 内容 | 文件 | 验证 |
+|---|---|---|---|
+| 1 | `buildBaziEvidenceNarrative`（结构证据→自然语言，替 `JSON.stringify`）+ `buildBaziFollowupPrompt`（决策协议） | `lib/wenshiFollowup.js` | 纯函数单测 |
+| 2 | `handleBaziFollowup` 的 answer/new_matter 路径（不含补算） | `worker/src/index.js` `/api/bazi-followup` | 重读/深挖类端到端 |
+| 3 | 前端 bazi 适配：解锁 `canFollowup`、`buildBaziOrigin`、`extractBaziSections`、增补烘焙进 `buildBaziQuestionCardHTML`、SSE 分支、落库/历史 | `src/views/HomeView.vue` | UI 锚定增补 + 刷新可见 |
+| 4 | recompute 一跳：`route_delta`→`run*Pipeline`→`formatDynamicReportForPrompt` | `worker/src/index.js` | 流年/大运/换靶类跑通 |
+| 5 | 审计（复用 `qimen_followup_audit`，字段语义重映射：classifier_*→决策跳、patch_*→回答跳，加记 route_delta + dynamicReport）+ 单测补全 | — | 留痕完整 |
+
+第 1–3 步 = 八字「深挖类」可上线（覆盖多数）；第 4 步补「时间/换靶类」。
+
+**默认（已定）**：① seed = `profileId` + 后端 fetch 命盘（八字本就强制登录，RLS 无碍，payload 小）；② 先八字单独做这套，奇门维持旧两节点。
+
+### 9.3.1 step 1 落地校准（对照生产 `bazi_question_audit.llm_prompt_text` 后确定）
+
+- **证据块 = 首轮逐字同款（方向 A）**：证据由 `extractBaziQuestionContext(profile)` → `formatBasicProfileBlock` + `formatUpstreamAnalysisBlock` + `formatTargetSpec/State/DynamicReportForPrompt` 产出（含命主基础信息/格局/调候/取用链路/目标十神状态/候选年份断语包）。这是首轮的单一真相，**不再手搓子集**。
+  - 落地：worker 用 `profileId` fetch 命盘 → 按首轮 route 跑同一 `run*Pipeline` → 用上述 format 函数拼出 `evidenceText` → 传给 `buildBaziFollowupPrompt({ evidenceText })`。
+  - `wenshiFollowup.buildBaziEvidenceNarrative` 仅作缺省兜底（无 profile 时的降级），主路径走 `evidenceText`。
+  - 这一组合应抽到 `baziQuestionCore` 的导出函数（如 `buildBaziEvidenceBlock`），首轮 mode builders 与追问共用。
+- **route_delta 用双轴**（FRAMEWORK ⟂ TARGET_SOURCE，与 `baziQuestionCore` 原生消费一致）：
+  - framework 轴：`static_structure | dynamic_current | dynamic_scan | portrait | open_strategy`
+  - target_source 轴：`backend_shishen | yongshen | llm_derived`（换领域/换靶 = 动此轴 + 新 `category`，即 §9.4 用神取用轴）
+  - 时间粒度归 `time_scope`（方向 1）：逐年 `dynamic_scan`+`{start_year,end_year}`；**流月** `{type:"month_scan", year}`（补算调 `fortuneMonthlyCore.buildMonthlyFortunePayload`），framework 轴不增值。
+- **first-hop prompt 内容**：evidenceText + 原各段 + 历轮增补（截最近 2–3 轮）+ **首轮原问题** + 本次追问 + 决策协议。原问题必带（否则追问脱离上下文）。
+- **token 控量**：证据只用 format* 紧凑断语，**不塞** `sizhu_matrix`/原始 JSON；历轮增补截断；体量与首轮 prompt 同量级（~8K）。
+- **第二跳不重跑 base**：一次请求内 `evidenceText` 只拼一次、内存复用；recompute 只跑**窄补算**（`assessDynamicTriggers`/`calculateAnnualScore`/`buildMonthlyFortunePayload`），不重算 base pipeline。
+- **决策归一化**：`normalizeBaziFollowupDecision`（未知 action→answer；new_matter 短路；recompute 空 delta→降级 answer）+ `normalizeRouteDelta`（双轴白名单，`time_scope` 原样透传）。
+
+## 9.4 奇门要不要也用这套？—— 取决于「用神取用是否确定」
+
+**结论：架构（单主-LLM + 全量上下文 + 封顶一跳决策）共用。奇门的盘出即冻结，但它仍有一个不可让 LLM 临场发挥的确定性环节——按领域取用神（`qimenYongshenRules`），等同八字的 TARGET_SOURCE 轴。所以奇门的 recompute 分支不是「空」，而是「应期 + 重取用神」两个确定性后端。**
+
+关键差异在两种术数的「轴」是否在出盘后被冻结：
+
+| | 八字 | 奇门 |
+|---|---|---|
+| 盘面 / 时间轴 | 命盘固定，但**时间轴（大运/流年）随追问年份而变**，需逐年重算 | **起局即冻结**，无时间轴重算 |
+| 用神取用（TARGET_SOURCE 轴） | 喜用神需算旺衰/调候/格局（多步），由 `resolveTarget` 定 | **按领域查规则表**，由 `lib/qimenYongshenRules.js` 的 `domainView.axes` 定（事业取值符/开门、婚取六合、疾取天芮/死门…），相对确定但**仍是后端规则** |
+
+**奇门追问分三类**（这是上一版漏掉第 3 类的修正）：
+
+1. **纯重读（同用神）**：「这个方向具体怎样」→ 全盘已在 context，主 LLM 直接 `answer`。
+2. **重读（用户点名宫位）**：「换看官鬼宫」→ 用户已指定，LLM 读那宫即可。
+3. **换领域 → 重取用神（retarget）**：「那感情那块呢」→ 新领域该读哪些星/门/宫，**必须由 `qimenYongshenRules` 决定**。若直接让 LLM「重读」，它可能自己猜错映射（婚不知取六合），与首轮后端用神取用不一致。→ 走 `recompute` 分支。
+
+**第 3 类的处理（盘冻结，故比八字轻）：**
+```
+主 LLM 判定：换领域、同一局
+  → recompute, route_delta = { category: "relationship" }
+  → 代码：qimenYongshenRules["relationship"].axes → 定出该读哪些星/门/宫
+        → 从冻结的原盘九宫取这些宫的状态（确定性，不重算盘）
+  → 主 LLM 第二跳：拿「规则定好的用神 + 宫位状态」写增补（LLM 不决定取哪个用神）
+```
+要点：**用神取用永远由 `qimenYongshenRules` 出，LLM 只读规则结果**——与八字 `route_delta` 的 TARGET_SOURCE 轴同一机制，奇门只是少了时间轴。
+
+推论：
+- 奇门**该**采用统一的判断节点设计（单主-LLM、全量上下文 → 修 Phase 1 flash 判断器上下文太薄；并让换领域走规则而非 LLM 猜）。
+- §9.1 的「问题 2（注册表=双轴二次封装）」对奇门**部分成立**：奇门没有八字那样的时间轴 pipeline，但**有** TARGET_SOURCE 轴（`qimenYongshenRules`）。所以奇门 recompute 后端 = 应期（`timingCandidates`）+ 重取用神（`qimenYongshenRules`）两块确定性逻辑，仍应走 `route_delta` 而非独立 capability 分类法。
+- **共用架构骨架（一个主 LLM、决策 answer/new_matter/recompute、封顶一跳）；branch-specific 的是 recompute 后端**——八字再入 `run*Pipeline`（含时间轴），奇门重跑 `qimenYongshenRules` + 至多 `timingCandidates`（盘不重算）。
+
+**待定子问题**：换领域到什么程度算 same_casting 的 retarget、到什么程度算 `new_matter`（古法一事一占）。倾向保守：明显跨事 → new_matter；同事换面向（如「事业」→「该事里上级的态度」）→ retarget。由主 LLM 判，规则兜底。
+
+落地建议：先在八字把这套跑顺；回收奇门时，retarget 直接复用 `qimenYongshenRules`（首轮已在用），迁移成本仍低。
+
+## 9.5 回收奇门待办（八字验证通过后执行，勿提前给将拆掉的两节点打补丁）
+
+现状缺口：当前奇门追问只有 `yingqi(stub)/fangwei(reread)/regong(reread)`，**缺 `retarget`（换领域重取用神）**，导致换领域追问要么被增补 LLM 自行猜用神（与首轮后端不一致 = bug），要么被判 `new_matter` 挡掉。保守兜底不出错，故无线上事故压力，不热修，随回收一并根治。
+
+- [ ] 奇门主 LLM **决策 prompt**：加 `recompute` 分支，`route_delta` 支持 `{ category }`（retarget）与 `timing` 标志（应期）。
+- [ ] 后端 recompute（在冻结原盘上补，不重排盘）：
+  - [ ] `retarget`：`qimenYongshenRules[category].domainView.axes` → 取对应星/门/宫 → 从原盘九宫读状态 → 自然语言 `extra_evidence`。**用神取用由规则出，LLM 只读结果。**
+  - [ ] `yingqi`：把现有 stub 换成真调 `lib/qimenScoringEngine.timingCandidates` / `getTimingRecovery`（从回传种子 `cast_at`+`cast_params` 复现局后取 timingAnalysis）。
+- [ ] retarget vs new_matter 边界细化（§9.4 待定子问题）：跨事→new_matter，同事换面向→retarget，主 LLM 判 + 规则兜底。
+- [ ] 删除 `FOLLOWUP_CAPABILITIES.qimen` 独立分类法，奇门改走 `route_delta`（与八字统一）。
+- [ ] 删除旧两节点 `buildFollowupClassifierPrompt`（回收后两术数都不再用 flash 判断器）。
+- [ ] 前端奇门 SSE 分支对齐统一架构的事件（decision/recompute/patch_*）。

@@ -13,7 +13,7 @@ import C from '../../lib/QimenConstants.js';
 import U from '../../lib/QimenUtils.js';
 import Calc from '../../lib/QimenCalculations.js';
 import { buildFrontendCopyProtocolSection, buildQimenInferenceRulesSection, buildQimenOutputContractSection, buildReportSchemaPromptSection, buildScoreAuditPromptSection, buildSummaryPromptSection } from '../../lib/qimenPromptSections.js';
-import { buildFollowupClassifierPrompt, buildFollowupPatchPrompt, normalizeFollowupRoute } from '../../lib/wenshiFollowup.js';
+import { buildFollowupClassifierPrompt, buildFollowupPatchPrompt, normalizeFollowupRoute, buildBaziFollowupPrompt, normalizeBaziFollowupDecision, PATCHABLE_SECTIONS } from '../../lib/wenshiFollowup.js';
 import { buildDomainViewPromptSection, buildYongshenPromptSection, getYongshenRule } from '../../lib/qimenYongshenRules.js';
 import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTimingRules.js';
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
@@ -1864,6 +1864,160 @@ async function handleQimenFollowup(request, env) {
   return sseResponse;
 }
 
+// 容错解析决策段 JSON（去 ```fence、截取首尾大括号）。
+function parseFollowupDecisionJson(raw) {
+  if (!raw || typeof raw !== 'string') return {};
+  let s = raw.trim().replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+  const a = s.indexOf('{'); const b = s.lastIndexOf('}');
+  if (a >= 0 && b > a) s = s.slice(a, b + 1);
+  try { return JSON.parse(s); } catch { return {}; }
+}
+
+// POST /api/bazi-followup —— 八字同一命盘追问（统一单主-LLM 架构）。
+// 本步（step 2）落地 answer / new_matter；recompute 暂出 pending 事件（step 4 接补算）。
+async function handleBaziFollowup(request, env) {
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
+
+  // 八字本就强制登录（无访客）。
+  let user;
+  try {
+    user = await getAuthedUser(request, env);
+  } catch (authErr) {
+    return json({ error: '认证失败', details: authErr.message }, { status: authErr.status || 401 }, request, env);
+  }
+
+  const body = await readJson(request);
+  const followup = String(body.followup || '').trim();
+  const origin = body.origin && typeof body.origin === 'object' ? body.origin : {};
+  const profileId = String(origin.profileId || origin.profile_id || '').trim();
+  if (!followup) return json({ error: '追问不能为空' }, { status: 400 }, request, env);
+  if (!profileId) return json({ error: '缺少八字档案 ID（origin.profileId）' }, { status: 400 }, request, env);
+
+  // ── Pre-stream：fetch 命盘（可返回 JSON 错误）──
+  const userToken = request.headers.get('Authorization')?.replace('Bearer ', '');
+  const supabase = createSupabaseClient(env, userToken);
+  const { data: profile, error: profileErr } = await supabase.from('bazi_profiles').select(BAZI_PROFILE_QUESTION_SELECT).eq('id', profileId).single();
+  if (profileErr || !profile) return json({ error: '档案不存在' }, { status: 404 }, request, env);
+  if (profile.user_id !== user.id) return json({ error: '无权操作该档案' }, { status: 403 }, request, env);
+  if (!profile.bazi_detail || !profile.bazi_str) return json({ error: '该档案缺少完整八字排盘数据', code: 'BAZI_PROFILE_INCOMPLETE' }, { status: 400 }, request, env);
+
+  // audit 公共字段
+  const startedAt = Date.now();
+  const requestId = crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const originRoute = origin.route && typeof origin.route === 'object' ? origin.route : { branch: 'bazi', analysis_mode: 'status' };
+  const originQuestion = String(origin.question || '').trim();
+  const sections = origin.sections && typeof origin.sections === 'object' ? origin.sections : {};
+  const followups = Array.isArray(origin.followups) ? origin.followups.slice(-3) : [];
+
+  const { emit, close, response: sseResponse } = createSSEResponse(request, env);
+
+  (async () => {
+  try {
+    // ── 复现首轮 pipelineResult（同一入口，丢弃 prompt）→ 用首轮同一 format 拼证据块 ──
+    emit({ type: 'followup_step', stage: 'evidence' });
+    let pipelineResult = null;
+    try {
+      ({ pipelineResult } = baziQuestionCore.buildBaziQuestionPrompt({ profile, question: originQuestion, route: originRoute }));
+    } catch (e) {
+      console.warn('[bazi-followup] reproduce pipeline failed:', e.message);
+    }
+    const evidenceText = baziQuestionCore.buildBaziEvidenceBlock({ profile, pipelineResult });
+
+    // ── 主 LLM 第一跳：决策 prompt（answer / recompute / new_matter）──
+    emit({ type: 'followup_step', stage: 'decide' });
+    const model = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
+    const prompt = buildBaziFollowupPrompt({
+      followup, originQuestion, evidenceText, sections, followups, route: originRoute,
+    });
+    if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][bazi][prompt]\n' + prompt);
+
+    const patchable = PATCHABLE_SECTIONS.bazi;
+    const visible = new Set(['decision', ...patchable]);
+    let decisionBuf = '';
+    let decision = null;
+    let answering = false;
+    let streamed = false;
+    const parser = createSentinelStreamParser(visible, {
+      onVisibleDelta: (section, text) => {
+        if (section === 'decision') { decisionBuf += text; return; }
+        // 首个非 decision 段到来 → decision 已闭合，解析一次定分支
+        if (!decision) {
+          decision = normalizeBaziFollowupDecision(parseFollowupDecisionJson(decisionBuf));
+          answering = decision.action === 'answer';
+        }
+        if (answering) { streamed = true; emit({ type: 'patch_delta', section, text }); }
+      },
+    });
+
+    let full = '';
+    for await (const chunk of requestLLMSimpleStream(prompt, env, model, 0.6)) {
+      full += chunk;
+      parser.push(chunk);
+    }
+    const sec = parser.finish();
+    if (!decision) decision = normalizeBaziFollowupDecision(parseFollowupDecisionJson(sec.decision || decisionBuf));
+    if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][bazi][decision]', JSON.stringify(decision));
+
+    const auditBase = {
+      request_id: requestId, record_id: null, user_id: user.id, branch: 'bazi',
+      origin_question: originQuestion, followup,
+      patch_model: model, patch_prompt: prompt, patch_output_raw: full,
+      route_raw: decision, route_normalized: decision, scope: decision.action,
+      nature: decision.nature, target_sections: decision.target_sections,
+      evidence_snapshot: { profileId, route: originRoute }, origin_sections: sections,
+      latency_ms: Date.now() - startedAt,
+    };
+
+    // ── new_matter：提示重新起盘 ──
+    if (decision.action === 'new_matter') {
+      emit({ type: 'followup_route', scope: 'new_matter', reason: decision.reason });
+      await writeFollowupAudit(env, auditBase);
+      return;
+    }
+
+    // ── recompute：step 4 才接补算；本步出 pending，让前端温和提示 ──
+    if (decision.action === 'recompute') {
+      emit({ type: 'followup_recompute_pending', route_delta: decision.route_delta, reason: decision.reason });
+      await writeFollowupAudit(env, { ...auditBase, needs_data: decision.route_delta });
+      return;
+    }
+
+    // ── answer ──
+    const supplements = {};
+    for (const k of decision.target_sections) if (sec[k] && sec[k].trim()) supplements[k] = sec[k].trim();
+
+    // 流式期间未发出任何增补（少见：解析晚于段输出）→ 用 finish 结果补发
+    if (!streamed) {
+      for (const k of decision.target_sections) if (supplements[k]) emit({ type: 'patch_delta', section: k, text: supplements[k] });
+    }
+    // 仍为空 → 非流式重试一次
+    if (!Object.keys(supplements).length) {
+      console.warn('[bazi-followup] empty answer, retrying non-streaming...');
+      emit({ type: 'patch_retry' });
+      try {
+        const retryFull = await requestLLMText(prompt, env, model, 0.6);
+        const rp = createSentinelStreamParser(visible, {});
+        rp.push(retryFull); const rsec = rp.finish();
+        for (const k of patchable) if (rsec[k] && rsec[k].trim()) { supplements[k] = rsec[k].trim(); emit({ type: 'patch_delta', section: k, text: supplements[k] }); }
+      } catch (e) {
+        emit({ type: 'error', message: '追问生成暂时不可用，请稍后重试' });
+        return;
+      }
+    }
+
+    emit({ type: 'patch_complete', supplements, nature: decision.nature });
+    await writeFollowupAudit(env, { ...auditBase, supplements });
+  } catch (error) {
+    console.error('[bazi-followup] error:', error);
+    emit({ type: 'error', message: error.message || '追问生成失败' });
+  } finally {
+    close();
+  }
+  })();
+
+  return sseResponse;
+}
+
 async function handleQimen(request, env) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   const startedAt = Date.now();
@@ -2701,6 +2855,8 @@ async function handleBazi(request, env) {
           strongWeak: baziDetail.strong_weak,
           favorableGods: baziDetail.favorable_gods || [],
           unfavorableGods: baziDetail.unfavorable_gods || [],
+          patternAnalysis: baziDetail.pattern_analysis,
+          imageAnalysis: baziDetail.image_analysis,
           currentDaYunText,
           currentLiuNianText
         });
@@ -2920,6 +3076,7 @@ async function routeRequest(request, env) {
   if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
   if (url.pathname === '/api/qimen') return handleQimen(request, env);
   if (url.pathname === '/api/qimen-followup') return handleQimenFollowup(request, env);
+  if (url.pathname === '/api/bazi-followup') return handleBaziFollowup(request, env);
   if (url.pathname === '/api/bazi') return handleBazi(request, env);
   if (url.pathname === '/api/compatibility/init') return handleCompatibilityInit(request, env);
 
