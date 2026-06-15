@@ -88,6 +88,8 @@ test('格局弹窗优先展示结构化 pattern_analysis', () => {
   assert.match(source, /sourceLimited/)
   assert.match(source, /材料依据/)
   assert.match(source, /sourceMeta\.excerpt/)
+  assert.match(source, /headlineStatement/)
+  assert.match(source, /pattern\.traits\.source_excerpt/)
 })
 
 test('旺衰格局卡和格局洞察并入形象校验', () => {
@@ -168,7 +170,8 @@ test('八字 LLM 流式文本优先于持久化断语展示', () => {
 })
 
 test('推演中隐藏生成排盘引导', () => {
-  assert.match(source, /v-if="needsUpgrade && !isAnalyzing && currentTab !== 'events'"/)
+  assert.match(source, /:disabled="isAnalyzing"/)
+  assert.match(source, /if \(isAnalyzing\.value\) return '正在推演'/)
 })
 
 test('LLM 等待态只显示骨架不混用兜底文案', () => {

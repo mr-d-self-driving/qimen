@@ -1021,7 +1021,7 @@
                             <span v-if="gejuPanelContent?.imageHeadline" class="image-match-badge">{{ gejuPanelContent.imageHeadline }}</span>
                         </span>
                     </div>
-                    <p class="rpt-prose">{{ getGejuDesc(patternFinalName) }}</p>
+                    <p v-if="gejuPanelContent?.headlineStatement" class="rpt-prose">{{ gejuPanelContent.headlineStatement }}</p>
                     <p v-if="gejuPanelContent?.imageCandidate" class="rpt-prose">
                         <strong class="rpt-lead-w">基础格局　</strong>{{ gejuPanelContent.basePattern }}
                     </p>
@@ -2478,6 +2478,9 @@ const gejuPanelContent = computed(() => {
         yongShen,
         xianShen,
         verdict: detail.favorable_verdict || '需结合全盘喜忌继续细断。',
+        headlineStatement: pattern?.traits?.source_backed
+            ? (pattern.traits.source_excerpt || '')
+            : getGejuDesc(finalPatternName),
         sourceLimited,
         sourceMeta: pattern?.traits?.source_backed
             ? {
