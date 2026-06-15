@@ -97,8 +97,10 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 
-    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
-    <script src="https://unpkg.com/lunar-javascript/lunar.js"></script>
+    <!-- defer: globals must exist before the module bundle runs, but no need to
+         block HTML parsing / first paint (helps LCP, a ranking signal). -->
+    <script defer src="https://unpkg.com/@supabase/supabase-js@2"></script>
+    <script defer src="https://unpkg.com/lunar-javascript/lunar.js"></script>
   </head>
   <body>
     <div id="app"></div>
