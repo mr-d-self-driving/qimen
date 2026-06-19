@@ -102,8 +102,8 @@ test('旺衰格局卡和格局洞察并入形象校验', () => {
   assert.match(source, /imageCandidate\.penalties/)
 })
 
-test('前端八字引擎期望版本同步到 1.8.10', () => {
-  assert.match(source, /const BAZI_ENGINE_VERSION = '1\.8\.10'/)
+test('前端八字引擎期望版本同步到 1.8.11', () => {
+  assert.match(source, /const BAZI_ENGINE_VERSION = '1\.8\.11'/)
 })
 
 test('八字专业页首屏只拉摘要列表并按选中档案懒加载重字段', () => {
