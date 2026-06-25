@@ -18,6 +18,7 @@ import { buildDomainViewPromptSection, buildYongshenPromptSection, getYongshenRu
 import { buildTimingAnalysis, buildTimingPromptSection } from '../../lib/qimenTimingRules.js';
 import { buildPolarityPromptSection, detectPolarityOverrides } from '../../lib/qimenPolarityRules.js';
 import { calculateQimenScore } from '../../lib/qimenScoringEngine.js';
+import { annotateProsperity } from '../../lib/qimenProsperity.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import { buildQimenChart } from '../../lib/qimenChart.js';
 import { parsePanTime } from '../../lib/panTime.js';
@@ -2145,7 +2146,9 @@ async function handleQimen(request, env) {
         if (i === 2) jiText = `；地盘寄干：${centerEarthStem}`;
         if (i === tianRuiIndex) jiText += `；天盘寄干：${centerEarthStem}`;
 
-        palacesText += `${pName}信息开始：九星：${nineStars[i]}；八神：${eightGods[i]}；八门：${eightDoors[i]}；天盘天干：${tianPanGan[i]}；地盘天干：${diPan[i]}${jiText}；${extra}${pName}信息结束。\n`;
+        const stemRel = U.getStemRelation(tianPanGan[i], diPan[i]);
+        const stemRelText = stemRel ? `；天地盘干生克：${stemRel}` : "";
+        palacesText += `${pName}信息开始：九星：${nineStars[i]}；八神：${eightGods[i]}；八门：${eightDoors[i]}；天盘天干：${tianPanGan[i]}；地盘天干：${diPan[i]}${stemRelText}${jiText}；${extra}${pName}信息结束。\n`;
     }
 
     // ── SSE Step 1: 起盘计算完成 ──
@@ -2178,7 +2181,9 @@ async function handleQimen(request, env) {
     const _primarySymbol = yongshenRule?.yongshen?.primary?.[0]?.symbol || '用神';
     emit({ type: 'step', index: 2, pct: 42, chip: { main: _primarySymbol, sub: detectedIntent.subcategory || detectedIntent.category || '' } });
 
-    const timingPalaces = Array.from({ length: 9 }, (_, i) => ({
+    // 月令（按节气定干支月），用于计算每宫九星旺衰
+    const monthGanZhi = lunar.getMonthInGanZhi();
+    const timingPalaces = annotateProsperity(Array.from({ length: 9 }, (_, i) => ({
         index: i,
         name: `${palaceNames[i]}${palaceNumbers[i]}宫`,
         element: ["木", "火", "土", "木", "土", "金", "土", "水", "金"][i],
@@ -2188,12 +2193,13 @@ async function handleQimen(request, env) {
         god: eightGods[i],
         sky: tianPanGan[i],
         earth: diPan[i],
+        stem_relation: U.getStemRelation(tianPanGan[i], diPan[i]),
         isKong: dayKongIndices.includes(i) || hourKongIndices.includes(i),
         hasMa: i === maXingMap[dayMa] || i === maXingMap[hourMa],
         isZhiShi: eightDoors[i] === zhiShiDoor,
         isDayStem: tianPanGan[i] === dayStem || diPan[i] === dayStem,
         isHourStem: tianPanGan[i] === hourStem || diPan[i] === hourStem
-    }));
+    }), monthGanZhi));
     
     const timingInputSnapshot = {
         generatedAt: bjTime,
@@ -2240,6 +2246,8 @@ async function handleQimen(request, env) {
             name: item.signal,
             effect: item.effect,
             type: String(item.effect || '').startsWith('+') ? 'ji' : 'xiong',
+            palace_index: item.palace_index ?? null,
+            palace: (item.palace_index != null) ? `${palaceNames[item.palace_index]}${palaceNumbers[item.palace_index]}宫` : null,
             reason: item.reason || '',
             text: item.reason || ''
         }));
