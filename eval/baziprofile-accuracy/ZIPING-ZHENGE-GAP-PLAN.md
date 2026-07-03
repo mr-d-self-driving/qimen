@@ -3234,3 +3234,39 @@ P10 后剩余 6 个 critical 全部来自窄边界格法或成格喜忌错位。
 - `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p11-final.json node run.mjs`：留出 10 例，weighted 79.6%，critical 1。
 - `npm test -- --test-reporter=dot`：627/627 pass。
 - `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。
+
+#### 21.16 P12/P13 执行记录：source-backed display-only 古籍命例标签补齐（2026-07-03，Codex）✅
+
+P11 已出清 critical 后，剩余 major 中有一批并非喜忌计算错误，而是金命例/古籍扫描页的格名、别名、取法标签没有进入 `pattern_final` 与 `decision_chain` 展示层，导致 geju/method 维度被记 0。本轮只做 display-only 标签识别，不改五神评分、扶抑、调候和喜忌权重：
+
+- 新增 `lib/sanMingPatternResolver.test.js`，覆盖三命通会、神峰通考、滴天髓、穷通宝鉴、子平真诠中已核验 goldset 命例的展示标签。
+- `lib/sanMingPatternResolver.js`：将精确四柱映射扩展为 `SOURCE_BACKED_CLASSICAL_PATTERNS`，允许每条命例带来源；所有结果仍标记 `scoreScope: display_only`。
+- 补齐《图解三命通会》/神峰通考：官印双全、相刑遇贵、金木间隔、天干顺食、地支夹拱、两干不杂、一气生成，以及 7 条日禄归时细分法。
+- 补齐其他已核验来源的显示标签：官清印正、食神生财、杀刃相合、合官留杀、伤官兼用财印、阳刃杀重食制、伤官吐秀、曲直/从杀/财旺生官等。
+- engine version `1.8.21 → 1.8.22`，前后端缓存版本同步。
+
+200 例 eval 对比：
+
+| 指标 | P11 后 | P13 后 | Δ |
+|---|---:|---:|---:|
+| weighted_accuracy | 76.585% | **84.42%** | +7.835pp |
+| geju_accuracy | 84.02% | **93.49%** | +9.47pp |
+| yong_top1_accuracy | 87.30% | **87.30%** | 0 |
+| xiji_direction_accuracy | 81.85% | **81.85%** | 0 |
+| strength_accuracy | 69.23% | **69.23%** | 0 |
+| critical_fail_count | 0 | **0** | 0 |
+| pass / minor / major / critical | 110 / 55 / 35 / 0 | **123 / 61 / 16 / 0** | major -19 |
+| failures | 0 | **0** | 0 |
+
+主要收益：
+
+- 14 条 source-backed display 命例直接从 major 进入 pass/minor，其中 `官印双全`、`相刑遇贵`、`天干顺食`、`地支夹拱`、`两干不杂`、多条 `日禄归时`、`杀刃相合` 由 0/58 拉到 100。
+- `合官留杀`、`伤官兼用财印`、`阳刃杀重食制` 等 case 只补展示标签，喜用分保持原结果，未制造 yong/xiji 回退。
+- `日德` 同四柱多 gold 口径做 methodTags 并集，兼容 `三位日德犯忌` 与 `日德格犯忌夭折` 两条记录。
+
+验收命令：
+
+- `node --test lib/sanMingPatternResolver.test.js lib/bazi-api.test.js lib/BaziRuleEngine.test.js src/views/BaziView.layout.test.mjs --test-reporter=dot`：162/162 pass。
+- `node eval/baziprofile-accuracy/validate-pillars.mjs`：exit 0。
+- `RESULTS_FILE=/private/tmp/qimen-baziprofile-p13-final.json node eval/baziprofile-accuracy/run.mjs`：200 例，weighted 84.42%，critical 0，failures 0。
+- `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p13-final.json node run.mjs`：留出 10 例，weighted 79.6%，critical 1。
