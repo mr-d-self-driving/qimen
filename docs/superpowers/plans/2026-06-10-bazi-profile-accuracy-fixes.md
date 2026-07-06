@@ -10,6 +10,68 @@
 
 ---
 
+## P15 Strength Calibration Audit
+
+P14 后 200 例 goldset 的强弱准确率停在 69.23%，明显低于格局 93.49%、用神 top1 90.22%。当前 gap 不是单一阈值偏差，而是几类决定性条件没有进入结构层：
+
+- `gold 身强 -> engine 身弱/身中` 共 15 条，是最大错向。典型为日支/时支禄刃、坐长生、多重有效根、印比透出，但因失令或食伤/财官月令被线性计分压低。
+- `gold 身弱 -> engine 身中/身强` 共 7 条，集中在辰丑湿土、寒土、土被金水过泄的命局。当前本气土根被直接算作强根，未校验寒湿与泄耗。
+- `gold 身中 -> engine 身弱/身强` 共 2 条，多属于边界口径，不应先动全局阈值。
+
+### Root Cause
+
+1. **阈值不是主因。** 直接调整 `getStrengthBand()` 会同时修复一边并破坏另一边，因此 P15 不改 `身弱/身中/身强` 总分阈值。
+2. **有效根网/禄刃根缺少结构跳变。** 当前 `root_detail` 是线性加分；日时禄刃、双根、三根虽有加分，但没有形成“有根不按弱论”的结构修正。
+3. **辰丑湿寒土根缺少有效性折损。** 戊己生辰丑、金水重、火印不足时，土根为湿寒承载，不等于实旺。
+4. **季节压力未进入结构层。** 春木官杀压土、火虚木嫩等 case 需要月令气势对根与印的有效性进行校验。
+
+### Minimal Change Strategy
+
+P15 只在 `BaziRuleEngine.calculateStrength()` 的 `structureAdjustment` 附近添加窄口径结构修正，不改基础 season/root/support 公式，不改 scorer，不改用神喜忌策略。
+
+1. **P15-a effective root network / 禄刃根上调。**
+   - 触发：日支/时支临官帝旺，或两处以上有效根；有印比透干或日时强根重复；当前总分在弱/中边界。
+   - 排除：春木克土、寒湿土过泄、财官杀压倒性成势。
+   - 目标：张敬尧、寒木向阳、谢阁老、史春芳、汪学士，以及 holdout 中同类 `身强 -> 身弱` case。
+2. **P15-b cold wet earth overleak / 寒湿土过泄下调。**
+   - 触发：戊己日、辰丑月或辰丑重复、金水重、火印不足。
+   - 目标：董中堂、冬土过泄用丙、己丑金重类。
+3. **P15-c seasonal pressure / 春木官杀压土与火虚木嫩。**
+   - 触发：戊己寅卯月木旺官杀压身，或丙丁春初金水并见而火根不实。
+   - 该类牵动官杀格、印格、调候，放在 P15-a/P15-b 稳定后再做。
+
+### Overfit And Downstream Risk
+
+- `strongWeak` 会影响 L3 扶抑、`getChengGe()` 的 dayStrength 分支、五神排序、yong/xiji direction，因此每个子策略必须单独 TDD、单独 eval diff。
+- P15-a 风险中等：根网条件过宽会误伤有根仍弱的官杀/财旺盘，需要保留薛相公、知县等反例守护。
+- P15-b 风险低到中：只要限定戊己、辰丑、金水重、火不足，误伤面较小。
+- P15-c 风险最高：最接近古籍 case 口径，容易过拟合，不应与 P15-a 合并。
+
+### Priority
+
+1. P15-a：先修有效根网/禄刃根，预期同时改善主集与 holdout。
+2. P15-b：再修寒湿土/湿土过泄。
+3. P15-c：最后修季节压力。
+4. 若仍有边界误差，再考虑 gold acceptable 或 display-only 口径，不先动 scorer。
+
+### P15-a Execution Result
+
+Implemented effective root network / 禄刃根 calibration as a structure-layer adjustment only:
+
+- Promotes repeated effective roots, day/hour 禄刃 roots, and triple-root networks from weak/middle boundary into strong when there is enough root/support evidence.
+- Excludes 杀印相生 without 食制, summer wood requiring seal, spring earth pressure, cold/wet earth overleak, and winter earth pressure.
+- Protects root-network 比劫 from being pushed into the unfavorable bucket when the root is serving as the bearing structure, without letting it overtake the formed yongshen.
+
+Validation snapshot:
+
+- 200-case weighted accuracy: 86.15% -> 86.525%.
+- Strength accuracy: 69.23% -> 75.64%.
+- Critical count: 0 -> 0.
+- Holdout weighted accuracy: 79.6% -> 80.8%.
+- Holdout strength accuracy: 60% -> 70%; critical count remains 1.
+
+---
+
 ## File Map
 
 - Modify: `lib/baziImageAssessor.js`  

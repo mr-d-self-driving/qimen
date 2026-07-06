@@ -3326,3 +3326,50 @@ P13 后剩余 major 里，优先处理有明确古籍取法或 goldset 原文支
 - `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p14-final.json node run.mjs`：留出 10 例，weighted 79.6%，critical 1，与 P13 持平。
 - `npm test -- --test-reporter=dot`：634/634 pass。
 - `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。
+
+#### 21.18 P15-a 执行记录：有效根网/禄刃根强弱校准（2026-07-06，Codex）✅
+
+P14 后 strength accuracy 仍为 69.23%，低于 geju/yong/xiji。审计显示 gap 不是全局阈值问题，而是两类相反错向并存：`gold 身强 -> engine 身弱/身中` 为主，另有辰丑寒湿土被高估。本轮只做 P15-a，即有效根网/禄刃根上调；不改 `getStrengthBand()` 阈值，不动寒湿土下调和春木季节压力。
+
+策略：
+
+- 在 `BaziRuleEngine.calculateStrength()` 的 `structureAdjustment` 层新增 `root_network_adjustment`，只处理日时禄刃、重复有效根、三重强根等“有根不按弱论”的结构。
+- 排除 `杀印相生但无食制`、夏木远根需印、春木官杀压土、寒湿土过泄、冬土金水压力，避免 root-network 泛化。
+- 对张敬尧型“七杀食制 + 日时禄根”加入承载根保护：判身强后，比劫不被普通扶抑/病药压入忌方，但不抢食神用神。
+- engine version `1.8.23 → 1.8.24`，前后端缓存版本同步。
+
+200 例 eval 对比：
+
+| 指标 | P14 后 | P15-a 后 | Δ |
+|---|---:|---:|---:|
+| weighted_accuracy | 86.15% | **86.525%** | +0.375pp |
+| geju_accuracy | 93.49% | **93.49%** | 0 |
+| yong_top1_accuracy | 90.22% | **90.22%** | 0 |
+| xiji_direction_accuracy | 83.79% | **83.79%** | 0 |
+| strength_accuracy | 69.23% | **75.64%** | +6.41pp |
+| critical_fail_count | 0 | **0** | 0 |
+| pass / minor / major / critical | 128 / 61 / 11 / 0 | **131 / 58 / 11 / 0** | pass +3 |
+| failures | 0 | **0** | 0 |
+
+逐例 diff：
+
+- `zp_016_xie_gelao_shishen_shengcai`：80 minor → **95 pass**；strength 身弱 → 身强。
+- `zp_021_shi_chunfang_shangguan_yongcai`：80 minor → **95 pass**；strength 身弱 → 身强。
+- `nb_dts_more_006_hanmu_xiangyang`：85 pass → **100 pass**；strength 身中 → 身强。
+- `nb_dts_batch_024_shangguan_yongcai_zichuang`：62 minor → **77 minor**；strength 身中 → 身强。
+- `manual_lzj_010_zhangjingyao_shizhi`：70 minor → **85 pass**；strength 身中 → 身强；承载根保护后无 critical。
+
+守护与 holdout：
+
+- 主集曾出现 `zp_pdf_006_lujianzhang_shayin` 被误升身强导致杀印相生取印回退；已通过“官杀月无食制不触发 root network”恢复。
+- holdout 曾出现稽中堂夏木伤官佩印被误升身强；已通过“夏木远根需印不触发 root network”恢复。
+- holdout 10 例：weighted 79.6% → **80.8%**，strength 60% → **70%**，critical 仍为 1。
+
+验收命令：
+
+- `node --test lib/bazi-api.test.js lib/BaziRuleEngine.test.js src/views/BaziView.layout.test.mjs --test-reporter=dot`：172/172 pass。
+- `node eval/baziprofile-accuracy/validate-pillars.mjs`：exit 0。
+- `RESULTS_FILE=/private/tmp/qimen-baziprofile-p15a-final.json node eval/baziprofile-accuracy/run.mjs`：200 例，weighted 86.525%，critical 0，failures 0。
+- `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p15a-final.json node run.mjs`：留出 10 例，weighted 80.8%，critical 1。
+- `npm test -- --test-reporter=dot`：640/640 pass。
+- `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。
