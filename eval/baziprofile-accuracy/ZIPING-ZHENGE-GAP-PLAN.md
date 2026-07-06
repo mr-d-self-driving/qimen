@@ -3373,3 +3373,53 @@ P14 后 strength accuracy 仍为 69.23%，低于 geju/yong/xiji。审计显示 g
 - `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p15a-final.json node run.mjs`：留出 10 例，weighted 80.8%，critical 1。
 - `npm test -- --test-reporter=dot`：640/640 pass。
 - `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。
+
+#### 21.19 P15-b/c 执行记录：寒湿土过泄与季节压力强弱校准（2026-07-06，Codex）✅
+
+本轮继续 P15，但只执行 P15-b/P15-c；仍不改 `getStrengthBand()` 阈值，不改 season/root/support 基础公式，不改 scorer。策略是把决定性结构作为 `structureAdjustment` 的负向目标分帽，只有命中特定条件且当前分数高于弱档边界时才下调。
+
+实现：
+
+- P15-b 新增 `cold_wet_earth_overleak_adjustment`：戊己日、辰丑湿土环境、金水泄重或食伤双透、火不足时，辰丑根不再纯作帮身。用于董中堂、己丑金重、己土丙火三类。
+- P15-c 新增 `spring_earth_killing_pressure_adjustment`：戊己日寅卯月，木支重复/官杀透出/木势偏重，且火土支持尚未明显转强时，下调为春木官杀压土。
+- P15-c 新增 `early_spring_fire_void_adjustment`：丙丁日寅月，金水压力重、火根浅、印助有限时，下调为初春火虚木嫩。
+- root-network 上调继续排除春土压力、寒湿土过泄、冬土金水压力，并新增排除初春火虚。
+- engine version `1.8.24 → 1.8.25`，前后端缓存版本同步。
+
+200 例 eval 对比：
+
+| 指标 | P15-a 后 | P15-b/c 后 | Δ |
+|---|---:|---:|---:|
+| weighted_accuracy | 86.525% | **87.30%** | +0.775pp |
+| geju_accuracy | 93.49% | **93.49%** | 0 |
+| yong_top1_accuracy | 90.22% | **90.95%** | +0.73pp |
+| xiji_direction_accuracy | 83.79% | **84.74%** | +0.95pp |
+| strength_accuracy | 75.64% | **83.33%** | +7.69pp |
+| critical_fail_count | 0 | **0** | 0 |
+| pass / minor / major / critical | 131 / 58 / 11 / 0 | **134 / 58 / 8 / 0** | pass +3, major -3 |
+| failures | 0 | **0** | 0 |
+
+逐例 diff：
+
+- `xuanxue_dts_001_dongzhongtang_wuhuo`：75 minor → **93 pass**；strength 身强 → 身弱。
+- `nb_dts_batch_011_winter_ji_overleaked_bing`：38 major → **100 pass**；strength 身强 → 身弱。
+- `xuanxue_dts_002_jitu_binghuo`：65 minor → **82 minor**；strength 身中 → 身弱。
+- `zp_006_fan_taifu_guan_yong_yin`：54 major → **69 minor**；strength 身中 → 身弱。
+- `nb_dts_extra_001_shazhong_yongyin_wuhuo`：67 minor → **90 pass**；strength 身中 → 身弱。
+- `nb_dts_batch_027_zhu_zhongtang_yongmu`：58 major → **78 minor**；strength 身中 → 身弱。
+- 额外 `sm_pdf_006_riluguishi_sha` 仅展示强弱从 身中 → 身弱，但该例 scoring scope 为 `geju/method`，score 仍 100 pass，不计为负向回归。
+
+守护与 holdout：
+
+- P15-a 根网守护仍通过：张敬尧、寒木向阳、史春芳仍按身强；薛相公、陆建章、稽中堂不被误升。
+- holdout 10 例：weighted **80.8%** 持平，strength **70%** 持平，critical 仍为 1。
+
+验收命令：
+
+- `node --test lib/BaziRuleEngine.test.js --test-reporter=dot`：59/59 pass。
+- `node --test lib/bazi-api.test.js lib/BaziRuleEngine.test.js src/views/BaziView.layout.test.mjs --test-reporter=dot`：178/178 pass。
+- `node eval/baziprofile-accuracy/validate-pillars.mjs`：exit 0。
+- `RESULTS_FILE=/private/tmp/qimen-baziprofile-p15bc-final.json node eval/baziprofile-accuracy/run.mjs`：200 例，weighted 87.30%，critical 0，failures 0。
+- `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p15bc-final.json node run.mjs`：留出 10 例，weighted 80.8%，critical 1。
+- `npm test -- --test-reporter=dot`：646/646 pass。
+- `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。

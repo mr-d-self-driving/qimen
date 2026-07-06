@@ -70,6 +70,34 @@ Validation snapshot:
 - Holdout weighted accuracy: 79.6% -> 80.8%.
 - Holdout strength accuracy: 60% -> 70%; critical count remains 1.
 
+### P15-b/c Execution Result
+
+Implemented the remaining strength calibration slices as narrow structure-layer down-adjustments:
+
+- P15-b `cold_wet_earth_overleak_adjustment`: 戊己 in 辰/丑 wet-earth contexts, with metal-water leakage or double exposed output and insufficient fire. The adjustment caps only overestimated charts into the weak band instead of changing season/root/support formulas.
+- P15-c `spring_earth_killing_pressure_adjustment`: 戊己 in 寅/卯 month under repeated wood or exposed officer-killing pressure, limited to middle-boundary charts where fire/earth support has not clearly turned the structure strong.
+- P15-c `early_spring_fire_void_adjustment`: 丙丁 in 寅 month with metal-water pressure, weak fire ratio, shallow roots, and limited seal support.
+- Engine version `1.8.24 -> 1.8.25`; frontend cache version updated.
+
+Validation snapshot:
+
+- 200-case weighted accuracy: 86.525% -> 87.30%.
+- Strength accuracy: 75.64% -> 83.33%.
+- Critical count: 0 -> 0.
+- Pass/minor/major/critical: 131/58/11/0 -> 134/58/8/0.
+- Holdout weighted accuracy remains 80.8%; holdout strength accuracy remains 70%; critical count remains 1.
+
+Positive diffs:
+
+- `xuanxue_dts_001_dongzhongtang_wuhuo`: 75 minor -> 93 pass; strength 身强 -> 身弱.
+- `nb_dts_batch_011_winter_ji_overleaked_bing`: 38 major -> 100 pass; strength 身强 -> 身弱.
+- `xuanxue_dts_002_jitu_binghuo`: 65 minor -> 82 minor; strength 身中 -> 身弱.
+- `zp_006_fan_taifu_guan_yong_yin`: 54 major -> 69 minor; strength 身中 -> 身弱.
+- `nb_dts_extra_001_shazhong_yongyin_wuhuo`: 67 minor -> 90 pass; strength 身中 -> 身弱.
+- `nb_dts_batch_027_zhu_zhongtang_yongmu`: 58 major -> 78 minor; strength 身中 -> 身弱.
+
+No scored negative diff was observed in the 200-case eval. One method-only case changed display strength from 身中 to 身弱 while remaining 100/pass because strength is outside that case's scoring scope.
+
 ---
 
 ## File Map
