@@ -3423,3 +3423,48 @@ P14 后 strength accuracy 仍为 69.23%，低于 geju/yong/xiji。审计显示 g
 - `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p15bc-final.json node run.mjs`：留出 10 例，weighted 80.8%，critical 1。
 - `npm test -- --test-reporter=dot`：646/646 pass。
 - `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。
+
+#### 21.20 P16-a 执行记录：特殊形象残差与成象用神排序（2026-07-07，Codex）✅
+
+P15 后 strength 已提升到 83.33%，剩余 major 中两个最大可做簇来自 special image：`伍廷芳：木势成局，从杀顺势` 和 `段祺瑞：春木成局，曲直仁寿`。本轮只做 P16-a，不碰三命稀疏古格的日德/魁罡/印绶天德，也不继续扩大普通 strength 阈值。
+
+实现：
+
+- `scoreSingleImage()`：完整 `亥卯未` 木局遇到土财噪声时，不再扣 `wealth_drain_penalty`。该条件仍只对完整木 frame 生效，不影响 incomplete wood frame。
+- `scoreFollowCandidates()`：新增极窄的 `EARTH_SUPPORT_OVERWHELMED_BY_WOOD_KILLING` 证据。只在土日主、从官杀目标为木、木根覆盖三支以上、木透、财杀链占优、日主非真无根且土/印根薄时，把一点土根/印援判为无效，形成 `从杀格`。
+- `getFavorableUnfavorable()`：完整曲直木局的 top yong 由普通泄秀优先改为木同党/水印优先；`从杀格` top yong 由财优先改为官杀优先。
+- engine version `1.8.25 → 1.8.26`，前后端缓存版本同步。
+
+200 例 eval 对比：
+
+| 指标 | P15-b/c 后 | P16-a 后 | Δ |
+|---|---:|---:|---:|
+| weighted_accuracy | 87.30% | **87.875%** | +0.575pp |
+| geju_accuracy | 93.49% | **93.49%** | 0 |
+| yong_top1_accuracy | 90.95% | **92.19%** | +1.24pp |
+| xiji_direction_accuracy | 84.74% | **85.14%** | +0.40pp |
+| strength_accuracy | 83.33% | **83.33%** | 0 |
+| critical_fail_count | 0 | **0** | 0 |
+| pass / minor / major / critical | 134 / 58 / 8 / 0 | **136 / 58 / 6 / 0** | pass +2, major -2 |
+| failures | 0 | **0** | 0 |
+
+逐例 diff：
+
+- `zp_pdf_004_wutingfang_congsha`：38 major → **100 pass**；image `TWO_QI_IMAGE/木土成象` → `FOLLOW_IMAGE/从杀格`，用神 偏财 → 七杀。
+- `zp_pdf_005_duanqirui_quzhi`：33 major → **86 pass**；image `TWO_QI_IMAGE/木土成象` → `SINGLE_IMAGE/曲直格`，用神 伤官 → 比肩。
+- 额外展示变化但分数不变：`nb_dts_more_010_congsha_zhixian`、`sm2_pdf_021_luyuan_huhuan_guihai`、`sm2_pdf_033_musha_zaoyao` 的从杀 top yong 由财转官；`manual_lzj_014_lihongzhang_quzhi` 与 `nb_dts_batch_013_guangqing_yinzheng` 的完整曲直/木象 top yong 转木。相关 scoring scope 或原分已 pass，未构成负向回归。
+
+守护与 holdout：
+
+- `follow-wealth candidate cannot override when wealth qi is not globally dominant` 旧守护曾被初版木杀压土条件误伤，已通过 `!dmSupport.is_rootless` 约束恢复。
+- 李鸿章完整曲直、未完整木局反例、炎上/润下/从革、黄堂/侍郎/知县/白手从格、伍朝枢 false follow 等既有 image 守护均通过。
+- holdout 10 例：weighted **80.8%** 持平，strength **70%** 持平，critical 仍为 1。
+
+验收命令：
+
+- `node --test lib/bazi-api.test.js lib/baziImageAssessor.test.js lib/BaziRuleEngine.test.js src/views/BaziView.layout.test.mjs --test-reporter=dot`：237/237 pass。
+- `node eval/baziprofile-accuracy/validate-pillars.mjs`：exit 0。
+- `RESULTS_FILE=/private/tmp/qimen-baziprofile-p16a-final.json node eval/baziprofile-accuracy/run.mjs`：200 例，weighted 87.875%，critical 0，failures 0。
+- `CASES_FILE=./holdout-cases.js RESULTS_FILE=/private/tmp/qimen-baziprofile-holdout-p16a-final.json node run.mjs`：留出 10 例，weighted 80.8%，critical 1。
+- `npm test -- --test-reporter=dot`：650/650 pass。
+- `npm run build`：exit 0；Vite build 成功，prerender 因本机 Chromium SIGTRAP 按脚本降级跳过。

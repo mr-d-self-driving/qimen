@@ -98,6 +98,31 @@ Positive diffs:
 
 No scored negative diff was observed in the 200-case eval. One method-only case changed display strength from 身中 to 身弱 while remaining 100/pass because strength is outside that case's scoring scope.
 
+### P16-a Execution Result
+
+Implemented the first special-image residual pass:
+
+- Complete 亥卯未 wood frames no longer lose image coverage solely because earth wealth is present as noisy branch/stem qi. This lets the 段祺瑞曲直仁寿 case cross the reviewed single-image override threshold.
+- A narrow weak-earth follow-killing exception recognizes cases where a small earth root/seal trace is overwhelmed by a dominant wood killing frame and a finance-killing flow. This lets the 伍廷芳 case form `FOLLOW_IMAGE/从杀格` without disturbing rootless follow-wealth/follow-killing competition.
+- Special-pattern yong priority now keeps complete wood frames on wood/seal before output, and keeps `从杀格` officer-killing before wealth.
+- Engine version `1.8.25 -> 1.8.26`; frontend cache version updated.
+
+Validation snapshot:
+
+- 200-case weighted accuracy: 87.30% -> 87.875%.
+- Yong top-1 accuracy: 90.95% -> 92.19%.
+- Strength accuracy remains 83.33%; geju accuracy remains 93.49%.
+- Critical count: 0 -> 0.
+- Pass/minor/major/critical: 134/58/8/0 -> 136/58/6/0.
+- Holdout weighted accuracy remains 80.8%; holdout strength accuracy remains 70%; critical count remains 1.
+
+Positive diffs:
+
+- `zp_pdf_004_wutingfang_congsha`: 38 major -> 100 pass; image `木土成象` -> `从杀格`, yong 偏财 -> 七杀.
+- `zp_pdf_005_duanqirui_quzhi`: 33 major -> 86 pass; image `木土成象` -> `曲直格`, yong 伤官 -> 比肩.
+
+No scored negative diff was observed. A few already-passing or non-yong-scoped cases changed displayed yong after the more precise `从杀格` / complete-wood-frame priority, but their scores remained unchanged.
+
 ---
 
 ## File Map
