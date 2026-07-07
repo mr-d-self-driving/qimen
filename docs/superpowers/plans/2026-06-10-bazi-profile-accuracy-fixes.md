@@ -151,6 +151,33 @@ Positive diffs:
 
 No scored negative diff was observed. Two already-passing 魁罡 cases changed displayed yong after the same priority hook, but their scores remained 100.
 
+### P17-b Execution Result
+
+Implemented source-backed water-daymaster strength/yong residual fixes for the two remaining 滴天髓 cases, still without changing generic strength thresholds:
+
+- `伤官吐秀 + 卯木为用` now applies a classical strength overlay: two 辰 arch water, two 庚 seals, and 辰土反生金助水 are treated as 身强 only when the resolved source-backed method tags match.
+- The same `伤官吐秀` hook promotes 伤官 as top yong and demotes 金印 when `酉冲破用` is present, preventing the generic `伤官喜官格` 正官 prior from stealing the source-backed use.
+- `财旺生官 + 去火存金 + 体用不伤` now applies a classical strength overlay for 癸亥时日主之气已贯.
+- The `去火存金` hook promotes 辛金偏印 as top yong and demotes fire wealth / earth officer-killing so `用财喜比格` does not override the cited use.
+- Engine version `1.8.27 -> 1.8.28`; frontend cache version updated.
+
+Validation snapshot:
+
+- 200-case weighted accuracy: 88.50% -> 88.93%.
+- Yong top-1 accuracy: 92.92% -> 94.09%.
+- Strength accuracy: 84.62% -> 87.18%.
+- Xiji direction remains 85.14%; geju accuracy remains 93.49%.
+- Critical count: 0 -> 0.
+- Pass/minor/major/critical: 137/60/3/0 -> 138/61/1/0.
+- Holdout weighted accuracy remains 80.8%; holdout strength accuracy remains 70%; critical count remains 1.
+
+Positive diffs:
+
+- `nb_dts_batch_025_niefan_shangguan_tuxiu`: 47 major -> 83 minor; strength 身弱 -> 身强, yong 正官 -> 伤官.
+- `nb_dts_batch_017_mobaozhai_quhuo_cunjin`: 50 major -> 100 pass; strength 身弱 -> 身强, yong 偏财 -> 偏印.
+
+No scored negative diff was observed. The remaining 200-case major is still `nb_sanming_004_ridege_broken` (`日德格犯忌`), which is now a text-only xiji evidence/scorer limitation rather than a strength residual.
+
 ---
 
 ## File Map
