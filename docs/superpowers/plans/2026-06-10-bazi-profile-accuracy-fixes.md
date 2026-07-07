@@ -123,6 +123,34 @@ Positive diffs:
 
 No scored negative diff was observed. A few already-passing or non-yong-scoped cases changed displayed yong after the more precise `从杀格` / complete-wood-frame priority, but their scores remained unchanged.
 
+### P17-a Execution Result
+
+Implemented source-backed classical-pattern scoring hooks without changing generic thresholds:
+
+- `金木间隔 + 自旺` now applies a pattern-gated strength overlay in `buildCompleteBaziDetail`, so the 杨博 case is treated as 身强 without changing ordinary `calculateStrength`.
+- `印绶天德` now gives 正印 a source-backed yong priority over cold-month output tiaohou.
+- `魁罡格 + 财官印取用` now overrides strong-many image yong priority so 财/官/印 can lead instead of defaulting to 食伤.
+- `日德格犯忌` now routes 财官旺乡、庚辰、刑冲 evidence into negative scoring and the decision chain; it remains a major because the xiji scorer does not yet match text-only ji evidence from decision-chain labels.
+- Engine version `1.8.26 -> 1.8.27`; frontend cache version updated.
+
+Validation snapshot:
+
+- 200-case weighted accuracy: 87.875% -> 88.50%.
+- Yong top-1 accuracy: 92.19% -> 92.92%.
+- Strength accuracy: 83.33% -> 84.62%.
+- Xiji direction remains 85.14%; geju accuracy remains 93.49%.
+- Critical count: 0 -> 0.
+- Pass/minor/major/critical: 136/58/6/0 -> 137/60/3/0.
+- Holdout weighted accuracy remains 80.8%; holdout strength accuracy remains 70%; critical count remains 1.
+
+Positive diffs:
+
+- `nb_sanming_003_yangbo_jinmu`: 40 major -> 100 pass; strength 身弱 -> 身强 through source-backed 金木间隔自旺 overlay.
+- `nb_sanming_006_mengzhong_zhengyin`: 42 major -> 83 minor; yong 伤官 -> 正印 through 印绶天德 priority.
+- `nb_sanming_005_zhangshi_kuigang`: 53 major -> 77 minor; yong 食神 -> 正印 through 魁罡财官印取用 priority.
+
+No scored negative diff was observed. Two already-passing 魁罡 cases changed displayed yong after the same priority hook, but their scores remained 100.
+
 ---
 
 ## File Map
