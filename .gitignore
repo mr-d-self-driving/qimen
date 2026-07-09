@@ -67,6 +67,7 @@ output/
 push.sh
 skills-lock.json
 .agents/skills/karpathy-guidelines/
+.agents/skills/langfuse/
 .claude/skills/
 
 # Local prototypes / design demos
