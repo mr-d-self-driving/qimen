@@ -1,7 +1,9 @@
 # Qimen Dunjia · AI Decision Engine
 
-> **Ancient Chinese metaphysics, rebuilt as a modern AI reasoning system.**  
-> Qimen Dunjia turning-board calculations × Bazi chart analysis × deterministic fortune scoring × Gemini × Vue
+> **A classical framework for structure and change, rebuilt as a modern AI reasoning system.**  
+> Spatiotemporal situation modeling × individual disposition-structure analysis × classical case validation × dual-axis semantic routing × auditable reasoning trail × Gemini × Vue
+
+> *"When a structure is exhausted, it changes; having changed, it finds a way through; having found a way through, it endures."* — I Ching. Change itself is not the exception, it is the object of study — that is this project's starting point, and the line that separates it from fortune-telling.
 
 <p align="center">
   <img src="https://cdn.jsdelivr.net/gh/oceanjustinlin/qimen@main/docs/assets/screenshots/qimen-result-card.jpg" width="200" alt="Qimen result card"/>
@@ -21,19 +23,73 @@
 
 ## Overview
 
-Most Qimen tools either stop at chart generation or repeat terminology without reasoning. This project aims for something different: **AI interpretation built on top of deterministic metaphysics rules, not free-form fortune telling.**
+Most Bazi/Qimen tools either stop at chart generation or repeat mystical-sounding phrases without structure. This project aims for something different: **implement the "situation–time–action" structured framework at the heart of classical Chinese decision philosophy as a deterministic rule engine, and let AI handle expression — not let a language model improvise metaphysics out of nothing.**
 
-The user asks a question, and the system automatically decides whether it should be answered with Qimen Dunjia, Bazi, or a combined reading. The routing layer identifies the type of question, injects the right rule set and chart context, and passes the structured context into the reasoning engine.
+Qimen Dunjia's nine-palace flying-star layout is, at bottom, a spatiotemporal model of how a situation's structure evolves over time. Bazi's stem-branch system is a structural model of how a person's innate disposition interacts with the life stage they're in. Both share the same underlying worldview — yin-yang oscillation, five-element generation and control — a plain relational ontology: things aren't isolated entities but a network of mutually constraining, rising-and-falling relations. This mode of thought predates cybernetics and systems dynamics by more than two thousand years, using symbolic language to describe the dynamic balance among variables that generate and check one another.
 
-The Qimen module handles concrete events, short-term decisions, timing, direction, and action windows. The Bazi module handles natal structure, long-term cycles, industry fit, and life-pattern analysis. The fortune module handles daily, weekly, monthly, and yearly scoring with actionable guidance. Deterministic code produces the objective calculations; the language model turns those conclusions into readable advice.
+After a user asks a question, the system first decides which framework should answer it: the situation model (Qimen), the disposition-structure model (Bazi), or a combined reading. The routing layer identifies the question type first, then hands the matching structural rules, chart context, and real-world background to the reasoning engine.
 
-This is not a template generator. It is a **rules-first metaphysics reasoning system with AI as the expression layer**.
+The situation model handles concrete events, short-term decisions, and timing windows. The disposition-structure model handles individual structure, life-stage trends, and long-term fit. The rhythm-scoring module handles daily / weekly / monthly / yearly state quantification and actionable guidance. Deterministic local rules do the objective computation; the language model only translates the structured conclusion into readable, actionable language — it doesn't judge, it translates.
+
+This isn't a new skin on a fortune-telling app. It's a system that **does structured reasoning first and uses language second — instead of using language to manufacture mystery.**
+
+---
+
+## The Epistemology Behind the Reasoning
+
+Before any technical design, there's a more basic question to answer: **what is this system actually claiming?** This isn't packaging invented for this project — it is the stance Lu Zhiji lays out in *In Search of Destiny* and *A Course in Dynamic Bazi Analysis*, the closest thing this tradition has to a modern, scientific self-description:
+
+> "Ming (命) is the basis; yun (运) is the environment. Ming is the internal cause; yun is the condition. Bazi theory studies how ming and yun interact to reveal the rise and fall of a person's life."
+
+> "The input to this black box is a person's birth moment. The output is a description and prediction of that person's life potential and trajectory." — He names the fundamental limit of Bazi theory as **probabilistic description**: an approximate prediction grounded in observed correlation, not a theological claim of absolute causal determinism.
+
+He borrows the "black box" concept from cybernetics to position the system: it makes no claim to open the box and understand fate's ultimate mechanism — it only observes that the correspondence between input (birth-time structure) and output (life potential and trajectory) "is not arbitrary."
+
+```mermaid
+flowchart LR
+    A["Input<br/>Birth-time structure (Four Pillars)"] --> BB{{"Black box<br/>Yin-yang / five-element symbolic model<br/>No claim on mechanism — only correspondence"}}
+    BB --> C["Output<br/>Probabilistic description<br/>An approximate reading of life potential and trends"]
+    D["Ming = internal cause<br/>Natal-chart potential (static)"] -.-> BB
+    E["Yun = external condition<br/>Luck cycles and years (dynamic)"] -.-> BB
+```
+
+One layer down is his operational methodology — "dynamic analysis" — four progressive stages describing how potential is activated into concrete events over time:
+
+```mermaid
+flowchart TD
+    S1["① Natal foundation · internal cause and potential<br/>Four lenses — strength, seasonal balance, pattern, configuration — locate the useful god and the flaw<br/>Life stages: Year pillar 1-16 / Month 17-32 / Day 33-48 / Hour 49-64+"]
+    S2["② Luck-cycle field · external cause and environment<br/>Luck-cycle stems/branches align with the current life-stage pillar<br/>A ten-year field that lets potential grow — or suppresses it"]
+    S3["③ Year-luck interaction · three trigger mechanisms<br/>Resonance: a repeated character re-activates a natal focal point<br/>Induction: a linked element reaches across to trigger a dormant natal resource<br/>Stem-branch distortion: a direct clash — structural conflict"]
+    S4["④ Annual timing · state shift<br/>Stillness clashed = motion → the event breaks out<br/>Motion combined = stillness → the matter settles"]
+    S1 --> S2 --> S3 --> S4
+```
+
+The natal chart is the potential (the seed); the luck cycle is the environment (the field); the year is the trigger (the spark) — together they decide whether a given event breaks out in a given year, not whether the natal chart alone writes the ending. This four-stage framework is the theoretical source for concepts like life-stage alignment, resonance, and linked-element induction in the project's engineering implementation, and it directly drives every engineering decision below: why scoring runs on a rule engine instead of a prompt, why the same question must produce a consistent conclusion regardless of which model answers it, and why low-confidence questions must be explicitly flagged as "cannot be strongly judged."
 
 ---
 
 ## Core Features
 
 ### Changelog
+
+**2026-07-09 · BaziEngine 1.8.28 · Natal-accuracy calibration release**
+
+Consolidates recent pattern, strength, and configuration-image tuning into a single natal-decision spec. Full conditions, execution order, and the Mermaid flow are documented in [`../bazi-engine-architecture.md`](../bazi-engine-architecture.md).
+
+- Unified the natal decision chain: pattern, strength, and configuration-image are evaluated in parallel, then feed into the pattern-formation and favorability chains.
+- Calibrated pattern-formation candidates (seven-killings with control, official/killings retention, storage-stem exposure); promoted / demoted / invalidated pattern effects now formally weigh into favorability scoring.
+- Unified strength scoring to a 10-point scale (seasonal command, rootedness, support, structural correction); added special-configuration scoring (follow-patterns, dominant-qi, transformation) gated by effective roots and counter-forces.
+- Fixed the favorability execution order: seasonal balance → symptom/remedy → mediation → support/restraint → pattern direction → pattern-formation useful god → structural effects → special rescue → conflict resolution.
+- Regression on 24 high-confidence classical cases: 91.1% weighted accuracy, 95.7% core accuracy, 91.8% top-1 useful-god accuracy, 100% favorability direction, 92.3% pattern accuracy, 100% configuration-image accuracy, 0 severe errors.
+
+**2026-06-25 · Qimen Skill consolidation + palace-depth field tuning**
+
+Consolidated the full Qimen question flow into a reusable Agent Skill (see "Qimen Dunjia Agent Skill" below) and filled in palace-depth fields the scoring engine previously lacked, so deep readings can cite real data instead of the model inventing detail.
+
+- Added stem-relation data (`getStemRelation`) showing the generation/control direction between each palace's heaven and earth stems.
+- Named-pattern hits now record which palace they land in, instead of floating generic symbolism.
+- Fixed a prosperity gap: nine-star seasonal prosperity was never fed into palace evaluation in production; the "structural strength decides outcome" veto tier is now actually active.
+- Skill reporting discipline: casting time follows "the moment of asking," with the event's own time treated as background only; reports render the Luoshu grid up front and require a second-layer palace-depth reading for the core useful-god palace.
 
 **2026-06-13 · Question Follow-ups (multi-turn deep-dive)**
 
@@ -74,6 +130,8 @@ Moved Bazi questions from "does the model sound right" toward "can the rules be 
 
 ### Divination Routing Engine
 
+This is the system's dispatcher. Every question is first classified as a concrete event, a long-term structural question, or one that needs both frameworks together — that classification step is itself the epistemology in practice: decide what *kind* of question this is before deciding how to answer it, instead of running one generic script for everything.
+
 - Automatically decides whether a question should use Qimen, Bazi, or a combined reading
 - Covers common domains such as career, finance, relationships, health, lost items, exams, legal matters, feng shui, pregnancy, and miscellaneous decisions
 - Injects domain-specific rules, chart context, and real-world background into the interpretation flow
@@ -84,9 +142,19 @@ Moved Bazi questions from "does the model sound right" toward "can the rules be 
 - Implements the Shi Jia Qimen turning-board method, including Jiazi hiding, Fu Tou positioning, nine stars, eight gates, and eight spirits
 - Handles key chart signals such as Tian Rui, Tian Qin lodging in Kun, emptiness, and traveling-horse indicators
 - Switches useful-god rules by question domain instead of applying one generic interpretation to every case
-- Produces auspiciousness scores, risk signals, timing windows, favorable directions, favorable time ranges, and concrete suggestions
+- Produces a situation score, risk signals, timing windows, favorable directions, favorable time ranges, and concrete suggestions
 - Supports same-casting follow-up deep-dives without recasting or re-scoring, appending the answer under the relevant sections
 - Supports reading history and validation feedback for later calibration
+
+### Qimen Dunjia Agent Skill (conversational reasoning skill)
+
+Consolidates the Qimen event pipeline above into a technique an AI agent can call directly ([`docs/skills/qimen-dunjia/SKILL.md`](../skills/qimen-dunjia/SKILL.md)), so a conversational casting shares the same deterministic rule foundation as the web app instead of letting the model freelance.
+
+- **Interview first, cast second**: a structured interview confirms the matter, casting time, timezone, and judgment target before any casting; missing information is asked for, not guessed
+- **Fixed pipeline, no skipped steps**: structured interview → question routing → fixed casting → target-spec resolution → bounded scoring → timing scan → single evidence package → free-form report — the engine is never bypassed for freestyle reading
+- **Four hard rules**: chart facts must come from the script; low-confidence targets may be derived by the model but must pass a whitelist and chart check; model-derived targets can only participate in scoring in a bounded, capped way; the report's structure is free-form, but key content (direct answer, reasoning, evidence, risk, timing, advice, limitations) may never be omitted
+- **Casting-time convention**: Shi Jia Qimen casts at "the moment of asking" (Beijing time, script-resolved hour); any event time the user mentions is background only, never the casting time
+- **Report conventions**: renders the Luoshu nine-grid up front, expands named patterns by the palace they land in, reads seasonal strength and heaven/earth stem relations palace by palace, and closes with a note on the reasoning's boundaries
 
 ### Bazi System
 
@@ -94,6 +162,7 @@ Moved Bazi questions from "does the model sound right" toward "can the rules be 
 - Supports birthplace search, longitude, mean solar time, and true solar time correction
 - Expands stems, branches, ten gods, hidden stems, twelve growth phases, Na Yin, emptiness, spirits, and special patterns
 - Uses a local rule engine for day-master strength, favorable elements, pattern judgment, and generation-control relationships
+- Documents the [BaziEngine natal decision architecture](../bazi-engine-architecture.md), specifying execution order and override relationships among pattern, strength, configuration-image, pattern-formation, and the five favorability gods
 - Provides five-element power visualization, scoring details, Bazi Q&A, feedback-based recalibration, and decision notes
 - Supports follow-up deep-dives on the same natal chart, presenting new information as "original verdict → adjusted to …" rather than a silent overwrite
 - Supports linked luck pillars, annual cycles, and monthly cycles to show how the natal chart interacts with current time
@@ -102,16 +171,16 @@ Moved Bazi questions from "does the model sound right" toward "can the rules be 
 
 | Range | What It Does |
 | --- | --- |
-| Daily | Computes the daily score and shows insight cards, timeline, favorable hours, and mitigation advice |
+| Daily | Computes the daily score and shows insight cards, timeline, favorable hours, and guidance |
 | Weekly | Builds a natural-week seven-day curve, weekly label, key dates, solar-term turns, and action reminders |
 | Monthly | Uses solar terms for month boundaries and shows monthly curves, high-score days, low-score days, difficult periods, and readable scoring reasons |
 | Yearly | Generates a multi-year range with luck-cycle context, annual ten-god signals, natal interactions, spirit indicators, and readable scoring reasons |
 
 Monthly detailed readings support four dimensions: general, career, wealth, and relationships. Users can provide long-term context and current-month background, which are then injected into the reading.
 
-### Metaphysics Engineering Dashboard
+### Reasoning Engineering Dashboard
 
-- Breaks complex metaphysics reasoning workflows into clear roles and steps
+- Breaks complex reasoning workflows into clear roles and steps
 - Provides a centralized view of rules, cache state, engine status, and interpretation flow
 - Helps advanced users or administrators inspect the reasoning pipeline
 
@@ -145,7 +214,7 @@ User question
 
 ### Question Reasoning Pipeline
 
-The question engine is no longer a single Bazi Q&A flow. After the user enters a question, the system first decides whether the situation is better handled by Qimen, Bazi, or a combined reading. If the question is too vague, it asks for the missing context first. Each branch uses a different calculation path, and the language model only turns the rule-based conclusions into readable guidance. After any reading, a **follow-up** can deepen it: without recasting or re-scoring, the follow-up answer is appended under the relevant sections; if it falls outside the casting it is treated as a new matter and prompts a recast.
+The question engine is no longer a single Bazi Q&A flow. After the user enters a question, the system first decides whether the situation is better handled by Qimen, Bazi, or a combined reading. If the question is too vague, it asks for the missing context first. Each branch uses a different calculation path, and the language model only turns the rule-based conclusions into readable guidance. After any reading, a **follow-up** can deepen it: without recasting or re-scoring, the follow-up answer is appended under the relevant sections; if it falls outside the casting it is treated as a new matter and prompts a recast — the same principle as "structure is fixed the moment it is cast": new evidence can add depth, but it cannot quietly rewrite a judgment already made.
 
 The detailed Bazi branch design is documented in [`../bazi-prompt-assembly-prd.md`](../bazi-prompt-assembly-prd.md), and the Qimen scoring notes are in [`../qimen-scoring-engine-improvement.md`](../qimen-scoring-engine-improvement.md).
 
@@ -181,7 +250,7 @@ Qimen chart generation
     ├─► Identify domain and active/waiting role
     ├─► Select useful gods and supporting signals
     ├─► Calculate palaces, emptiness, traveling horse, chief star, and chief gate
-    ├─► Produce rule-based score and risk signals first
+    ├─► Produce rule-based situation score and risk signals first
     ├─► Scan usable time windows for activation or breakthrough points
     └─► Let AI review domain, useful gods, score, and timing before producing the card
 ```
@@ -194,7 +263,7 @@ Use this path for long-term structure: career direction, wealth capacity, relati
 | --- | --- | --- |
 | "How is my relationship luck this year?" | Current-state reading | Natal baseline, current luck cycle, and whether the current year activates the target area |
 | "Which year in the next five years is better for changing jobs?" | Timing-window reading | Scans candidate years and identifies stronger windows and years to avoid |
-| "Am I better suited to starting a business or working a job?" | Pattern-fit reading | Natal structure, capacity, resource mode, and risk points |
+| "Am I better suited to starting a business or working a job?" | Open-strategy reading | Natal favorability, life-stage climate, and trade-offs across paths |
 | "What kind of partner am I likely to attract?" | Character-profile reading | Tendencies shown by ten gods, palace positions, and relationship structure |
 | "This cannot be strongly judged from Bazi" | Boundary reading | States the limitation clearly and only offers a low-confidence observation frame |
 
@@ -205,7 +274,7 @@ User question + Bazi profile
 Bazi semantic refinement
     │
     ├─► Identify domain, time range, and target of judgment
-    ├─► Choose current-state / timing-window / pattern-fit / character-profile / boundary path
+    ├─► Choose current-state / timing-window / structure / character-profile / open-strategy path
     └─► Correct low-confidence or conflicting signals to avoid forcing the wrong rule
           │
           ▼
@@ -220,7 +289,8 @@ Natal-state assessment
 Dynamic activation assessment
           Current state: whether the current luck cycle and year activate the target
           Timing window: scan and rank candidate years
-          Pattern fit: focus on natal structure, with current-stage notes if needed
+          Structure: focus on natal structure, with current-stage notes if needed
+          Open strategy: compare multiple paths using natal favorability and life-stage climate
           Character profile: describe tendencies without asserting facts
           Boundary path: explain the limit and downgrade to an observation frame
           │
@@ -282,12 +352,12 @@ The scoring framework is distilled from the author's private NotebookLM study no
 
 | Source | Role in Scoring |
 | --- | --- |
-| Di Tian Sui: useful gods as medicine, unfavorable gods as illness | First determine whether the current time supports the chart or amplifies pressure |
-| Qiong Tong Bao Jian: seasonal balance comes first | Check cold, heat, dryness, and dampness before judging specific fortune |
-| Case-study principle: clashes are stronger than many minor branch signals | Treat clashes, punishments, combinations, and harms in layers instead of absolutizing a single signal |
-| San Ming Tong Hui: the annual ruler carries major influence | Yearly readings give special attention to how the current year activates the stage |
+| *Di Tian Sui*: useful gods as medicine, unfavorable gods as illness | First determine whether the current time supports the chart or amplifies pressure |
+| *Qiong Tong Bao Jian*: seasonal balance comes first | Check cold, heat, dryness, and dampness before judging specific outcomes |
+| Case-study principle: clashes outweigh many minor branch signals | Treat clashes, punishments, combinations, and harms in layers instead of absolutizing a single signal |
+| *San Ming Tong Hui*: the annual ruler carries major influence | Yearly readings give special attention to how the current year activates the stage |
 | Case-study principle: nobleman stars without vitality may not help | Spirit indicators are auxiliary and must be read with strength, favorability, and emptiness |
-| Dynamic analysis theory: natal state → luck-cycle activation → timing | First check whether the natal chart has a basis, then whether time truly activates it |
+| Lu Zhiji's dynamic analysis theory: natal state → luck-cycle activation → timing | First check whether the natal chart has a basis, then whether time truly activates it |
 
 > The NotebookLM material is private study material. This README shows the framework only; concrete rules and weights remain in engineering docs and source code.
 
@@ -309,7 +379,7 @@ Production     Cloudflare Pages + Cloudflare Workers
 ### Engineering Notes
 
 - **Deterministic scoring**: daily, weekly, monthly, and yearly scores are produced by local rule engines; the model cannot overwrite them
-- **Structured reasoning paths**: questions are first routed to Qimen, Bazi, or a combined reading; the Bazi branch then chooses current-state, timing-window, pattern-fit, or character-profile paths
+- **Structured reasoning paths**: questions are first routed to Qimen, Bazi, or a combined reading; the Bazi branch then chooses current-state, timing-window, structure, or character-profile paths
 - **Streaming questions with self-healing retry**: questions stream via a sentinel-segment SSE protocol, rendering rule output first and filling AI prose section by section; a failed structure check (empty stream / missing core sections / unparseable data_json) auto-clears the half-rendered content and retries once non-streaming
 - **Question follow-ups**: Qimen / Bazi support same-casting deep-dives; a classifier first splits "deepen / new matter," supplemental data is computed deterministically from a whitelist, and the model only reads results — appending, never overwriting the original
 - **Switchable question model**: the `QUESTION_MODEL` env var configures the question model per environment (code default falls back to pro); both environments currently run flash to compare stability and quality
@@ -378,7 +448,7 @@ Database migration scripts are kept in `docs/sql/` for the author's own maintena
 
 **Qimen result cards include:**
 
-- Auspiciousness score, five-part interpretation, scoring rationale, and risk tags
+- Situation score, five-part interpretation, scoring rationale, and risk tags
 - Nine-palace chart visualization with chief star, chief gate, emptiness, and traveling-horse markers
 - Timing windows, favorable directions, favorable time ranges, and action notes
 - Validation feedback entry on the result page
@@ -428,10 +498,15 @@ Day-master strength, favorable elements, and daily, monthly, and yearly scores a
 
 The same chart signal can mean different things in career, relationships, health, competitions, or transactions. The system uses question domains, Bazi profiles, and real-world context to ground each interpretation.
 
+**A probability map, not a verdict of fate**
+
+Qimen and Bazi hand you a reference for "which paths look smoother, which moments deserve attention, given the current structure" — not an assertion that things will definitely turn out one way. The structure sets the terrain; the person is still the variable. Whether it works out still comes down to how the person in it chooses and acts.
+
 ---
 
 ## Credits
 
+- Lu Zhiji, *In Search of Destiny* / *A Course in Dynamic Bazi Analysis* — dynamic analysis theory (target element → natal state → luck-cycle activation)
 - [lunar-javascript](https://github.com/6tail/lunar-javascript) — sexagenary calendar calculations
 - [Google Gemini](https://deepmind.google/technologies/gemini/) — AI reasoning engine
 - [Supabase](https://supabase.com) — database and authentication
@@ -445,4 +520,5 @@ The same chart signal can mean different things in career, relationships, health
 
 MIT License. You may use, modify, and distribute the code while preserving the original author notice.
 
-> Metaphysics readings are for reference only. Please make real decisions rationally.
+> Structure can be reasoned through; the choice is still yours.  
+> This system can tell you roughly what shape the situation takes — it can't take the steps for you. It hands you a map, not your footing.
