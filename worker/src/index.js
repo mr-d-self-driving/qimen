@@ -370,7 +370,7 @@ async function classifyByGeminiFlashWithEnv(question, ruleResult, env, ctx, trac
     name: traceMeta.name || 'divination-route-l1',
     model, input: prompt, output: content,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags,
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(apiData.usage),
   }, env, ctx);
   return parsed;
 }
@@ -570,7 +570,18 @@ function redactForTrace(text, { maxLen = 20000 } = {}) {
 // generation-create 字段是尽力而为：若字段有误，只会体现在响应的 errors 数组里（打 warn 日志），
 // 不影响 trace-create 本身成功——所以两个 event 放同一个 batch 里发送，风险可控。
 // 必须 fail-open：Langfuse 故障绝不能影响主链路给用户的响应。
-async function reportToLangfuse({ name, model, input, output, startTime, endTime, metadata, tags }, env, ctx) {
+// 把上游 OpenAI 兼容响应里的 usage（prompt_tokens/completion_tokens/total_tokens）
+// 转成 Langfuse ingestion API 的 usage 形状（input/output/total/unit）。
+function toLangfuseUsage(usage) {
+  if (!usage) return undefined;
+  const input = usage.prompt_tokens ?? usage.input_tokens;
+  const output = usage.completion_tokens ?? usage.output_tokens;
+  const total = usage.total_tokens ?? (input != null && output != null ? input + output : undefined);
+  if (input == null && output == null && total == null) return undefined;
+  return { input, output, total, unit: 'TOKENS' };
+}
+
+async function reportToLangfuse({ name, model, input, output, startTime, endTime, metadata, tags, usage }, env, ctx) {
   if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) return;
 
   const promise = (async () => {
@@ -610,6 +621,7 @@ async function reportToLangfuse({ name, model, input, output, startTime, endTime
               startTime: startIso,
               endTime: endIso,
               metadata,
+              usage,
             },
           },
         ],
@@ -668,7 +680,7 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
     name: traceMeta.name || 'requestLLM',
     model, input: traceMeta.traceInputOverride ?? prompt, output: rawContent,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags,
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
   }, env, ctx);
   return parsed;
 }
@@ -705,7 +717,7 @@ async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', tem
     name: traceMeta.name || 'requestLLMText',
     model, input: prompt, output: content,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags,
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
   }, env, ctx);
   return content;
 }
@@ -727,7 +739,8 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature,
-      stream: true
+      stream: true,
+      stream_options: { include_usage: true }
     })
   });
 
@@ -750,7 +763,7 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
       name: traceMeta.name || 'requestLLMSimpleStream',
       model, input: prompt, output: content,
       startTime, endTime: Date.now(),
-      metadata: traceMeta, tags: traceMeta.tags,
+      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
     }, env, ctx);
     return;
   }
@@ -758,6 +771,7 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamUsage;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -772,6 +786,7 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
         if (!payload || payload === '[DONE]') continue;
         let event;
         try { event = JSON.parse(payload); } catch { continue; }
+        if (event.usage) streamUsage = event.usage;
         const delta = event.choices?.[0]?.delta?.content
           ?? event.choices?.[0]?.message?.content
           ?? '';
@@ -786,7 +801,7 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
     name: traceMeta.name || 'requestLLMSimpleStream',
     model, input: prompt, output: fullOutput,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags,
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage),
   }, env, ctx);
 }
 
@@ -1072,7 +1087,8 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature,
-      stream: true
+      stream: true,
+      stream_options: { include_usage: true }
     })
   });
 
@@ -1100,7 +1116,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
       name: traceMeta.name || 'requestLLMStreamSections',
       model, input: prompt, output: JSON.stringify(parsed.sections),
       startTime, endTime: Date.now(),
-      metadata: traceMeta, tags: traceMeta.tags,
+      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
     }, env, ctx);
     return parsed.sections;
   }
@@ -1108,6 +1124,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamUsage;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -1122,6 +1139,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
         if (!payload || payload === '[DONE]') continue;
         let event;
         try { event = JSON.parse(payload); } catch { continue; }
+        if (event.usage) streamUsage = event.usage;
         const delta = event.choices?.[0]?.delta?.content
           ?? event.choices?.[0]?.message?.content
           ?? '';
@@ -1135,7 +1153,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
     name: traceMeta.name || 'requestLLMStreamSections',
     model, input: prompt, output: JSON.stringify(finishedSections),
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags,
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage),
   }, env, ctx);
   return finishedSections;
 }
