@@ -21,6 +21,7 @@ import { calculateQimenScore } from '../../lib/qimenScoringEngine.js';
 import { annotateProsperity } from '../../lib/qimenProsperity.js';
 import { getMaXing, maXingMap, zhiToPalace, palaceBranches, getKongIndices } from '../../lib/qimenCore.js';
 import { buildQimenChart } from '../../lib/qimenChart.js';
+import { buildQimenEvidence } from '../../lib/qimenPipeline.js';
 import { parsePanTime } from '../../lib/panTime.js';
 import baziCore from '../../lib/baziCore.js';
 import qimenLlmOutput from '../../lib/qimenLlmOutput.js';
@@ -336,11 +337,14 @@ async function readJson(request) {
   return request.json();
 }
 
-async function classifyByGeminiFlashWithEnv(question, ruleResult, env) {
+async function classifyByGeminiFlashWithEnv(question, ruleResult, env, ctx, traceMeta = {}) {
   if (!env.GEMINI_API_KEY) {
     throw new Error('GEMINI_API_KEY is not configured');
   }
 
+  const startTime = Date.now();
+  const prompt = buildGeminiRoutePrompt(question, ruleResult);
+  const model = 'gemini-3-flash-preview';
   const response = await fetch(LLM_API_URL, {
     method: 'POST',
     headers: {
@@ -348,8 +352,8 @@ async function classifyByGeminiFlashWithEnv(question, ruleResult, env) {
       Authorization: `Bearer ${env.GEMINI_API_KEY}`,
     },
     body: JSON.stringify({
-      model: 'gemini-3-flash-preview',
-      messages: [{ role: 'user', content: buildGeminiRoutePrompt(question, ruleResult) }],
+      model,
+      messages: [{ role: 'user', content: prompt }],
       response_format: { type: 'json_object' },
       temperature: 0.1,
     }),
@@ -361,15 +365,22 @@ async function classifyByGeminiFlashWithEnv(question, ruleResult, env) {
 
   const apiData = await response.json();
   const content = apiData.choices?.[0]?.message?.content || '{}';
-  return JSON.parse(content.replace(/```json/g, '').replace(/```/g, '').trim());
+  const parsed = JSON.parse(content.replace(/```json/g, '').replace(/```/g, '').trim());
+  reportToLangfuse({
+    name: traceMeta.name || 'divination-route-l1',
+    model, input: prompt, output: content,
+    startTime, endTime: Date.now(),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(apiData.usage),
+  }, env, ctx);
+  return parsed;
 }
 
-async function classifyBaziSemanticRouteWithEnv(question, routeHint, env) {
+async function classifyBaziSemanticRouteWithEnv(question, routeHint, env, ctx, traceMeta = {}) {
   const prompt = buildBaziSemanticRoutePrompt(question, routeHint);
-  return requestLLM(prompt, env, 'gemini-3-flash-preview', 0.1);
+  return requestLLM(prompt, env, 'gemini-3-flash-preview', 0.1, ctx, { name: 'divination-route-l2-bazi', ...traceMeta });
 }
 
-async function handleDivinationRoute(request, env) {
+async function handleDivinationRoute(request, env, ctx) {
   if (request.method !== 'POST') {
     return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   }
@@ -383,7 +394,7 @@ async function handleDivinationRoute(request, env) {
   const route = await classifyDivinationQuestion({
     question,
     llmFallback: true,
-    llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env),
+    llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env, ctx, { name: 'divination-route-l1', scenario: 'divination-route' }),
   });
 
   // CP2：用户显式指定了起局时刻 → 视为「为此刻起一卦」的具体事件意图，不落 bazi/clarify。
@@ -547,9 +558,96 @@ async function enforceQuota(user, env) {
   }
 }
 
-async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.5) {
+function redactForTrace(text, { maxLen = 20000 } = {}) {
+  if (typeof text !== 'string') return text;
+  return text.length > maxLen ? `${text.slice(0, maxLen)}…[截断:${text.length}字符]` : text;
+}
+
+// Phase 0 可观测性：手写调用 Langfuse legacy ingestion API，不用官方 JS SDK。
+// 原因：@langfuse/otel 要求 Node.js>=20，在 Cloudflare Workers 上不可靠（SDK flushAsync()
+// 会静默丢数据，见 github.com/langfuse/langfuse/issues/11984）；直接调 ingestion API 才稳定。
+// trace-create 字段结构已通过官方 API reference + 真实用户在 Workers 上跑通的例子交叉验证。
+// generation-create 字段是尽力而为：若字段有误，只会体现在响应的 errors 数组里（打 warn 日志），
+// 不影响 trace-create 本身成功——所以两个 event 放同一个 batch 里发送，风险可控。
+// 必须 fail-open：Langfuse 故障绝不能影响主链路给用户的响应。
+// 把上游 OpenAI 兼容响应里的 usage（prompt_tokens/completion_tokens/total_tokens）
+// 转成 Langfuse ingestion API 的 usage 形状（input/output/total/unit）。
+function toLangfuseUsage(usage) {
+  if (!usage) return undefined;
+  const input = usage.prompt_tokens ?? usage.input_tokens;
+  const output = usage.completion_tokens ?? usage.output_tokens;
+  const total = usage.total_tokens ?? (input != null && output != null ? input + output : undefined);
+  if (input == null && output == null && total == null) return undefined;
+  return { input, output, total, unit: 'TOKENS' };
+}
+
+async function reportToLangfuse({ name, model, input, output, startTime, endTime, metadata, tags, usage }, env, ctx) {
+  if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) return;
+
+  const promise = (async () => {
+    try {
+      const traceId = crypto.randomUUID();
+      const nowIso = new Date().toISOString();
+      const auth = btoa(`${env.LANGFUSE_PUBLIC_KEY}:${env.LANGFUSE_SECRET_KEY}`);
+      const startIso = new Date(startTime).toISOString();
+      const endIso = new Date(endTime).toISOString();
+      const body = {
+        batch: [
+          {
+            id: crypto.randomUUID(),
+            timestamp: nowIso,
+            type: 'trace-create',
+            body: {
+              id: traceId,
+              timestamp: startIso,
+              name,
+              input: redactForTrace(input),
+              output: redactForTrace(output),
+              metadata,
+              tags,
+            },
+          },
+          {
+            id: crypto.randomUUID(),
+            timestamp: nowIso,
+            type: 'generation-create',
+            body: {
+              id: crypto.randomUUID(),
+              traceId,
+              name,
+              model,
+              input: redactForTrace(input),
+              output: redactForTrace(output),
+              startTime: startIso,
+              endTime: endIso,
+              metadata,
+              usage,
+            },
+          },
+        ],
+      };
+
+      const res = await fetch(`${env.LANGFUSE_BASE_URL}/api/public/ingestion`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Basic ${auth}` },
+        body: JSON.stringify(body),
+      });
+      const result = await res.json().catch(() => null);
+      if (result?.errors?.length) {
+        console.warn('[langfuse] ingestion partial errors:', JSON.stringify(result.errors).slice(0, 500));
+      }
+    } catch (err) {
+      console.warn('[langfuse] report failed:', err.message);
+    }
+  })();
+
+  if (ctx?.waitUntil) ctx.waitUntil(promise); else await promise;
+}
+
+async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.5, ctx, traceMeta = {}) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
-  
+
+  const startTime = Date.now();
   const response = await fetch('https://yinli.one/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -574,16 +672,24 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
 
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  
+
   const rawContent = data.choices?.[0]?.message?.content || '{}';
   const cleaned = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
-  return JSON.parse(cleaned);
+  const parsed = JSON.parse(cleaned);
+  reportToLangfuse({
+    name: traceMeta.name || 'requestLLM',
+    model, input: traceMeta.traceInputOverride ?? prompt, output: rawContent,
+    startTime, endTime: Date.now(),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+  }, env, ctx);
+  return parsed;
 }
 
 // Non-streaming plain-text fallback — used for empty-stream retry.
 // Returns the full response text (no JSON format constraint, stream: false).
-async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
+async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65, ctx, traceMeta = {}) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const startTime = Date.now();
   const response = await fetch(LLM_API_URL, {
     method: 'POST',
     headers: {
@@ -606,13 +712,22 @@ async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', tem
   }
   const data = await response.json();
   if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
-  return data.choices?.[0]?.message?.content || '';
+  const content = data.choices?.[0]?.message?.content || '';
+  reportToLangfuse({
+    name: traceMeta.name || 'requestLLMText',
+    model, input: prompt, output: content,
+    startTime, endTime: Date.now(),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+  }, env, ctx);
+  return content;
 }
 
 // Streams plain text chunks from the LLM (no JSON format constraint).
 // Yields raw text deltas for SSE forwarding.
-async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
+async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65, ctx, traceMeta = {}) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const startTime = Date.now();
+  let fullOutput = '';
 
   const response = await fetch(LLM_API_URL, {
     method: 'POST',
@@ -624,7 +739,8 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature,
-      stream: true
+      stream: true,
+      stream_options: { include_usage: true }
     })
   });
 
@@ -643,12 +759,19 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
     if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
     const content = data.choices?.[0]?.message?.content || '';
     if (content) yield content;
+    reportToLangfuse({
+      name: traceMeta.name || 'requestLLMSimpleStream',
+      model, input: prompt, output: content,
+      startTime, endTime: Date.now(),
+      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+    }, env, ctx);
     return;
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamUsage;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -663,13 +786,23 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
         if (!payload || payload === '[DONE]') continue;
         let event;
         try { event = JSON.parse(payload); } catch { continue; }
+        if (event.usage) streamUsage = event.usage;
         const delta = event.choices?.[0]?.delta?.content
           ?? event.choices?.[0]?.message?.content
           ?? '';
-        if (delta) yield delta;
+        if (delta) {
+          fullOutput += delta;
+          yield delta;
+        }
       }
     }
   }
+  reportToLangfuse({
+    name: traceMeta.name || 'requestLLMSimpleStream',
+    model, input: prompt, output: fullOutput,
+    startTime, endTime: Date.now(),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage),
+  }, env, ctx);
 }
 
 // Replaces the JSON schema block in a bazi-question prompt with a plain-text output instruction.
@@ -940,8 +1073,9 @@ function baziSectionsAreBad(sec, mode) {
   return false;
 }
 
-async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gemini-3.1-pro-preview', temperature = 0.65) {
+async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gemini-3.1-pro-preview', temperature = 0.65, ctx, traceMeta = {}) {
   if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+  const startTime = Date.now();
 
   const response = await fetch(LLM_API_URL, {
     method: 'POST',
@@ -953,7 +1087,8 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
       model,
       messages: [{ role: 'user', content: prompt }],
       temperature,
-      stream: true
+      stream: true,
+      stream_options: { include_usage: true }
     })
   });
 
@@ -977,12 +1112,19 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
       handlers.onDelta?.(section, text);
       handlers.onSectionDone?.(section, text);
     }
+    reportToLangfuse({
+      name: traceMeta.name || 'requestLLMStreamSections',
+      model, input: prompt, output: JSON.stringify(parsed.sections),
+      startTime, endTime: Date.now(),
+      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+    }, env, ctx);
     return parsed.sections;
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  let streamUsage;
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
@@ -997,6 +1139,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
         if (!payload || payload === '[DONE]') continue;
         let event;
         try { event = JSON.parse(payload); } catch { continue; }
+        if (event.usage) streamUsage = event.usage;
         const delta = event.choices?.[0]?.delta?.content
           ?? event.choices?.[0]?.message?.content
           ?? '';
@@ -1005,7 +1148,14 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
     }
   }
 
-  return parser.finish().sections;
+  const finishedSections = parser.finish().sections;
+  reportToLangfuse({
+    name: traceMeta.name || 'requestLLMStreamSections',
+    model, input: prompt, output: JSON.stringify(finishedSections),
+    startTime, endTime: Date.now(),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage),
+  }, env, ctx);
+  return finishedSections;
 }
 
 async function assertProfileOwnership(userId, profileId, env) {
@@ -1236,7 +1386,7 @@ async function handleContextNotes(request, env) {
   }
 }
 
-async function handleBaziQuestion(request, env) {
+async function handleBaziQuestion(request, env, ctx) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   const startedAt = Date.now();
 
@@ -1301,7 +1451,7 @@ async function handleBaziQuestion(request, env) {
     try {
       semanticRouteRaw = requestRoute.analysis_mode
         ? { ...requestRoute, source: requestRoute.source || 'client' }
-        : await classifyBaziSemanticRouteWithEnv(question, routeHint, env);
+        : await classifyBaziSemanticRouteWithEnv(question, routeHint, env, ctx, { name: 'bazi-semantic-route', scenario: 'bazi-question' });
     } catch (routeError) {
       semanticRouteRaw = {
         ...routeHint,
@@ -1399,7 +1549,8 @@ async function handleBaziQuestion(request, env) {
     const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.65)) {
+    const _baziTraceMeta = { name: 'bazi-question-answer', scenario: 'bazi-question', category: semanticRoute.category, analysisMode: _baziMode, tags: ['bazi', `mode:${_baziMode}`] };
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.65, ctx, _baziTraceMeta)) {
       llmFullText += chunk;
       baziParser.push(chunk);
     }
@@ -1410,7 +1561,7 @@ async function handleBaziQuestion(request, env) {
       // 通知前端清空已显示的半截内容，重置回骨架
       emit({ type: 'llm_retry', message: 'AI 重新推演中…' });
       try {
-        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.65);
+        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.65, ctx, { ..._baziTraceMeta, name: 'bazi-question-answer-retry' });
       } catch (retryErr) {
         console.error('[bazi-question] retry also failed:', retryErr.message);
         emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
@@ -1532,13 +1683,16 @@ async function handleBaziPanel(request, env) {
   }
 }
 
-async function handleBaziCalibrate(request, env) {
+async function handleBaziCalibrate(request, env, ctx) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   try {
     const user = await getAuthedUser(request, env);
     const body = await readJson(request);
     const { profileId, prompt } = body;
     if (!profileId || !prompt) return json({ error: '缺少 profileId 或 prompt' }, { status: 400 }, request, env);
+    // 该 prompt 在前端拼好（见 src/utils/buildCalibrationPrompt.mjs），内含用户填写的人生大事
+    // 自由描述（可能涉及婚姻/疾病/官司等隐私内容），上报 Langfuse 时不传原文，只传统计摘要。
+    const _calibrateTraceInput = JSON.stringify({ profileId, promptLength: prompt.length });
 
     const supabase = createSupabaseClient(env);
     const { data: profile, error: profileError } = await supabase
@@ -1564,7 +1718,9 @@ async function handleBaziCalibrate(request, env) {
       }, { status: 200 }, request, env);
     }
 
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.2);
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.2, ctx, {
+      name: 'bazi-calibrate', scenario: 'bazi-calibrate', traceInputOverride: _calibrateTraceInput,
+    });
     if (!llmJson.yuanju_core || !llmJson.current_dayun || !llmJson.current_liunian) {
       return json({ error: 'LLM 返回格式不符预期' }, { status: 500 }, request, env);
     }
@@ -1592,7 +1748,7 @@ async function handleBaziCalibrate(request, env) {
   }
 }
 
-async function handleFortuneDailyInterpretation(request, env) {
+async function handleFortuneDailyInterpretation(request, env, ctx) {
   if (request.method !== 'GET' && request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   const url = new URL(request.url);
   let body = {};
@@ -1616,7 +1772,7 @@ async function handleFortuneDailyInterpretation(request, env) {
     const baseJson = cached ? { ...cached, ...latestBaseJson } : latestBaseJson;
     
     const prompt = buildInterpretationPrompt(context);
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5);
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-daily-interpretation', scenario: 'fortune-daily' });
     const mergedJson = mergeInterpretation(baseJson, llmJson);
 
     await upsertFortuneCache(user.id, 'day', periodKey, mergedJson, expiresAt, env);
@@ -1628,7 +1784,7 @@ async function handleFortuneDailyInterpretation(request, env) {
   }
 }
 
-async function handleFortuneMonthlyInterpretation(request, env) {
+async function handleFortuneMonthlyInterpretation(request, env, ctx) {
   if (request.method !== 'GET' && request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   const url = new URL(request.url);
   let body = {};
@@ -1657,7 +1813,7 @@ async function handleFortuneMonthlyInterpretation(request, env) {
       recent_monthly_contexts: recentMonthlyContexts,
     });
     
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5);
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-monthly-interpretation', scenario: 'fortune-monthly', dimension });
     const mergedJson = mergeMonthlyInterpretation(baseJson, llmJson, dimension);
 
     await upsertFortuneCache(user.id, 'month_interpretation', periodKey, mergedJson, flowMonth.expiresAt, env);
@@ -1716,7 +1872,7 @@ async function runFollowupCapabilities(needs, ctx) {
 }
 
 // POST /api/qimen-followup —— 同一局追问，锚定式增补（不覆盖原报告）。
-async function handleQimenFollowup(request, env) {
+async function handleQimenFollowup(request, env, ctx) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
 
   // 鉴权：与 handleQimen 一致，允许访客。
@@ -1761,7 +1917,7 @@ async function handleQimenFollowup(request, env) {
     if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][prompt:classifier]\n' + classifierPrompt);
     let routeRaw;
     try {
-      routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1);
+      routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1, ctx, { name: 'qimen-followup-classify', scenario: 'qimen-followup', branch });
     } catch (e) {
       console.warn('[followup] classifier failed, defaulting to same_casting:', e.message);
       routeRaw = { scope: 'same_casting' };
@@ -1809,8 +1965,9 @@ async function handleQimenFollowup(request, env) {
     const parser = createSentinelStreamParser(visible, {
       onVisibleDelta: (section, text) => emit({ type: 'patch_delta', section, text }),
     });
+    const _followupTraceMeta = { name: 'qimen-followup-patch', scenario: 'qimen-followup', branch, nature: fr.nature, tags: ['qimen-followup'] };
     let full = '';
-    for await (const chunk of requestLLMSimpleStream(patchPrompt, env, patchModel, 0.6)) {
+    for await (const chunk of requestLLMSimpleStream(patchPrompt, env, patchModel, 0.6, ctx, _followupTraceMeta)) {
       full += chunk;
       parser.push(chunk);
     }
@@ -1822,7 +1979,7 @@ async function handleQimenFollowup(request, env) {
       console.warn('[followup] empty patch, retrying non-streaming...');
       emit({ type: 'patch_retry' });
       try {
-        full = await requestLLMText(patchPrompt, env, patchModel, 0.6);
+        full = await requestLLMText(patchPrompt, env, patchModel, 0.6, ctx, { ..._followupTraceMeta, name: 'qimen-followup-patch-retry' });
         const retry = createSentinelStreamParser(visible, {});
         retry.push(full);
         sec = retry.finish();
@@ -1876,7 +2033,7 @@ function parseFollowupDecisionJson(raw) {
 
 // POST /api/bazi-followup —— 八字同一命盘追问（统一单主-LLM 架构）。
 // 本步（step 2）落地 answer / new_matter；recompute 暂出 pending 事件（step 4 接补算）。
-async function handleBaziFollowup(request, env) {
+async function handleBaziFollowup(request, env, ctx) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
 
   // 八字本就强制登录（无访客）。
@@ -1950,8 +2107,9 @@ async function handleBaziFollowup(request, env) {
       },
     });
 
+    const _baziFollowupTraceMeta = { name: 'bazi-followup-decide', scenario: 'bazi-followup', analysisMode: originRoute.analysis_mode, tags: ['bazi-followup'] };
     let full = '';
-    for await (const chunk of requestLLMSimpleStream(prompt, env, model, 0.6)) {
+    for await (const chunk of requestLLMSimpleStream(prompt, env, model, 0.6, ctx, _baziFollowupTraceMeta)) {
       full += chunk;
       parser.push(chunk);
     }
@@ -1996,7 +2154,7 @@ async function handleBaziFollowup(request, env) {
       console.warn('[bazi-followup] empty answer, retrying non-streaming...');
       emit({ type: 'patch_retry' });
       try {
-        const retryFull = await requestLLMText(prompt, env, model, 0.6);
+        const retryFull = await requestLLMText(prompt, env, model, 0.6, ctx, { ..._baziFollowupTraceMeta, name: 'bazi-followup-decide-retry' });
         const rp = createSentinelStreamParser(visible, {});
         rp.push(retryFull); const rsec = rp.finish();
         for (const k of patchable) if (rsec[k] && rsec[k].trim()) { supplements[k] = rsec[k].trim(); emit({ type: 'patch_delta', section: k, text: supplements[k] }); }
@@ -2019,7 +2177,7 @@ async function handleBaziFollowup(request, env) {
   return sseResponse;
 }
 
-async function handleQimen(request, env) {
+async function handleQimen(request, env, ctx) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   const startedAt = Date.now();
 
@@ -2113,144 +2271,45 @@ async function handleQimen(request, env) {
       return;
     }
 
-    // 起盘：统一走 lib/qimenChart.buildQimenChart（与 golden-master 单测同源）。
-    const chart = buildQimenChart({ year, month, day, hour, minute });
-    const {
-        juResult, xunHead, fuShou, flyStep, tianGan,
-        diPan, zhiFuStar, nineStars, zhiShiDoor, eightDoors, eightGods, tianPanGan,
-        dayZhi, hourZhi, dayMa, hourMa, dayKongObj, hourKongObj, dayKongIndices, hourKongIndices,
-        tianRuiIndex, centerEarthStem,
-        timestamp_solar, timestamp_lunar, qimen_structure, dayStem, hourStem,
-        qimenData
-    } = chart;
+    // 起盘 + 用神 + 应期 + 评分：统一走 lib/qimenPipeline.buildQimenEvidence（单一真实，
+    // 与 skill CLI 共用同一段计算编排；worker 只负责 SSE / LLM / 缓存 / DB，不再自抄编排）。
 
-    // CP5：标注起局时刻来源，随 qimenData 流向 engine_complete / 历史记录 / 缓存。
-    qimenData.pan_time_source = panTimeParts ? 'custom' : 'now';
-    if (panTimeParts) qimenData.pan_time = { ...panTimeParts };
-
-    const palaceNames = ["巽", "离", "坤", "震", "中", "兑", "艮", "坎", "乾"];
-    const palaceNumbers = [4, 9, 2, 3, 5, 7, 8, 1, 6];
-    let palacesText = "";
-
-    for (let i = 0; i < 9; i++) {
-        let pName = `${palaceNames[i]}${palaceNumbers[i]}宫`;
-        if (i === 4) {
-            palacesText += `${pName}信息开始：地盘天干：${diPan[i]}，${pName}信息结束。\n`;
-            continue;
-        }
-        let extra = "";
-        if (dayKongIndices.includes(i) || hourKongIndices.includes(i)) extra += "本宫占空亡；";
-        if (i === maXingMap[dayMa] || i === maXingMap[hourMa]) extra += "本宫有马星；";
-        
-        let jiText = "";
-        if (i === 2) jiText = `；地盘寄干：${centerEarthStem}`;
-        if (i === tianRuiIndex) jiText += `；天盘寄干：${centerEarthStem}`;
-
-        const stemRel = U.getStemRelation(tianPanGan[i], diPan[i]);
-        const stemRelText = stemRel ? `；天地盘干生克：${stemRel}` : "";
-        palacesText += `${pName}信息开始：九星：${nineStars[i]}；八神：${eightGods[i]}；八门：${eightDoors[i]}；天盘天干：${tianPanGan[i]}；地盘天干：${diPan[i]}${stemRelText}${jiText}；${extra}${pName}信息结束。\n`;
-    }
-
-    // ── SSE Step 1: 起盘计算完成 ──
-    emit({ type: 'step', index: 1, pct: 25, chip: { main: qimen_structure, sub: ganzhiHour } });
-
+    // 路由分类（规则优先 + LLM 兜底）先于 pipeline，route 作为 pipeline 的输入。
     const qimenRouteHint = ruleRouteHint(userQuestion, { forceBranch: 'qimen' });
     const routeRaw = body.route
         ? { ...body.route, source: body.route.source || 'client' }
-        : await classifyDivinationQuestion({ question: userQuestion, forceBranch: 'qimen', llmFallback: true, llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env) });
+        : await classifyDivinationQuestion({ question: userQuestion, forceBranch: 'qimen', llmFallback: true, llmClassifier: (text, ruleResult) => classifyByGeminiFlashWithEnv(text, ruleResult, env, ctx, { name: 'qimen-route-l1', scenario: 'qimen' }) });
     const detectedIntent = normalizeDivinationRoute(routeRaw);
 
-    // ── SSE Step 0: 解析问题意图完成 (routing was done by client) ──
+    const ev = buildQimenEvidence({
+        year, month, day, hour, minute,
+        panTimeParts,
+        baseTime: bjTime,
+        question: userQuestion,
+        intent: detectedIntent,
+        baziInfo
+    });
+    const {
+        qimenData, palacesText, qimen_structure,
+        juResult, xunHead, zhiFuStar, zhiShiDoor, dayMa, hourMa, dayKongObj, hourKongObj,
+        timestamp_solar, timestamp_lunar,
+        yongshenRule, effectiveBaziInfo, hasBaziInfo, timingTargetSymbols,
+        timingPalaces, timingInputSnapshot, timingAnalysis, polarityOverrides,
+        backendScoreInput, backendScoreAudit, backendFormationTags
+    } = ev;
+
+    // ── SSE 进度：pipeline 已一次算完，按 index 顺序回报（chip 内容与旧版逐字一致）──
     const _cat0 = QIMEN_CATEGORY_LABELS[detectedIntent.category] || '综合运势';
     const _sub0 = detectedIntent.branch === 'hybrid' ? '综合推演' : '奇门遁甲';
     emit({ type: 'step', index: 0, pct: 10, chip: { main: _cat0, sub: _sub0 } });
-
-    // 纯奇门分支：屏蔽命主八字信息，只用盘面推演，不引入命局偏倚
-    const effectiveBaziInfo = detectedIntent.branch === 'qimen' ? "未提供八字信息" : baziInfo;
-
-    const yongshenRule = getYongshenRule(detectedIntent.category, detectedIntent.subcategory);
-    const hasBaziInfo = effectiveBaziInfo !== "未提供八字信息";
-    const timingTargetSymbols = [
-        ...(yongshenRule.yongshen?.primary || []),
-        ...(yongshenRule.yongshen?.secondary || [])
-    ]
-        .filter(item => hasBaziInfo || !item.requiresBazi)
-        .map(item => ({ symbol: item.symbol, role: item.role, weight: item.layer || 'core' }));
-        
-    // ── SSE Step 2: 定位用神完成 ──
+    emit({ type: 'step', index: 1, pct: 25, chip: { main: qimen_structure, sub: ganzhiHour } });
     const _primarySymbol = yongshenRule?.yongshen?.primary?.[0]?.symbol || '用神';
     emit({ type: 'step', index: 2, pct: 42, chip: { main: _primarySymbol, sub: detectedIntent.subcategory || detectedIntent.category || '' } });
-
-    // 月令（按节气定干支月），用于计算每宫九星旺衰
-    const monthGanZhi = lunar.getMonthInGanZhi();
-    const timingPalaces = annotateProsperity(Array.from({ length: 9 }, (_, i) => ({
-        index: i,
-        name: `${palaceNames[i]}${palaceNumbers[i]}宫`,
-        element: ["木", "火", "土", "木", "土", "金", "土", "水", "金"][i],
-        branches: palaceBranches[i],
-        door: eightDoors[i],
-        star: nineStars[i],
-        god: eightGods[i],
-        sky: tianPanGan[i],
-        earth: diPan[i],
-        stem_relation: U.getStemRelation(tianPanGan[i], diPan[i]),
-        isKong: dayKongIndices.includes(i) || hourKongIndices.includes(i),
-        hasMa: i === maXingMap[dayMa] || i === maXingMap[hourMa],
-        isZhiShi: eightDoors[i] === zhiShiDoor,
-        isDayStem: tianPanGan[i] === dayStem || diPan[i] === dayStem,
-        isHourStem: tianPanGan[i] === hourStem || diPan[i] === hourStem
-    }), monthGanZhi));
-    
-    const timingInputSnapshot = {
-        generatedAt: bjTime,
-        chart: {
-            dayKongBranches: String(dayKongObj || '').split(''),
-            hourKongBranches: String(hourKongObj || '').split(''),
-            dayMa,
-            hourMa,
-            palaces: timingPalaces
-        },
-        targetSymbols: timingTargetSymbols,
-        eventMode: 'success',
-        scanDays: 30,
-        scanMaxHits: 12,
-        recheckLimit: 5
-    };
-    const timingAnalysis = buildTimingAnalysis(timingInputSnapshot);
-    
-    // ── SSE Step 3: 推演应期完成 ──
     const _windows = timingAnalysis?.p2_scan?.candidates || [];
     const _firstWin = _windows[0];
     const _winSub = _firstWin ? (_firstWin.date || '近日') : '暂无明确窗口';
     emit({ type: 'step', index: 3, pct: 58, chip: { main: `发现 ${_windows.length} 个窗口`, sub: _winSub } });
-
-    const polarityOverrides = detectPolarityOverrides({
-        intent: detectedIntent,
-        palaces: timingPalaces
-    });
-    const backendScoreInput = {
-        intent: detectedIntent,
-        palaces: timingPalaces,
-        yongshenRule,
-        polarityOverrides,
-        timingAnalysis
-    };
-    const backendScoreAudit = calculateQimenScore(backendScoreInput);
-    // ── SSE Step 4: 后端评分完成 ──
     emit({ type: 'step', index: 4, pct: 72, chip: { main: `初分 ${backendScoreAudit.final_score}`, sub: QIMEN_SCORE_LABEL(backendScoreAudit.final_score) } });
-
-    // ── 盘面/格局/起盘信息：引擎产物（qimenData 来自 buildQimenChart），先于 LLM 构建 ──
-    const backendFormationTags = (backendScoreAudit.adjustments || [])
-        .filter(item => item.layer === 'named_formation')
-        .map(item => ({
-            name: item.signal,
-            effect: item.effect,
-            type: String(item.effect || '').startsWith('+') ? 'ji' : 'xiong',
-            palace_index: item.palace_index ?? null,
-            palace: (item.palace_index != null) ? `${palaceNames[item.palace_index]}${palaceNumbers[item.palace_index]}宫` : null,
-            reason: item.reason || '',
-            text: item.reason || ''
-        }));
 
     // ── Engine complete: emit pre-LLM data for immediate frontend display ──
     emit({
@@ -2376,7 +2435,8 @@ ${outputContractSection}
     const sentinelParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.7)) {
+    const _qimenTraceMeta = { name: 'qimen-answer', scenario: 'qimen', category: detectedIntent.category, tags: ['qimen', `category:${detectedIntent.category}`] };
+    for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.7, ctx, _qimenTraceMeta)) {
       llmFullText += chunk;
       sentinelParser.push(chunk);
     }
@@ -2387,7 +2447,7 @@ ${outputContractSection}
       // 通知前端清空已显示的半截内容，重置回骨架
       emit({ type: 'llm_retry', message: 'AI 重新推演中…' });
       try {
-        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.7);
+        llmFullText = await requestLLMText(textPrompt, env, questionModel, 0.7, ctx, { ..._qimenTraceMeta, name: 'qimen-answer-retry' });
       } catch (retryErr) {
         console.error('[qimen-api] retry also failed:', retryErr.message);
         emit({ type: 'error', message: 'AI 推演暂时不可用，请稍后重试' });
@@ -2663,7 +2723,7 @@ ${outputContractSection}
   return sseResponse;
 }
 
-async function handleBazi(request, env) {
+async function handleBazi(request, env, ctx) {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, { status: 405 }, request, env);
   try {
     const user = await getAuthedUser(request, env);
@@ -2875,7 +2935,7 @@ async function handleBazi(request, env) {
             onSectionStart: (section) => emit({ type: 'llm_section_start', section }),
             onDelta: (section, text) => emit({ type: 'llm_delta', section, text }),
             onSectionDone: (section, text) => emit({ type: 'llm_section_done', section, text }),
-          }, 'gemini-3.1-pro-preview', 0.65);
+          }, 'gemini-3.1-pro-preview', 0.65, ctx, { name: 'bazi-profile-sections', scenario: 'bazi-profile-init' });
         } catch (llmError) {
           console.warn('[qimen-api] bazi llm stream failed:', llmError.message || llmError);
           emit({ type: 'llm_error', message: 'AI 深度断语暂时不可用，已保留规则引擎结果' });
@@ -3050,7 +3110,7 @@ async function handleCompatibilityInit(request, env) {
   }
 }
 
-async function routeRequest(request, env) {
+async function routeRequest(request, env, ctx) {
   const url = new URL(request.url);
 
   if (request.method === 'OPTIONS') {
@@ -3065,7 +3125,7 @@ async function routeRequest(request, env) {
   }
 
   if (url.pathname === '/api/divination-route') {
-    return handleDivinationRoute(request, env);
+    return handleDivinationRoute(request, env, ctx);
   }
 
   if (url.pathname === '/api/fortune-annual') {
@@ -3077,15 +3137,15 @@ async function routeRequest(request, env) {
   if (url.pathname === '/api/fortune-daily') return handleFortuneDaily(request, env);
 
   if (url.pathname === '/api/context-notes') return handleContextNotes(request, env);
-  if (url.pathname === '/api/bazi-question') return handleBaziQuestion(request, env);
+  if (url.pathname === '/api/bazi-question') return handleBaziQuestion(request, env, ctx);
   if (url.pathname === '/api/bazi-panel') return handleBaziPanel(request, env);
-  if (url.pathname === '/api/bazi-calibrate') return handleBaziCalibrate(request, env);
-  if (url.pathname === '/api/fortune-daily-interpretation') return handleFortuneDailyInterpretation(request, env);
-  if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env);
-  if (url.pathname === '/api/qimen') return handleQimen(request, env);
-  if (url.pathname === '/api/qimen-followup') return handleQimenFollowup(request, env);
-  if (url.pathname === '/api/bazi-followup') return handleBaziFollowup(request, env);
-  if (url.pathname === '/api/bazi') return handleBazi(request, env);
+  if (url.pathname === '/api/bazi-calibrate') return handleBaziCalibrate(request, env, ctx);
+  if (url.pathname === '/api/fortune-daily-interpretation') return handleFortuneDailyInterpretation(request, env, ctx);
+  if (url.pathname === '/api/fortune-monthly-interpretation') return handleFortuneMonthlyInterpretation(request, env, ctx);
+  if (url.pathname === '/api/qimen') return handleQimen(request, env, ctx);
+  if (url.pathname === '/api/qimen-followup') return handleQimenFollowup(request, env, ctx);
+  if (url.pathname === '/api/bazi-followup') return handleBaziFollowup(request, env, ctx);
+  if (url.pathname === '/api/bazi') return handleBazi(request, env, ctx);
   if (url.pathname === '/api/compatibility/init') return handleCompatibilityInit(request, env);
 
   return json({
@@ -3101,9 +3161,9 @@ async function routeRequest(request, env) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     try {
-      return await routeRequest(request, env);
+      return await routeRequest(request, env, ctx);
     } catch (error) {
       console.error('[qimen-api]', error);
       return json({
