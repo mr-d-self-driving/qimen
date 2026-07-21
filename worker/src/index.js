@@ -370,7 +370,7 @@ async function classifyByGeminiFlashWithEnv(question, ruleResult, env, ctx, trac
     name: traceMeta.name || 'divination-route-l1',
     model, input: prompt, output: content,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(apiData.usage),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(apiData.usage), userId: traceMeta.userId,
   }, env, ctx);
   return parsed;
 }
@@ -581,8 +581,14 @@ function toLangfuseUsage(usage) {
   return { input, output, total, unit: 'TOKENS' };
 }
 
-async function reportToLangfuse({ name, model, input, output, startTime, endTime, metadata, tags, usage }, env, ctx) {
+async function reportToLangfuse({ name, model, input, output, startTime, endTime, metadata, tags, usage, userId }, env, ctx) {
   if (!env.LANGFUSE_PUBLIC_KEY || !env.LANGFUSE_SECRET_KEY) return;
+  // Langfuse accepts string user IDs up to 200 characters. Keep personal contact
+  // data out of traces: Supabase and guest IDs are stable pseudonymous identifiers.
+  const langfuseUserId = typeof userId === 'string' && userId.length <= 200 ? userId : undefined;
+  const langfuseEnvironment = /^[a-z0-9][a-z0-9_-]{0,39}$/.test(env.LANGFUSE_ENVIRONMENT || '')
+    ? env.LANGFUSE_ENVIRONMENT
+    : 'default';
 
   const promise = (async () => {
     try {
@@ -605,6 +611,8 @@ async function reportToLangfuse({ name, model, input, output, startTime, endTime
               output: redactForTrace(output),
               metadata,
               tags,
+              userId: langfuseUserId,
+              environment: langfuseEnvironment,
             },
           },
           {
@@ -622,6 +630,8 @@ async function reportToLangfuse({ name, model, input, output, startTime, endTime
               endTime: endIso,
               metadata,
               usage,
+              userId: langfuseUserId,
+              environment: langfuseEnvironment,
             },
           },
         ],
@@ -680,7 +690,7 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
     name: traceMeta.name || 'requestLLM',
     model, input: traceMeta.traceInputOverride ?? prompt, output: rawContent,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage), userId: traceMeta.userId,
   }, env, ctx);
   return parsed;
 }
@@ -717,7 +727,7 @@ async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', tem
     name: traceMeta.name || 'requestLLMText',
     model, input: prompt, output: content,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage), userId: traceMeta.userId,
   }, env, ctx);
   return content;
 }
@@ -763,7 +773,7 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
       name: traceMeta.name || 'requestLLMSimpleStream',
       model, input: prompt, output: content,
       startTime, endTime: Date.now(),
-      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage), userId: traceMeta.userId,
     }, env, ctx);
     return;
   }
@@ -801,7 +811,7 @@ async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-prev
     name: traceMeta.name || 'requestLLMSimpleStream',
     model, input: prompt, output: fullOutput,
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage), userId: traceMeta.userId,
   }, env, ctx);
 }
 
@@ -1116,7 +1126,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
       name: traceMeta.name || 'requestLLMStreamSections',
       model, input: prompt, output: JSON.stringify(parsed.sections),
       startTime, endTime: Date.now(),
-      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage),
+      metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(data.usage), userId: traceMeta.userId,
     }, env, ctx);
     return parsed.sections;
   }
@@ -1153,7 +1163,7 @@ async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gem
     name: traceMeta.name || 'requestLLMStreamSections',
     model, input: prompt, output: JSON.stringify(finishedSections),
     startTime, endTime: Date.now(),
-    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage),
+    metadata: traceMeta, tags: traceMeta.tags, usage: toLangfuseUsage(streamUsage), userId: traceMeta.userId,
   }, env, ctx);
   return finishedSections;
 }
@@ -1451,7 +1461,7 @@ async function handleBaziQuestion(request, env, ctx) {
     try {
       semanticRouteRaw = requestRoute.analysis_mode
         ? { ...requestRoute, source: requestRoute.source || 'client' }
-        : await classifyBaziSemanticRouteWithEnv(question, routeHint, env, ctx, { name: 'bazi-semantic-route', scenario: 'bazi-question' });
+        : await classifyBaziSemanticRouteWithEnv(question, routeHint, env, ctx, { name: 'bazi-semantic-route', scenario: 'bazi-question', userId: user.id });
     } catch (routeError) {
       semanticRouteRaw = {
         ...routeHint,
@@ -1549,7 +1559,7 @@ async function handleBaziQuestion(request, env, ctx) {
     const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    const _baziTraceMeta = { name: 'bazi-question-answer', scenario: 'bazi-question', category: semanticRoute.category, analysisMode: _baziMode, tags: ['bazi', `mode:${_baziMode}`] };
+    const _baziTraceMeta = { name: 'bazi-question-answer', scenario: 'bazi-question', category: semanticRoute.category, analysisMode: _baziMode, tags: ['bazi', `mode:${_baziMode}`], userId: user.id };
     for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.65, ctx, _baziTraceMeta)) {
       llmFullText += chunk;
       baziParser.push(chunk);
@@ -1719,7 +1729,7 @@ async function handleBaziCalibrate(request, env, ctx) {
     }
 
     const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.2, ctx, {
-      name: 'bazi-calibrate', scenario: 'bazi-calibrate', traceInputOverride: _calibrateTraceInput,
+      name: 'bazi-calibrate', scenario: 'bazi-calibrate', traceInputOverride: _calibrateTraceInput, userId: user.id,
     });
     if (!llmJson.yuanju_core || !llmJson.current_dayun || !llmJson.current_liunian) {
       return json({ error: 'LLM 返回格式不符预期' }, { status: 500 }, request, env);
@@ -1772,7 +1782,7 @@ async function handleFortuneDailyInterpretation(request, env, ctx) {
     const baseJson = cached ? { ...cached, ...latestBaseJson } : latestBaseJson;
     
     const prompt = buildInterpretationPrompt(context);
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-daily-interpretation', scenario: 'fortune-daily' });
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-daily-interpretation', scenario: 'fortune-daily', userId: user.id });
     const mergedJson = mergeInterpretation(baseJson, llmJson);
 
     await upsertFortuneCache(user.id, 'day', periodKey, mergedJson, expiresAt, env);
@@ -1813,7 +1823,7 @@ async function handleFortuneMonthlyInterpretation(request, env, ctx) {
       recent_monthly_contexts: recentMonthlyContexts,
     });
     
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-monthly-interpretation', scenario: 'fortune-monthly', dimension });
+    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-monthly-interpretation', scenario: 'fortune-monthly', dimension, userId: user.id });
     const mergedJson = mergeMonthlyInterpretation(baseJson, llmJson, dimension);
 
     await upsertFortuneCache(user.id, 'month_interpretation', periodKey, mergedJson, flowMonth.expiresAt, env);
@@ -1917,7 +1927,7 @@ async function handleQimenFollowup(request, env, ctx) {
     if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][prompt:classifier]\n' + classifierPrompt);
     let routeRaw;
     try {
-      routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1, ctx, { name: 'qimen-followup-classify', scenario: 'qimen-followup', branch });
+      routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1, ctx, { name: 'qimen-followup-classify', scenario: 'qimen-followup', branch, userId: userId || guestId });
     } catch (e) {
       console.warn('[followup] classifier failed, defaulting to same_casting:', e.message);
       routeRaw = { scope: 'same_casting' };
@@ -1965,7 +1975,7 @@ async function handleQimenFollowup(request, env, ctx) {
     const parser = createSentinelStreamParser(visible, {
       onVisibleDelta: (section, text) => emit({ type: 'patch_delta', section, text }),
     });
-    const _followupTraceMeta = { name: 'qimen-followup-patch', scenario: 'qimen-followup', branch, nature: fr.nature, tags: ['qimen-followup'] };
+    const _followupTraceMeta = { name: 'qimen-followup-patch', scenario: 'qimen-followup', branch, nature: fr.nature, tags: ['qimen-followup'], userId: userId || guestId };
     let full = '';
     for await (const chunk of requestLLMSimpleStream(patchPrompt, env, patchModel, 0.6, ctx, _followupTraceMeta)) {
       full += chunk;
@@ -2107,7 +2117,7 @@ async function handleBaziFollowup(request, env, ctx) {
       },
     });
 
-    const _baziFollowupTraceMeta = { name: 'bazi-followup-decide', scenario: 'bazi-followup', analysisMode: originRoute.analysis_mode, tags: ['bazi-followup'] };
+    const _baziFollowupTraceMeta = { name: 'bazi-followup-decide', scenario: 'bazi-followup', analysisMode: originRoute.analysis_mode, tags: ['bazi-followup'], userId: user.id };
     let full = '';
     for await (const chunk of requestLLMSimpleStream(prompt, env, model, 0.6, ctx, _baziFollowupTraceMeta)) {
       full += chunk;
@@ -2435,7 +2445,7 @@ ${outputContractSection}
     const sentinelParser = createSentinelStreamParser(QIMEN_VISIBLE_SECTIONS, {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
     });
-    const _qimenTraceMeta = { name: 'qimen-answer', scenario: 'qimen', category: detectedIntent.category, tags: ['qimen', `category:${detectedIntent.category}`] };
+    const _qimenTraceMeta = { name: 'qimen-answer', scenario: 'qimen', category: detectedIntent.category, tags: ['qimen', `category:${detectedIntent.category}`], userId: userId || guestId };
     for await (const chunk of requestLLMSimpleStream(textPrompt, env, questionModel, 0.7, ctx, _qimenTraceMeta)) {
       llmFullText += chunk;
       sentinelParser.push(chunk);
@@ -2935,7 +2945,7 @@ async function handleBazi(request, env, ctx) {
             onSectionStart: (section) => emit({ type: 'llm_section_start', section }),
             onDelta: (section, text) => emit({ type: 'llm_delta', section, text }),
             onSectionDone: (section, text) => emit({ type: 'llm_section_done', section, text }),
-          }, 'gemini-3.1-pro-preview', 0.65, ctx, { name: 'bazi-profile-sections', scenario: 'bazi-profile-init' });
+          }, 'gemini-3.1-pro-preview', 0.65, ctx, { name: 'bazi-profile-sections', scenario: 'bazi-profile-init', userId: user.id });
         } catch (llmError) {
           console.warn('[qimen-api] bazi llm stream failed:', llmError.message || llmError);
           emit({ type: 'llm_error', message: 'AI 深度断语暂时不可用，已保留规则引擎结果' });
