@@ -40,7 +40,31 @@ const { buildBaziQuestionPrompt, buildBaziAuditSnapshot, normalizeBaziQuestionOu
 const { createEmptyMonthlyContext, createEmptyProfileContext, normalizeMonthlyContextPayload, normalizeProfileContextPayload, buildContextVersionSeed } = contextNotesCore;
 const { buildMonthlyInterpretationPeriodKey, buildMonthlyInterpretationPrompt, hasReadyMonthlyInterpretation, mergeMonthlyInterpretation, normalizeDimension, pickMonthlyInterpretationFields } = monthlyInterpretationCore;
 
-const LLM_API_URL = 'https://yinli.one/v1/chat/completions';
+// LLM 供应商：默认直连 DeepSeek（OpenAI 兼容）。回退中转站只需改 LLM_API_URL / LLM_API_KEY / 模型 env，无需发版。
+const DEFAULT_LLM_API_URL = 'https://api.deepseek.com/chat/completions';
+// fast：分类 / 问事 / 追问 / 运势；deep：八字建档 / 校准（每档案一次，质量优先）
+const DEFAULT_LLM_FAST_MODEL = 'deepseek-flash';
+const DEFAULT_LLM_DEEP_MODEL = 'deepseek-v4-pro';
+
+const fastModel = env => env.LLM_FAST_MODEL || DEFAULT_LLM_FAST_MODEL;
+const deepModel = env => env.LLM_DEEP_MODEL || DEFAULT_LLM_DEEP_MODEL;
+// 问事/追问模型：QUESTION_MODEL 可单独覆盖（如 preview 试新模型）
+const resolveQuestionModel = env => env.QUESTION_MODEL || fastModel(env);
+
+// DeepSeek 默认开思考：temperature 失效、首 token 变慢且推理 token 计费，统一关掉。
+function fetchLLM(env, body) {
+  const payload = String(body.model || '').startsWith('deepseek')
+    ? { ...body, thinking: { type: 'disabled' } }
+    : body;
+  return fetch(env.LLM_API_URL || DEFAULT_LLM_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${env.LLM_API_KEY}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
 const BAZI_PROFILE_BASE_FIELDS = 'id, user_id, name, gender, birth_date, bazi_str, bazi_detail, strong_weak, geju, favorable_elements, unfavorable_elements';
 const BAZI_PROFILE_QUESTION_SELECT = BAZI_PROFILE_BASE_FIELDS;
 const BAZI_PROFILE_PANEL_SELECT = BAZI_PROFILE_BASE_FIELDS;
@@ -314,28 +338,21 @@ async function readJson(request) {
 }
 
 async function classifyByGeminiFlashWithEnv(question, ruleResult, env, ctx, traceMeta = {}) {
-  if (!env.GEMINI_API_KEY) {
-    throw new Error('GEMINI_API_KEY is not configured');
+  if (!env.LLM_API_KEY) {
+    throw new Error('LLM_API_KEY is not configured');
   }
 
   const prompt = buildGeminiRoutePrompt(question, ruleResult);
-  const model = 'gemini-3-flash-preview';
+  const model = fastModel(env);
   const langfuse = beginLangfuseGeneration({
     name: traceMeta.name || 'divination-route-l1', model, input: prompt, temperature: 0.1, traceMeta,
   }, env, ctx);
   try {
-  const response = await fetch(LLM_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${env.GEMINI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature: 0.1,
-    }),
+  const response = await fetchLLM(env, {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature: 0.1,
   });
 
   if (!response.ok) {
@@ -355,7 +372,7 @@ async function classifyByGeminiFlashWithEnv(question, ruleResult, env, ctx, trac
 
 async function classifyBaziSemanticRouteWithEnv(question, routeHint, env, ctx, traceMeta = {}) {
   const prompt = buildBaziSemanticRoutePrompt(question, routeHint);
-  return requestLLM(prompt, env, 'gemini-3-flash-preview', 0.1, ctx, { name: 'divination-route-l2-bazi', ...traceMeta });
+  return requestLLM(prompt, env, fastModel(env), 0.1, ctx, { name: 'divination-route-l2-bazi', ...traceMeta });
 }
 
 async function handleDivinationRoute(request, env, ctx) {
@@ -584,25 +601,18 @@ function beginLangfuseGeneration({ name, model, input, temperature, traceMeta = 
   };
 }
 
-async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.5, ctx, traceMeta = {}) {
-  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+async function requestLLM(prompt, env, model = deepModel(env), temperature = 0.5, ctx, traceMeta = {}) {
+  if (!env.LLM_API_KEY) throw new Error('LLM_API_KEY not configured');
 
   const langfuse = beginLangfuseGeneration({
     name: traceMeta.name || 'requestLLM', model, input: prompt, temperature, traceMeta,
   }, env, ctx);
   try {
-  const response = await fetch('https://yinli.one/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      response_format: { type: 'json_object' },
-      temperature
-    })
+  const response = await fetchLLM(env, {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    response_format: { type: 'json_object' },
+    temperature
   });
 
   if (!response.ok) {
@@ -618,35 +628,44 @@ async function requestLLM(prompt, env, model = 'gemini-3.1-pro-preview', tempera
 
   const rawContent = data.choices?.[0]?.message?.content || '{}';
   const cleaned = rawContent.replace(/```json/g, '').replace(/```/g, '').trim();
-  const parsed = JSON.parse(cleaned);
+  let parsed;
+  try {
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      // DeepSeek 长字符串值后偶尔漏掉字段间逗号："…"\n  "next_key": → 补上逗号再解析
+      parsed = JSON.parse(cleaned.replace(/"(\s*\n\s*)(?="[A-Za-z_][A-Za-z0-9_]*"\s*:)/g, '",$1'));
+    }
+  } catch (parseError) {
+    console.warn(`[llm] ${traceMeta.name || 'requestLLM'} returned invalid JSON:`, parseError.message, rawContent.slice(0, 300));
+    parseError.invalidJson = true;
+    throw parseError;
+  }
   langfuse.end({ output: rawContent, usage: toLangfuseUsage(data.usage) });
   return parsed;
   } catch (error) {
     langfuse.fail(error);
+    // JSON 模式偶发坏 JSON（如字符串里混入未转义的英文引号），重试一次
+    if (error.invalidJson && !traceMeta.jsonRetry) {
+      return requestLLM(prompt, env, model, temperature, ctx, { ...traceMeta, name: `${traceMeta.name || 'requestLLM'}-retry`, jsonRetry: true });
+    }
     throw error;
   }
 }
 
 // Non-streaming plain-text fallback — used for empty-stream retry.
 // Returns the full response text (no JSON format constraint, stream: false).
-async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65, ctx, traceMeta = {}) {
-  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+async function requestLLMText(prompt, env, model = deepModel(env), temperature = 0.65, ctx, traceMeta = {}) {
+  if (!env.LLM_API_KEY) throw new Error('LLM_API_KEY not configured');
   const langfuse = beginLangfuseGeneration({
     name: traceMeta.name || 'requestLLMText', model, input: prompt, temperature, traceMeta,
   }, env, ctx);
   try {
-  const response = await fetch(LLM_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-      stream: false,
-    }),
+  const response = await fetchLLM(env, {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature,
+    stream: false,
   });
   if (!response.ok) {
     const errText = await response.text();
@@ -668,27 +687,20 @@ async function requestLLMText(prompt, env, model = 'gemini-3.1-pro-preview', tem
 
 // Streams plain text chunks from the LLM (no JSON format constraint).
 // Yields raw text deltas for SSE forwarding.
-async function* requestLLMSimpleStream(prompt, env, model = 'gemini-3.1-pro-preview', temperature = 0.65, ctx, traceMeta = {}) {
-  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+async function* requestLLMSimpleStream(prompt, env, model = deepModel(env), temperature = 0.65, ctx, traceMeta = {}) {
+  if (!env.LLM_API_KEY) throw new Error('LLM_API_KEY not configured');
   const langfuse = beginLangfuseGeneration({
     name: traceMeta.name || 'requestLLMSimpleStream', model, input: prompt, temperature, traceMeta,
   }, env, ctx);
   let fullOutput = '';
 
   try {
-  const response = await fetch(LLM_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-      stream: true,
-      stream_options: { include_usage: true }
-    })
+  const response = await fetchLLM(env, {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature,
+    stream: true,
+    stream_options: { include_usage: true }
   });
 
   if (!response.ok) {
@@ -918,7 +930,8 @@ function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } 
     if (visibleKeys.has(key)) onVisibleDelta?.(key, text);
   };
 
-  const MARKER_RE = /<<<(SEC|END):([a-z_]+)>>>/;
+  // 收尾 > 容错：DeepSeek 偶尔少写一个 >（<<<SEC:key>>）
+  const MARKER_RE = /<<<(SEC|END):([a-z_]+)>>>?/;
 
   // t 是否可能是“尚未到齐的标记”的前缀：要么是 <<<SEC:/<<<END: 这截引导词的前缀
   // （含 <、<<、<<<、<<<S…），要么引导词已全、只差 key 或收尾 >>>（最多 >>）。
@@ -949,6 +962,13 @@ function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } 
         buffer = buffer.slice(cut);
         return;
       }
+      // 只收到 ">>" 且在末尾：第三个 > 可能还在下一个 chunk，先等，免得漏进正文
+      if (!m[0].endsWith('>>>') && m.index + m[0].length === buffer.length) {
+        const cut = m.index;
+        if (current && cut > 0) emit(current, buffer.slice(0, cut));
+        buffer = buffer.slice(cut);
+        return;
+      }
       // 标记之前的内容归属当前打开的段；段间空白（current 为空时）直接丢弃。
       const before = buffer.slice(0, m.index);
       if (current && before) emit(current, before);
@@ -963,7 +983,7 @@ function createSentinelStreamParser(visibleKeys = new Set(), { onVisibleDelta } 
       processBuffer();
     },
     finish() {
-      if (current && buffer) { emit(current, buffer); buffer = ''; }
+      if (current && buffer) { emit(current, buffer.replace(/<<<(SEC|END):[a-z_]+>>>?$/, '')); buffer = ''; }
       // trim each section
       for (const k of Object.keys(sections)) sections[k] = sections[k].trim();
       return sections;
@@ -1014,26 +1034,19 @@ function baziSectionsAreBad(sec, mode) {
   return false;
 }
 
-async function requestLLMStreamSections(prompt, env, handlers = {}, model = 'gemini-3.1-pro-preview', temperature = 0.65, ctx, traceMeta = {}) {
-  if (!env.GEMINI_API_KEY) throw new Error('GEMINI_API_KEY not configured');
+async function requestLLMStreamSections(prompt, env, handlers = {}, model = deepModel(env), temperature = 0.65, ctx, traceMeta = {}) {
+  if (!env.LLM_API_KEY) throw new Error('LLM_API_KEY not configured');
   const langfuse = beginLangfuseGeneration({
     name: traceMeta.name || 'requestLLMStreamSections', model, input: prompt, temperature, traceMeta,
   }, env, ctx);
 
   try {
-  const response = await fetch(LLM_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.GEMINI_API_KEY}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature,
-      stream: true,
-      stream_options: { include_usage: true }
-    })
+  const response = await fetchLLM(env, {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    temperature,
+    stream: true,
+    stream_options: { include_usage: true }
   });
 
   if (!response.ok) {
@@ -1481,8 +1494,7 @@ async function handleBaziQuestion(request, env, ctx) {
 
     const _baziMode = semanticRoute.analysis_mode || 'status';
     const textPrompt = convertPromptToTextMode(prompt, _baziMode);
-    // 问事模型：preview 环境由 QUESTION_MODEL 覆盖为 flash，production 默认 pro
-    const questionModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
+    const questionModel = resolveQuestionModel(env);
     let llmFullText = '';
     const baziParser = createSentinelStreamParser(baziVisibleSections(_baziMode), {
       onVisibleDelta: (section, text) => emit({ type: 'llm_delta', section, text })
@@ -1656,7 +1668,7 @@ async function handleBaziCalibrate(request, env, ctx) {
       }, { status: 200 }, request, env);
     }
 
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.2, ctx, {
+    const llmJson = await requestLLM(prompt, env, deepModel(env), 0.2, ctx, {
       name: 'bazi-calibrate', scenario: 'bazi-calibrate', traceInputOverride: _calibrateTraceInput, userId: user.id,
     });
     if (!llmJson.yuanju_core || !llmJson.current_dayun || !llmJson.current_liunian) {
@@ -1710,7 +1722,7 @@ async function handleFortuneDailyInterpretation(request, env, ctx) {
     const baseJson = cached ? { ...cached, ...latestBaseJson } : latestBaseJson;
     
     const prompt = buildInterpretationPrompt(context);
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-daily-interpretation', scenario: 'fortune-daily', userId: user.id });
+    const llmJson = await requestLLM(prompt, env, fastModel(env), 0.5, ctx, { name: 'fortune-daily-interpretation', scenario: 'fortune-daily', userId: user.id });
     const mergedJson = mergeInterpretation(baseJson, llmJson);
 
     await upsertFortuneCache(user.id, 'day', periodKey, mergedJson, expiresAt, env);
@@ -1751,7 +1763,7 @@ async function handleFortuneMonthlyInterpretation(request, env, ctx) {
       recent_monthly_contexts: recentMonthlyContexts,
     });
     
-    const llmJson = await requestLLM(prompt, env, 'gemini-3.1-pro-preview', 0.5, ctx, { name: 'fortune-monthly-interpretation', scenario: 'fortune-monthly', dimension, userId: user.id });
+    const llmJson = await requestLLM(prompt, env, fastModel(env), 0.5, ctx, { name: 'fortune-monthly-interpretation', scenario: 'fortune-monthly', dimension, userId: user.id });
     const mergedJson = mergeMonthlyInterpretation(baseJson, llmJson, dimension);
 
     await upsertFortuneCache(user.id, 'month_interpretation', periodKey, mergedJson, flowMonth.expiresAt, env);
@@ -1855,7 +1867,7 @@ async function handleQimenFollowup(request, env, ctx) {
     if (env.FOLLOWUP_DEBUG === '1') console.log('[followup][prompt:classifier]\n' + classifierPrompt);
     let routeRaw;
     try {
-      routeRaw = await requestLLM(classifierPrompt, env, 'gemini-3-flash-preview', 0.1, ctx, { name: 'qimen-followup-classify', scenario: 'qimen-followup', branch, userId: userId || guestId, sessionId: recordId || requestId });
+      routeRaw = await requestLLM(classifierPrompt, env, fastModel(env), 0.1, ctx, { name: 'qimen-followup-classify', scenario: 'qimen-followup', branch, userId: userId || guestId, sessionId: recordId || requestId });
     } catch (e) {
       console.warn('[followup] classifier failed, defaulting to same_casting:', e.message);
       routeRaw = { scope: 'same_casting' };
@@ -1869,7 +1881,7 @@ async function handleQimenFollowup(request, env, ctx) {
       await writeFollowupAudit(env, {
         request_id: requestId, record_id: recordId, user_id: userId, branch,
         origin_question: origin.question || '', followup,
-        classifier_model: 'gemini-3-flash-preview', classifier_prompt: classifierPrompt,
+        classifier_model: fastModel(env), classifier_prompt: classifierPrompt,
         route_raw: routeRaw, route_normalized: fr, scope: fr.scope,
         needs_data: fr.needs_data, nature: fr.nature, target_sections: fr.target_sections,
         evidence_snapshot: origin.evidence || null, origin_sections: sections,
@@ -1887,7 +1899,7 @@ async function handleQimenFollowup(request, env, ctx) {
 
     // ── Step B: 增补 patch（与问事同档模型，哨兵分段流式）──
     emit({ type: 'followup_step', stage: 'patch', target_sections: fr.target_sections, nature: fr.nature });
-    const patchModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
+    const patchModel = resolveQuestionModel(env);
     const patchPrompt = buildFollowupPatchPrompt({
       branch,
       followup,
@@ -1941,7 +1953,7 @@ async function handleQimenFollowup(request, env, ctx) {
     await writeFollowupAudit(env, {
       request_id: requestId, record_id: recordId, user_id: userId, branch,
       origin_question: origin.question || '', followup,
-      classifier_model: 'gemini-3-flash-preview', classifier_prompt: classifierPrompt,
+      classifier_model: fastModel(env), classifier_prompt: classifierPrompt,
       route_raw: routeRaw, route_normalized: fr, scope: fr.scope,
       needs_data: fr.needs_data, extra_evidence: extraEvidence,
       patch_model: patchModel, patch_prompt: patchPrompt, patch_output_raw: full,
@@ -2021,7 +2033,7 @@ async function handleBaziFollowup(request, env, ctx) {
 
     // ── 主 LLM 第一跳：决策 prompt（answer / recompute / new_matter）──
     emit({ type: 'followup_step', stage: 'decide' });
-    const model = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
+    const model = resolveQuestionModel(env);
     const prompt = buildBaziFollowupPrompt({
       followup, originQuestion, evidenceText, sections, followups, route: originRoute,
     });
@@ -2362,8 +2374,7 @@ ${outputContractSection}
     emit({ type: 'active', index: 5, pct: 78 });
 
     const textPrompt = convertQimenPromptToTextMode(finalPrompt);
-    // 问事模型：preview 环境由 QUESTION_MODEL 覆盖为 flash，production 默认 pro
-    const questionModel = env.QUESTION_MODEL || 'gemini-3.1-pro-preview';
+    const questionModel = resolveQuestionModel(env);
     // 7 个面向用户的散文段流式可见；data_json 段静默累积。
     const QIMEN_VISIBLE_SECTIONS = new Set([
       'conclusion', 'subject_reading', 'target_reading', 'environment_reading',
@@ -2819,7 +2830,7 @@ async function handleBazi(request, env, ctx) {
             onSectionStart: (section) => emit({ type: 'llm_section_start', section }),
             onDelta: (section, text) => emit({ type: 'llm_delta', section, text }),
             onSectionDone: (section, text) => emit({ type: 'llm_section_done', section, text }),
-          }, 'gemini-3.1-pro-preview', 0.65, ctx, { name: 'bazi-profile-sections', scenario: 'bazi-profile-init', userId: user.id });
+          }, deepModel(env), 0.65, ctx, { name: 'bazi-profile-sections', scenario: 'bazi-profile-init', userId: user.id });
         } catch (llmError) {
           console.warn('[qimen-api] bazi llm stream failed:', llmError.message || llmError);
           emit({ type: 'llm_error', message: 'AI 深度断语暂时不可用，已保留规则引擎结果' });

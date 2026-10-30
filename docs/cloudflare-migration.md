@@ -83,7 +83,7 @@ VITE_AFDIAN_URL=
 Do not put server secrets in Pages variables. Never put these in Pages:
 
 ```text
-GEMINI_API_KEY
+LLM_API_KEY
 SUPABASE_SERVICE_KEY
 WHITELIST_EMAILS
 ```
@@ -117,7 +117,7 @@ Set these in Cloudflare Worker Settings -> Variables and secrets.
 Secrets:
 
 ```text
-GEMINI_API_KEY
+LLM_API_KEY
 SUPABASE_SERVICE_KEY
 ```
 
@@ -208,7 +208,7 @@ Migrate one route at a time and verify each route before moving on.
 ## Notes For Next Agent
 
 - The Worker currently imports `../../lib/divinationRouter.js` from `worker/src/index.js`.
-- `divinationRouter` supports injected LLM classifiers, so the Worker can use `env.GEMINI_API_KEY` instead of `process.env.GEMINI_API_KEY`.
+- `divinationRouter` supports injected LLM classifiers, so the Worker can use `env.LLM_API_KEY` instead of `process.env.LLM_API_KEY`.
 - Remaining Vercel API files still use `req`/`res` and `process.env`; do not copy them blindly into Worker without an adapter or refactor.
 - Cloudflare Worker is not a full Node.js server. Watch for `node:fs`, runtime file reads, and CommonJS interop.
 - `lib/siziSummary.js` currently uses `node:fs`; this will matter when migrating `/api/bazi`.

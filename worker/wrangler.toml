@@ -9,16 +9,16 @@ preview_urls = true
 FRONTEND_URL = "https://qimendao.com,https://www.qimendao.com"
 SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
 WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com,chenxinhui1227@gmail.com,anyilin1997@qq.com,hateveryone@foxmail.com"
-# 问事(qimen/bazi 问答) LLM 模型；评测显示 flash 在复杂格局不弱于 pro，production 切 flash
-# env 开关保留：如需回退 pro，改此值即可（preview 同样可独立覆盖）
-QUESTION_MODEL = "gemini-3-flash-preview"
+# LLM 默认直连 DeepSeek：分类/问事/追问/运势用 deepseek-flash，建档/校准用 deepseek-v4-pro（见 worker/src/index.js）
+# 可选覆盖：LLM_API_URL / LLM_FAST_MODEL / LLM_DEEP_MODEL / QUESTION_MODEL（仅问事+追问）
+# 回退中转站示例：LLM_API_URL = "https://yinli.one/v1/chat/completions"、LLM_FAST_MODEL = "gemini-3-flash-preview"，并把 LLM_API_KEY 换成中转站 key
 # Langfuse trace 上报 base URL（JP 区域）
 LANGFUSE_BASE_URL = "https://jp.cloud.langfuse.com"
 LANGFUSE_TRACING_ENVIRONMENT = "production"
 
 [secrets]
 required = [
-  "GEMINI_API_KEY",
+  "LLM_API_KEY",
   "SUPABASE_SERVICE_KEY",
   "LANGFUSE_PUBLIC_KEY",
   "LANGFUSE_SECRET_KEY"
@@ -47,14 +47,12 @@ workers_dev = true
 FRONTEND_URL = "https://qimen-1ff.pages.dev"
 SUPABASE_URL = "https://xkbqiiwwgfzkyfhxuoev.supabase.co"
 WHITELIST_EMAILS = "linjunyan0726@vip.qq.com,blairzbz1112@gmail.com,caoyuwei819@163.com,joneykovic@gmail.com,chenxinhui1227@gmail.com,anyilin1997@qq.com,hateveryone@foxmail.com"
-# preview 试用 flash，对比 pro 的稳定性与质量
-QUESTION_MODEL = "gemini-3-flash-preview"
 LANGFUSE_BASE_URL = "https://jp.cloud.langfuse.com"
 LANGFUSE_TRACING_ENVIRONMENT = "preview"
 
 [env.preview.secrets]
 required = [
-  "GEMINI_API_KEY",
+  "LLM_API_KEY",
   "SUPABASE_SERVICE_KEY",
   "LANGFUSE_PUBLIC_KEY",
   "LANGFUSE_SECRET_KEY"
