@@ -13,7 +13,7 @@ npm install
 在项目根目录创建 `worker/.dev.vars`（此文件被 gitignore，不会提交）：
 
 ```
-GEMINI_API_KEY=你的密钥
+LLM_API_KEY=你的 DeepSeek API Key
 SUPABASE_SERVICE_KEY=你的密钥
 ```
 

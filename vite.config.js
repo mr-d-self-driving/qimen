@@ -49,7 +49,8 @@ export default defineConfig({
     proxy: {
       '/api': {
         // 临时指向 preview worker（含 v2 LLM prompt）；测试 v2 期间使用，验收后改回 qimen.oceanjustinlin.workers.dev
-        target: 'https://qimen-preview.oceanjustinlin.workers.dev',
+        // 本地联调 worker：API_PROXY_TARGET=http://localhost:8787
+        target: process.env.API_PROXY_TARGET || 'https://qimen-preview.oceanjustinlin.workers.dev',
         changeOrigin: true,
       }
     }

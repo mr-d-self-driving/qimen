@@ -14,6 +14,18 @@
       "port": 5173
     },
     {
+      "name": "worker-local",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["--yes", "wrangler@4", "dev", "--config", "worker/wrangler.toml", "--port", "8787"],
+      "port": 8787
+    },
+    {
+      "name": "dev-local-worker",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["API_PROXY_TARGET=http://localhost:8787", "npx", "vite", "--port", "5179"],
+      "port": 5179
+    },
+    {
       "name": "demo",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["serve", "-p", "5174", "."],
